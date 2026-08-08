@@ -1434,16 +1434,6 @@ export default function App() {
                                     <span className="material-symbols-outlined text-[16px]">refresh</span> Relancer
                                   </button>
                                 )}
-
-                                {vid.status === 'done' && (
-                                  <button
-                                    onClick={(e) => handleDownloadVideo(vid, e)}
-                                    className="p-1.5 bg-[#1b2230] text-[#00c2ff] hover:bg-[#00c2ff]/10 border border-[#2b374d] rounded-xl transition-colors"
-                                    title="Télécharger la vidéo"
-                                  >
-                                    <span className="material-symbols-outlined text-[16px]">download</span>
-                                  </button>
-                                )}
                               </div>
                             </div>
                           </div>
@@ -1650,15 +1640,6 @@ export default function App() {
                                   className="flex-1 py-1.5 bg-[#1f2838] text-white rounded-xl font-bold text-xs hover:bg-[#2b384e] transition-all flex items-center justify-center gap-1 border border-[#2b374d]"
                                 >
                                   <span className="material-symbols-outlined text-[16px]">refresh</span> Relancer
-                                </button>
-                              )}
-                              {vid.status === 'done' && (
-                                <button
-                                  onClick={(e) => handleDownloadVideo(vid, e)}
-                                  className="p-1.5 bg-[#1b2230] text-[#00c2ff] hover:bg-[#00c2ff]/10 border border-[#2b374d] rounded-xl transition-colors"
-                                  title="Télécharger la vidéo"
-                                >
-                                  <span className="material-symbols-outlined text-[16px]">download</span>
                                 </button>
                               )}
                             </div>
