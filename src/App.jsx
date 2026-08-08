@@ -381,7 +381,8 @@ export default function App() {
     image_style: {
       source: 'library',
       style_prompt: 'cinematic dramatic lighting, high detail, stoic sculpture style, dark moody atmosphere',
-      library_path: ''
+      library_path: '',
+      library_image_count: 0
     },
     effects_config: {
       grain: true,
@@ -464,6 +465,7 @@ export default function App() {
     fetchAllVideos();
     const interval = setInterval(() => {
       fetchChannels();
+      fetchAllVideos();
       if (activeChannel) {
         fetchChannelVideos(activeChannel.id);
       }
@@ -814,6 +816,13 @@ export default function App() {
 
   const handleSaveChannel = async () => {
     if (!newChannel.name) return alert("Veuillez saisir un nom de chaîne.");
+    const needsLibrary = newChannel.image_style.source === 'library' || newChannel.image_style.source === 'hybrid';
+    const hasStoredLibrary = Number(newChannel.image_style.library_image_count || 0) > 0
+      && String(newChannel.image_style.library_path || '').startsWith('channels/');
+    if (needsLibrary && localImageFiles.length === 0 && !hasStoredLibrary) {
+      setWizardStep(4);
+      return showToast("Importez un dossier d’images : aucune bibliothèque n’est enregistrée sur le serveur.", "error");
+    }
     try {
       setLoading(true);
       let saved;
@@ -1513,9 +1522,13 @@ export default function App() {
                                   )}
                                 </>
                               ) : vid.status === 'rendering' ? (
-                                <div className="p-4 text-center space-y-2">
+                                <div className="p-4 text-center space-y-2 w-full max-w-[220px]">
                                   <span className="material-symbols-outlined text-[36px] text-blue-400 animate-spin">progress_activity</span>
-                                  <div className="text-[11px] font-bold font-mono text-blue-300">Rendu en cours...</div>
+                                  <div className="text-[11px] font-bold text-blue-300">{vid.progress_stage || 'Rendu en cours…'}</div>
+                                  <div className="h-1.5 rounded-full bg-slate-800 overflow-hidden">
+                                    <div className="h-full bg-[#00c2ff] transition-all duration-700" style={{ width: `${vid.progress_percent || 2}%` }} />
+                                  </div>
+                                  <div className="text-[10px] font-mono text-blue-300">{vid.progress_percent || 2}%</div>
                                   {vid.started_at && (
                                     <div className="text-[10px] font-mono text-blue-400/80">{formatElapsed(vid.started_at)} écoulées</div>
                                   )}
@@ -1524,6 +1537,9 @@ export default function App() {
                                 <div className="p-4 text-center space-y-2">
                                   <span className="material-symbols-outlined text-[36px] text-rose-400">warning</span>
                                   <div className="text-[11px] font-bold font-mono text-rose-300">Échec du rendu</div>
+                                  <div className="text-[9px] text-rose-300/80 line-clamp-2" title={vid.error_message || ''}>
+                                    {(vid.error_message || 'Erreur inconnue').split('\n')[0]}
+                                  </div>
                                 </div>
                               ) : (
                                 <div className="p-4 text-center space-y-2">
@@ -1723,9 +1739,13 @@ export default function App() {
                                 )}
                               </>
                             ) : vid.status === 'rendering' ? (
-                              <div className="p-4 text-center space-y-2">
+                              <div className="p-4 text-center space-y-2 w-full max-w-[220px]">
                                 <span className="material-symbols-outlined text-[36px] text-blue-400 animate-spin">progress_activity</span>
-                                <div className="text-[11px] font-bold font-mono text-blue-300">Rendu...</div>
+                                <div className="text-[11px] font-bold text-blue-300">{vid.progress_stage || 'Rendu en cours…'}</div>
+                                <div className="h-1.5 rounded-full bg-slate-800 overflow-hidden">
+                                  <div className="h-full bg-[#00c2ff] transition-all duration-700" style={{ width: `${vid.progress_percent || 2}%` }} />
+                                </div>
+                                <div className="text-[10px] font-mono text-blue-300">{vid.progress_percent || 2}%</div>
                                 {vid.started_at && (
                                   <div className="text-[10px] font-mono text-blue-400/80">{formatElapsed(vid.started_at)} écoulées</div>
                                 )}
@@ -1734,6 +1754,9 @@ export default function App() {
                               <div className="p-4 text-center space-y-2">
                                 <span className="material-symbols-outlined text-[36px] text-rose-400">warning</span>
                                 <div className="text-[11px] font-bold font-mono text-rose-300">Échec</div>
+                                <div className="text-[9px] text-rose-300/80 line-clamp-2" title={vid.error_message || ''}>
+                                  {(vid.error_message || 'Erreur inconnue').split('\n')[0]}
+                                </div>
                               </div>
                             ) : (
                               <div className="p-4 text-center space-y-2">
