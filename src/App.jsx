@@ -504,21 +504,30 @@ export default function App() {
     }
   };
 
-  const handleGoogleAuth = () => {
-    if (!GOOGLE_CLIENT_ID) {
-      showToast("Connexion Google non configurée pour le moment.", "error");
-      return;
-    }
-    if (!window.google || !window.google.accounts || !window.google.accounts.id) {
-      showToast("Le service Google n'a pas pu se charger. Réessayez.", "error");
-      return;
-    }
+  const googleButtonRef = useRef(null);
+
+  // Renders Google's own hosted sign-in button instead of driving the One Tap
+  // prompt() flow — prompt() fails silently (no visible error, button just
+  // "does nothing") once a user has dismissed it once or has 3P cookies
+  // restricted, which is exactly the symptom reported in production.
+  useEffect(() => {
+    if (!showAuthModal || authTab === 'forgot' || !GOOGLE_CLIENT_ID) return;
+    if (!window.google || !window.google.accounts || !window.google.accounts.id) return;
     window.google.accounts.id.initialize({
       client_id: GOOGLE_CLIENT_ID,
       callback: handleGoogleCredential,
     });
-    window.google.accounts.id.prompt();
-  };
+    if (googleButtonRef.current) {
+      googleButtonRef.current.innerHTML = "";
+      window.google.accounts.id.renderButton(googleButtonRef.current, {
+        theme: "outline",
+        size: "large",
+        width: 376,
+        text: "continue_with",
+        locale: "fr",
+      });
+    }
+  }, [showAuthModal, authTab]);
 
   const handleLogout = () => {
     setCurrentUser(null);
@@ -2599,14 +2608,13 @@ export default function App() {
               </form>
             ) : (
               <>
-                <button
-                  type="button"
-                  onClick={handleGoogleAuth}
-                  className="w-full py-3 bg-white text-slate-900 font-bold text-xs rounded-xl hover:bg-slate-100 transition-all flex items-center justify-center gap-2 border border-slate-300"
-                >
-                  <svg width="16" height="16" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3c-1.6 4.6-6 8-11.3 8-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.5 6 29.5 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.7-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.5 15.9 18.9 13 24 13c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.5 6 29.5 4 24 4c-7.7 0-14.3 4.3-17.7 10.7z"/><path fill="#4CAF50" d="M24 44c5.4 0 10.3-1.8 14.1-5.1l-6.5-5.5C29.5 35.1 26.9 36 24 36c-5.3 0-9.7-3.4-11.3-8.1l-6.6 5.1C9.6 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.2 4.2-4 5.6l6.5 5.5C41.5 35.9 44 30.4 44 24c0-1.3-.1-2.7-.4-3.5z"/></svg>
-                  Continuer avec Google
-                </button>
+                {GOOGLE_CLIENT_ID ? (
+                  <div ref={googleButtonRef} className="w-full flex justify-center min-h-[44px]" />
+                ) : (
+                  <div className="w-full py-3 bg-[#1b2230] text-slate-500 font-bold text-xs rounded-xl flex items-center justify-center gap-2 border border-[#2b374d]">
+                    Connexion Google indisponible
+                  </div>
+                )}
 
                 <div className="flex items-center gap-3">
                   <div className="h-px bg-[#263042] flex-1" />
