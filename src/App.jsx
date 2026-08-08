@@ -349,6 +349,7 @@ export default function App() {
 
   // Local Image Folder Upload State for Wizard Step 5
   const [localImageFiles, setLocalImageFiles] = useState([]);
+  const [libraryUploadStatus, setLibraryUploadStatus] = useState(null); // null | 'uploading' | 'success' | 'error'
   const [selectedFolderName, setSelectedFolderName] = useState('');
   const [isFolderDragging, setIsFolderDragging] = useState(false);
   const wizardFolderInputRef = useRef(null);
@@ -688,6 +689,7 @@ export default function App() {
     setLogoFile(null);
     setLogoPreviewUrl(null);
     setLocalImageFiles([]);
+    setLibraryUploadStatus(null);
     setWizardStep(1);
   };
 
@@ -744,6 +746,7 @@ export default function App() {
       const folderName = firstPath ? firstPath.split('/')[0] : 'Dossier Images';
       setSelectedFolderName(folderName);
       setLocalImageFiles(files);
+      setLibraryUploadStatus(null);
       setNewChannel(prev => ({
         ...prev,
         image_style: {
@@ -767,6 +770,7 @@ export default function App() {
       const folderName = "Dossier Images Déposé";
       setSelectedFolderName(folderName);
       setLocalImageFiles(droppedFiles);
+      setLibraryUploadStatus(null);
       setNewChannel(prev => ({
         ...prev,
         image_style: {
@@ -782,6 +786,30 @@ export default function App() {
     const formData = new FormData();
     formData.append("file", logoFile);
     await fetch(`${API_BASE}/channels/${channelId}/logo`, { method: 'POST', body: formData });
+  };
+
+  const uploadChannelLibraryImages = async (channelId) => {
+    if (localImageFiles.length === 0) return;
+    setLibraryUploadStatus('uploading');
+    try {
+      const formData = new FormData();
+      for (const f of localImageFiles) formData.append("files", f);
+      const res = await fetch(`${API_BASE}/channels/${channelId}/library-images`, { method: 'POST', body: formData });
+      if (!res.ok) {
+        const text = await res.text();
+        let msg = "Échec de l'envoi des images.";
+        try { msg = JSON.parse(text).detail || msg; } catch {}
+        throw new Error(msg);
+      }
+      const updatedChannel = await res.json();
+      setLibraryUploadStatus('success');
+      showToast(`${localImageFiles.length} images envoyées et prêtes pour le montage.`, "success");
+      return updatedChannel;
+    } catch (err) {
+      setLibraryUploadStatus('error');
+      showToast(err.message || "Échec de l'envoi des images vers le serveur.", "error");
+      throw err;
+    }
   };
 
   const handleSaveChannel = async () => {
@@ -820,6 +848,9 @@ export default function App() {
 
       if (logoFile) {
         await uploadChannelLogo(saved.id);
+      }
+      if (localImageFiles.length > 0) {
+        saved = await uploadChannelLibraryImages(saved.id);
       }
 
       await fetchChannels();
@@ -928,19 +959,40 @@ export default function App() {
     }
   };
 
+  const [downloadModalVideo, setDownloadModalVideo] = useState(null);
+  const [downloadingQuality, setDownloadingQuality] = useState(null);
+
   const handleDownloadVideo = (vid, e) => {
     if (e) e.stopPropagation();
     setOpenVideoMenuId(null);
     if (!vid.output_path) return;
-    const url = getVideoUrl(vid.output_path);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = '';
-    a.target = '_blank';
-    a.rel = 'noreferrer';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+    setDownloadModalVideo(vid);
+  };
+
+  const runDownload = async (vid, quality) => {
+    setDownloadingQuality(quality);
+    try {
+      const url = quality === 'hd'
+        ? getVideoUrl(vid.output_path)
+        : `${API_BASE}/videos/${vid.id}/download?quality=${quality}`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const blob = await res.blob();
+      const objectUrl = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = objectUrl;
+      a.download = `nichecut-${(vid.script_text || 'video').slice(0, 40).replace(/[^a-z0-9]+/gi, '-')}-${quality}.mp4`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(objectUrl);
+      setDownloadModalVideo(null);
+    } catch (err) {
+      console.error("Erreur de téléchargement:", err);
+      showToast("Le téléchargement a échoué. Réessayez.", "error");
+    } finally {
+      setDownloadingQuality(null);
+    }
   };
 
   const startEditingTitle = (vid, e) => {
@@ -2210,8 +2262,22 @@ export default function App() {
                             
                             {localImageFiles.length > 0 && (
                               <div className="mt-3 px-2.5 py-1 bg-emerald-950 text-emerald-300 rounded-lg text-[10px] font-bold font-mono truncate">
-                                ✓ {selectedFolderName || 'Dossier'}: {localImageFiles.length} images importées
+                                ✓ {selectedFolderName || 'Dossier'} : {localImageFiles.length} images sélectionnées
                               </div>
+                            )}
+                            {localImageFiles.length > 0 && !libraryUploadStatus && (
+                              <p className="mt-2 text-[10px] text-slate-400">
+                                Elles seront envoyées et enregistrées sur le serveur lors de la sauvegarde de la chaîne.
+                              </p>
+                            )}
+                            {libraryUploadStatus === 'uploading' && (
+                              <div className="mt-2 flex items-center justify-center gap-2 text-[10px] font-bold text-[#00c2ff]">
+                                <span className="material-symbols-outlined text-[15px] animate-spin">progress_activity</span>
+                                Envoi des images vers le serveur…
+                              </div>
+                            )}
+                            {libraryUploadStatus === 'error' && (
+                              <p className="mt-2 text-[10px] font-bold text-red-400">Échec de l’envoi — corrigez le problème puis réessayez.</p>
                             )}
                           </div>
                         </div>
@@ -2688,15 +2754,55 @@ export default function App() {
             </div>
 
             <div className="flex justify-between items-center pt-2">
-              <a
-                href={getVideoUrl(selectedVideo.output_path)}
-                download
-                target="_blank"
-                rel="noreferrer"
+              <button
+                onClick={() => setDownloadModalVideo(selectedVideo)}
                 className="w-full py-3 bg-[#00c2ff] text-slate-950 font-bold text-xs rounded-xl text-center hover:bg-[#38d0ff] transition-all flex items-center justify-center gap-2"
               >
                 <span className="material-symbols-outlined text-[18px]">download</span> Télécharger MP4
-              </a>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* DOWNLOAD QUALITY MODAL */}
+      {downloadModalVideo && (
+        <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-[60] flex items-center justify-center p-6">
+          <div className="bg-[#161b22] border border-[#263042] rounded-3xl p-6 max-w-[420px] w-full shadow-2xl space-y-5">
+            <div className="flex justify-between items-center">
+              <h3 className="text-sm font-bold text-white">Télécharger la vidéo</h3>
+              <button
+                onClick={() => { if (!downloadingQuality) setDownloadModalVideo(null); }}
+                className="text-slate-400 hover:text-white"
+              >
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+            <p className="text-xs text-slate-400">Format MP4. Choisissez la qualité d'export.</p>
+
+            <div className="space-y-2.5">
+              {[
+                { key: 'sd', label: 'SD', detail: '854×480 — fichier léger, partage rapide' },
+                { key: 'hd', label: 'HD', detail: '1920×1080 — qualité native du rendu' },
+                { key: '4k', label: '4K (upscale IA)', detail: '3840×2160 — upscale, source native en HD' },
+              ].map(opt => (
+                <button
+                  key={opt.key}
+                  disabled={!!downloadingQuality}
+                  onClick={() => runDownload(downloadModalVideo, opt.key)}
+                  className="w-full flex items-center justify-between p-3.5 bg-[#1b2230] hover:bg-[#252f42] border border-[#2b374d] rounded-2xl transition-all disabled:opacity-50 text-left"
+                >
+                  <div>
+                    <div className="text-xs font-bold text-white">{opt.label}</div>
+                    <div className="text-[11px] text-slate-400">{opt.detail}</div>
+                  </div>
+                  {downloadingQuality === opt.key ? (
+                    <span className="material-symbols-outlined text-[18px] text-[#00c2ff] animate-spin">progress_activity</span>
+                  ) : (
+                    <span className="material-symbols-outlined text-[18px] text-[#00c2ff]">download</span>
+                  )}
+                </button>
+              ))}
             </div>
           </div>
         </div>
