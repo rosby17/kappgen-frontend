@@ -284,6 +284,13 @@ export default function App() {
   const [authForm, setAuthForm] = useState({ email: '', password: '' });
   const [showAuthPassword, setShowAuthPassword] = useState(false);
   const [forgotForm, setForgotForm] = useState({ email: '', newPassword: '' });
+  const [settingsTab, setSettingsTab] = useState('profile'); // 'profile' | 'security' | 'api'
+  const [profileForm, setProfileForm] = useState({ name: '', phone: '' });
+  const [passwordForm, setPasswordForm] = useState({ oldPassword: '', newPassword: '' });
+  const [showSettingsPassword, setShowSettingsPassword] = useState(false);
+  const [apiKeys, setApiKeys] = useState([]);
+  const [newApiKeyName, setNewApiKeyName] = useState('');
+  const [justCreatedApiKey, setJustCreatedApiKey] = useState(null);
   const [showPassword, setShowPassword] = useState(false);
   const [resetSuccessMsg, setResetSuccessMsg] = useState('');
 
@@ -535,6 +542,109 @@ export default function App() {
     setShowProfileModal(false);
   };
 
+  useEffect(() => {
+    if (showProfileModal && currentUser) {
+      setProfileForm({ name: currentUser.name || '', phone: currentUser.phone || '' });
+      setSettingsTab('profile');
+      setJustCreatedApiKey(null);
+      fetchApiKeys();
+    }
+  }, [showProfileModal, currentUser]);
+
+  const fetchApiKeys = async () => {
+    if (!currentUser) return;
+    try {
+      const res = await fetch(`${API_BASE}/api-keys?user_id=${currentUser.id}`);
+      if (res.ok) setApiKeys(await res.json());
+    } catch (e) {
+      console.error("Erreur chargement clés API:", e);
+    }
+  };
+
+  const handleUpdateProfile = async (e) => {
+    e.preventDefault();
+    try {
+      setLoading(true);
+      const res = await fetch(`${API_BASE}/auth/me/${currentUser.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: profileForm.name, phone: profileForm.phone })
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        setCurrentUser(updated);
+        localStorage.setItem("nichecut_user", JSON.stringify(updated));
+        showToast("Profil mis à jour.", "success");
+      } else {
+        const err = await res.json();
+        showToast(err.detail || "Erreur lors de la mise à jour.", "error");
+      }
+    } catch (err) {
+      showToast("Erreur réseau: " + err.message, "error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleChangePasswordSettings = async (e) => {
+    e.preventDefault();
+    try {
+      setLoading(true);
+      const res = await fetch(`${API_BASE}/auth/change-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: currentUser.id,
+          old_password: passwordForm.oldPassword,
+          new_password: passwordForm.newPassword
+        })
+      });
+      if (res.ok) {
+        showToast("Mot de passe modifié.", "success");
+        setPasswordForm({ oldPassword: '', newPassword: '' });
+      } else {
+        const err = await res.json();
+        showToast(err.detail || "Erreur lors du changement.", "error");
+      }
+    } catch (err) {
+      showToast("Erreur réseau: " + err.message, "error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCreateApiKey = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api-keys`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: currentUser.id, name: newApiKeyName.trim() || 'Clé API' })
+      });
+      if (res.ok) {
+        const created = await res.json();
+        setJustCreatedApiKey(created);
+        setNewApiKeyName('');
+        fetchApiKeys();
+      } else {
+        const err = await res.json();
+        showToast(err.detail || "Erreur lors de la création.", "error");
+      }
+    } catch (err) {
+      showToast("Erreur réseau: " + err.message, "error");
+    }
+  };
+
+  const handleRevokeApiKey = async (keyId) => {
+    if (!confirm("Révoquer cette clé API ? Toute application qui l'utilise perdra l'accès immédiatement.")) return;
+    try {
+      await fetch(`${API_BASE}/api-keys/${keyId}`, { method: 'DELETE' });
+      fetchApiKeys();
+      showToast("Clé API révoquée.", "success");
+    } catch (err) {
+      showToast("Erreur réseau: " + err.message, "error");
+    }
+  };
+
   const resetWizardState = () => {
     setNewChannel(defaultChannelForm);
     setWizardMode('create');
@@ -688,7 +798,7 @@ export default function App() {
     }
   };
 
-  const getChannelLogoUrl = (channel) => channel?.branding?.logo_path ? getVideoUrl(channel.branding.logo_path) : null;
+  const getChannelLogoUrl = (channel) => channel?.branding?.logo_path ? getVideoUrl(channel.branding.logo_path) : "/assets/logo/logo-nichecut.png";
 
   const getChannelStatusInfo = (channel) => {
     const rendering = channel.rendering_count || 0;
@@ -871,9 +981,7 @@ export default function App() {
         <div>
           {/* Brand Logo Header */}
           <div className="px-6 mb-8 flex items-center gap-3 cursor-pointer" onClick={() => setView('home')}>
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-[#00c2ff] to-[#0088ff] flex items-center justify-center text-slate-950 font-black text-lg shadow-lg shadow-[#00c2ff]/20">
-              N
-            </div>
+            <img src="/assets/logo/logo-nichecut.png" alt="NicheCut" className="w-9 h-9 rounded-xl shadow-lg shadow-[#00c2ff]/20 object-cover" />
             <div>
               <div className="font-title-sm text-base font-black text-white tracking-wide">NicheCut</div>
               <div className="text-slate-400 text-xs font-normal">Video Automation</div>
@@ -952,14 +1060,16 @@ export default function App() {
             {currentUser ? (
               <div
                 onClick={() => setShowProfileModal(true)}
-                className="flex items-center gap-2.5 pl-2 pr-3 py-1.5 bg-[#1b2230] hover:bg-[#252f42] rounded-xl border border-[#2b374d] cursor-pointer transition-all group shadow-sm"
-                title="Paramètres & Profil"
+                className="w-9 h-9 rounded-full cursor-pointer transition-all shadow-sm ring-2 ring-transparent hover:ring-[#00c2ff]/50 flex-shrink-0 overflow-hidden"
+                title="Paramètres"
               >
-                <div className="w-8 h-8 rounded-lg bg-[#00c2ff] text-slate-950 flex items-center justify-center font-bold text-sm flex-shrink-0 shadow-md">
-                  {currentUser.name.slice(0, 1).toUpperCase()}
-                </div>
-                <span className="text-xs text-white font-bold truncate max-w-[120px] group-hover:text-[#00c2ff] transition-colors">{currentUser.name}</span>
-                <span className="material-symbols-outlined text-[16px] text-slate-400 group-hover:text-white transition-colors">settings</span>
+                {currentUser.picture_url ? (
+                  <img src={currentUser.picture_url} alt={currentUser.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                ) : (
+                  <div className="w-full h-full bg-[#00c2ff] text-slate-950 flex items-center justify-center font-bold text-sm">
+                    {currentUser.name.slice(0, 1).toUpperCase()}
+                  </div>
+                )}
               </div>
             ) : (
               <button
@@ -2439,10 +2549,79 @@ export default function App() {
                       <span className="text-xs font-bold text-white">{VOICE_MODELS.find(v => v.id === selectedVoice)?.name || selectedVoice}</span>
                     </div>
                   )}
+                  {/* Real visual mockup of the final rendered frame: background style,
+                      subtitle font/color/outline/position, and active effects — everything
+                      exactly as configured on the channel, not just a text summary. */}
+                  <div>
+                    <div className="text-xs text-slate-400 mb-2">Aperçu visuel du rendu final</div>
+                    <div className="w-full aspect-video rounded-2xl overflow-hidden relative border border-[#2b374d] shadow-lg">
+                      <div
+                        className="absolute inset-0"
+                        style={{
+                          background: activeChannel.effects_config?.color_grade === 'warm'
+                            ? 'linear-gradient(160deg, #3a2a1a 0%, #1a1208 60%, #0a0705 100%)'
+                            : activeChannel.effects_config?.color_grade === 'cool'
+                            ? 'linear-gradient(160deg, #0f2438 0%, #0a1826 60%, #050c12 100%)'
+                            : 'linear-gradient(160deg, #232938 0%, #14171f 60%, #0a0b0f 100%)'
+                        }}
+                      />
+                      {activeChannel.effects_config?.grain && (
+                        <div
+                          className="absolute inset-0 opacity-[0.15] mix-blend-overlay pointer-events-none"
+                          style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='60'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")" }}
+                        />
+                      )}
+                      <div className="absolute top-3 left-3 flex items-center gap-1.5 bg-black/40 backdrop-blur-sm px-2.5 py-1 rounded-lg">
+                        <span className="material-symbols-outlined text-[13px] text-[#00c2ff]">
+                          {activeChannel.image_style?.source === 'ai_generated' ? 'auto_awesome' : 'photo_library'}
+                        </span>
+                        <span className="text-[10px] font-bold text-white">
+                          {activeChannel.image_style?.source === 'ai_generated' ? 'Images générées par IA' : 'Bibliothèque d\'images'}
+                        </span>
+                      </div>
+                      {activeChannel.effects_config?.grain && (
+                        <div className="absolute top-3 right-3 bg-black/40 backdrop-blur-sm px-2.5 py-1 rounded-lg text-[10px] font-bold text-white">
+                          Grain actif
+                        </div>
+                      )}
+                      <div
+                        className={`absolute inset-x-0 flex justify-center px-6 ${
+                          activeChannel.subtitle_style?.position === 'top' ? 'top-6' :
+                          activeChannel.subtitle_style?.position === 'center' ? 'top-1/2 -translate-y-1/2' : 'bottom-6'
+                        }`}
+                      >
+                        <div className="flex flex-wrap justify-center items-center gap-1.5 text-center">
+                          {sampleWords.map((wordObj, i) => (
+                            <span
+                              key={i}
+                              style={{
+                                fontFamily: activeChannel.subtitle_style?.font || 'Arial',
+                                fontSize: `${(activeChannel.subtitle_style?.size || 44) * 0.4}px`,
+                                fontWeight: '900',
+                                color: (activeChannel.subtitle_style?.karaoke === false || wordObj.highlight) ? (activeChannel.subtitle_style?.color || '#FFD700') : '#FFFFFF',
+                                WebkitTextStroke: `${Math.max(1, (activeChannel.subtitle_style?.outline_width || 3) * 0.4)}px ${activeChannel.subtitle_style?.outline_color || '#000000'}`,
+                                paintOrder: 'stroke fill',
+                                textShadow: '0 2px 8px rgba(0,0,0,0.6)'
+                              }}
+                              className="inline-block"
+                            >
+                              {wordObj.text}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                      {activeChannel.branding?.channel_name_text && (
+                        <div className="absolute bottom-3 right-3 text-[10px] font-bold text-white/70">
+                          {activeChannel.branding.channel_name_text}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
                   <div className="bg-[#11151c] border border-[#202938] rounded-xl p-3">
                     <div className="text-xs text-slate-400 mb-2">{submitMode === 'text' ? 'Aperçu du script' : `Fichiers audio (${audioFilesList.length})`}</div>
                     {submitMode === 'text' ? (
-                      <p className="text-xs text-white italic line-clamp-4">"{singleScriptText}"</p>
+                      <p className="text-xs text-white line-clamp-4">{singleScriptText}</p>
                     ) : (
                       <div className="space-y-1">
                         {audioFilesList.map((f, i) => (
@@ -2682,14 +2861,18 @@ export default function App() {
       {/* USER PROFILE & SETTINGS MODAL (INTEGRATED PARAMÈTRES & PROFIL) */}
       {showProfileModal && currentUser && (
         <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-center justify-center p-6">
-          <div className="bg-[#161b22] border border-[#263042] rounded-3xl p-8 max-w-[640px] w-full max-h-[90vh] overflow-y-auto shadow-2xl space-y-6">
-            <div className="flex justify-between items-center border-b border-[#263042] pb-4">
+          <div className="bg-[#161b22] border border-[#263042] rounded-3xl max-w-[720px] w-full max-h-[90vh] shadow-2xl flex flex-col overflow-hidden">
+            <div className="flex justify-between items-center border-b border-[#263042] p-6 pb-4 flex-shrink-0">
               <div className="flex items-center gap-3">
-                <div className="w-11 h-11 rounded-2xl bg-[#00c2ff] text-slate-950 flex items-center justify-center font-extrabold text-lg shadow-md">
-                  {currentUser.name.slice(0, 1).toUpperCase()}
+                <div className="w-11 h-11 rounded-2xl overflow-hidden bg-[#00c2ff] text-slate-950 flex items-center justify-center font-extrabold text-lg shadow-md flex-shrink-0">
+                  {currentUser.picture_url ? (
+                    <img src={currentUser.picture_url} alt={currentUser.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                  ) : (
+                    currentUser.name.slice(0, 1).toUpperCase()
+                  )}
                 </div>
                 <div>
-                  <h3 className="text-lg font-extrabold text-white">{currentUser.name}</h3>
+                  <h3 className="text-lg font-extrabold text-white">Paramètres</h3>
                   <p className="text-xs text-slate-400">{currentUser.email}</p>
                 </div>
               </div>
@@ -2698,21 +2881,226 @@ export default function App() {
               </button>
             </div>
 
-            <div className="space-y-4">
-              <h4 className="text-sm font-bold text-white font-mono">Informations du Compte</h4>
-              <div className="text-xs text-slate-400 space-y-1">
-                <p>Nom: <strong className="text-white">{currentUser.name}</strong></p>
-                <p>Email: <strong className="text-white">{currentUser.email}</strong></p>
+            <div className="flex flex-1 min-h-0">
+              {/* Settings side nav */}
+              <div className="w-[180px] border-r border-[#263042] p-3 space-y-1 flex-shrink-0">
+                {[
+                  { id: 'profile', label: 'Profil', icon: 'person' },
+                  { id: 'security', label: 'Sécurité', icon: 'lock' },
+                  { id: 'api', label: 'Clés API', icon: 'key' },
+                ].map(tab => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setSettingsTab(tab.id)}
+                    className={`w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition-all ${
+                      settingsTab === tab.id ? 'bg-[#00c2ff]/10 text-[#00c2ff]' : 'text-slate-400 hover:bg-[#1b2230] hover:text-white'
+                    }`}
+                  >
+                    <span className="material-symbols-outlined text-[16px]">{tab.icon}</span>
+                    {tab.label}
+                  </button>
+                ))}
+                <div className="pt-2 mt-2 border-t border-[#263042]">
+                  <button
+                    onClick={handleLogout}
+                    className="w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 text-rose-400 hover:bg-rose-950/50 transition-all"
+                  >
+                    <span className="material-symbols-outlined text-[16px]">logout</span>
+                    Déconnexion
+                  </button>
+                </div>
               </div>
-            </div>
 
-            <div className="pt-4 border-t border-[#263042] flex justify-between items-center">
-              <button
-                onClick={handleLogout}
-                className="px-4 py-2 bg-rose-950/70 text-rose-300 border border-rose-800 rounded-xl font-bold text-xs hover:bg-rose-900 transition-all flex items-center gap-2"
-              >
-                <span className="material-symbols-outlined text-[16px]">logout</span> Deconnexion
-              </button>
+              {/* Settings content */}
+              <div className="flex-1 overflow-y-auto p-6 space-y-5">
+                {settingsTab === 'profile' && (
+                  <form onSubmit={handleUpdateProfile} className="space-y-4">
+                    <div className="flex items-center gap-4">
+                      <div className="w-16 h-16 rounded-2xl overflow-hidden bg-[#00c2ff] text-slate-950 flex items-center justify-center font-extrabold text-2xl shadow-md flex-shrink-0">
+                        {currentUser.picture_url ? (
+                          <img src={currentUser.picture_url} alt={currentUser.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                        ) : (
+                          currentUser.name.slice(0, 1).toUpperCase()
+                        )}
+                      </div>
+                      <div className="text-[11px] text-slate-400">
+                        {currentUser.auth_provider === 'google'
+                          ? "Photo synchronisée depuis votre compte Google."
+                          : "Connectez-vous avec Google pour une photo de profil automatique."}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-300 mb-1">Nom complet</label>
+                      <input
+                        value={profileForm.name}
+                        onChange={e => setProfileForm({ ...profileForm, name: e.target.value })}
+                        className="w-full bg-[#1b2230] border border-[#2b374d] rounded-xl p-3 text-xs text-white focus:border-[#00c2ff] outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-300 mb-1">Adresse Email</label>
+                      <input
+                        value={currentUser.email}
+                        disabled
+                        className="w-full bg-[#11151c] border border-[#2b374d] rounded-xl p-3 text-xs text-slate-500 outline-none cursor-not-allowed"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-300 mb-1">Numéro de téléphone</label>
+                      <input
+                        value={profileForm.phone}
+                        onChange={e => setProfileForm({ ...profileForm, phone: e.target.value })}
+                        placeholder="+33 6 12 34 56 78"
+                        className="w-full bg-[#1b2230] border border-[#2b374d] rounded-xl p-3 text-xs text-white focus:border-[#00c2ff] outline-none"
+                      />
+                    </div>
+                    <button
+                      type="submit"
+                      disabled={loading}
+                      className="py-2.5 px-5 bg-[#00c2ff] text-slate-950 font-bold text-xs rounded-xl hover:bg-[#38d0ff] transition-all"
+                    >
+                      Enregistrer les modifications
+                    </button>
+                  </form>
+                )}
+
+                {settingsTab === 'security' && (
+                  <div className="space-y-5">
+                    {currentUser.auth_provider === 'google' ? (
+                      <div className="bg-[#11151c] border border-[#202938] rounded-xl p-4 flex items-start gap-3">
+                        <span className="material-symbols-outlined text-[#00c2ff] text-[20px]">verified_user</span>
+                        <div>
+                          <p className="text-xs font-bold text-white">Connecté via Google</p>
+                          <p className="text-[11px] text-slate-400 mt-1">Votre mot de passe est géré par Google. La double authentification et la sécurité du compte se configurent directement dans les paramètres de votre compte Google.</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <form onSubmit={handleChangePasswordSettings} className="space-y-4">
+                        <h4 className="text-xs font-bold text-white">Changer le mot de passe</h4>
+                        <div>
+                          <label className="block text-xs font-bold text-slate-300 mb-1">Mot de passe actuel</label>
+                          <input
+                            type="password"
+                            required
+                            value={passwordForm.oldPassword}
+                            onChange={e => setPasswordForm({ ...passwordForm, oldPassword: e.target.value })}
+                            className="w-full bg-[#1b2230] border border-[#2b374d] rounded-xl p-3 text-xs text-white focus:border-[#00c2ff] outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-slate-300 mb-1">Nouveau mot de passe</label>
+                          <div className="relative">
+                            <input
+                              type={showSettingsPassword ? "text" : "password"}
+                              required
+                              minLength={4}
+                              value={passwordForm.newPassword}
+                              onChange={e => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
+                              className="w-full bg-[#1b2230] border border-[#2b374d] rounded-xl p-3 pr-10 text-xs text-white focus:border-[#00c2ff] outline-none"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowSettingsPassword(!showSettingsPassword)}
+                              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                              tabIndex={-1}
+                            >
+                              <span className="material-symbols-outlined text-[18px]">{showSettingsPassword ? "visibility_off" : "visibility"}</span>
+                            </button>
+                          </div>
+                        </div>
+                        <button
+                          type="submit"
+                          disabled={loading}
+                          className="py-2.5 px-5 bg-[#00c2ff] text-slate-950 font-bold text-xs rounded-xl hover:bg-[#38d0ff] transition-all"
+                        >
+                          Mettre à jour le mot de passe
+                        </button>
+                      </form>
+                    )}
+
+                    <div className="pt-5 border-t border-[#263042]">
+                      <h4 className="text-xs font-bold text-white mb-1">Authentification à deux facteurs</h4>
+                      <p className="text-[11px] text-slate-400 mb-3">
+                        {currentUser.auth_provider === 'google'
+                          ? "Activez la validation en 2 étapes depuis votre compte Google — elle protège aussi votre connexion à NicheCut."
+                          : "Bientôt disponible pour les comptes email/mot de passe."}
+                      </p>
+                      {currentUser.auth_provider === 'google' && (
+                        <a
+                          href="https://myaccount.google.com/security"
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1.5 text-xs font-bold text-[#00c2ff] hover:underline"
+                        >
+                          Gérer la sécurité Google <span className="material-symbols-outlined text-[14px]">open_in_new</span>
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {settingsTab === 'api' && (
+                  <div className="space-y-5">
+                    <div>
+                      <h4 className="text-xs font-bold text-white mb-1">Clés API</h4>
+                      <p className="text-[11px] text-slate-400">Utilisez une clé API pour intégrer NicheCut à vos propres outils (génération programmatique de vidéos).</p>
+                    </div>
+
+                    {justCreatedApiKey && (
+                      <div className="bg-emerald-950/40 border border-emerald-800 rounded-xl p-3 space-y-2">
+                        <p className="text-[11px] text-emerald-300 font-bold">Copiez cette clé maintenant — elle ne sera plus jamais affichée.</p>
+                        <div className="flex items-center gap-2">
+                          <code className="flex-1 text-[11px] font-mono text-white bg-black/40 rounded-lg p-2 overflow-x-auto whitespace-nowrap">{justCreatedApiKey.key}</code>
+                          <button
+                            type="button"
+                            onClick={() => { navigator.clipboard.writeText(justCreatedApiKey.key); showToast("Clé copiée.", "success"); }}
+                            className="p-2 bg-[#1b2230] hover:bg-[#252f42] rounded-lg text-white flex-shrink-0"
+                          >
+                            <span className="material-symbols-outlined text-[16px]">content_copy</span>
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="flex items-center gap-2">
+                      <input
+                        value={newApiKeyName}
+                        onChange={e => setNewApiKeyName(e.target.value)}
+                        placeholder="Nom de la clé (ex: Zapier, Script perso...)"
+                        className="flex-1 bg-[#1b2230] border border-[#2b374d] rounded-xl p-2.5 text-xs text-white focus:border-[#00c2ff] outline-none"
+                      />
+                      <button
+                        onClick={handleCreateApiKey}
+                        className="py-2.5 px-4 bg-[#00c2ff] text-slate-950 font-bold text-xs rounded-xl hover:bg-[#38d0ff] transition-all flex items-center gap-1.5 flex-shrink-0"
+                      >
+                        <span className="material-symbols-outlined text-[16px]">add</span> Créer
+                      </button>
+                    </div>
+
+                    <div className="space-y-2">
+                      {apiKeys.length === 0 ? (
+                        <p className="text-[11px] text-slate-500 text-center py-6">Aucune clé API créée pour le moment.</p>
+                      ) : (
+                        apiKeys.map(key => (
+                          <div key={key.id} className="flex items-center justify-between bg-[#11151c] border border-[#202938] rounded-xl p-3">
+                            <div>
+                              <p className="text-xs font-bold text-white">{key.name}</p>
+                              <p className="text-[10px] text-slate-500 font-mono mt-0.5">{key.key_prefix}••••••••••••••••••••</p>
+                            </div>
+                            <button
+                              onClick={() => handleRevokeApiKey(key.id)}
+                              className="text-rose-400 hover:text-rose-300 p-1.5"
+                              title="Révoquer"
+                            >
+                              <span className="material-symbols-outlined text-[16px]">delete</span>
+                            </button>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
