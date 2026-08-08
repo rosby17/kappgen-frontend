@@ -15,6 +15,8 @@ if (rawStorageBase.startsWith("http://api-nichecut.tools-cl.com")) {
 }
 const STORAGE_BASE = rawStorageBase;
 
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || "";
+
 const getVideoUrl = (path) => {
   if (!path) return '';
   if (path.startsWith('http://') || path.startsWith('https://')) return path;
@@ -72,6 +74,20 @@ const SUBTITLE_PRESETS = [
     karaoke: false,
     box_color: 'rgba(20,15,10,0.7)'
   }
+];
+
+// Fonts actually installed on the render server (see Dockerfile) — what you pick here
+// is exactly what libass will use to burn the subtitles into the final video.
+const SUBTITLE_FONTS = [
+  { value: 'Montserrat', label: 'Montserrat (Moderne, Impact)' },
+  { value: 'Bebas Neue', label: 'Bebas Neue (Grand, Display)' },
+  { value: 'Roboto', label: 'Roboto (Clean, Neutre)' },
+  { value: 'Open Sans', label: 'Open Sans (Lisible, Doux)' },
+  { value: 'Lato', label: 'Lato (Humaniste)' },
+  { value: 'Inter', label: 'Inter (UI, Précis)' },
+  { value: 'Source Sans 3', label: 'Source Sans 3 (Éditorial)' },
+  { value: 'Liberation Sans', label: 'Liberation Sans (Style Arial)' },
+  { value: 'DejaVu Sans', label: 'DejaVu Sans (Classique, Fiable)' }
 ];
 
 // Available Voice Models
@@ -172,12 +188,35 @@ function VideoPlayer({ src, autoPlay, className }) {
   );
 }
 
+function SkeletonGrid({ count = 6, cardClassName = "min-h-[220px]" }) {
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      {Array.from({ length: count }).map((_, i) => (
+        <div key={i} className={`bg-[#161b22] border border-[#263042] rounded-2xl p-5 animate-pulse ${cardClassName}`}>
+          <div className="flex items-center gap-3.5 mb-4">
+            <div className="w-12 h-12 rounded-xl bg-[#232c3a]" />
+            <div className="flex-1 space-y-2">
+              <div className="h-3 w-2/3 bg-[#232c3a] rounded" />
+              <div className="h-2.5 w-1/3 bg-[#232c3a] rounded" />
+            </div>
+          </div>
+          <div className="h-2.5 w-full bg-[#232c3a] rounded mb-2" />
+          <div className="h-2.5 w-5/6 bg-[#232c3a] rounded mb-4" />
+          <div className="h-8 w-full bg-[#232c3a] rounded-xl" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function App() {
   const [channels, setChannels] = useState([]);
   const [activeChannel, setActiveChannel] = useState(null);
   const [channelVideos, setChannelVideos] = useState([]);
   const [allVideos, setAllVideos] = useState([]);
-  const [view, setView] = useState('home'); // 'home', 'channels', 'videos', 'channel_detail', 'wizard'
+  const [view, setView] = useState(() => sessionStorage.getItem('nichecut_view') || 'home'); // 'home', 'channels', 'videos', 'channel_detail', 'wizard'
+  const [channelsLoaded, setChannelsLoaded] = useState(false);
+  const [videosLoaded, setVideosLoaded] = useState(false);
   const [selectedVideo, setSelectedVideo] = useState(null);
   
   // Modals & Menu Popups
@@ -187,6 +226,8 @@ export default function App() {
   const [showChannelPickerModal, setShowChannelPickerModal] = useState(false);
   const [openChannelMenuId, setOpenChannelMenuId] = useState(null);
   const [openVideoMenuId, setOpenVideoMenuId] = useState(null);
+  const [editingTitleId, setEditingTitleId] = useState(null);
+  const [editingTitleValue, setEditingTitleValue] = useState("");
   const [playingVideoId, setPlayingVideoId] = useState(null);
   const [submitStep, setSubmitStep] = useState(1); // 1 = form, 2 = confirm/preview before launch
 
@@ -239,8 +280,10 @@ export default function App() {
     const saved = localStorage.getItem("nichecut_user");
     return saved ? JSON.parse(saved) : null;
   });
-  const [authTab, setAuthTab] = useState('login');
+  const [authTab, setAuthTab] = useState('login'); // 'login' | 'register' | 'forgot'
   const [authForm, setAuthForm] = useState({ email: '', password: '' });
+  const [showAuthPassword, setShowAuthPassword] = useState(false);
+  const [forgotForm, setForgotForm] = useState({ email: '', newPassword: '' });
   const [showPassword, setShowPassword] = useState(false);
   const [resetSuccessMsg, setResetSuccessMsg] = useState('');
 
@@ -314,6 +357,8 @@ export default function App() {
       }
     } catch (e) {
       console.error("API error loading channels:", e);
+    } finally {
+      setChannelsLoaded(true);
     }
   };
 
@@ -327,6 +372,8 @@ export default function App() {
     } catch (e) {
       // Fallback: aggregate from channel videos if route not ready
       console.log("Fetching channel videos fallback");
+    } finally {
+      setVideosLoaded(true);
     }
   };
 
@@ -341,6 +388,32 @@ export default function App() {
       console.error("API error loading channel videos:", e);
     }
   };
+
+  // Persist the current page/tab so a refresh (or the polling re-render below)
+  // doesn't bounce the user back to Home.
+  useEffect(() => {
+    sessionStorage.setItem('nichecut_view', view);
+  }, [view]);
+
+  useEffect(() => {
+    if (activeChannel) {
+      sessionStorage.setItem('nichecut_active_channel_id', activeChannel.id);
+    }
+  }, [activeChannel]);
+
+  // Restore the active channel once channels have loaded, if we reopened on channel_detail.
+  useEffect(() => {
+    if (view === 'channel_detail' && !activeChannel && channels.length > 0) {
+      const savedId = sessionStorage.getItem('nichecut_active_channel_id');
+      const found = savedId && channels.find((c) => c.id === savedId);
+      if (found) {
+        setActiveChannel(found);
+        fetchChannelVideos(found.id);
+      } else {
+        setView('home');
+      }
+    }
+  }, [channels, view, activeChannel]);
 
   useEffect(() => {
     fetchChannels();
@@ -379,6 +452,72 @@ export default function App() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleForgotPasswordSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      setLoading(true);
+      const res = await fetch(`${API_BASE}/auth/reset-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: forgotForm.email, new_password: forgotForm.newPassword })
+      });
+      if (res.ok) {
+        showToast("Mot de passe réinitialisé. Connectez-vous avec le nouveau.", "success");
+        setAuthForm({ email: forgotForm.email, password: '' });
+        setForgotForm({ email: '', newPassword: '' });
+        setAuthTab('login');
+      } else {
+        const err = await res.json();
+        alert(err.detail || "Erreur lors de la réinitialisation.");
+      }
+    } catch (err) {
+      alert("Erreur réseau: " + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleCredential = async (response) => {
+    try {
+      setLoading(true);
+      const res = await fetch(`${API_BASE}/auth/google`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ credential: response.credential })
+      });
+      if (res.ok) {
+        const loggedUser = await res.json();
+        setCurrentUser(loggedUser);
+        localStorage.setItem("nichecut_user", JSON.stringify(loggedUser));
+        setShowAuthModal(false);
+        showToast(`Bienvenue, ${loggedUser.name} !`, "success");
+      } else {
+        const err = await res.json();
+        showToast(err.detail || "Erreur de connexion Google.", "error");
+      }
+    } catch (err) {
+      showToast("Erreur réseau: " + err.message, "error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleAuth = () => {
+    if (!GOOGLE_CLIENT_ID) {
+      showToast("Connexion Google non configurée pour le moment.", "error");
+      return;
+    }
+    if (!window.google || !window.google.accounts || !window.google.accounts.id) {
+      showToast("Le service Google n'a pas pu se charger. Réessayez.", "error");
+      return;
+    }
+    window.google.accounts.id.initialize({
+      client_id: GOOGLE_CLIENT_ID,
+      callback: handleGoogleCredential,
+    });
+    window.google.accounts.id.prompt();
   };
 
   const handleLogout = () => {
@@ -649,12 +788,16 @@ export default function App() {
     document.body.removeChild(a);
   };
 
-  const handleRenameVideo = async (vid, e) => {
+  const startEditingTitle = (vid, e) => {
     if (e) e.stopPropagation();
     setOpenVideoMenuId(null);
-    const newTitle = prompt("Nouveau titre de la vidéo :", vid.script_text || "");
-    if (newTitle === null) return;
-    const trimmed = newTitle.trim();
+    setEditingTitleValue(vid.script_text || "");
+    setEditingTitleId(vid.id);
+  };
+
+  const commitTitleEdit = async (vid) => {
+    const trimmed = editingTitleValue.trim();
+    setEditingTitleId(null);
     if (!trimmed || trimmed === vid.script_text) return;
     try {
       const res = await fetch(`${API_BASE}/videos/${vid.id}`, {
@@ -671,7 +814,8 @@ export default function App() {
         showToast(err.detail || "Erreur lors du renommage.", "error");
       }
     } catch (err) {
-      showToast("Erreur réseau: " + err.message, "error");
+      console.error("Erreur lors du renommage de la vidéo:", err);
+      showToast("Erreur lors du renommage.", "error");
     }
   };
 
@@ -767,18 +911,6 @@ export default function App() {
           </div>
         </div>
 
-        {/* Sidebar footer: only shown when logged out (logged-in profile now lives top-right) */}
-        {!currentUser && (
-          <div className="px-3">
-            <button
-              onClick={() => setShowAuthModal(true)}
-              className="w-full py-3 bg-[#00c2ff] text-slate-950 rounded-xl font-bold text-xs hover:bg-[#38d0ff] transition-colors flex items-center justify-center gap-2 shadow-md"
-            >
-              <span className="material-symbols-outlined text-[18px]">account_circle</span>
-              Connexion / Inscription
-            </button>
-          </div>
-        )}
       </nav>
 
       {/* MAIN CONTENT AREA */}
@@ -975,7 +1107,9 @@ export default function App() {
                   <p className="text-xs text-slate-400 mt-1">Configurez l'identité, les sous-titres et les effets de vos chaînes automatiques.</p>
                 </div>
 
-                {filteredChannels.length === 0 ? (
+                {!channelsLoaded ? (
+                  <SkeletonGrid count={6} />
+                ) : filteredChannels.length === 0 ? (
                   <div className="bg-[#161b22] border border-[#263042] rounded-2xl p-12 text-center">
                     <span className="material-symbols-outlined text-[54px] text-slate-500 mb-4">video_settings</span>
                     <h3 className="text-lg font-bold text-white mb-2">Aucune chaîne trouvée</h3>
@@ -1125,7 +1259,9 @@ export default function App() {
                 </div>
 
                 {/* Visual Video Cards Grid */}
-                {allVideos.length === 0 ? (
+                {!videosLoaded ? (
+                  <SkeletonGrid count={8} cardClassName="min-h-[260px]" />
+                ) : allVideos.length === 0 ? (
                   <div className="bg-[#161b22] border border-[#263042] rounded-2xl p-12 text-center">
                     <span className="material-symbols-outlined text-[54px] text-slate-500 mb-3">movie</span>
                     <h3 className="text-base font-bold text-white mb-1">Aucune vidéo dans l'historique</h3>
@@ -1216,7 +1352,7 @@ export default function App() {
                                   </button>
                                   {openVideoMenuId === vid.id && (
                                     <div className="absolute right-0 top-9 w-44 bg-[#1f2838] border border-[#2d3a52] rounded-xl shadow-2xl z-50 py-1.5">
-                                      <button onClick={(e) => handleRenameVideo(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[#2c394e] hover:text-white flex items-center gap-2 font-medium">
+                                      <button onClick={(e) => startEditingTitle(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[#2c394e] hover:text-white flex items-center gap-2 font-medium">
                                         <span className="material-symbols-outlined text-[16px] text-[#00c2ff]">edit</span> Renommer
                                       </button>
                                       {vid.status === 'done' && (
@@ -1255,9 +1391,28 @@ export default function App() {
                                   </div>
                                 )}
 
-                                <p className="text-white text-xs font-semibold line-clamp-2 italic">
-                                  "{vid.script_text}"
-                                </p>
+                                {editingTitleId === vid.id ? (
+                                  <input
+                                    autoFocus
+                                    value={editingTitleValue}
+                                    onChange={(e) => setEditingTitleValue(e.target.value)}
+                                    onClick={(e) => e.stopPropagation()}
+                                    onBlur={() => commitTitleEdit(vid)}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter') { e.currentTarget.blur(); }
+                                      if (e.key === 'Escape') { setEditingTitleId(null); }
+                                    }}
+                                    className="w-full bg-[#1b2230] border border-[#00c2ff] rounded-lg px-2 py-1 text-white text-xs font-semibold outline-none"
+                                  />
+                                ) : (
+                                  <p
+                                    onDoubleClick={(e) => startEditingTitle(vid, e)}
+                                    className="text-white text-xs font-semibold line-clamp-2 cursor-text"
+                                    title="Double-cliquez pour renommer"
+                                  >
+                                    {vid.script_text}
+                                  </p>
+                                )}
                               </div>
 
                               {/* Card Action Buttons */}
@@ -1432,7 +1587,7 @@ export default function App() {
                                 </button>
                                 {openVideoMenuId === vid.id && (
                                   <div className="absolute right-0 top-9 w-44 bg-[#1f2838] border border-[#2d3a52] rounded-xl shadow-2xl z-50 py-1.5">
-                                    <button onClick={(e) => handleRenameVideo(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[#2c394e] hover:text-white flex items-center gap-2 font-medium">
+                                    <button onClick={(e) => startEditingTitle(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[#2c394e] hover:text-white flex items-center gap-2 font-medium">
                                       <span className="material-symbols-outlined text-[16px] text-[#00c2ff]">edit</span> Renommer
                                     </button>
                                     {vid.status === 'done' && (
@@ -1457,9 +1612,28 @@ export default function App() {
 
                           {/* Info & Title */}
                           <div className="mt-3 space-y-2 flex-1 flex flex-col justify-between">
-                            <p className="text-white text-xs font-semibold line-clamp-2 italic">
-                              "{vid.script_text}"
-                            </p>
+                            {editingTitleId === vid.id ? (
+                              <input
+                                autoFocus
+                                value={editingTitleValue}
+                                onChange={(e) => setEditingTitleValue(e.target.value)}
+                                onClick={(e) => e.stopPropagation()}
+                                onBlur={() => commitTitleEdit(vid)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') { e.currentTarget.blur(); }
+                                  if (e.key === 'Escape') { setEditingTitleId(null); }
+                                }}
+                                className="w-full bg-[#1b2230] border border-[#00c2ff] rounded-lg px-2 py-1 text-white text-xs font-semibold outline-none"
+                              />
+                            ) : (
+                              <p
+                                onDoubleClick={(e) => startEditingTitle(vid, e)}
+                                className="text-white text-xs font-semibold line-clamp-2 cursor-text"
+                                title="Double-cliquez pour renommer"
+                              >
+                                {vid.script_text}
+                              </p>
+                            )}
 
                             <div className="pt-2 border-t border-[#202938] flex items-center gap-2">
                               {vid.status === 'done' && (
@@ -1683,45 +1857,119 @@ export default function App() {
                     </div>
 
                     {/* Custom Controls */}
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
                         <label className="block text-xs font-bold text-slate-300 mb-2">Police (Font)</label>
-                        <select 
+                        <select
                           value={newChannel.subtitle_style.font}
                           onChange={e => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, font: e.target.value } })}
                           className="w-full bg-[#1b2230] border border-[#2b374d] rounded-xl px-4 py-2.5 text-xs text-white focus:border-[#00c2ff] outline-none"
                         >
-                          <option value="Montserrat">Montserrat (Modern Heavy)</option>
-                          <option value="Inter">Inter (Clean Bold)</option>
-                          <option value="Impact">Impact (TikTok Heavy)</option>
-                          <option value="Bebas Neue">Bebas Neue (Tall Display)</option>
-                          <option value="Oswald">Oswald (Condensed)</option>
-                          <option value="Arial">Arial (Classic)</option>
+                          {SUBTITLE_FONTS.map(f => (
+                            <option key={f.value} value={f.value}>{f.label}</option>
+                          ))}
                         </select>
+                        <p className="text-[10px] text-slate-500 mt-1.5">Polices réellement installées sur le serveur de rendu — l'aperçu ci-dessous est fidèle au rendu final.</p>
                       </div>
 
                       <div>
                         <label className="block text-xs font-bold text-slate-300 mb-2">Taille du Texte ({newChannel.subtitle_style.size}px)</label>
-                        <input 
+                        <input
                           type="range"
                           min="28"
                           max="64"
                           value={newChannel.subtitle_style.size}
                           onChange={e => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, size: parseInt(e.target.value) || 44 } })}
-                          className="w-full accent-[#00c2ff]"
+                          className="w-full accent-[#00c2ff] mt-3"
                         />
                       </div>
 
                       <div>
-                        <label className="block text-xs font-bold text-slate-300 mb-2">Couleur Principale</label>
+                        <label className="block text-xs font-bold text-slate-300 mb-2">Couleur du Texte (mot actif)</label>
                         <div className="flex items-center gap-2">
-                          <input 
+                          <input
                             type="color"
-                            value={newChannel.subtitle_style.color.startsWith('#') ? newChannel.subtitle_style.color : '#FFD700'}
+                            value={newChannel.subtitle_style.color?.startsWith('#') ? newChannel.subtitle_style.color : '#FFD700'}
                             onChange={e => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, color: e.target.value } })}
                             className="w-10 h-10 rounded-xl bg-[#1b2230] border border-[#2b374d] cursor-pointer"
                           />
                           <span className="text-xs font-mono text-slate-300">{newChannel.subtitle_style.color}</span>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-slate-300 mb-2">Couleur du Contour</label>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="color"
+                            value={newChannel.subtitle_style.outline_color?.startsWith('#') ? newChannel.subtitle_style.outline_color : '#000000'}
+                            onChange={e => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, outline_color: e.target.value } })}
+                            className="w-10 h-10 rounded-xl bg-[#1b2230] border border-[#2b374d] cursor-pointer"
+                          />
+                          <span className="text-xs font-mono text-slate-300">{newChannel.subtitle_style.outline_color}</span>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-slate-300 mb-2">Épaisseur du Contour ({newChannel.subtitle_style.outline_width || 3}px)</label>
+                        <input
+                          type="range"
+                          min="0"
+                          max="8"
+                          value={newChannel.subtitle_style.outline_width || 3}
+                          onChange={e => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, outline_width: parseInt(e.target.value) || 0 } })}
+                          className="w-full accent-[#00c2ff] mt-3"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-slate-300 mb-2">Position</label>
+                        <select
+                          value={newChannel.subtitle_style.position}
+                          onChange={e => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, position: e.target.value } })}
+                          className="w-full bg-[#1b2230] border border-[#2b374d] rounded-xl px-4 py-2.5 text-xs text-white focus:border-[#00c2ff] outline-none"
+                        >
+                          <option value="bottom">Bas</option>
+                          <option value="center">Centre</option>
+                          <option value="top">Haut</option>
+                        </select>
+                      </div>
+
+                      <div className="flex items-center gap-3 pt-6">
+                        <input
+                          type="checkbox"
+                          id="karaoke-toggle"
+                          checked={!!newChannel.subtitle_style.karaoke}
+                          onChange={e => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, karaoke: e.target.checked } })}
+                          className="w-4 h-4 accent-[#00c2ff]"
+                        />
+                        <label htmlFor="karaoke-toggle" className="text-xs font-bold text-slate-300">Karaoké mot-par-mot (recommandé)</label>
+                      </div>
+                    </div>
+
+                    {/* Live Subtitle Preview — matches the real ASS/libass render */}
+                    <div>
+                      <label className="block text-xs font-bold text-slate-300 mb-2">Aperçu en direct</label>
+                      <div className="w-full h-40 rounded-2xl bg-gradient-to-b from-slate-900 to-black border border-[#2b374d] flex items-center justify-center relative overflow-hidden px-6">
+                        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(0,194,255,0.08),transparent_70%)]"></div>
+                        <div className="relative z-10 flex flex-wrap justify-center items-center gap-2 text-center">
+                          {sampleWords.map((wordObj, i) => (
+                            <span
+                              key={i}
+                              style={{
+                                fontFamily: newChannel.subtitle_style.font,
+                                fontSize: `${(newChannel.subtitle_style.size || 44) * 0.6}px`,
+                                fontWeight: '900',
+                                color: (newChannel.subtitle_style.karaoke === false || wordObj.highlight) ? (newChannel.subtitle_style.color || '#FFD700') : '#FFFFFF',
+                                WebkitTextStroke: `${Math.max(1, (newChannel.subtitle_style.outline_width || 3) * 0.6)}px ${newChannel.subtitle_style.outline_color || '#000000'}`,
+                                paintOrder: 'stroke fill',
+                                textShadow: '0 2px 8px rgba(0,0,0,0.6)'
+                              }}
+                              className="inline-block"
+                            >
+                              {wordObj.text}
+                            </span>
+                          ))}
                         </div>
                       </div>
                     </div>
@@ -2286,63 +2534,158 @@ export default function App() {
               <h3 className="text-lg font-extrabold text-white">
                 {authTab === 'login' && 'Connexion'}
                 {authTab === 'register' && 'Inscription'}
+                {authTab === 'forgot' && 'Mot de passe oublié'}
               </h3>
               <button onClick={() => setShowAuthModal(false)} className="text-slate-400 hover:text-white">
                 <span className="material-symbols-outlined">close</span>
               </button>
             </div>
 
-            <div className="flex bg-[#1b2230] p-1 rounded-xl border border-[#2b374d]">
-              <button
-                type="button"
-                onClick={() => setAuthTab('login')}
-                className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${
-                  authTab === 'login' ? 'bg-[#00c2ff] text-slate-950 shadow-sm' : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                Connexion
-              </button>
-              <button
-                type="button"
-                onClick={() => setAuthTab('register')}
-                className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${
-                  authTab === 'register' ? 'bg-[#00c2ff] text-slate-950 shadow-sm' : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                Inscription
-              </button>
-            </div>
+            {authTab !== 'forgot' && (
+              <div className="flex bg-[#1b2230] p-1 rounded-xl border border-[#2b374d]">
+                <button
+                  type="button"
+                  onClick={() => setAuthTab('login')}
+                  className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${
+                    authTab === 'login' ? 'bg-[#00c2ff] text-slate-950 shadow-sm' : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  Connexion
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAuthTab('register')}
+                  className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${
+                    authTab === 'register' ? 'bg-[#00c2ff] text-slate-950 shadow-sm' : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  Inscription
+                </button>
+              </div>
+            )}
 
-            <form onSubmit={handleAuthSubmit} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-300 mb-1">Adresse Email</label>
-                <input 
-                  type="email"
-                  required
-                  value={authForm.email}
-                  onChange={e => setAuthForm({ ...authForm, email: e.target.value })}
-                  className="w-full bg-[#1b2230] border border-[#2b374d] rounded-xl p-3 text-xs text-white focus:border-[#00c2ff] outline-none"
-                  placeholder="nom@exemple.com"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-300 mb-1">Mot de passe</label>
-                <input 
-                  type="password"
-                  required
-                  value={authForm.password}
-                  onChange={e => setAuthForm({ ...authForm, password: e.target.value })}
-                  className="w-full bg-[#1b2230] border border-[#2b374d] rounded-xl p-3 text-xs text-white focus:border-[#00c2ff] outline-none"
-                  placeholder="••••••••"
-                />
-              </div>
-              <button 
-                type="submit"
-                className="w-full py-3 bg-[#00c2ff] text-slate-950 font-bold text-xs rounded-xl hover:bg-[#38d0ff] transition-all mt-4"
-              >
-                {authTab === 'register' ? "Créer mon compte" : "Se connecter"}
-              </button>
-            </form>
+            {authTab === 'forgot' ? (
+              <form onSubmit={handleForgotPasswordSubmit} className="space-y-4">
+                <p className="text-xs text-slate-400 -mt-2">
+                  Saisissez votre email et un nouveau mot de passe pour réinitialiser votre accès.
+                </p>
+                <div>
+                  <label className="block text-xs font-bold text-slate-300 mb-1">Adresse Email</label>
+                  <input
+                    type="email"
+                    required
+                    value={forgotForm.email}
+                    onChange={e => setForgotForm({ ...forgotForm, email: e.target.value })}
+                    className="w-full bg-[#1b2230] border border-[#2b374d] rounded-xl p-3 text-xs text-white focus:border-[#00c2ff] outline-none"
+                    placeholder="nom@exemple.com"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-300 mb-1">Nouveau mot de passe</label>
+                  <div className="relative">
+                    <input
+                      type={showAuthPassword ? "text" : "password"}
+                      required
+                      minLength={4}
+                      value={forgotForm.newPassword}
+                      onChange={e => setForgotForm({ ...forgotForm, newPassword: e.target.value })}
+                      className="w-full bg-[#1b2230] border border-[#2b374d] rounded-xl p-3 pr-10 text-xs text-white focus:border-[#00c2ff] outline-none"
+                      placeholder="••••••••"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowAuthPassword(!showAuthPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                      tabIndex={-1}
+                    >
+                      <span className="material-symbols-outlined text-[18px]">{showAuthPassword ? "visibility_off" : "visibility"}</span>
+                    </button>
+                  </div>
+                </div>
+                <button
+                  type="submit"
+                  className="w-full py-3 bg-[#00c2ff] text-slate-950 font-bold text-xs rounded-xl hover:bg-[#38d0ff] transition-all mt-4"
+                >
+                  Réinitialiser le mot de passe
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAuthTab('login')}
+                  className="w-full text-center text-xs text-slate-400 hover:text-white font-medium"
+                >
+                  ← Retour à la connexion
+                </button>
+              </form>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={handleGoogleAuth}
+                  className="w-full py-3 bg-white text-slate-900 font-bold text-xs rounded-xl hover:bg-slate-100 transition-all flex items-center justify-center gap-2 border border-slate-300"
+                >
+                  <svg width="16" height="16" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3c-1.6 4.6-6 8-11.3 8-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.5 6 29.5 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.7-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.5 15.9 18.9 13 24 13c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.5 6 29.5 4 24 4c-7.7 0-14.3 4.3-17.7 10.7z"/><path fill="#4CAF50" d="M24 44c5.4 0 10.3-1.8 14.1-5.1l-6.5-5.5C29.5 35.1 26.9 36 24 36c-5.3 0-9.7-3.4-11.3-8.1l-6.6 5.1C9.6 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.2 4.2-4 5.6l6.5 5.5C41.5 35.9 44 30.4 44 24c0-1.3-.1-2.7-.4-3.5z"/></svg>
+                  Continuer avec Google
+                </button>
+
+                <div className="flex items-center gap-3">
+                  <div className="h-px bg-[#263042] flex-1" />
+                  <span className="text-[10px] text-slate-500 font-bold">OU</span>
+                  <div className="h-px bg-[#263042] flex-1" />
+                </div>
+
+                <form onSubmit={handleAuthSubmit} className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-300 mb-1">Adresse Email</label>
+                    <input
+                      type="email"
+                      required
+                      value={authForm.email}
+                      onChange={e => setAuthForm({ ...authForm, email: e.target.value })}
+                      className="w-full bg-[#1b2230] border border-[#2b374d] rounded-xl p-3 text-xs text-white focus:border-[#00c2ff] outline-none"
+                      placeholder="nom@exemple.com"
+                    />
+                  </div>
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-xs font-bold text-slate-300">Mot de passe</label>
+                      {authTab === 'login' && (
+                        <button
+                          type="button"
+                          onClick={() => { setForgotForm({ email: authForm.email, newPassword: '' }); setAuthTab('forgot'); }}
+                          className="text-[11px] text-[#00c2ff] hover:underline font-semibold"
+                        >
+                          Mot de passe oublié ?
+                        </button>
+                      )}
+                    </div>
+                    <div className="relative">
+                      <input
+                        type={showAuthPassword ? "text" : "password"}
+                        required
+                        value={authForm.password}
+                        onChange={e => setAuthForm({ ...authForm, password: e.target.value })}
+                        className="w-full bg-[#1b2230] border border-[#2b374d] rounded-xl p-3 pr-10 text-xs text-white focus:border-[#00c2ff] outline-none"
+                        placeholder="••••••••"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowAuthPassword(!showAuthPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                        tabIndex={-1}
+                      >
+                        <span className="material-symbols-outlined text-[18px]">{showAuthPassword ? "visibility_off" : "visibility"}</span>
+                      </button>
+                    </div>
+                  </div>
+                  <button
+                    type="submit"
+                    className="w-full py-3 bg-[#00c2ff] text-slate-950 font-bold text-xs rounded-xl hover:bg-[#38d0ff] transition-all mt-4"
+                  >
+                    {authTab === 'register' ? "Créer mon compte" : "Se connecter"}
+                  </button>
+                </form>
+              </>
+            )}
           </div>
         </div>
       )}
