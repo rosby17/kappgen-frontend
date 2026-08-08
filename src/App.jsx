@@ -78,6 +78,13 @@ const SUBTITLE_PRESETS = [
 
 // Fonts actually installed on the render server (see Dockerfile) — what you pick here
 // is exactly what libass will use to burn the subtitles into the final video.
+const NICHE_OPTIONS = [
+  "Philosophie", "Stoïcisme", "Spiritualité", "Méditation", "Religion",
+  "Histoires Antiques", "Développement Personnel", "Motivation", "Récits Captivants",
+  "Mythologie", "Psychologie", "Finance", "Business", "Santé & Bien-être",
+  "Histoire", "Science", "Faits Divers", "True Crime", "Voyage", "Cuisine",
+];
+
 const SUBTITLE_FONTS = [
   { value: 'Montserrat', label: 'Montserrat (Moderne, Impact)' },
   { value: 'Bebas Neue', label: 'Bebas Neue (Grand, Display)' },
@@ -228,7 +235,36 @@ export default function App() {
   const [openVideoMenuId, setOpenVideoMenuId] = useState(null);
   const [editingTitleId, setEditingTitleId] = useState(null);
   const [editingTitleValue, setEditingTitleValue] = useState("");
-  const [playingVideoId, setPlayingVideoId] = useState(null);
+  const [nowTick, setNowTick] = useState(Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNowTick(Date.now()), 10000);
+    return () => clearInterval(t);
+  }, []);
+  const formatElapsed = (startedAt) => {
+    if (!startedAt) return null;
+    const secs = Math.max(0, Math.floor((nowTick - new Date(startedAt).getTime()) / 1000));
+    const m = Math.floor(secs / 60);
+    const s = secs % 60;
+    return m > 0 ? `${m}min ${s}s` : `${s}s`;
+  };
+  const formatDuration = (seconds) => {
+    if (!seconds && seconds !== 0) return null;
+    const total = Math.round(seconds);
+    const m = Math.floor(total / 60);
+    const s = total % 60;
+    return `${m}:${String(s).padStart(2, '0')}`;
+  };
+  const formatRelativeDate = (iso) => {
+    if (!iso) return '';
+    const diffMs = nowTick - new Date(iso).getTime();
+    const mins = Math.floor(diffMs / 60000);
+    if (mins < 1) return "à l'instant";
+    if (mins < 60) return `il y a ${mins} min`;
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return `il y a ${hours}h`;
+    const days = Math.floor(hours / 24);
+    return `il y a ${days}j`;
+  };
   const [submitStep, setSubmitStep] = useState(1); // 1 = form, 2 = confirm/preview before launch
 
   useEffect(() => {
@@ -1403,35 +1439,34 @@ export default function App() {
                             key={vid.id}
                             className="bg-[#161b22] hover:bg-[#1c232e] border border-[#263042] hover:border-[#00c2ff]/40 rounded-2xl p-4 transition-all group flex flex-col justify-between shadow-lg relative card-warm-hover video-menu-container"
                           >
-                            {/* Video Poster Frame — click plays inline, double-click opens the big preview (16:9) */}
+                            {/* Video Poster Frame — click opens the big preview player directly */}
                             <div
-                              onClick={() => vid.status === 'done' && setPlayingVideoId(vid.id)}
-                              onDoubleClick={() => vid.status === 'done' && setSelectedVideo(vid)}
+                              onClick={() => vid.status === 'done' && setSelectedVideo(vid)}
                               className={`aspect-[16/9] bg-slate-950 rounded-xl relative overflow-hidden border border-[#2b374d] flex items-center justify-center ${vid.status === 'done' ? 'cursor-pointer group' : ''}`}
                             >
                               {vid.status === 'done' && vid.output_path ? (
-                                playingVideoId === vid.id ? (
-                                  <VideoPlayer
+                                <>
+                                  <video
                                     src={getVideoUrl(vid.output_path)}
-                                    className="w-full h-full"
-                                    autoPlay
+                                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                    preload="metadata"
                                   />
-                                ) : (
-                                  <>
-                                    <video
-                                      src={getVideoUrl(vid.output_path)}
-                                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                                      preload="metadata"
-                                    />
-                                    <div className="absolute inset-0 bg-black/40 group-hover:bg-black/20 transition-colors flex items-center justify-center">
-                                      <span className="material-symbols-outlined text-[48px] text-[#00c2ff] drop-shadow-lg group-hover:scale-110 transition-transform">play_circle</span>
+                                  <div className="absolute inset-0 bg-black/40 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                                    <span className="material-symbols-outlined text-[48px] text-[#00c2ff] drop-shadow-lg group-hover:scale-110 transition-transform">play_circle</span>
+                                  </div>
+                                  {vid.duration_seconds != null && (
+                                    <div className="absolute bottom-2 right-2 bg-black/70 text-white text-[10px] font-mono font-bold px-1.5 py-0.5 rounded">
+                                      {formatDuration(vid.duration_seconds)}
                                     </div>
-                                  </>
-                                )
+                                  )}
+                                </>
                               ) : vid.status === 'rendering' ? (
                                 <div className="p-4 text-center space-y-2">
                                   <span className="material-symbols-outlined text-[36px] text-blue-400 animate-spin">progress_activity</span>
                                   <div className="text-[11px] font-bold font-mono text-blue-300">Rendu en cours...</div>
+                                  {vid.started_at && (
+                                    <div className="text-[10px] font-mono text-blue-400/80">{formatElapsed(vid.started_at)} écoulées</div>
+                                  )}
                                 </div>
                               ) : vid.status === 'failed' ? (
                                 <div className="p-4 text-center space-y-2">
@@ -1446,50 +1481,42 @@ export default function App() {
                               )}
 
                               {/* Status Badge Top Left */}
-                              {playingVideoId !== vid.id && (
-                                <div className="absolute top-2 left-2 z-10">
-                                  <span className={`px-2.5 py-0.5 rounded-lg text-[10px] font-mono font-bold uppercase tracking-wider ${
-                                    vid.status === 'done' ? 'bg-emerald-950/90 text-emerald-300 border border-emerald-700/80' :
-                                    vid.status === 'rendering' ? 'bg-blue-950/90 text-blue-300 border border-blue-700/80 animate-pulse' :
-                                    vid.status === 'failed' ? 'bg-rose-950/90 text-rose-300 border border-rose-700/80' :
-                                    'bg-amber-950/90 text-amber-300 border border-amber-700/80'
-                                  }`}>
-                                    {vid.status === 'done' ? 'Prête' : vid.status === 'rendering' ? 'Rendu...' : vid.status === 'failed' ? 'Échec' : 'En file'}
-                                  </span>
-                                </div>
-                              )}
+                              <div className="absolute top-2 left-2 z-10">
+                                <span className={`px-2.5 py-0.5 rounded-lg text-[10px] font-mono font-bold uppercase tracking-wider ${
+                                  vid.status === 'done' ? 'bg-emerald-950/90 text-emerald-300 border border-emerald-700/80' :
+                                  vid.status === 'rendering' ? 'bg-blue-950/90 text-blue-300 border border-blue-700/80 animate-pulse' :
+                                  vid.status === 'failed' ? 'bg-rose-950/90 text-rose-300 border border-rose-700/80' :
+                                  'bg-amber-950/90 text-amber-300 border border-amber-700/80'
+                                }`}>
+                                  {vid.status === 'done' ? 'Prête' : vid.status === 'rendering' ? 'Rendu...' : vid.status === 'failed' ? 'Échec' : 'En file'}
+                                </span>
+                              </div>
+                            </div>
 
-                              {/* Kebab Menu Top Right: Renommer / Télécharger / Voir un aperçu */}
-                              {playingVideoId !== vid.id && (
-                                <div className="absolute top-2 right-2 z-10">
-                                  <button
-                                    onClick={(e) => { e.stopPropagation(); setOpenVideoMenuId(openVideoMenuId === vid.id ? null : vid.id); }}
-                                    className="p-1.5 rounded-lg bg-slate-950/80 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-700/80 transition-colors shadow-md"
-                                    title="Actions vidéo"
-                                  >
-                                    <span className="material-symbols-outlined text-[16px]">more_vert</span>
+                            {/* Kebab Menu Top Right — rendered outside the poster frame so the
+                                dropdown (incl. "Supprimer") is never clipped by its overflow-hidden */}
+                            <div className="absolute top-6 right-6 z-20">
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setOpenVideoMenuId(openVideoMenuId === vid.id ? null : vid.id); }}
+                                className="p-1.5 rounded-lg bg-slate-950/80 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-700/80 transition-colors shadow-md"
+                                title="Actions vidéo"
+                              >
+                                <span className="material-symbols-outlined text-[16px]">more_vert</span>
+                              </button>
+                              {openVideoMenuId === vid.id && (
+                                <div className="absolute right-0 top-9 w-44 bg-[#1f2838] border border-[#2d3a52] rounded-xl shadow-2xl z-50 py-1.5">
+                                  <button onClick={(e) => startEditingTitle(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[#2c394e] hover:text-white flex items-center gap-2 font-medium">
+                                    <span className="material-symbols-outlined text-[16px] text-[#00c2ff]">edit</span> Renommer
                                   </button>
-                                  {openVideoMenuId === vid.id && (
-                                    <div className="absolute right-0 top-9 w-44 bg-[#1f2838] border border-[#2d3a52] rounded-xl shadow-2xl z-50 py-1.5">
-                                      <button onClick={(e) => startEditingTitle(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[#2c394e] hover:text-white flex items-center gap-2 font-medium">
-                                        <span className="material-symbols-outlined text-[16px] text-[#00c2ff]">edit</span> Renommer
-                                      </button>
-                                      {vid.status === 'done' && (
-                                        <>
-                                          <button onClick={(e) => handleDownloadVideo(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[#2c394e] hover:text-white flex items-center gap-2 font-medium">
-                                            <span className="material-symbols-outlined text-[16px] text-emerald-400">download</span> Télécharger
-                                          </button>
-                                          <button onClick={(e) => { e.stopPropagation(); setOpenVideoMenuId(null); setSelectedVideo(vid); }} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[#2c394e] hover:text-white flex items-center gap-2 font-medium">
-                                            <span className="material-symbols-outlined text-[16px] text-slate-300">open_in_full</span> Voir un aperçu
-                                          </button>
-                                        </>
-                                      )}
-                                      <div className="h-[1px] bg-[#2d3a52] my-1"></div>
-                                      <button onClick={(e) => handleDeleteVideo(vid.id, e)} className="w-full text-left px-4 py-2.5 text-xs text-rose-400 hover:bg-rose-950/50 flex items-center gap-2 font-medium">
-                                        <span className="material-symbols-outlined text-[16px]">delete</span> Supprimer
-                                      </button>
-                                    </div>
+                                  {vid.status === 'done' && (
+                                    <button onClick={(e) => handleDownloadVideo(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[#2c394e] hover:text-white flex items-center gap-2 font-medium">
+                                      <span className="material-symbols-outlined text-[16px] text-emerald-400">download</span> Télécharger
+                                    </button>
                                   )}
+                                  <div className="h-[1px] bg-[#2d3a52] my-1"></div>
+                                  <button onClick={(e) => handleDeleteVideo(vid.id, e)} className="w-full text-left px-4 py-2.5 text-xs text-rose-400 hover:bg-rose-950/50 flex items-center gap-2 font-medium">
+                                    <span className="material-symbols-outlined text-[16px]">delete</span> Supprimer
+                                  </button>
                                 </div>
                               )}
                             </div>
@@ -1532,28 +1559,22 @@ export default function App() {
                                     {vid.script_text}
                                   </p>
                                 )}
+                                <p className="text-[10px] text-slate-500 mt-1 font-mono">
+                                  {formatRelativeDate(vid.finished_at || vid.created_at)}
+                                </p>
                               </div>
 
                               {/* Card Action Buttons */}
-                              <div className="pt-2 border-t border-[#202938] flex items-center gap-2">
-                                {vid.status === 'done' && (
-                                  <button
-                                    onClick={() => setSelectedVideo(vid)}
-                                    className="flex-1 py-1.5 bg-[#00c2ff] text-slate-950 rounded-xl font-bold text-xs hover:bg-[#38d0ff] transition-all flex items-center justify-center gap-1 shadow-md shadow-[#00c2ff]/20"
-                                  >
-                                    <span className="material-symbols-outlined text-[16px]">play_circle</span> Voir
-                                  </button>
-                                )}
-
-                                {vid.status === 'failed' && (
+                              {vid.status === 'failed' && (
+                                <div className="pt-2 border-t border-[#202938] flex items-center gap-2">
                                   <button
                                     onClick={() => handleRetryVideo(vid.id)}
                                     className="flex-1 py-1.5 bg-[#1f2838] text-white rounded-xl font-bold text-xs hover:bg-[#2b384e] transition-all flex items-center justify-center gap-1 border border-[#2b374d]"
                                   >
                                     <span className="material-symbols-outlined text-[16px]">refresh</span> Relancer
                                   </button>
-                                )}
-                              </div>
+                                </div>
+                              )}
                             </div>
                           </div>
                         );
@@ -1628,35 +1649,34 @@ export default function App() {
                           key={vid.id}
                           className="bg-[#161b22] hover:bg-[#1c232e] border border-[#263042] hover:border-[#00c2ff]/40 rounded-2xl p-4 transition-all group flex flex-col justify-between shadow-lg relative card-warm-hover video-menu-container"
                         >
-                          {/* Thumbnail Poster — click plays inline, double-click opens the big preview (16:9) */}
+                          {/* Thumbnail Poster — click opens the big preview player directly */}
                           <div
-                            onClick={() => vid.status === 'done' && setPlayingVideoId(vid.id)}
-                            onDoubleClick={() => vid.status === 'done' && setSelectedVideo(vid)}
+                            onClick={() => vid.status === 'done' && setSelectedVideo(vid)}
                             className={`aspect-[16/9] bg-slate-950 rounded-xl relative overflow-hidden border border-[#2b374d] flex items-center justify-center ${vid.status === 'done' ? 'cursor-pointer group' : ''}`}
                           >
                             {vid.status === 'done' && vid.output_path ? (
-                              playingVideoId === vid.id ? (
-                                <VideoPlayer
+                              <>
+                                <video
                                   src={getVideoUrl(vid.output_path)}
-                                  className="w-full h-full"
-                                  autoPlay
+                                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                  preload="metadata"
                                 />
-                              ) : (
-                                <>
-                                  <video
-                                    src={getVideoUrl(vid.output_path)}
-                                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                                    preload="metadata"
-                                  />
-                                  <div className="absolute inset-0 bg-black/40 group-hover:bg-black/20 transition-colors flex items-center justify-center">
-                                    <span className="material-symbols-outlined text-[48px] text-[#00c2ff] drop-shadow-lg group-hover:scale-110 transition-transform">play_circle</span>
+                                <div className="absolute inset-0 bg-black/40 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                                  <span className="material-symbols-outlined text-[48px] text-[#00c2ff] drop-shadow-lg group-hover:scale-110 transition-transform">play_circle</span>
+                                </div>
+                                {vid.duration_seconds != null && (
+                                  <div className="absolute bottom-2 right-2 bg-black/70 text-white text-[10px] font-mono font-bold px-1.5 py-0.5 rounded">
+                                    {formatDuration(vid.duration_seconds)}
                                   </div>
-                                </>
-                              )
+                                )}
+                              </>
                             ) : vid.status === 'rendering' ? (
                               <div className="p-4 text-center space-y-2">
                                 <span className="material-symbols-outlined text-[36px] text-blue-400 animate-spin">progress_activity</span>
                                 <div className="text-[11px] font-bold font-mono text-blue-300">Rendu...</div>
+                                {vid.started_at && (
+                                  <div className="text-[10px] font-mono text-blue-400/80">{formatElapsed(vid.started_at)} écoulées</div>
+                                )}
                               </div>
                             ) : vid.status === 'failed' ? (
                               <div className="p-4 text-center space-y-2">
@@ -1671,97 +1691,85 @@ export default function App() {
                             )}
 
                             {/* Status Badge */}
-                            {playingVideoId !== vid.id && (
-                              <div className="absolute top-2 left-2 z-10">
-                                <span className={`px-2 py-0.5 rounded-lg text-[10px] font-mono font-bold uppercase tracking-wider ${
-                                  vid.status === 'done' ? 'bg-emerald-950/90 text-emerald-300 border border-emerald-700/80' :
-                                  vid.status === 'rendering' ? 'bg-blue-950/90 text-blue-300 border border-blue-700/80 animate-pulse' :
-                                  vid.status === 'failed' ? 'bg-rose-950/90 text-rose-300 border border-rose-700/80' :
-                                  'bg-amber-950/90 text-amber-300 border border-amber-700/80'
-                                }`}>
-                                  {vid.status === 'done' ? 'Prête' : vid.status === 'rendering' ? 'Rendu...' : vid.status === 'failed' ? 'Échec' : 'En file'}
-                                </span>
-                              </div>
-                            )}
+                            <div className="absolute top-2 left-2 z-10">
+                              <span className={`px-2 py-0.5 rounded-lg text-[10px] font-mono font-bold uppercase tracking-wider ${
+                                vid.status === 'done' ? 'bg-emerald-950/90 text-emerald-300 border border-emerald-700/80' :
+                                vid.status === 'rendering' ? 'bg-blue-950/90 text-blue-300 border border-blue-700/80 animate-pulse' :
+                                vid.status === 'failed' ? 'bg-rose-950/90 text-rose-300 border border-rose-700/80' :
+                                'bg-amber-950/90 text-amber-300 border border-amber-700/80'
+                              }`}>
+                                {vid.status === 'done' ? 'Prête' : vid.status === 'rendering' ? 'Rendu...' : vid.status === 'failed' ? 'Échec' : 'En file'}
+                              </span>
+                            </div>
+                          </div>
 
-                            {/* Kebab Menu: Renommer / Télécharger / Voir un aperçu */}
-                            {playingVideoId !== vid.id && (
-                              <div className="absolute top-2 right-2 z-10">
-                                <button
-                                  onClick={(e) => { e.stopPropagation(); setOpenVideoMenuId(openVideoMenuId === vid.id ? null : vid.id); }}
-                                  className="p-1.5 rounded-lg bg-slate-950/80 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-700/80 transition-colors shadow-md"
-                                  title="Actions vidéo"
-                                >
-                                  <span className="material-symbols-outlined text-[16px]">more_vert</span>
+                          {/* Kebab Menu — outside the poster's overflow-hidden so "Supprimer" is never clipped */}
+                          <div className="absolute top-6 right-6 z-20">
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setOpenVideoMenuId(openVideoMenuId === vid.id ? null : vid.id); }}
+                              className="p-1.5 rounded-lg bg-slate-950/80 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-700/80 transition-colors shadow-md"
+                              title="Actions vidéo"
+                            >
+                              <span className="material-symbols-outlined text-[16px]">more_vert</span>
+                            </button>
+                            {openVideoMenuId === vid.id && (
+                              <div className="absolute right-0 top-9 w-44 bg-[#1f2838] border border-[#2d3a52] rounded-xl shadow-2xl z-50 py-1.5">
+                                <button onClick={(e) => startEditingTitle(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[#2c394e] hover:text-white flex items-center gap-2 font-medium">
+                                  <span className="material-symbols-outlined text-[16px] text-[#00c2ff]">edit</span> Renommer
                                 </button>
-                                {openVideoMenuId === vid.id && (
-                                  <div className="absolute right-0 top-9 w-44 bg-[#1f2838] border border-[#2d3a52] rounded-xl shadow-2xl z-50 py-1.5">
-                                    <button onClick={(e) => startEditingTitle(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[#2c394e] hover:text-white flex items-center gap-2 font-medium">
-                                      <span className="material-symbols-outlined text-[16px] text-[#00c2ff]">edit</span> Renommer
-                                    </button>
-                                    {vid.status === 'done' && (
-                                      <>
-                                        <button onClick={(e) => handleDownloadVideo(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[#2c394e] hover:text-white flex items-center gap-2 font-medium">
-                                          <span className="material-symbols-outlined text-[16px] text-emerald-400">download</span> Télécharger
-                                        </button>
-                                        <button onClick={(e) => { e.stopPropagation(); setOpenVideoMenuId(null); setSelectedVideo(vid); }} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[#2c394e] hover:text-white flex items-center gap-2 font-medium">
-                                          <span className="material-symbols-outlined text-[16px] text-slate-300">open_in_full</span> Voir un aperçu
-                                        </button>
-                                      </>
-                                    )}
-                                    <div className="h-[1px] bg-[#2d3a52] my-1"></div>
-                                    <button onClick={(e) => handleDeleteVideo(vid.id, e)} className="w-full text-left px-4 py-2.5 text-xs text-rose-400 hover:bg-rose-950/50 flex items-center gap-2 font-medium">
-                                      <span className="material-symbols-outlined text-[16px]">delete</span> Supprimer
-                                    </button>
-                                  </div>
+                                {vid.status === 'done' && (
+                                  <button onClick={(e) => handleDownloadVideo(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[#2c394e] hover:text-white flex items-center gap-2 font-medium">
+                                    <span className="material-symbols-outlined text-[16px] text-emerald-400">download</span> Télécharger
+                                  </button>
                                 )}
+                                <div className="h-[1px] bg-[#2d3a52] my-1"></div>
+                                <button onClick={(e) => handleDeleteVideo(vid.id, e)} className="w-full text-left px-4 py-2.5 text-xs text-rose-400 hover:bg-rose-950/50 flex items-center gap-2 font-medium">
+                                  <span className="material-symbols-outlined text-[16px]">delete</span> Supprimer
+                                </button>
                               </div>
                             )}
                           </div>
 
                           {/* Info & Title */}
                           <div className="mt-3 space-y-2 flex-1 flex flex-col justify-between">
-                            {editingTitleId === vid.id ? (
-                              <input
-                                autoFocus
-                                value={editingTitleValue}
-                                onChange={(e) => setEditingTitleValue(e.target.value)}
-                                onClick={(e) => e.stopPropagation()}
-                                onBlur={() => commitTitleEdit(vid)}
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter') { e.currentTarget.blur(); }
-                                  if (e.key === 'Escape') { setEditingTitleId(null); }
-                                }}
-                                className="w-full bg-[#1b2230] border border-[#00c2ff] rounded-lg px-2 py-1 text-white text-xs font-semibold outline-none"
-                              />
-                            ) : (
-                              <p
-                                onDoubleClick={(e) => startEditingTitle(vid, e)}
-                                className="text-white text-xs font-semibold line-clamp-2 cursor-text"
-                                title="Double-cliquez pour renommer"
-                              >
-                                {vid.script_text}
-                              </p>
-                            )}
-
-                            <div className="pt-2 border-t border-[#202938] flex items-center gap-2">
-                              {vid.status === 'done' && (
-                                <button
-                                  onClick={() => setSelectedVideo(vid)}
-                                  className="flex-1 py-1.5 bg-[#00c2ff] text-slate-950 rounded-xl font-bold text-xs hover:bg-[#38d0ff] transition-all flex items-center justify-center gap-1 shadow-md shadow-[#00c2ff]/20"
+                            <div>
+                              {editingTitleId === vid.id ? (
+                                <input
+                                  autoFocus
+                                  value={editingTitleValue}
+                                  onChange={(e) => setEditingTitleValue(e.target.value)}
+                                  onClick={(e) => e.stopPropagation()}
+                                  onBlur={() => commitTitleEdit(vid)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') { e.currentTarget.blur(); }
+                                    if (e.key === 'Escape') { setEditingTitleId(null); }
+                                  }}
+                                  className="w-full bg-[#1b2230] border border-[#00c2ff] rounded-lg px-2 py-1 text-white text-xs font-semibold outline-none"
+                                />
+                              ) : (
+                                <p
+                                  onDoubleClick={(e) => startEditingTitle(vid, e)}
+                                  className="text-white text-xs font-semibold line-clamp-2 cursor-text"
+                                  title="Double-cliquez pour renommer"
                                 >
-                                  <span className="material-symbols-outlined text-[16px]">play_circle</span> Voir
-                                </button>
+                                  {vid.script_text}
+                                </p>
                               )}
-                              {vid.status === 'failed' && (
+                              <p className="text-[10px] text-slate-500 mt-1 font-mono">
+                                {formatRelativeDate(vid.finished_at || vid.created_at)}
+                              </p>
+                            </div>
+
+                            {vid.status === 'failed' && (
+                              <div className="pt-2 border-t border-[#202938] flex items-center gap-2">
                                 <button
                                   onClick={() => handleRetryVideo(vid.id)}
                                   className="flex-1 py-1.5 bg-[#1f2838] text-white rounded-xl font-bold text-xs hover:bg-[#2b384e] transition-all flex items-center justify-center gap-1 border border-[#2b374d]"
                                 >
                                   <span className="material-symbols-outlined text-[16px]">refresh</span> Relancer
                                 </button>
-                              )}
-                            </div>
+                              </div>
+                            )}
                           </div>
                         </div>
                       ))}
@@ -1860,17 +1868,16 @@ export default function App() {
 
                       <div>
                         <label className="block text-xs font-bold text-slate-300 mb-2">Niche de contenu</label>
-                        <select 
+                        <input
+                          list="niche-options"
                           value={newChannel.niche}
                           onChange={e => setNewChannel({ ...newChannel, niche: e.target.value })}
                           className="w-full bg-[#1b2230] border border-[#2b374d] rounded-xl px-4 py-3 text-sm text-white focus:border-[#00c2ff] outline-none"
-                        >
-                          <option value="Philosophie & Stoïcisme">Philosophie & Stoïcisme</option>
-                          <option value="Spiritualité & Méditation">Spiritualité & Méditation</option>
-                          <option value="Religion & Récits Antiquité">Religion & Récits Antiquité</option>
-                          <option value="Développement Personnel">Développement Personnel</option>
-                          <option value="Histoires & Récits Captivants">Histoires & Récits Captivants</option>
-                        </select>
+                          placeholder="Choisissez ou saisissez votre propre niche"
+                        />
+                        <datalist id="niche-options">
+                          {NICHE_OPTIONS.map(n => <option key={n} value={n} />)}
+                        </datalist>
                       </div>
                     </div>
 
