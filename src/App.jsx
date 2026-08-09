@@ -195,6 +195,75 @@ function VideoPlayer({ src, autoPlay, className }) {
   );
 }
 
+const formatMediaTime = (seconds) => {
+  if (!Number.isFinite(seconds)) return '0:00';
+  const minutes = Math.floor(seconds / 60);
+  return `${minutes}:${Math.floor(seconds % 60).toString().padStart(2, '0')}`;
+};
+
+const subtitlePositionClass = (position) => {
+  const normalized = String(position || 'bottom').toLowerCase();
+  if (normalized === 'top') return 'top-[12%]';
+  if (normalized === 'center') return 'top-1/2 -translate-y-1/2';
+  return 'bottom-[12%]';
+};
+
+function AudioFilePreview({ file }) {
+  const audioRef = useRef(null);
+  const [src, setSrc] = useState('');
+  const [playing, setPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+
+  useEffect(() => {
+    const objectUrl = URL.createObjectURL(file);
+    setSrc(objectUrl);
+    return () => URL.revokeObjectURL(objectUrl);
+  }, [file]);
+
+  const togglePlayback = async (event) => {
+    event.stopPropagation();
+    const audio = audioRef.current;
+    if (!audio) return;
+    if (audio.paused) await audio.play();
+    else audio.pause();
+  };
+
+  const seek = (event) => {
+    event.stopPropagation();
+    const audio = audioRef.current;
+    if (!audio || !duration) return;
+    audio.currentTime = Number(event.target.value);
+  };
+
+  return (
+    <div className="rounded-xl border border-[#2b374d] bg-[#11151c] p-3" onClick={(event) => event.stopPropagation()}>
+      <audio
+        ref={audioRef}
+        src={src}
+        preload="metadata"
+        onLoadedMetadata={(event) => setDuration(event.currentTarget.duration || 0)}
+        onTimeUpdate={(event) => setCurrentTime(event.currentTarget.currentTime)}
+        onPlay={() => setPlaying(true)}
+        onPause={() => setPlaying(false)}
+        onEnded={() => setPlaying(false)}
+      />
+      <div className="flex items-center gap-3">
+        <button type="button" onClick={togglePlayback} className="w-9 h-9 shrink-0 rounded-full bg-[#00c2ff] text-slate-950 flex items-center justify-center hover:bg-[#39d0ff]">
+          <span className="material-symbols-outlined text-[22px]">{playing ? 'pause' : 'play_arrow'}</span>
+        </button>
+        <div className="min-w-0 flex-1">
+          <div className="text-xs font-semibold text-white truncate mb-2">{file.name}</div>
+          <input type="range" min="0" max={duration || 0} step="0.01" value={Math.min(currentTime, duration || 0)} onChange={seek} className="w-full h-1 accent-[#00c2ff] cursor-pointer" />
+          <div className="flex justify-between text-[10px] font-mono text-slate-400 mt-1">
+            <span>{formatMediaTime(currentTime)}</span><span>{formatMediaTime(duration)}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function SkeletonGrid({ count = 6, cardClassName = "min-h-[220px]" }) {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -2190,9 +2259,9 @@ export default function App() {
                     {/* Live Subtitle Preview — matches the real ASS/libass render */}
                     <div>
                       <label className="block text-xs font-bold text-slate-300 mb-2">Aperçu en direct</label>
-                      <div className="w-full h-40 rounded-2xl bg-gradient-to-b from-slate-900 to-black border border-[#2b374d] flex items-center justify-center relative overflow-hidden px-6">
+                      <div className="w-full h-40 rounded-2xl bg-gradient-to-b from-slate-900 to-black border border-[#2b374d] relative overflow-hidden px-6">
                         <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(0,194,255,0.08),transparent_70%)]"></div>
-                        <div className="relative z-10 flex flex-wrap justify-center items-center gap-2 text-center">
+                        <div className={`absolute inset-x-6 z-10 flex flex-wrap justify-center items-center gap-2 text-center ${subtitlePositionClass(newChannel.subtitle_style.position)}`}>
                           {sampleWords.map((wordObj, i) => (
                             <span
                               key={i}
@@ -2496,10 +2565,8 @@ export default function App() {
                             )}
                           </div>
 
-                          {/* Bottom Section: Karaoke Subtitles & Music Badge inside Mockup */}
-                          <div className="relative z-20 space-y-3">
-
-                            {/* Animated Karaoké Subtitle Rendering */}
+                          {/* Animated subtitle at the exact configured vertical position */}
+                          <div className={`absolute inset-x-5 z-20 flex justify-center ${subtitlePositionClass(newChannel.subtitle_style.position)}`}>
                             <div
                               style={{
                                 backgroundColor: newChannel.subtitle_style.box_color || 'transparent',
@@ -2528,19 +2595,18 @@ export default function App() {
                                 </span>
                               ))}
                             </div>
+                          </div>
 
-                            {/* Music Preference Indicator Badge */}
-                            <div className="flex justify-center">
+                          {/* Music Preference Indicator Badge */}
+                          <div className="absolute bottom-3 inset-x-0 z-20 flex justify-center">
                               <div className="bg-black/60 backdrop-blur-md px-3 py-1 rounded-full text-[10px] text-slate-300 font-mono flex items-center gap-1.5 border border-white/10">
                                 <span className="material-symbols-outlined text-[12px] text-[#00c2ff] animate-spin">music_note</span>
                                 Musique: {newChannel.music_preference.track_id_or_style || 'Ambiant'} ({Math.round((newChannel.music_preference.volume || 0.15) * 100)}%)
                               </div>
-                            </div>
                           </div>
-
-                        </div>
                       </div>
                     </div>
+                  </div>
                   );
                 })()}
 
@@ -2707,11 +2773,7 @@ export default function App() {
                     <div className="text-[11px] text-slate-400 mt-1">ou cliquez pour choisir des fichiers</div>
                     {audioFilesList.length > 0 && (
                       <div className="mt-4 space-y-1">
-                        {audioFilesList.map((f, i) => (
-                          <div key={i} className="text-xs font-mono text-emerald-400 bg-emerald-950/60 p-2 rounded-lg border border-emerald-800">
-                            {f.name}
-                          </div>
-                        ))}
+                        {audioFilesList.map((f, i) => <AudioFilePreview key={`${f.name}-${f.size}-${i}`} file={f} />)}
                       </div>
                     )}
                   </div>
@@ -2733,10 +2795,6 @@ export default function App() {
               <>
                 {/* Confirmation / preview summary before launching the render */}
                 <div className="space-y-3">
-                  <div className="flex items-center justify-between bg-[#11151c] border border-[#202938] rounded-xl p-3">
-                    <span className="text-xs text-slate-400">Mode</span>
-                    <span className="text-xs font-bold text-white">{submitMode === 'text' ? 'Texte Script (IA)' : 'Fichiers Audio Importés'}</span>
-                  </div>
                   {submitMode === 'text' && (
                     <div className="flex items-center justify-between bg-[#11151c] border border-[#202938] rounded-xl p-3">
                       <span className="text-xs text-slate-400">Voix off</span>
@@ -2749,8 +2807,16 @@ export default function App() {
                   <div>
                     <div className="text-xs text-slate-400 mb-2">Aperçu visuel du rendu final</div>
                     <div className="w-full aspect-video rounded-2xl overflow-hidden relative border border-[#2b374d] shadow-lg">
+                      {activeChannel.image_style?.source !== 'ai_generated' && (
+                        <img
+                          src={`${API_BASE}/channels/${activeChannel.id}/library-preview`}
+                          alt="Image aléatoire de la bibliothèque"
+                          className="absolute inset-0 w-full h-full object-cover"
+                          onError={(event) => { event.currentTarget.style.display = 'none'; }}
+                        />
+                      )}
                       <div
-                        className="absolute inset-0"
+                        className="absolute inset-0 opacity-60"
                         style={{
                           background: activeChannel.effects_config?.color_grade === 'warm'
                             ? 'linear-gradient(160deg, #3a2a1a 0%, #1a1208 60%, #0a0705 100%)'
@@ -2779,10 +2845,7 @@ export default function App() {
                         </div>
                       )}
                       <div
-                        className={`absolute inset-x-0 flex justify-center px-6 ${
-                          activeChannel.subtitle_style?.position === 'top' ? 'top-6' :
-                          activeChannel.subtitle_style?.position === 'center' ? 'top-1/2 -translate-y-1/2' : 'bottom-6'
-                        }`}
+                        className={`absolute inset-x-0 flex justify-center px-6 ${subtitlePositionClass(activeChannel.subtitle_style?.position)}`}
                       >
                         <div className="flex flex-wrap justify-center items-center gap-1.5 text-center">
                           {sampleWords.map((wordObj, i) => (
@@ -2817,12 +2880,8 @@ export default function App() {
                     {submitMode === 'text' ? (
                       <p className="text-xs text-white line-clamp-4">{singleScriptText}</p>
                     ) : (
-                      <div className="space-y-1">
-                        {audioFilesList.map((f, i) => (
-                          <div key={i} className="text-xs font-mono text-emerald-400 bg-emerald-950/60 p-2 rounded-lg border border-emerald-800">
-                            {f.name}
-                          </div>
-                        ))}
+                      <div className="space-y-2">
+                        {audioFilesList.map((f, i) => <AudioFilePreview key={`${f.name}-${f.size}-${i}`} file={f} />)}
                       </div>
                     )}
                   </div>
