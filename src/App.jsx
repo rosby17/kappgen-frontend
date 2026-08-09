@@ -3067,7 +3067,6 @@ export default function App() {
               {[
                 { key: 'sd', label: 'SD', detail: '854×480 — fichier léger, partage rapide' },
                 { key: 'hd', label: 'HD', detail: '1920×1080 — qualité native du rendu' },
-                { key: '4k', label: '4K (upscale IA)', detail: '3840×2160 — upscale, source native en HD' },
               ].map(opt => (
                 <button
                   key={opt.key}
