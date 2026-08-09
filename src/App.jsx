@@ -346,9 +346,21 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [videoFilterChannelId, setVideoFilterChannelId] = useState('all');
   const [toast, setToast] = useState(null); // { message, type: 'success' | 'error' }
+  const [confirmDialog, setConfirmDialog] = useState(null); // { title, message, danger, resolve }
 
   const showToast = (message, type = 'success') => {
     setToast({ message, type });
+  };
+
+  const askConfirm = (message, { title = "Confirmer l'action", danger = false } = {}) => {
+    return new Promise((resolve) => {
+      setConfirmDialog({ title, message, danger, resolve });
+    });
+  };
+
+  const resolveConfirm = (value) => {
+    if (confirmDialog) confirmDialog.resolve(value);
+    setConfirmDialog(null);
   };
 
   useEffect(() => {
@@ -575,10 +587,10 @@ export default function App() {
         setShowAuthModal(false);
       } else {
         const err = await res.json();
-        alert(err.detail || "Erreur d'authentification.");
+        showToast(err.detail || "Erreur d'authentification.", "error");
       }
     } catch (err) {
-      alert("Erreur réseau: " + err.message);
+      showToast("Erreur réseau: " + err.message, "error");
     } finally {
       setLoading(false);
     }
@@ -600,10 +612,10 @@ export default function App() {
         setAuthTab('login');
       } else {
         const err = await res.json();
-        alert(err.detail || "Erreur lors de la réinitialisation.");
+        showToast(err.detail || "Erreur lors de la réinitialisation.", "error");
       }
     } catch (err) {
-      alert("Erreur réseau: " + err.message);
+      showToast("Erreur réseau: " + err.message, "error");
     } finally {
       setLoading(false);
     }
@@ -758,7 +770,8 @@ export default function App() {
   };
 
   const handleRevokeApiKey = async (keyId) => {
-    if (!confirm("Révoquer cette clé API ? Toute application qui l'utilise perdra l'accès immédiatement.")) return;
+    const ok = await askConfirm("Toute application qui l'utilise perdra l'accès immédiatement.", { title: "Révoquer cette clé API ?", danger: true });
+    if (!ok) return;
     try {
       await fetch(`${API_BASE}/api-keys/${keyId}`, { method: 'DELETE' });
       fetchApiKeys();
@@ -941,7 +954,7 @@ export default function App() {
   };
 
   const handleSaveChannel = async () => {
-    if (!newChannel.name) return alert("Veuillez saisir un nom de chaîne.");
+    if (!newChannel.name) return showToast("Veuillez saisir un nom de chaîne.", "error");
     const needsLibrary = newChannel.image_style.source === 'library' || newChannel.image_style.source === 'hybrid';
     const uploadReady = libraryUploadStatus === 'success';
     const hasStoredLibrary = Number(newChannel.image_style.library_image_count || 0) > 0
@@ -1006,7 +1019,7 @@ export default function App() {
       fetchChannelVideos(saved.id);
       resetWizardState();
     } catch (e) {
-      alert("Erreur lors de l'enregistrement de la chaîne: " + e.message);
+      showToast("Erreur lors de l'enregistrement de la chaîne: " + e.message, "error");
     } finally {
       setLoading(false);
     }
@@ -1041,7 +1054,7 @@ export default function App() {
   };
 
   const handleSubjectSubmit = async () => {
-    if (!activeChannel) return alert("Veuillez sélectionner une chaîne.");
+    if (!activeChannel) return showToast("Veuillez sélectionner une chaîne.", "error");
 
     const formData = new FormData();
     formData.append("channel_id", activeChannel.id);
@@ -1049,10 +1062,10 @@ export default function App() {
     formData.append("voice_id", selectedVoice);
 
     if (submitMode === 'text') {
-      if (!singleScriptText.trim()) return alert("Veuillez saisir le texte de votre script.");
+      if (!singleScriptText.trim()) return showToast("Veuillez saisir le texte de votre script.", "error");
       formData.append("script_text", singleScriptText.trim());
     } else if (submitMode === 'audio_upload') {
-      if (audioFilesList.length === 0) return alert("Veuillez glisser-déposer au moins un fichier audio.");
+      if (audioFilesList.length === 0) return showToast("Veuillez glisser-déposer au moins un fichier audio.", "error");
       audioFilesList.forEach(file => {
         formData.append("audio_files", file);
       });
@@ -1096,7 +1109,8 @@ export default function App() {
   const handleDeleteVideo = async (videoId, e) => {
     if (e) e.stopPropagation();
     setOpenVideoMenuId(null);
-    if (!confirm("Voulez-vous vraiment supprimer cette vidéo ?")) return;
+    const ok = await askConfirm("Cette action est définitive et supprimera le fichier rendu.", { title: "Supprimer cette vidéo ?", danger: true });
+    if (!ok) return;
     try {
       await fetch(`${API_BASE}/videos/${videoId}`, { method: 'DELETE' });
       fetchAllVideos();
@@ -1176,7 +1190,8 @@ export default function App() {
   const handleDeleteChannel = async (channelId, e) => {
     e.stopPropagation();
     setOpenChannelMenuId(null);
-    if (!confirm("Voulez-vous vraiment supprimer cette chaîne ? All videos and settings will be removed.")) return;
+    const ok = await askConfirm("Toutes les vidéos et paramètres associés seront supprimés définitivement.", { title: "Supprimer cette chaîne ?", danger: true });
+    if (!ok) return;
     try {
       await fetch(`${API_BASE}/channels/${channelId}`, { method: 'DELETE' });
       fetchChannels();
@@ -3479,6 +3494,40 @@ export default function App() {
             <button onClick={() => setToast(null)} className="ml-2 opacity-70 hover:opacity-100">
               <span className="material-symbols-outlined text-[16px]">close</span>
             </button>
+          </div>
+        </div>
+      )}
+
+      {confirmDialog && (
+        <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-[110] flex items-center justify-center p-6">
+          <div className="bg-[#161b22] border border-[#263042] rounded-3xl p-7 max-w-[420px] w-full shadow-2xl space-y-5">
+            <div className="flex items-start gap-3">
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${confirmDialog.danger ? 'bg-rose-950 text-rose-300' : 'bg-[#1b2230] text-[#00c2ff]'}`}>
+                <span className="material-symbols-outlined text-[20px]">{confirmDialog.danger ? 'warning' : 'help'}</span>
+              </div>
+              <div>
+                <h3 className="text-base font-extrabold text-white">{confirmDialog.title}</h3>
+                <p className="text-sm text-slate-400 mt-1">{confirmDialog.message}</p>
+              </div>
+            </div>
+            <div className="flex justify-end gap-3 pt-1">
+              <button
+                onClick={() => resolveConfirm(false)}
+                className="px-4 py-2.5 bg-[#1b2230] text-slate-300 border border-[#2b374d] rounded-xl font-bold text-xs hover:bg-[#232c3a] transition-all"
+              >
+                Annuler
+              </button>
+              <button
+                onClick={() => resolveConfirm(true)}
+                className={`px-4 py-2.5 rounded-xl font-bold text-xs transition-all ${
+                  confirmDialog.danger
+                    ? 'bg-rose-600 text-white hover:bg-rose-500'
+                    : 'bg-[#00c2ff] text-slate-950 hover:bg-[#38d0ff]'
+                }`}
+              >
+                Confirmer
+              </button>
+            </div>
           </div>
         </div>
       )}
