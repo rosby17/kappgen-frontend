@@ -293,6 +293,8 @@ export default function App() {
   const [view, setView] = useState(() => sessionStorage.getItem('nichecut_view') || 'home'); // 'home', 'channels', 'videos', 'channel_detail', 'wizard'
   const [channelsLoaded, setChannelsLoaded] = useState(false);
   const [videosLoaded, setVideosLoaded] = useState(false);
+  const [channelsLoadError, setChannelsLoadError] = useState('');
+  const [videosLoadError, setVideosLoadError] = useState('');
   const [selectedVideo, setSelectedVideo] = useState(null);
   
   // Modals & Menu Popups
@@ -468,13 +470,18 @@ export default function App() {
 
   const fetchChannels = async () => {
     try {
-      const res = await fetch(`${API_BASE}/channels`);
-      if (res.ok) {
-        const data = await res.json();
-        setChannels(data);
-      }
+      const url = currentUser
+        ? `${API_BASE}/channels?user_id=${encodeURIComponent(currentUser.id)}`
+        : `${API_BASE}/channels`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`API ${res.status}`);
+      const data = await res.json();
+      if (!Array.isArray(data)) throw new Error('Réponse API invalide');
+      setChannels(data);
+      setChannelsLoadError('');
     } catch (e) {
       console.error("API error loading channels:", e);
+      setChannelsLoadError("Impossible de charger vos chaînes. Vérifiez que l’API NicheCut est accessible.");
     } finally {
       setChannelsLoaded(true);
     }
@@ -482,14 +489,18 @@ export default function App() {
 
   const fetchAllVideos = async () => {
     try {
-      const res = await fetch(`${API_BASE}/videos`);
-      if (res.ok) {
-        const data = await res.json();
-        setAllVideos(data);
-      }
+      const url = currentUser
+        ? `${API_BASE}/videos?user_id=${encodeURIComponent(currentUser.id)}`
+        : `${API_BASE}/videos`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`API ${res.status}`);
+      const data = await res.json();
+      if (!Array.isArray(data)) throw new Error('Réponse API invalide');
+      setAllVideos(data);
+      setVideosLoadError('');
     } catch (e) {
-      // Fallback: aggregate from channel videos if route not ready
-      console.log("Fetching channel videos fallback");
+      console.error("API error loading videos:", e);
+      setVideosLoadError("Impossible de charger vos vidéos. Vérifiez que l’API NicheCut est accessible.");
     } finally {
       setVideosLoaded(true);
     }
@@ -544,7 +555,7 @@ export default function App() {
       }
     }, 6000);
     return () => clearInterval(interval);
-  }, [activeChannel]);
+  }, [activeChannel, currentUser?.id]);
 
   const handleAuthSubmit = async (e) => {
     e.preventDefault();
@@ -1452,6 +1463,15 @@ export default function App() {
 
                 {!channelsLoaded ? (
                   <SkeletonGrid count={6} />
+                ) : channelsLoadError ? (
+                  <div className="bg-rose-950/40 border border-rose-800 rounded-2xl p-8 text-center">
+                    <span className="material-symbols-outlined text-[46px] text-rose-400 mb-3">cloud_off</span>
+                    <h3 className="text-lg font-bold text-white mb-2">Chargement impossible</h3>
+                    <p className="text-sm text-rose-200 mb-5">{channelsLoadError}</p>
+                    <button onClick={fetchChannels} className="bg-rose-200 text-rose-950 px-5 py-2.5 rounded-xl font-bold text-sm">
+                      Réessayer
+                    </button>
+                  </div>
                 ) : filteredChannels.length === 0 ? (
                   <div className="bg-[#161b22] border border-[#263042] rounded-2xl p-12 text-center">
                     <span className="material-symbols-outlined text-[54px] text-slate-500 mb-4">video_settings</span>
@@ -1604,6 +1624,15 @@ export default function App() {
                 {/* Visual Video Cards Grid */}
                 {!videosLoaded ? (
                   <SkeletonGrid count={8} cardClassName="min-h-[260px]" />
+                ) : videosLoadError ? (
+                  <div className="bg-rose-950/40 border border-rose-800 rounded-2xl p-8 text-center">
+                    <span className="material-symbols-outlined text-[46px] text-rose-400 mb-3">cloud_off</span>
+                    <h3 className="text-lg font-bold text-white mb-2">Chargement impossible</h3>
+                    <p className="text-sm text-rose-200 mb-5">{videosLoadError}</p>
+                    <button onClick={fetchAllVideos} className="bg-rose-200 text-rose-950 px-5 py-2.5 rounded-xl font-bold text-sm">
+                      Réessayer
+                    </button>
+                  </div>
                 ) : allVideos.length === 0 ? (
                   <div className="bg-[#161b22] border border-[#263042] rounded-2xl p-12 text-center">
                     <span className="material-symbols-outlined text-[54px] text-slate-500 mb-3">movie</span>
