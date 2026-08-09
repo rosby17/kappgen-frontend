@@ -264,6 +264,29 @@ function AudioFilePreview({ file }) {
   );
 }
 
+// Renders a channel's logo as a rounded-square avatar, or the NicheCut icon
+// if no logo is set. Falls back to the NicheCut icon automatically if the
+// image URL 404s (e.g. a logo file lost before persistent storage was fixed)
+// instead of showing a broken-image icon with overflowing alt text.
+function ChannelAvatar({ channel, logoUrl, sizeClass = "w-12 h-12", roundedClass = "rounded-xl", textClass = "text-lg" }) {
+  const [failed, setFailed] = useState(false);
+  if (!logoUrl || failed) {
+    return (
+      <div className={`${sizeClass} ${roundedClass} bg-gradient-to-tr from-[#004c66] to-[#007f99] flex items-center justify-center flex-shrink-0 border border-[#00c2ff]/30 shadow-md p-2`}>
+        <img src="/assets/logo/logo-nichecut.png" alt="NicheCut" className="w-full h-full object-contain" />
+      </div>
+    );
+  }
+  return (
+    <img
+      src={logoUrl}
+      alt={channel?.name}
+      onError={() => setFailed(true)}
+      className={`${sizeClass} ${roundedClass} object-cover border border-[#2b374d] flex-shrink-0 shadow-md`}
+    />
+  );
+}
+
 function SkeletonGrid({ count = 6, cardClassName = "min-h-[220px]" }) {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -1041,7 +1064,7 @@ export default function App() {
     const queued = channel.queued_count || 0;
     const done = channel.done_count || 0;
     const failed = channel.failed_count || 0;
-    if (rendering > 0) return { label: 'Rendu en cours', className: 'bg-blue-950/80 text-blue-300 border border-blue-700/60 animate-pulse' };
+    if (rendering > 0) return { label: 'Génération en cours', className: 'bg-blue-950/80 text-blue-300 border border-blue-700/60 animate-pulse' };
     if (queued > 0) return { label: 'En file', className: 'bg-amber-950/80 text-amber-300 border border-amber-700/60' };
     if (done > 0) return { label: 'Prête', className: 'bg-emerald-950/80 text-emerald-300 border border-emerald-700/60' };
     if (failed > 0) return { label: 'Échec de rendu', className: 'bg-rose-950/80 text-rose-300 border border-rose-700/60' };
@@ -1450,13 +1473,7 @@ export default function App() {
                             className="bg-[#161b22] border border-[#263042] hover:border-[#00c2ff]/40 rounded-2xl p-5 cursor-pointer transition-all hover:-translate-y-1 shadow-md space-y-4"
                           >
                             <div className="flex items-center gap-3">
-                              {getChannelLogoUrl(chan) ? (
-                                <img src={getChannelLogoUrl(chan)} alt={chan.name} className="w-12 h-12 rounded-xl object-cover border border-[#2b374d]" />
-                              ) : (
-                                <div className="w-12 h-12 rounded-xl bg-[#1b2230] text-[#00c2ff] font-extrabold flex items-center justify-center text-lg border border-[#2b374d]">
-                                  {chan.name.slice(0, 2).toUpperCase()}
-                                </div>
-                              )}
+                              <ChannelAvatar channel={chan} logoUrl={getChannelLogoUrl(chan)} sizeClass="w-12 h-12" roundedClass="rounded-xl" textClass="text-lg" />
                               <div className="min-w-0 flex-1">
                                 <h4 className="font-bold text-white text-sm truncate">{chan.name}</h4>
                                 <span className="text-xs text-slate-400 block truncate">{chan.niche}</span>
@@ -1526,13 +1543,7 @@ export default function App() {
                           {/* Card Header & 3-Dots Action Button */}
                           <div className="flex items-start justify-between gap-3">
                             <div className="flex items-center gap-3.5 min-w-0">
-                              {logoUrl ? (
-                                <img src={logoUrl} alt={chan.name} className="w-12 h-12 rounded-xl object-cover border border-[#2b374d] flex-shrink-0 shadow-md" />
-                              ) : (
-                                <div className="w-12 h-12 rounded-xl bg-gradient-to-tr from-[#004c66] to-[#007f99] text-[#c2e8ff] flex items-center justify-center font-black text-lg flex-shrink-0 border border-[#00c2ff]/30 shadow-md">
-                                  {chan.name.slice(0, 2).toUpperCase()}
-                                </div>
-                              )}
+                              <ChannelAvatar channel={chan} logoUrl={logoUrl} sizeClass="w-12 h-12" roundedClass="rounded-xl" textClass="text-lg" />
                               <div className="min-w-0">
                                 <h4 className="font-bold text-base text-white group-hover:text-[#00c2ff] transition-colors truncate">{chan.name}</h4>
                                 <span className="text-xs font-medium text-slate-400 truncate block mt-0.5">{chan.niche}</span>
@@ -1774,13 +1785,7 @@ export default function App() {
                               <div>
                                 {channelObj && (
                                   <div className="flex items-center gap-1.5 mb-1">
-                                    {getChannelLogoUrl(channelObj) ? (
-                                      <img src={getChannelLogoUrl(channelObj)} alt={channelObj.name} className="w-4 h-4 rounded-full object-cover" />
-                                    ) : (
-                                      <div className="w-4 h-4 rounded-full bg-[#00c2ff] text-slate-950 font-bold text-[8px] flex items-center justify-center">
-                                        {channelObj.name.slice(0, 1)}
-                                      </div>
-                                    )}
+                                    <ChannelAvatar channel={channelObj} logoUrl={getChannelLogoUrl(channelObj)} sizeClass="w-4 h-4" roundedClass="rounded-md" textClass="text-[8px]" />
                                     <span className="text-[11px] font-bold text-[#00c2ff] truncate">{channelObj.name}</span>
                                   </div>
                                 )}
@@ -1837,13 +1842,7 @@ export default function App() {
               <div className="space-y-8">
                 <section className="bg-[#161b22] border border-[#263042] rounded-2xl p-6 flex flex-col md:flex-row md:items-center justify-between gap-6 shadow-xl">
                   <div className="flex items-center gap-5 min-w-0">
-                    {getChannelLogoUrl(activeChannel) ? (
-                      <img src={getChannelLogoUrl(activeChannel)} alt={activeChannel.name} className="w-20 h-20 rounded-2xl object-cover border border-[#2b374d] shadow-lg flex-shrink-0" />
-                    ) : (
-                      <div className="w-20 h-20 rounded-2xl bg-gradient-to-tr from-[#004c66] to-[#007f99] text-[#c2e8ff] font-black text-2xl flex items-center justify-center border border-[#00c2ff]/40 flex-shrink-0 shadow-lg">
-                        {activeChannel.name.slice(0, 2).toUpperCase()}
-                      </div>
-                    )}
+                    <ChannelAvatar channel={activeChannel} logoUrl={getChannelLogoUrl(activeChannel)} sizeClass="w-20 h-20" roundedClass="rounded-2xl" textClass="text-2xl" />
                     <div className="min-w-0">
                       <h1 className="text-2xl font-extrabold text-white truncate">{activeChannel.name}</h1>
                       <div className="flex items-center gap-3 text-slate-400 text-xs font-medium mt-1">
@@ -2598,9 +2597,9 @@ export default function App() {
                           <div className="relative z-20 flex justify-between items-center text-xs text-white">
                             <div className="flex items-center gap-2 bg-slate-900/80 backdrop-blur-md px-2.5 py-1 rounded-full border border-slate-700">
                               {logoPreviewUrl ? (
-                                <img src={logoPreviewUrl} alt="Logo" className="w-5 h-5 rounded-full object-cover" />
+                                <img src={logoPreviewUrl} alt="Logo" className="w-5 h-5 rounded-md object-cover" />
                               ) : (
-                                <div className="w-5 h-5 rounded-full bg-[#00c2ff] text-slate-950 font-bold flex items-center justify-center text-[10px]">
+                                <div className="w-5 h-5 rounded-md bg-[#00c2ff] text-slate-950 font-bold flex items-center justify-center text-[10px]">
                                   {newChannel.name ? newChannel.name.slice(0, 1) : 'N'}
                                 </div>
                               )}
@@ -2738,13 +2737,7 @@ export default function App() {
 
             {/* Active Channel (read-only — already chosen before opening this modal) */}
             <div className="flex items-center gap-3 bg-[#11151c] border border-[#202938] rounded-2xl p-3">
-              {getChannelLogoUrl(activeChannel) ? (
-                <img src={getChannelLogoUrl(activeChannel)} alt={activeChannel.name} className="w-10 h-10 rounded-xl object-cover border border-[#2b374d]" />
-              ) : (
-                <div className="w-10 h-10 rounded-xl bg-[#00c2ff] text-slate-950 flex items-center justify-center font-bold text-sm">
-                  {activeChannel.name.slice(0, 2).toUpperCase()}
-                </div>
-              )}
+              <ChannelAvatar channel={activeChannel} logoUrl={getChannelLogoUrl(activeChannel)} sizeClass="w-10 h-10" roundedClass="rounded-xl" textClass="text-sm" />
               <div className="min-w-0">
                 <div className="text-sm font-bold text-white truncate">{activeChannel.name}</div>
                 <div className="text-[11px] text-slate-400 truncate">{activeChannel.niche}</div>
