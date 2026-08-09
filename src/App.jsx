@@ -349,10 +349,14 @@ export default function App() {
 
   // Local Image Folder Upload State for Wizard Step 5
   const [localImageFiles, setLocalImageFiles] = useState([]);
-  const [libraryUploadStatus, setLibraryUploadStatus] = useState(null); // null | 'uploading' | 'success' | 'error'
+  const [libraryUploadStatus, setLibraryUploadStatus] = useState(null); // null | 'analyzing' | 'uploading' | 'validating' | 'success' | 'error'
+  const [libraryUploadProgress, setLibraryUploadProgress] = useState(0);
+  const [libraryUploadMessage, setLibraryUploadMessage] = useState('');
+  const [stagedLibraryToken, setStagedLibraryToken] = useState(null);
   const [selectedFolderName, setSelectedFolderName] = useState('');
   const [isFolderDragging, setIsFolderDragging] = useState(false);
   const wizardFolderInputRef = useRef(null);
+  const libraryUploadXhrRef = useRef(null);
 
   const defaultChannelForm = {
     name: '',
@@ -692,6 +696,10 @@ export default function App() {
     setLogoPreviewUrl(null);
     setLocalImageFiles([]);
     setLibraryUploadStatus(null);
+    setLibraryUploadProgress(0);
+    setLibraryUploadMessage('');
+    setStagedLibraryToken(null);
+    if (libraryUploadXhrRef.current) libraryUploadXhrRef.current.abort();
     setWizardStep(1);
   };
 
@@ -726,6 +734,12 @@ export default function App() {
       effects_config: { ...defaultChannelForm.effects_config, ...(channel.effects_config || {}) }
     });
     setLogoFile(null);
+    setLocalImageFiles([]);
+    setSelectedFolderName('');
+    setLibraryUploadStatus(null);
+    setLibraryUploadProgress(0);
+    setLibraryUploadMessage('');
+    setStagedLibraryToken(null);
     setLogoPreviewUrl(channel.branding?.logo_path ? `${STORAGE_BASE}/${channel.branding.logo_path}` : null);
     setWizardStep(1);
     setView('wizard');
@@ -738,24 +752,89 @@ export default function App() {
     setLogoPreviewUrl(URL.createObjectURL(file));
   };
 
+  const uploadLibraryWithProgress = (files, folderName) => {
+    if (libraryUploadXhrRef.current) libraryUploadXhrRef.current.abort();
+    setLibraryUploadStatus('analyzing');
+    setLibraryUploadProgress(2);
+    setLibraryUploadMessage(`Analyse de ${files.length} images…`);
+    setStagedLibraryToken(null);
+
+    const formData = new FormData();
+    files.forEach(file => formData.append('files', file));
+    const isDirectUpload = wizardMode === 'edit' && editingChannelId;
+    const url = isDirectUpload
+      ? `${API_BASE}/channels/${editingChannelId}/library-images`
+      : `${API_BASE}/channels/library-images/staging`;
+
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      libraryUploadXhrRef.current = xhr;
+      xhr.open('POST', url);
+      xhr.upload.onloadstart = () => {
+        setLibraryUploadStatus('uploading');
+        setLibraryUploadProgress(5);
+        setLibraryUploadMessage('Importation vers le serveur…');
+      };
+      xhr.upload.onprogress = (event) => {
+        if (!event.lengthComputable) return;
+        const percent = Math.min(92, Math.round(5 + (event.loaded / event.total) * 87));
+        setLibraryUploadProgress(percent);
+        setLibraryUploadMessage(`Importation : ${event.loaded.toLocaleString('fr-FR')} / ${event.total.toLocaleString('fr-FR')} octets`);
+      };
+      xhr.upload.onload = () => {
+        setLibraryUploadStatus('validating');
+        setLibraryUploadProgress(95);
+        setLibraryUploadMessage('Validation des images sur le serveur…');
+      };
+      xhr.onerror = () => reject(new Error('Erreur réseau pendant l’importation des images.'));
+      xhr.onabort = () => reject(new Error('Importation annulée.'));
+      xhr.onload = () => {
+        let data = {};
+        try { data = JSON.parse(xhr.responseText || '{}'); } catch {}
+        if (xhr.status < 200 || xhr.status >= 300) {
+          reject(new Error(data.detail || `Échec de l’importation (HTTP ${xhr.status}).`));
+          return;
+        }
+        if (isDirectUpload) {
+          setNewChannel(prev => ({ ...prev, image_style: { ...prev.image_style, ...(data.image_style || {}) } }));
+        } else {
+          setStagedLibraryToken(data.staging_token);
+          setNewChannel(prev => ({
+            ...prev,
+            image_style: { ...prev.image_style, library_image_count: data.library_image_count || files.length }
+          }));
+        }
+        setLibraryUploadStatus('success');
+        setLibraryUploadProgress(100);
+        setLibraryUploadMessage(`${data.library_image_count || files.length} images analysées, importées et prêtes.`);
+        showToast(`${data.library_image_count || files.length} images importées à 100 %.`, 'success');
+        resolve(data);
+      };
+      xhr.send(formData);
+    }).catch(error => {
+      if (error.message === 'Importation annulée.') return;
+      setLibraryUploadStatus('error');
+      setLibraryUploadMessage(error.message);
+      showToast(error.message, 'error');
+      throw error;
+    });
+  };
+
+  const prepareLocalImageFiles = (files, folderName) => {
+    setSelectedFolderName(folderName);
+    setLocalImageFiles(files);
+    uploadLibraryWithProgress(files, folderName).catch(() => {});
+  };
+
   const handleLocalFolderSelect = (e) => {
     const files = Array.from(e.target.files).filter(f => 
-      f.type.startsWith('image/') || /\.(jpg|jpeg|png|webp|gif|svg|avif)$/i.test(f.name)
+      f.type.startsWith('image/') || /\.(jpg|jpeg|png|webp|gif|avif)$/i.test(f.name)
     );
     if (files.length > 0) {
       // Extract directory name from webkitRelativePath
       const firstPath = files[0].webkitRelativePath || '';
       const folderName = firstPath ? firstPath.split('/')[0] : 'Dossier Images';
-      setSelectedFolderName(folderName);
-      setLocalImageFiles(files);
-      setLibraryUploadStatus(null);
-      setNewChannel(prev => ({
-        ...prev,
-        image_style: {
-          ...prev.image_style,
-          library_path: `${folderName} (${files.length} images)`
-        }
-      }));
+      prepareLocalImageFiles(files, folderName);
     }
   };
 
@@ -765,21 +844,12 @@ export default function App() {
     setIsFolderDragging(false);
 
     const droppedFiles = Array.from(e.dataTransfer.files).filter(f => 
-      f.type.startsWith('image/') || /\.(jpg|jpeg|png|webp|gif|svg|avif)$/i.test(f.name)
+      f.type.startsWith('image/') || /\.(jpg|jpeg|png|webp|gif|avif)$/i.test(f.name)
     );
 
     if (droppedFiles.length > 0) {
       const folderName = "Dossier Images Déposé";
-      setSelectedFolderName(folderName);
-      setLocalImageFiles(droppedFiles);
-      setLibraryUploadStatus(null);
-      setNewChannel(prev => ({
-        ...prev,
-        image_style: {
-          ...prev.image_style,
-          library_path: `${folderName} (${droppedFiles.length} images)`
-        }
-      }));
+      prepareLocalImageFiles(droppedFiles, folderName);
     }
   };
 
@@ -790,38 +860,19 @@ export default function App() {
     await fetch(`${API_BASE}/channels/${channelId}/logo`, { method: 'POST', body: formData });
   };
 
-  const uploadChannelLibraryImages = async (channelId) => {
-    if (localImageFiles.length === 0) return;
-    setLibraryUploadStatus('uploading');
-    try {
-      const formData = new FormData();
-      for (const f of localImageFiles) formData.append("files", f);
-      const res = await fetch(`${API_BASE}/channels/${channelId}/library-images`, { method: 'POST', body: formData });
-      if (!res.ok) {
-        const text = await res.text();
-        let msg = "Échec de l'envoi des images.";
-        try { msg = JSON.parse(text).detail || msg; } catch {}
-        throw new Error(msg);
-      }
-      const updatedChannel = await res.json();
-      setLibraryUploadStatus('success');
-      showToast(`${localImageFiles.length} images envoyées et prêtes pour le montage.`, "success");
-      return updatedChannel;
-    } catch (err) {
-      setLibraryUploadStatus('error');
-      showToast(err.message || "Échec de l'envoi des images vers le serveur.", "error");
-      throw err;
-    }
-  };
-
   const handleSaveChannel = async () => {
     if (!newChannel.name) return alert("Veuillez saisir un nom de chaîne.");
     const needsLibrary = newChannel.image_style.source === 'library' || newChannel.image_style.source === 'hybrid';
+    const uploadReady = libraryUploadStatus === 'success';
     const hasStoredLibrary = Number(newChannel.image_style.library_image_count || 0) > 0
       && String(newChannel.image_style.library_path || '').startsWith('channels/');
-    if (needsLibrary && localImageFiles.length === 0 && !hasStoredLibrary) {
+    if (needsLibrary && !hasStoredLibrary && !(uploadReady && stagedLibraryToken)) {
       setWizardStep(4);
       return showToast("Importez un dossier d’images : aucune bibliothèque n’est enregistrée sur le serveur.", "error");
+    }
+    if (needsLibrary && ['analyzing', 'uploading', 'validating'].includes(libraryUploadStatus)) {
+      setWizardStep(4);
+      return showToast("Attendez que l’importation des images atteigne 100 %.", "error");
     }
     try {
       setLoading(true);
@@ -858,8 +909,15 @@ export default function App() {
       if (logoFile) {
         await uploadChannelLogo(saved.id);
       }
-      if (localImageFiles.length > 0) {
-        saved = await uploadChannelLibraryImages(saved.id);
+      if (stagedLibraryToken && needsLibrary) {
+        const attachForm = new FormData();
+        attachForm.append('staging_token', stagedLibraryToken);
+        const attachRes = await fetch(`${API_BASE}/channels/${saved.id}/library-images/staging`, { method: 'POST', body: attachForm });
+        if (!attachRes.ok) {
+          const detail = await attachRes.json().catch(() => ({}));
+          throw new Error(detail.detail || "Impossible de rattacher les images importées à la chaîne.");
+        }
+        saved = await attachRes.json();
       }
 
       await fetchChannels();
@@ -2288,19 +2346,40 @@ export default function App() {
                                 ✓ {selectedFolderName || 'Dossier'} : {localImageFiles.length} images sélectionnées
                               </div>
                             )}
-                            {localImageFiles.length > 0 && !libraryUploadStatus && (
-                              <p className="mt-2 text-[10px] text-slate-400">
-                                Elles seront envoyées et enregistrées sur le serveur lors de la sauvegarde de la chaîne.
-                              </p>
-                            )}
-                            {libraryUploadStatus === 'uploading' && (
-                              <div className="mt-2 flex items-center justify-center gap-2 text-[10px] font-bold text-[#00c2ff]">
-                                <span className="material-symbols-outlined text-[15px] animate-spin">progress_activity</span>
-                                Envoi des images vers le serveur…
+                            {libraryUploadStatus && (
+                              <div className={`mt-3 p-3 rounded-xl border text-left space-y-2 ${
+                                libraryUploadStatus === 'success'
+                                  ? 'bg-emerald-950/60 border-emerald-700/60'
+                                  : libraryUploadStatus === 'error'
+                                    ? 'bg-red-950/50 border-red-700/60'
+                                    : 'bg-[#081c2a] border-[#00c2ff]/40'
+                              }`}>
+                                <div className="flex items-center justify-between gap-3">
+                                  <div className={`flex items-center gap-1.5 text-[10px] font-bold ${
+                                    libraryUploadStatus === 'success' ? 'text-emerald-300' :
+                                    libraryUploadStatus === 'error' ? 'text-red-300' : 'text-[#00c2ff]'
+                                  }`}>
+                                    <span className={`material-symbols-outlined text-[15px] ${
+                                      ['analyzing', 'uploading', 'validating'].includes(libraryUploadStatus) ? 'animate-spin' : ''
+                                    }`}>
+                                      {libraryUploadStatus === 'success' ? 'check_circle' : libraryUploadStatus === 'error' ? 'error' : 'progress_activity'}
+                                    </span>
+                                    {libraryUploadMessage || 'Préparation de l’importation…'}
+                                  </div>
+                                  <span className={`text-xs font-mono font-black ${libraryUploadStatus === 'success' ? 'text-emerald-300' : 'text-white'}`}>
+                                    {libraryUploadProgress}%
+                                  </span>
+                                </div>
+                                <div className="h-2.5 bg-slate-900 rounded-full overflow-hidden border border-slate-700/60">
+                                  <div
+                                    className={`h-full rounded-full transition-all duration-300 ${libraryUploadStatus === 'error' ? 'bg-red-500' : libraryUploadStatus === 'success' ? 'bg-emerald-400' : 'bg-[#00c2ff]'}`}
+                                    style={{ width: `${libraryUploadProgress}%` }}
+                                  />
+                                </div>
+                                {libraryUploadStatus === 'success' && (
+                                  <p className="text-[9px] text-emerald-300/80">Importation terminée. Vous pouvez passer à l’aperçu final.</p>
+                                )}
                               </div>
-                            )}
-                            {libraryUploadStatus === 'error' && (
-                              <p className="mt-2 text-[10px] font-bold text-red-400">Échec de l’envoi — corrigez le problème puis réessayez.</p>
                             )}
                           </div>
                         </div>
@@ -2478,10 +2557,29 @@ export default function App() {
 
                   {wizardStep < 5 ? (
                     <button 
-                      onClick={() => setWizardStep(wizardStep + 1)}
-                      className="px-6 py-2.5 rounded-xl bg-[#00c2ff] text-slate-950 font-bold text-xs hover:bg-[#38d0ff] transition-all flex items-center gap-2 shadow-md"
+                      onClick={() => {
+                        const needsLibrary = newChannel.image_style.source === 'library' || newChannel.image_style.source === 'hybrid';
+                        const stored = Number(newChannel.image_style.library_image_count || 0) > 0
+                          && String(newChannel.image_style.library_path || '').startsWith('channels/');
+                        const ready = libraryUploadStatus === 'success' && (stagedLibraryToken || wizardMode === 'edit');
+                        if (wizardStep === 4 && needsLibrary && !stored && !ready) {
+                          showToast(
+                            ['analyzing', 'uploading', 'validating'].includes(libraryUploadStatus)
+                              ? "L’importation est en cours. Attendez 100 % avant de continuer."
+                              : "Importez et validez un dossier d’images avant de continuer.",
+                            'error'
+                          );
+                          return;
+                        }
+                        setWizardStep(wizardStep + 1);
+                      }}
+                      disabled={wizardStep === 4 && ['analyzing', 'uploading', 'validating'].includes(libraryUploadStatus)}
+                      className="px-6 py-2.5 rounded-xl bg-[#00c2ff] text-slate-950 font-bold text-xs hover:bg-[#38d0ff] transition-all flex items-center gap-2 shadow-md disabled:opacity-40 disabled:cursor-not-allowed"
                     >
-                      Suivant <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
+                      {wizardStep === 4 && ['analyzing', 'uploading', 'validating'].includes(libraryUploadStatus)
+                        ? `Importation ${libraryUploadProgress}%`
+                        : 'Suivant'}
+                      <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
                     </button>
                   ) : (
                     <button
