@@ -2663,18 +2663,24 @@ export default function App() {
                               subtitle font/color) top-right. Nothing else is actually rendered. */}
                           <div className="relative z-20 flex justify-between items-start">
                             {logoPreviewUrl ? (
-                              <img src={logoPreviewUrl} alt="Logo" className="w-11 h-11 rounded-md object-cover shadow-lg" />
+                              <img
+                                src={logoPreviewUrl}
+                                alt="Logo"
+                                style={{ width: `${100 * mockupSubtitlePreviewScale}px`, height: `${100 * mockupSubtitlePreviewScale}px` }}
+                                className="rounded-md object-cover shadow-lg"
+                              />
                             ) : <div />}
 
                             {newChannel.branding.channel_name_text && (
                               <span
                                 style={{
                                   fontFamily: newChannel.subtitle_style.font,
+                                  fontSize: `${26 * mockupSubtitlePreviewScale}px`,
                                   color: newChannel.subtitle_style.color || '#FFFFFF',
                                   WebkitTextStroke: `1px ${newChannel.subtitle_style.outline_color || '#000000'}`,
                                   paintOrder: 'stroke fill',
                                 }}
-                                className="text-lg font-black"
+                                className="font-black"
                               >
                                 {newChannel.branding.channel_name_text}
                               </span>
