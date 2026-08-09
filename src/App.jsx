@@ -311,9 +311,18 @@ export default function App() {
     const t = setInterval(() => setNowTick(Date.now()), 10000);
     return () => clearInterval(t);
   }, []);
+  // Backend timestamps are ISO strings without a timezone suffix (naive UTC).
+  // `new Date("2026-01-01T12:00:00")` treats that as LOCAL time, not UTC, which
+  // silently inflates every elapsed/relative time display by the browser's UTC
+  // offset. Force UTC interpretation by appending "Z" when no offset is present.
+  const parseServerDate = (iso) => {
+    if (!iso) return null;
+    const hasTimezone = /Z$|[+-]\d{2}:?\d{2}$/.test(iso);
+    return new Date(hasTimezone ? iso : `${iso}Z`);
+  };
   const formatElapsed = (startedAt) => {
     if (!startedAt) return null;
-    const secs = Math.max(0, Math.floor((nowTick - new Date(startedAt).getTime()) / 1000));
+    const secs = Math.max(0, Math.floor((nowTick - parseServerDate(startedAt).getTime()) / 1000));
     const m = Math.floor(secs / 60);
     const s = secs % 60;
     return m > 0 ? `${m}min ${s}s` : `${s}s`;
@@ -327,7 +336,7 @@ export default function App() {
   };
   const formatRelativeDate = (iso) => {
     if (!iso) return '';
-    const diffMs = nowTick - new Date(iso).getTime();
+    const diffMs = nowTick - parseServerDate(iso).getTime();
     const mins = Math.floor(diffMs / 60000);
     if (mins < 1) return "à l'instant";
     if (mins < 60) return `il y a ${mins} min`;
