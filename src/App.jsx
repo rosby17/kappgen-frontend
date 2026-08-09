@@ -208,7 +208,7 @@ const subtitlePositionClass = (position) => {
   return 'bottom-[12%]';
 };
 
-function AudioFilePreview({ file }) {
+function AudioFilePreview({ file, onRemove }) {
   const audioRef = useRef(null);
   const [src, setSrc] = useState('');
   const [playing, setPlaying] = useState(false);
@@ -259,6 +259,16 @@ function AudioFilePreview({ file }) {
             <span>{formatMediaTime(currentTime)}</span><span>{formatMediaTime(duration)}</span>
           </div>
         </div>
+        {onRemove && (
+          <button
+            type="button"
+            onClick={(event) => { event.stopPropagation(); onRemove(); }}
+            title="Retirer ce fichier"
+            className="shrink-0 w-7 h-7 rounded-full bg-[#1b2230] hover:bg-rose-950 text-slate-400 hover:text-rose-300 flex items-center justify-center transition-colors"
+          >
+            <span className="material-symbols-outlined text-[16px]">close</span>
+          </button>
+        )}
       </div>
     </div>
   );
@@ -268,6 +278,27 @@ function AudioFilePreview({ file }) {
 // if no logo is set. Falls back to the NicheCut icon automatically if the
 // image URL 404s (e.g. a logo file lost before persistent storage was fixed)
 // instead of showing a broken-image icon with overflowing alt text.
+// The real render burns subtitles onto a 1920x1080 frame with libass, where
+// `size` is a literal pixel font size on that canvas (PlayResX=1920 in the
+// .ass header). A preview box on screen is never 1920px wide, so matching it
+// visually means scaling every subtitle metric (font size, outline width) by
+// the box's actual measured width ÷ 1920 — not a flat guessed multiplier,
+// which drifts from the real render the moment the box's width changes.
+function useSubtitlePreviewScale() {
+  const ref = useRef(null);
+  const [scale, setScale] = useState(0.25);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const update = () => setScale(el.offsetWidth / 1920);
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+  return [ref, scale];
+}
+
 function ChannelAvatar({ channel, logoUrl, sizeClass = "w-12 h-12", roundedClass = "rounded-xl", textClass = "text-lg" }) {
   const [failed, setFailed] = useState(false);
   if (!logoUrl || failed) {
@@ -378,6 +409,11 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [videoFilterChannelId, setVideoFilterChannelId] = useState('all');
   const [toast, setToast] = useState(null); // { message, type: 'success' | 'error' }
+  // Each subtitle preview box is a different pixel width on screen, so each
+  // needs its own live-measured scale relative to the real 1920-wide render.
+  const [wizardSubtitlePreviewRef, wizardSubtitlePreviewScale] = useSubtitlePreviewScale();
+  const [mockupSubtitlePreviewRef, mockupSubtitlePreviewScale] = useSubtitlePreviewScale();
+  const [submitSubtitlePreviewRef, submitSubtitlePreviewScale] = useSubtitlePreviewScale();
   const [confirmDialog, setConfirmDialog] = useState(null); // { title, message, danger, resolve }
 
   const showToast = (message, type = 'success') => {
@@ -2311,7 +2347,7 @@ export default function App() {
                     {/* Live Subtitle Preview — matches the real ASS/libass render */}
                     <div>
                       <label className="block text-xs font-bold text-slate-300 mb-2">Aperçu en direct</label>
-                      <div className="w-full h-40 rounded-2xl bg-gradient-to-b from-slate-900 to-black border border-[#2b374d] relative overflow-hidden px-6">
+                      <div ref={wizardSubtitlePreviewRef} className="w-full h-40 rounded-2xl bg-gradient-to-b from-slate-900 to-black border border-[#2b374d] relative overflow-hidden px-6">
                         <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(0,194,255,0.08),transparent_70%)]"></div>
                         <div className={`absolute inset-x-6 z-10 flex flex-wrap justify-center items-center gap-2 text-center ${subtitlePositionClass(newChannel.subtitle_style.position)}`}>
                           {sampleWords.map((wordObj, i) => (
@@ -2319,10 +2355,10 @@ export default function App() {
                               key={i}
                               style={{
                                 fontFamily: newChannel.subtitle_style.font,
-                                fontSize: `${(newChannel.subtitle_style.size || 44) * 0.6}px`,
+                                fontSize: `${(newChannel.subtitle_style.size || 44) * wizardSubtitlePreviewScale}px`,
                                 fontWeight: '900',
                                 color: (newChannel.subtitle_style.karaoke === false || wordObj.highlight) ? (newChannel.subtitle_style.color || '#FFD700') : '#FFFFFF',
-                                WebkitTextStroke: `${Math.max(1, (newChannel.subtitle_style.outline_width || 3) * 0.6)}px ${newChannel.subtitle_style.outline_color || '#000000'}`,
+                                WebkitTextStroke: `${Math.max(1, (newChannel.subtitle_style.outline_width || 3) * wizardSubtitlePreviewScale)}px ${newChannel.subtitle_style.outline_color || '#000000'}`,
                                 paintOrder: 'stroke fill',
                                 textShadow: '0 2px 8px rgba(0,0,0,0.6)'
                               }}
@@ -2571,7 +2607,7 @@ export default function App() {
 
                       {/* Live 16:9 Landscape Video Mockup Preview */}
                       <div className="flex justify-center">
-                        <div className="w-full max-w-[640px] aspect-[16/9] bg-slate-950 rounded-2xl border-4 border-[#2b374d] relative overflow-hidden shadow-2xl flex flex-col justify-between p-5">
+                        <div ref={mockupSubtitlePreviewRef} className="w-full max-w-[640px] aspect-[16/9] bg-slate-950 rounded-2xl border-4 border-[#2b374d] relative overflow-hidden shadow-2xl flex flex-col justify-between p-5">
 
                           {/* Background Scene Visual — real user image if imported! */}
                           <div className="absolute inset-0">
@@ -2632,7 +2668,7 @@ export default function App() {
                                   key={i}
                                   style={{
                                     fontFamily: newChannel.subtitle_style.font,
-                                    fontSize: `${(newChannel.subtitle_style.size || 44) * 0.45}px`,
+                                    fontSize: `${(newChannel.subtitle_style.size || 44) * mockupSubtitlePreviewScale}px`,
                                     fontWeight: '900',
                                     color: wordObj.highlight ? (newChannel.subtitle_style.color || '#FFD700') : '#FFFFFF',
                                     textShadow: wordObj.highlight
@@ -2819,7 +2855,7 @@ export default function App() {
                     <div className="text-[11px] text-slate-400 mt-1">ou cliquez pour choisir des fichiers</div>
                     {audioFilesList.length > 0 && (
                       <div className="mt-4 space-y-1">
-                        {audioFilesList.map((f, i) => <AudioFilePreview key={`${f.name}-${f.size}-${i}`} file={f} />)}
+                        {audioFilesList.map((f, i) => <AudioFilePreview key={`${f.name}-${f.size}-${i}`} file={f} onRemove={() => setAudioFilesList(prev => prev.filter((_, idx) => idx !== i))} />)}
                       </div>
                     )}
                   </div>
@@ -2852,7 +2888,7 @@ export default function App() {
                       exactly as configured on the channel, not just a text summary. */}
                   <div>
                     <div className="text-xs text-slate-400 mb-2">Aperçu visuel du rendu final</div>
-                    <div className="w-full aspect-video rounded-2xl overflow-hidden relative border border-[#2b374d] shadow-lg">
+                    <div ref={submitSubtitlePreviewRef} className="w-full aspect-video rounded-2xl overflow-hidden relative border border-[#2b374d] shadow-lg">
                       {activeChannel.image_style?.source !== 'ai_generated' && (
                         <img
                           src={`${API_BASE}/channels/${activeChannel.id}/library-preview`}
@@ -2899,10 +2935,10 @@ export default function App() {
                               key={i}
                               style={{
                                 fontFamily: activeChannel.subtitle_style?.font || 'Arial',
-                                fontSize: `${(activeChannel.subtitle_style?.size || 44) * 0.4}px`,
+                                fontSize: `${(activeChannel.subtitle_style?.size || 44) * submitSubtitlePreviewScale}px`,
                                 fontWeight: '900',
                                 color: (activeChannel.subtitle_style?.karaoke === false || wordObj.highlight) ? (activeChannel.subtitle_style?.color || '#FFD700') : '#FFFFFF',
-                                WebkitTextStroke: `${Math.max(1, (activeChannel.subtitle_style?.outline_width || 3) * 0.4)}px ${activeChannel.subtitle_style?.outline_color || '#000000'}`,
+                                WebkitTextStroke: `${Math.max(1, (activeChannel.subtitle_style?.outline_width || 3) * submitSubtitlePreviewScale)}px ${activeChannel.subtitle_style?.outline_color || '#000000'}`,
                                 paintOrder: 'stroke fill',
                                 textShadow: '0 2px 8px rgba(0,0,0,0.6)'
                               }}
@@ -2927,7 +2963,7 @@ export default function App() {
                       <p className="text-xs text-white line-clamp-4">{singleScriptText}</p>
                     ) : (
                       <div className="space-y-2">
-                        {audioFilesList.map((f, i) => <AudioFilePreview key={`${f.name}-${f.size}-${i}`} file={f} />)}
+                        {audioFilesList.map((f, i) => <AudioFilePreview key={`${f.name}-${f.size}-${i}`} file={f} onRemove={() => setAudioFilesList(prev => prev.filter((_, idx) => idx !== i))} />)}
                       </div>
                     )}
                   </div>
