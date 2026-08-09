@@ -880,7 +880,7 @@ export default function App() {
     }
   };
 
-  const openEditWizard = (channel, e) => {
+  const openEditWizard = (channel, e, startStep = 1) => {
     if (e) e.stopPropagation();
     setOpenChannelMenuId(null);
     setWizardMode('edit');
@@ -902,7 +902,7 @@ export default function App() {
     setLibraryUploadMessage('');
     setStagedLibraryToken(null);
     setLogoPreviewUrl(channel.branding?.logo_path ? `${STORAGE_BASE}/${channel.branding.logo_path}` : null);
-    setWizardStep(1);
+    setWizardStep(startStep);
     setView('wizard');
   };
 
@@ -1894,6 +1894,16 @@ export default function App() {
                   </div>
 
                   <div className="flex items-center gap-3 flex-shrink-0">
+                    {(activeChannel.image_style?.source === 'library' || activeChannel.image_style?.source === 'hybrid') && (
+                      <button
+                        onClick={(e) => openEditWizard(activeChannel, e, 4)}
+                        title="Réimporter le dossier d'images depuis ton ordinateur (les navigateurs ne peuvent pas surveiller un dossier local automatiquement — il faut le resélectionner à chaque mise à jour)"
+                        className="px-4 py-2.5 bg-[#1b2230] text-white rounded-xl font-bold text-xs hover:bg-[#252f42] transition-colors flex items-center gap-2 border border-[#2b374d]"
+                      >
+                        <span className="material-symbols-outlined text-[18px]">sync</span>
+                        Mettre à jour la bibliothèque
+                      </button>
+                    )}
                     <button
                       onClick={(e) => openEditWizard(activeChannel, e)}
                       className="px-4 py-2.5 bg-[#1b2230] text-white rounded-xl font-bold text-xs hover:bg-[#252f42] transition-colors flex items-center gap-2 border border-[#2b374d]"
@@ -2564,19 +2574,38 @@ export default function App() {
                               />
                             </div>
                             <p className="text-[11px] text-slate-400">
-                              L'IA génère automatiquement les visuels pour chaque scène (style optionnel).
+                              L'IA génère automatiquement les visuels pour chaque scène, dans le style que tu décris ci-dessous.
                             </p>
                           </div>
 
                           <div>
-                            <label className="block text-[10px] font-bold text-slate-400 mb-1">Style de prompt (Optionnel)</label>
+                            <label className="block text-[10px] font-bold text-slate-300 mb-1">Décris le style visuel que tu veux</label>
                             <textarea
                               rows="2"
                               value={newChannel.image_style.style_prompt}
                               onChange={e => setNewChannel({ ...newChannel, image_style: { ...newChannel.image_style, style_prompt: e.target.value } })}
                               className="w-full bg-[#0f1217] border border-[#2b374d] rounded-xl p-2.5 text-[11px] text-white focus:border-[#00c2ff] outline-none placeholder-slate-500"
-                              placeholder="Optionnel: cinematic lighting, stoic sculpture style..."
+                              placeholder="Ex: cinematic lighting, stoic sculpture style, dark moody atmosphere..."
                             />
+                            <div className="flex flex-wrap gap-1.5 mt-2">
+                              {[
+                                'Cinématique, éclairage dramatique',
+                                'Aquarelle douce',
+                                'Photo réaliste, style documentaire',
+                                'Illustration religieuse classique',
+                                'Néon futuriste, cyberpunk',
+                              ].map((preset) => (
+                                <button
+                                  key={preset}
+                                  type="button"
+                                  onClick={() => setNewChannel({ ...newChannel, image_style: { ...newChannel.image_style, style_prompt: preset } })}
+                                  className="px-2.5 py-1 rounded-full text-[10px] font-semibold bg-[#1b2230] text-slate-300 hover:bg-[#00c2ff]/10 hover:text-[#00c2ff] border border-[#2b374d] transition-colors"
+                                >
+                                  {preset}
+                                </button>
+                              ))}
+                            </div>
+                            <p className="text-[10px] text-slate-500 mt-1.5">Ce style guide chaque image générée — plus c'est précis, plus le résultat est cohérent d'une vidéo à l'autre.</p>
                           </div>
                         </div>
 
