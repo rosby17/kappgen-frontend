@@ -2658,27 +2658,26 @@ export default function App() {
                             )}
                           </div>
 
-                          {/* Top Header Bar inside Mockup */}
-                          <div className="relative z-20 flex justify-between items-center text-xs text-white">
-                            <div className="flex items-center gap-2 bg-slate-900/80 backdrop-blur-md px-2.5 py-1 rounded-full border border-slate-700">
-                              {logoPreviewUrl ? (
-                                <img src={logoPreviewUrl} alt="Logo" className="w-5 h-5 rounded-md object-cover" />
-                              ) : (
-                                <div className="w-5 h-5 rounded-md bg-[#00c2ff] text-slate-950 font-bold flex items-center justify-center text-[10px]">
-                                  {newChannel.name ? newChannel.name.slice(0, 1) : 'N'}
-                                </div>
-                              )}
-                              <span className="font-bold text-[11px] truncate max-w-[160px]">{newChannel.name || 'Nom Chaîne'}</span>
-                            </div>
+                          {/* Top overlay — matches exactly what's burned into the real render:
+                              a square logo top-left, and the channel-name watermark (in the
+                              subtitle font/color) top-right. Nothing else is actually rendered. */}
+                          <div className="relative z-20 flex justify-between items-start">
+                            {logoPreviewUrl ? (
+                              <img src={logoPreviewUrl} alt="Logo" className="w-11 h-11 rounded-md object-cover shadow-lg" />
+                            ) : <div />}
 
-                            {/* Watermark Tag Overlay */}
                             {newChannel.branding.channel_name_text && (
-                              <div
-                                style={{ opacity: newChannel.branding.watermark_opacity || 0.85 }}
-                                className="bg-black/60 backdrop-blur-sm px-2 py-0.5 rounded text-[10px] font-mono text-slate-200 border border-white/20"
+                              <span
+                                style={{
+                                  fontFamily: newChannel.subtitle_style.font,
+                                  color: newChannel.subtitle_style.color || '#FFFFFF',
+                                  WebkitTextStroke: `1px ${newChannel.subtitle_style.outline_color || '#000000'}`,
+                                  paintOrder: 'stroke fill',
+                                }}
+                                className="text-lg font-black"
                               >
                                 {newChannel.branding.channel_name_text}
-                              </div>
+                              </span>
                             )}
                           </div>
 
@@ -2714,13 +2713,6 @@ export default function App() {
                             </div>
                           </div>
 
-                          {/* Music Preference Indicator Badge */}
-                          <div className="absolute bottom-3 inset-x-0 z-20 flex justify-center">
-                              <div className="bg-black/60 backdrop-blur-md px-3 py-1 rounded-full text-[10px] text-slate-300 font-mono flex items-center gap-1.5 border border-white/10">
-                                <span className="material-symbols-outlined text-[12px] text-[#00c2ff] animate-spin">music_note</span>
-                                Musique: {newChannel.music_preference.track_id_or_style || 'Ambiant'} ({Math.round((newChannel.music_preference.volume || 0.15) * 100)}%)
-                              </div>
-                          </div>
                       </div>
                     </div>
                   </div>
