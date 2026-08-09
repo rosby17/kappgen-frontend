@@ -73,6 +73,114 @@ const SUBTITLE_PRESETS = [
     position: 'bottom',
     karaoke: false,
     box_color: 'rgba(20,15,10,0.7)'
+  },
+  {
+    id: 'mrbeast_bold',
+    name: 'MrBeast Impact 💥',
+    font: 'Liberation Sans',
+    size: 52,
+    color: '#FFFFFF',
+    outline_color: '#000000',
+    outline_width: 6,
+    position: 'center',
+    karaoke: true,
+    box_color: 'transparent'
+  },
+  {
+    id: 'soft_pastel',
+    name: 'Pastel Doux 🌸',
+    font: 'Comfortaa',
+    size: 40,
+    color: '#FFD6EC',
+    outline_color: '#5B2A4A',
+    outline_width: 2,
+    position: 'bottom',
+    karaoke: true,
+    box_color: 'rgba(40,15,35,0.5)'
+  },
+  {
+    id: 'editorial_clean',
+    name: 'Éditorial Minimal ✒️',
+    font: 'Source Sans 3',
+    size: 38,
+    color: '#FFFFFF',
+    outline_color: '#000000',
+    outline_width: 1,
+    position: 'bottom',
+    karaoke: false,
+    box_color: 'rgba(0,0,0,0.75)'
+  },
+  {
+    id: 'lime_pop',
+    name: 'Lime Pop 🍋',
+    font: 'Inter',
+    size: 46,
+    color: '#CCFF00',
+    outline_color: '#0a1a00',
+    outline_width: 4,
+    position: 'bottom',
+    karaoke: true,
+    box_color: 'transparent'
+  },
+  {
+    id: 'royal_purple',
+    name: 'Violet Royal 👑',
+    font: 'Cabin',
+    size: 44,
+    color: '#D8B4FE',
+    outline_color: '#2E1065',
+    outline_width: 3,
+    position: 'top',
+    karaoke: true,
+    box_color: 'transparent'
+  },
+  {
+    id: 'true_crime',
+    name: 'True Crime Rouge 🩸',
+    font: 'Bebas Neue',
+    size: 48,
+    color: '#FF3B3B',
+    outline_color: '#1a0000',
+    outline_width: 4,
+    position: 'bottom',
+    karaoke: true,
+    box_color: 'rgba(10,0,0,0.6)'
+  },
+  {
+    id: 'comic_fun',
+    name: 'Comique Ludique 🎈',
+    font: 'Comic Neue',
+    size: 46,
+    color: '#FFA500',
+    outline_color: '#3D1F00',
+    outline_width: 4,
+    position: 'bottom',
+    karaoke: true,
+    box_color: 'transparent'
+  },
+  {
+    id: 'news_lower_third',
+    name: 'JT Bandeau 📰',
+    font: 'Roboto',
+    size: 36,
+    color: '#FFFFFF',
+    outline_color: '#000000',
+    outline_width: 1,
+    position: 'bottom',
+    karaoke: false,
+    box_color: 'rgba(180,0,0,0.85)'
+  },
+  {
+    id: 'motivation_gold',
+    name: 'Motivation Or ⭐',
+    font: 'Montserrat',
+    size: 48,
+    color: '#FFC700',
+    outline_color: '#3a2600',
+    outline_width: 5,
+    position: 'center',
+    karaoke: true,
+    box_color: 'transparent'
   }
 ];
 
@@ -94,7 +202,11 @@ const SUBTITLE_FONTS = [
   { value: 'Inter', label: 'Inter (UI, Précis)' },
   { value: 'Source Sans 3', label: 'Source Sans 3 (Éditorial)' },
   { value: 'Liberation Sans', label: 'Liberation Sans (Style Arial)' },
-  { value: 'DejaVu Sans', label: 'DejaVu Sans (Classique, Fiable)' }
+  { value: 'DejaVu Sans', label: 'DejaVu Sans (Classique, Fiable)' },
+  { value: 'Comfortaa', label: 'Comfortaa (Rond, Doux)' },
+  { value: 'Cabin', label: 'Cabin (Humaniste, Moderne)' },
+  { value: 'Noto Sans', label: 'Noto Sans (Universel)' },
+  { value: 'Comic Neue', label: 'Comic Neue (Ludique, Décontracté)' }
 ];
 
 // Available Voice Models
