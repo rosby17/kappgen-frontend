@@ -4294,14 +4294,14 @@ export default function App() {
                   const stepVignetteIntensity = (newChannel.effects_config.vignette_intensity ?? 50) / 100;
                   const resolvedLogoUrl = logoPreviewUrl || (wizardMode === 'edit' && activeChannel && getChannelLogoUrl(activeChannel) !== "/assets/logo/logo-nichecut.png" ? getChannelLogoUrl(activeChannel) : null);
                   const musicLabel = musicFiles[0]?.name
-                    || newChannel.music_preference?.tracks?.[0]?.split('/').pop()
+                    || newChannel.music_preference?.tracks?.[0]?.split('/').pop()?.replace(/^[0-9a-f]{8}_/, '')
                     || (newChannel.music_preference?.mode === 'ai_generate' ? 'Musique générée par IA' : null);
                   const recapItems = [
                     { id: 'logo', label: 'Logo de la chaîne', icon: 'workspace_premium', available: !!resolvedLogoUrl },
                     { id: 'subtitles', label: 'Sous-titres', icon: 'subtitles', available: true },
                     { id: 'effects', label: 'Effets visuels', icon: 'auto_awesome', available: stepHasGrain || stepHasVignette || (newChannel.effects_config.color_grade && newChannel.effects_config.color_grade !== 'none') },
                     { id: 'visual', label: 'Visuel de fond', icon: 'image', available: !!(userImagePreview || (wizardMode === 'edit' && activeChannel)) },
-                    { id: 'music', label: 'Musique', icon: 'music_note', available: !!musicLabel },
+                    { id: 'music', label: 'Musique de fond', icon: 'music_note', available: !!musicLabel },
                   ];
                   return (
                     <div className="space-y-6">
@@ -4312,7 +4312,7 @@ export default function App() {
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-1 lg:grid-cols-[260px_minmax(0,1fr)] gap-8 items-start">
+                      <div className="grid grid-cols-1 lg:grid-cols-[260px_minmax(0,1fr)] gap-8 items-center">
                         {/* Layers — vertical, ordered back-to-front like the real composite.
                             Decocher un calque le masque dans l'aperçu à droite, sans rien
                             changer à la configuration réelle de la chaîne. */}
@@ -4387,7 +4387,7 @@ export default function App() {
                               <img
                                 src={resolvedLogoUrl}
                                 alt="Logo"
-                                style={{ width: `${130 * mockupSubtitlePreviewScale}px`, height: `${130 * mockupSubtitlePreviewScale}px` }}
+                                style={{ width: `${160 * mockupSubtitlePreviewScale}px`, height: `${160 * mockupSubtitlePreviewScale}px` }}
                                 className="object-cover shadow-lg"
                               />
                             )}
@@ -4678,7 +4678,7 @@ export default function App() {
                           <img
                             src={getChannelLogoUrl(activeChannel)}
                             alt="Logo"
-                            style={{ width: `${130 * submitSubtitlePreviewScale}px`, height: `${130 * submitSubtitlePreviewScale}px` }}
+                            style={{ width: `${160 * submitSubtitlePreviewScale}px`, height: `${160 * submitSubtitlePreviewScale}px` }}
                             className="object-cover shadow-lg"
                           />
                         </div>
