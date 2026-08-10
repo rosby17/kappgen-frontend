@@ -3331,7 +3331,7 @@ export default function App() {
       {/* VIDEO PLAYER MODAL */}
       {selectedVideo && (
         <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-50 flex items-center justify-center p-6">
-          <div className="bg-[#161b22] border border-[#263042] rounded-3xl p-6 max-w-[480px] w-full shadow-2xl space-y-4">
+          <div className="bg-[#161b22] border border-[#263042] rounded-3xl p-6 max-w-[min(1200px,92vw)] w-full shadow-2xl space-y-4">
             <div className="flex justify-between items-center">
               <h3 className="text-sm font-bold text-white">Aperçu Vidéo Rendu</h3>
               <button onClick={() => setSelectedVideo(null)} className="text-slate-400 hover:text-white">
@@ -3339,7 +3339,7 @@ export default function App() {
               </button>
             </div>
 
-            <div className="aspect-[16/9] rounded-2xl overflow-hidden border border-[#263042]">
+            <div className="aspect-[16/9] max-h-[80vh] mx-auto rounded-2xl overflow-hidden border border-[#263042]">
               <VideoPlayer
                 src={getVideoUrl(selectedVideo.output_path)}
                 className="w-full h-full"
