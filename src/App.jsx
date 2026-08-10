@@ -748,10 +748,7 @@ export default function App() {
       box_color: 'transparent'
     },
     branding: {
-      channel_name_text: '',
       logo_path: '',
-      watermark_position: 'top_right',
-      watermark_opacity: 0.85
     },
     music_preference: {
       enabled: true,
@@ -2502,10 +2499,10 @@ export default function App() {
                   })}
                 </div>
 
-                {/* STEP 1: INFORMATIONS GÉNÉRALES & IDENTITÉ (CONTIENT LOGO, NOM & FILIGRANE) */}
+                {/* STEP 1: INFORMATIONS GÉNÉRALES & IDENTITÉ (LOGO & NOM) */}
                 {wizardStep === 1 && (
                   <div className="space-y-6">
-                    <h3 className="text-base font-bold text-white">1. Identité de la Chaîne & Filigrane</h3>
+                    <h3 className="text-base font-bold text-white">1. Identité de la Chaîne</h3>
                     
                     <div>
                       <label className="block text-xs font-bold text-slate-300 mb-2">Photo / Logo de la chaîne</label>
@@ -2566,46 +2563,6 @@ export default function App() {
                       </div>
                     </div>
 
-                    {/* Branding Filigrane Integrated in Step 1 */}
-                    <div className="pt-4 border-t border-[#263042] space-y-4">
-                      <label className="block text-xs font-bold text-[#00c2ff]">Filigrane de Marque / Watermark Overlay</label>
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                        <div>
-                          <label className="block text-[11px] font-bold text-slate-300 mb-1">Texte Filigrane (@Handle)</label>
-                          <input 
-                            value={newChannel.branding.channel_name_text}
-                            onChange={e => setNewChannel({ ...newChannel, branding: { ...newChannel.branding, channel_name_text: e.target.value } })}
-                            className="w-full bg-[#1b2230] border border-[#2b374d] rounded-xl px-3 py-2 text-xs text-white focus:border-[#00c2ff] outline-none"
-                            placeholder="ex: @StoicMindDaily"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-[11px] font-bold text-slate-300 mb-1">Position</label>
-                          <select
-                            value={newChannel.branding.watermark_position || 'top_right'}
-                            onChange={e => setNewChannel({ ...newChannel, branding: { ...newChannel.branding, watermark_position: e.target.value } })}
-                            className="w-full bg-[#1b2230] border border-[#2b374d] rounded-xl px-3 py-2 text-xs text-white focus:border-[#00c2ff] outline-none"
-                          >
-                            <option value="top_right">Haut Droite</option>
-                            <option value="bottom_right">Bas Droite</option>
-                            <option value="top_left">Haut Gauche</option>
-                            <option value="bottom_left">Bas Gauche</option>
-                          </select>
-                        </div>
-                        <div>
-                          <label className="block text-[11px] font-bold text-slate-300 mb-1">Opacité ({Math.round((newChannel.branding.watermark_opacity || 0.85) * 100)}%)</label>
-                          <input
-                            type="range"
-                            min="0.2"
-                            max="1.0"
-                            step="0.05"
-                            value={newChannel.branding.watermark_opacity || 0.85}
-                            onChange={e => setNewChannel({ ...newChannel, branding: { ...newChannel.branding, watermark_opacity: parseFloat(e.target.value) } })}
-                            className="w-full accent-[#00c2ff]"
-                          />
-                        </div>
-                      </div>
-                    </div>
                   </div>
                 )}
 
@@ -3025,52 +2982,43 @@ export default function App() {
                       <div className="flex justify-center">
                         <div ref={mockupSubtitlePreviewRef} className="w-full max-w-[640px] aspect-[16/9] bg-slate-950 rounded-2xl border-4 border-[#2b374d] relative overflow-hidden shadow-2xl flex flex-col justify-between p-5">
 
-                          {/* Background Scene Visual — real user image if imported! */}
+                          {/* Background Scene Visual — a freshly picked file from this wizard
+                              session takes priority; otherwise fall back to a real random image
+                              already stored server-side for this channel (not a generic stock photo). */}
                           <div className="absolute inset-0">
-                            <img
-                              src={userImagePreview || `${STORAGE_BASE}/examples/example_scene.png`}
-                              alt="Aperçu visuel de la vidéo"
-                              className="w-full h-full object-cover opacity-85"
-                            />
+                            {userImagePreview ? (
+                              <img
+                                src={userImagePreview}
+                                alt="Aperçu visuel de la vidéo"
+                                className="w-full h-full object-cover opacity-85"
+                              />
+                            ) : newChannel.image_style.source !== 'ai_generated' && wizardMode === 'edit' && activeChannel ? (
+                              <img
+                                key={activeChannel.id}
+                                src={`${API_BASE}/channels/${activeChannel.id}/library-preview`}
+                                alt="Aperçu visuel de la vidéo"
+                                className="w-full h-full object-cover opacity-85"
+                                onError={(event) => { event.currentTarget.style.display = 'none'; }}
+                              />
+                            ) : null}
                             <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/30"></div>
                           </div>
-                          <div className="absolute top-3 left-3 z-20 bg-black/70 backdrop-blur-md px-3 py-1 rounded-lg text-[10px] font-mono text-slate-200 border border-white/20 flex items-center gap-1.5 shadow-lg">
-                            {userImagePreview ? (
-                              <>
-                                <span className="material-symbols-outlined text-emerald-400 text-[14px]">check_circle</span>
-                                <span className="font-bold text-emerald-300">Image du dossier: {selectedFolderName || 'Local'} ({localImageFiles[0]?.name})</span>
-                              </>
-                            ) : (
-                              <span>Exemple: {newChannel.image_style.source === 'library' ? 'Images Locales' : newChannel.image_style.source === 'hybrid' ? 'Mode Hybride (Dossier + IA)' : 'Scènes générées par IA'}</span>
-                            )}
-                          </div>
+                          {userImagePreview && (
+                            <div className="absolute top-3 left-3 z-20 bg-black/70 backdrop-blur-md px-3 py-1 rounded-lg text-[10px] font-mono text-slate-200 border border-white/20 flex items-center gap-1.5 shadow-lg">
+                              <span className="material-symbols-outlined text-emerald-400 text-[14px]">check_circle</span>
+                              <span className="font-bold text-emerald-300">Image du dossier: {selectedFolderName || 'Local'} ({localImageFiles[0]?.name})</span>
+                            </div>
+                          )}
 
-                          {/* Top overlay — matches exactly what's burned into the real render:
-                              a square logo top-left, and the channel-name watermark (in the
-                              subtitle font/color) top-right. Nothing else is actually rendered. */}
-                          <div className="relative z-20 flex justify-between items-start">
-                            {logoPreviewUrl ? (
+                          {/* Top-right logo — matches exactly what's burned into the real render. */}
+                          <div className="relative z-20 flex justify-end items-start">
+                            {logoPreviewUrl && (
                               <img
                                 src={logoPreviewUrl}
                                 alt="Logo"
                                 style={{ width: `${100 * mockupSubtitlePreviewScale}px`, height: `${100 * mockupSubtitlePreviewScale}px` }}
                                 className="rounded-md object-cover shadow-lg"
                               />
-                            ) : <div />}
-
-                            {newChannel.branding.channel_name_text && (
-                              <span
-                                style={{
-                                  fontFamily: newChannel.subtitle_style.font,
-                                  fontSize: `${26 * mockupSubtitlePreviewScale}px`,
-                                  color: newChannel.subtitle_style.color || '#FFFFFF',
-                                  WebkitTextStroke: `1px ${newChannel.subtitle_style.outline_color || '#000000'}`,
-                                  paintOrder: 'stroke fill',
-                                }}
-                                className="font-black"
-                              >
-                                {newChannel.branding.channel_name_text}
-                              </span>
                             )}
                           </div>
 
@@ -3363,11 +3311,6 @@ export default function App() {
                           ))}
                         </div>
                       </div>
-                      {activeChannel.branding?.channel_name_text && (
-                        <div className="absolute bottom-3 right-3 text-[10px] font-bold text-white/70">
-                          {activeChannel.branding.channel_name_text}
-                        </div>
-                      )}
                     </div>
                   </div>
 
