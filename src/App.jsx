@@ -1297,7 +1297,8 @@ export default function App() {
       grain_intensity: 50,
       vignette_intensity: 50,
       zoom_min_pct: 1.0,
-      zoom_max_pct: 1.15
+      zoom_max_pct: 1.15,
+      watermark_enabled: true
     }
   };
   const [newChannel, setNewChannel] = useState(defaultChannelForm);
@@ -4416,6 +4417,20 @@ export default function App() {
                               )}
                             </div>
                           )}
+
+                          <div className="pt-2 border-t border-[#263042] flex items-center justify-between gap-3">
+                            <div>
+                              <label className="block text-xs font-bold text-slate-300">Filigrane NicheCut</label>
+                              <p className="text-[11px] text-slate-500 mt-0.5">Petite marque "créé avec NicheCut", discrète, en bas à gauche.</p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setNewChannel({ ...newChannel, effects_config: { ...newChannel.effects_config, watermark_enabled: !(newChannel.effects_config.watermark_enabled ?? true) } })}
+                              className={`shrink-0 w-11 h-6 rounded-full relative transition-colors ${(newChannel.effects_config.watermark_enabled ?? true) ? 'bg-[#00c2ff]' : 'bg-[#2b374d]'}`}
+                            >
+                              <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform ${(newChannel.effects_config.watermark_enabled ?? true) ? 'translate-x-[22px]' : 'translate-x-0.5'}`} />
+                            </button>
+                          </div>
                         </div>
 
                         <div className="lg:sticky lg:top-4">
