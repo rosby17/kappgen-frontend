@@ -29,7 +29,7 @@ const SUBTITLE_PRESETS = [
   {
     id: 'hormozi',
     name: 'Hormozi Gold 🔥',
-    font: 'Montserrat',
+    font: 'Inter',
     size: 46,
     color: '#FFD700',
     outline_color: '#000000',
@@ -53,7 +53,7 @@ const SUBTITLE_PRESETS = [
   {
     id: 'cinematic_dark',
     name: 'Cinématique Épuré 🎬',
-    font: 'Montserrat',
+    font: 'Inter',
     size: 40,
     color: '#FFFFFF',
     outline_color: '#111111',
@@ -101,7 +101,7 @@ const SUBTITLE_PRESETS = [
   {
     id: 'editorial_clean',
     name: 'Éditorial Minimal ✒️',
-    font: 'Source Sans 3',
+    font: 'Open Sans',
     size: 38,
     color: '#FFFFFF',
     outline_color: '#000000',
@@ -173,7 +173,7 @@ const SUBTITLE_PRESETS = [
   {
     id: 'motivation_gold',
     name: 'Motivation Or ⭐',
-    font: 'Montserrat',
+    font: 'Inter',
     size: 48,
     color: '#FFC700',
     outline_color: '#3a2600',
@@ -247,7 +247,7 @@ const SUBTITLE_PRESETS = [
   {
     id: 'gold_box',
     name: 'Boîte Dorée 🏆',
-    font: 'Montserrat',
+    font: 'Inter',
     size: 42,
     color: '#231600',
     outline_color: '#231600',
@@ -320,7 +320,7 @@ const SUBTITLE_PRESETS = [
   {
     id: 'electric_blue',
     name: 'Bleu Électrique ⚡',
-    font: 'Montserrat',
+    font: 'Inter',
     size: 46,
     color: '#3DA9FF',
     outline_color: '#00142E',
@@ -359,12 +359,10 @@ const NICHE_OPTIONS = [
 // Dockerfile) — verified by downloading each Debian font package and
 // reading its real name table, not guessed from the package name.
 const SUBTITLE_FONTS = [
-  { value: 'Montserrat', label: 'Montserrat', group: 'Sans-serif' },
   { value: 'Roboto', label: 'Roboto', group: 'Sans-serif' },
   { value: 'Open Sans', label: 'Open Sans', group: 'Sans-serif' },
   { value: 'Lato', label: 'Lato', group: 'Sans-serif' },
   { value: 'Inter', label: 'Inter', group: 'Sans-serif' },
-  { value: 'Source Sans 3', label: 'Source Sans 3', group: 'Sans-serif' },
   { value: 'Liberation Sans', label: 'Liberation Sans', group: 'Sans-serif' },
   { value: 'DejaVu Sans', label: 'DejaVu Sans', group: 'Sans-serif' },
   { value: 'Noto Sans', label: 'Noto Sans', group: 'Sans-serif' },
@@ -1192,7 +1190,7 @@ export default function App() {
     name: '',
     niche: 'Philosophie & Stoïcisme',
     subtitle_style: {
-      font: 'Montserrat',
+      font: 'Inter',
       size: 44,
       color: '#FFD700',
       base_color: '#FFFFFF',
