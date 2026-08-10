@@ -2889,7 +2889,7 @@ export default function App() {
                           of one long scroll, so the preview stays reachable without
                           hunting through every control at once. */}
                       <div className="space-y-4 min-w-0">
-                        <div className="flex flex-wrap gap-2 border-b border-[#263042] pb-3">
+                        <div className="flex w-full bg-[#1b2230] rounded-xl p-1 mb-1 overflow-x-auto">
                           {[
                             { id: 'presets', label: 'Préréglages', icon: 'style' },
                             { id: 'text', label: 'Police & Couleurs', icon: 'text_fields' },
@@ -2901,11 +2901,11 @@ export default function App() {
                               key={tab.id}
                               type="button"
                               onClick={() => setSubtitleTab(tab.id)}
-                              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-colors ${
-                                subtitleTab === tab.id ? 'bg-[#00c2ff] text-slate-950' : 'bg-[#1b2230] text-slate-300 hover:bg-[#252f42]'
+                              className={`flex-1 flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg text-[11px] font-bold whitespace-nowrap transition-colors ${
+                                subtitleTab === tab.id ? 'bg-[#00c2ff] text-slate-950' : 'text-slate-300 hover:bg-[#252f42]'
                               }`}
                             >
-                              <span className="material-symbols-outlined text-[16px]">{tab.icon}</span>
+                              <span className="material-symbols-outlined text-[15px]">{tab.icon}</span>
                               {tab.label}
                             </button>
                           ))}
