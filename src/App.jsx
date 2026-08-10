@@ -376,7 +376,6 @@ const SUBTITLE_FONTS = [
   { value: 'Carlito', label: 'Carlito', group: 'Sans-serif' },
   { value: 'Cantarell', label: 'Cantarell', group: 'Sans-serif' },
   { value: 'National Park', label: 'National Park', group: 'Sans-serif' },
-  { value: 'Oxygen-Sans', label: 'Oxygen', group: 'Sans-serif' },
 
   { value: 'Bebas Neue', label: 'Bebas Neue', group: 'Display / Impact' },
   { value: 'League Spartan', label: 'League Spartan', group: 'Display / Impact' },
