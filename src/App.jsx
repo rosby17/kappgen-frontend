@@ -430,7 +430,10 @@ const VOICE_MODELS = [
 function VideoPlayer({ src, autoPlay, className }) {
   const videoRef = useRef(null);
   const seekBarRef = useRef(null);
-  const [isPlaying, setIsPlaying] = useState(!!autoPlay);
+  // Always starts false, even with autoPlay — the browser can silently block
+  // autoplay, and onPlay (below) is what actually confirms playback started.
+  // Assuming success here left the icon stuck on "pause" while nothing played.
+  const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
@@ -441,7 +444,12 @@ function VideoPlayer({ src, autoPlay, className }) {
     e.stopPropagation();
     const v = videoRef.current;
     if (!v) return;
-    if (v.paused) { v.play(); setIsPlaying(true); } else { v.pause(); setIsPlaying(false); }
+    // isPlaying is driven by the video's own onPlay/onPause events below, not
+    // set here — setting it manually after a play() that silently fails (e.g.
+    // interrupted by another call, or fired before the src is actually ready)
+    // left the button showing "pause" while nothing was actually playing, and
+    // every click after that re-entered the same paused branch and failed again.
+    if (v.paused) v.play().catch(() => {}); else v.pause();
   };
 
   const seekToClientX = (clientX) => {
@@ -2509,7 +2517,7 @@ export default function App() {
       </nav>
 
       {/* MAIN CONTENT AREA */}
-      <main className="flex-1 flex flex-col md:ml-[240px] h-screen overflow-hidden bg-[#0f1217]">
+      <main className="flex-1 flex flex-col pt-14 md:pt-0 md:ml-[240px] h-screen overflow-hidden bg-[#0f1217]">
         
         {/* Top Header Bar */}
         <div className="hidden md:flex justify-between items-center px-8 py-5 border-b border-[#202938] bg-[#141923]/60 backdrop-blur-md">
@@ -3056,7 +3064,7 @@ export default function App() {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-3 flex-shrink-0">
+                  <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0 flex-wrap">
                     {(activeChannel.image_style?.source === 'library' || activeChannel.image_style?.source === 'hybrid') && (
                       <div className="flex items-center gap-2">
                           <input
@@ -3078,52 +3086,56 @@ export default function App() {
                             }}
                             className="hidden"
                           />
-                          <button
-                            onClick={async (e) => {
-                              e.stopPropagation();
-                              setLibrarySyncing(true);
-                              // Already-authorized folder → resync it directly, no dialog at all.
-                              if (librarySyncHasHandle) {
-                                const ok = await refreshFromRememberedFolder(activeChannel.id);
+                          <div className="flex flex-col items-center sm:items-start gap-1">
+                            <button
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                setLibrarySyncing(true);
+                                // Already-authorized folder → resync it directly, no dialog at all.
+                                if (librarySyncHasHandle) {
+                                  const ok = await refreshFromRememberedFolder(activeChannel.id);
+                                  setLibrarySyncing(false);
+                                  if (!ok) showToast("Impossible de rafraîchir automatiquement — resélectionne le dossier.", "error");
+                                  return;
+                                }
+                                // First time (or unsupported browser): pick the folder right here,
+                                // no navigation to the wizard.
+                                const handled = await pickFolderModern(activeChannel.id);
+                                if (!handled && channelSyncInputRef.current) {
+                                  channelSyncInputRef.current.click();
+                                  return; // syncing flag cleared by the input's onChange above
+                                }
                                 setLibrarySyncing(false);
-                                if (!ok) showToast("Impossible de rafraîchir automatiquement — resélectionne le dossier.", "error");
-                                return;
-                              }
-                              // First time (or unsupported browser): pick the folder right here,
-                              // no navigation to the wizard.
-                              const handled = await pickFolderModern(activeChannel.id);
-                              if (!handled && channelSyncInputRef.current) {
-                                channelSyncInputRef.current.click();
-                                return; // syncing flag cleared by the input's onChange above
-                              }
-                              setLibrarySyncing(false);
-                              setLibrarySyncHasHandle(!!(await getFolderHandle(activeChannel.id)));
-                            }}
-                            disabled={librarySyncing}
-                            title="Synchronise la bibliothèque avec ton dossier local, sans quitter la page"
-                            className="px-4 py-2.5 bg-[#1b2230] text-white rounded-xl font-bold text-xs hover:bg-[#252f42] transition-colors flex items-center gap-2 border border-[#2b374d] disabled:opacity-60"
-                          >
-                            <span className={`material-symbols-outlined text-[18px] ${librarySyncing ? 'animate-spin' : ''}`}>{librarySyncing ? 'progress_activity' : 'sync'}</span>
-                            {librarySyncing ? 'Synchronisation…' : 'Mettre à jour la bibliothèque'}
-                          </button>
-                          <span className="text-[10px] text-slate-500 whitespace-nowrap">
-                            Dernière synchro : {formatSyncAgo(activeChannel.id, nowTick)}
-                          </span>
+                                setLibrarySyncHasHandle(!!(await getFolderHandle(activeChannel.id)));
+                              }}
+                              disabled={librarySyncing}
+                              title="Mettre à jour la bibliothèque"
+                              className="w-10 h-10 sm:w-auto sm:h-auto sm:px-4 sm:py-2.5 bg-[#1b2230] text-white rounded-xl font-bold text-xs hover:bg-[#252f42] transition-colors flex items-center justify-center gap-2 border border-[#2b374d] disabled:opacity-60"
+                            >
+                              <span className={`material-symbols-outlined text-[18px] ${librarySyncing ? 'animate-spin' : ''}`}>{librarySyncing ? 'progress_activity' : 'sync'}</span>
+                              <span className="hidden sm:inline">{librarySyncing ? 'Synchronisation…' : 'Mettre à jour la bibliothèque'}</span>
+                            </button>
+                            <span className="text-[10px] text-slate-500 whitespace-nowrap">
+                              Dernière synchro : {formatSyncAgo(activeChannel.id, nowTick)}
+                            </span>
+                          </div>
                       </div>
                     )}
                     <button
                       onClick={(e) => openEditWizard(activeChannel, e)}
-                      className="px-4 py-2.5 bg-[#1b2230] text-white rounded-xl font-bold text-xs hover:bg-[#252f42] transition-colors flex items-center gap-2 border border-[#2b374d]"
+                      title="Modifier le Pipeline"
+                      className="w-10 h-10 sm:w-auto sm:h-auto sm:px-4 sm:py-2.5 bg-[#1b2230] text-white rounded-xl font-bold text-xs hover:bg-[#252f42] transition-colors flex items-center justify-center gap-2 border border-[#2b374d]"
                     >
                       <span className="material-symbols-outlined text-[18px]">edit</span>
-                      Modifier le Pipeline
+                      <span className="hidden sm:inline">Modifier le Pipeline</span>
                     </button>
                     <button
                       onClick={() => setShowSubmitModal(true)}
-                      className="px-5 py-2.5 bg-[#00c2ff] text-slate-950 rounded-xl font-bold text-xs hover:bg-[#38d0ff] transition-all flex items-center gap-2 shadow-lg shadow-[#00c2ff]/20"
+                      title="Nouvelle Vidéo"
+                      className="w-10 h-10 sm:w-auto sm:h-auto sm:px-5 sm:py-2.5 bg-[#00c2ff] text-slate-950 rounded-xl font-bold text-xs hover:bg-[#38d0ff] transition-all flex items-center justify-center gap-2 shadow-lg shadow-[#00c2ff]/20"
                     >
                       <span className="material-symbols-outlined text-[18px]">add</span>
-                      Nouvelle Vidéo
+                      <span className="hidden sm:inline">Nouvelle Vidéo</span>
                     </button>
                   </div>
                 </section>
