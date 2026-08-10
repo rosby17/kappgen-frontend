@@ -349,7 +349,7 @@ const SUBTITLE_PRESETS = [
 // use (see fetchNicheOptions/GET /api/channels/niches), merged in at runtime.
 const NICHE_OPTIONS = [
   "Philosophie", "Philosophie Stoïcienne", "Philosophie de Machiavel", "Philosophie de Napoleon Hill",
-  "Stoïcisme", "Spiritualité", "Méditation", "Religion", "Christianisme", "Bouddhisme", "Islam",
+  "Stoïcisme", "Spiritualité", "Prière", "Méditation", "Bouddhisme", "Islam",
   "Mythologie", "Histoires Antiques", "Histoire Africaine", "Histoire Européenne", "Histoire",
   "Développement Personnel", "Motivation", "Récits Captivants", "Psychologie", "Finance", "Business",
   "Santé & Bien-être", "Football", "Sport", "Science", "Faits Divers", "True Crime", "Voyage", "Cuisine",
@@ -1018,6 +1018,32 @@ export default function App() {
   const [fontPickerOpen, setFontPickerOpen] = useState(false);
   const [fontSearchQuery, setFontSearchQuery] = useState('');
   const [subtitleTab, setSubtitleTab] = useState('presets');
+  const [nicheMode, setNicheMode] = useState('preset');
+  const [styleAnalyzing, setStyleAnalyzing] = useState(false);
+  const styleReferenceInputRef = useRef(null);
+
+  const handleAnalyzeStyleImage = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setStyleAnalyzing(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await fetch(`${API_BASE}/channels/analyze-style-image`, { method: 'POST', body: formData });
+      if (!res.ok) {
+        const detail = await res.json().catch(() => ({}));
+        throw new Error(detail.detail || "Analyse impossible.");
+      }
+      const data = await res.json();
+      setNewChannel(prev => ({ ...prev, image_style: { ...prev.image_style, style_prompt: data.style_prompt } }));
+      showToast("Style analysé et appliqué au prompt.", "success");
+    } catch (err) {
+      showToast(err.message || "Erreur lors de l'analyse de l'image.", "error");
+    } finally {
+      setStyleAnalyzing(false);
+    }
+  };
   const [editingChannelId, setEditingChannelId] = useState(null);
   const [logoFile, setLogoFile] = useState(null);
   const [logoPreviewUrl, setLogoPreviewUrl] = useState(null);
@@ -1431,6 +1457,7 @@ export default function App() {
 
   const resetWizardState = () => {
     setNewChannel(defaultChannelForm);
+    setNicheMode('preset');
     setWizardMode('create');
     setEditingChannelId(null);
     setLogoFile(null);
@@ -1474,6 +1501,7 @@ export default function App() {
       image_style: { ...defaultChannelForm.image_style, ...(channel.image_style || {}) },
       effects_config: { ...defaultChannelForm.effects_config, ...(channel.effects_config || {}) }
     });
+    setNicheMode(nicheOptions.includes(channel.niche) ? 'preset' : 'custom');
     setLogoFile(null);
     setLocalImageFiles([]);
     setSelectedFolderName('');
@@ -2869,17 +2897,31 @@ export default function App() {
                         />
                       </div>
                     </div>
-                    <p className="text-[11px] text-slate-400 -mt-3">Clique sur la photo pour {logoPreviewUrl ? 'la changer' : 'la sélectionner'} — format conseillé : PNG ou JPG carré (512x512), affiché en rond comme sur YouTube.</p>
 
                     <div>
                       <label className="block text-xs font-bold text-slate-300 mb-2">Niche de contenu</label>
+                      <div className="flex flex-wrap gap-2">
+                        {nicheOptions.map(n => (
+                          <button
+                            key={n}
+                            type="button"
+                            onClick={() => setNewChannel({ ...newChannel, niche: n })}
+                            className={`px-3.5 py-2 rounded-xl text-xs font-bold border transition-colors ${
+                              newChannel.niche === n
+                                ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]'
+                                : 'bg-[#1b2230] border-[#2b374d] text-slate-300 hover:border-slate-500'
+                            }`}
+                          >
+                            {n}
+                          </button>
+                        ))}
+                      </div>
                       <input
                         value={newChannel.niche}
                         onChange={e => setNewChannel({ ...newChannel, niche: e.target.value })}
-                        className="w-full bg-[#1b2230] border border-[#2b374d] rounded-xl px-4 py-3 text-sm text-white focus:border-[#00c2ff] outline-none"
-                        placeholder="Ex: Philosophie, Football, Religion, Histoire africaine..."
+                        className="w-full mt-2 bg-[#1b2230] border border-[#2b374d] rounded-xl px-3 py-2 text-xs text-white focus:border-[#00c2ff] outline-none"
+                        placeholder="Écris ta propre niche..."
                       />
-                      <p className="text-[11px] text-slate-500 mt-1.5">Écris n'importe quelle niche — ex. {nicheOptions.slice(0, 6).join(', ')}...</p>
                     </div>
 
                   </div>
@@ -3571,7 +3613,27 @@ export default function App() {
                           </div>
 
                           <div>
-                            <label className="block text-[10px] font-bold text-slate-300 mb-1">Décris le style visuel que tu veux</label>
+                            <div className="flex items-center justify-between mb-1">
+                              <label className="block text-[10px] font-bold text-slate-300">Décris le style visuel que tu veux</label>
+                              <div onClick={(e) => e.stopPropagation()}>
+                                <input
+                                  ref={styleReferenceInputRef}
+                                  type="file"
+                                  accept="image/png,image/jpeg,image/webp"
+                                  onChange={handleAnalyzeStyleImage}
+                                  className="hidden"
+                                />
+                                <button
+                                  type="button"
+                                  disabled={styleAnalyzing}
+                                  onClick={() => styleReferenceInputRef.current && styleReferenceInputRef.current.click()}
+                                  className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold bg-[#00c2ff]/10 text-[#00c2ff] hover:bg-[#00c2ff]/20 transition-colors disabled:opacity-50"
+                                >
+                                  <span className="material-symbols-outlined text-[13px]">{styleAnalyzing ? 'hourglass_top' : 'image_search'}</span>
+                                  {styleAnalyzing ? 'Analyse...' : "Analyser une image de référence"}
+                                </button>
+                              </div>
+                            </div>
                             <textarea
                               rows="2"
                               value={newChannel.image_style.style_prompt}
