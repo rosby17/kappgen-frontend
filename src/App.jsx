@@ -1609,17 +1609,37 @@ export default function App() {
   // restricted, which is exactly the symptom reported in production.
   useEffect(() => {
     if (!showAuthModal || authTab === 'forgot' || !GOOGLE_CLIENT_ID) return;
-    if (!window.google || !window.google.accounts || !window.google.accounts.id) return;
-    window.google.accounts.id.initialize({
-      client_id: GOOGLE_CLIENT_ID,
-      callback: handleGoogleCredential,
-    });
-    if (googleButtonRef.current) {
+
+    let cancelled = false;
+    let attempts = 0;
+
+    const tryRender = () => {
+      if (cancelled) return;
+      const ready = window.google && window.google.accounts && window.google.accounts.id;
+      // The GSI script tag is `async defer` — it's very likely not loaded yet
+      // the first time this runs (e.g. right on app mount, since sign-in is
+      // now mandatory). Previously this just gave up silently, so the button
+      // either never appeared or — once Google's own lazy init eventually
+      // kicked in on its own — rendered at its unconstrained default width,
+      // overflowing the modal on narrow screens.
+      if (!ready) {
+        if (attempts++ < 25) setTimeout(tryRender, 200);
+        return;
+      }
+      window.google.accounts.id.initialize({
+        client_id: GOOGLE_CLIENT_ID,
+        callback: handleGoogleCredential,
+      });
+      if (!googleButtonRef.current) return;
       googleButtonRef.current.innerHTML = "";
       // Google's renderButton `width` is a fixed pixel value, not responsive —
-      // a hardcoded 376 overflowed the modal on narrow (mobile) viewports.
-      // Measure the actual container instead, capped at Google's own max (400).
-      const containerWidth = Math.min(400, Math.floor(googleButtonRef.current.getBoundingClientRect().width) || 300);
+      // measure the actual container instead of hardcoding one. A few px of
+      // margin guards against Google's own iframe still slightly overshooting
+      // the requested width for longer locale text (French labels run longer
+      // than English) — the wrapper's overflow-hidden below is the hard clamp
+      // either way.
+      const measured = Math.floor(googleButtonRef.current.getBoundingClientRect().width);
+      const containerWidth = Math.max(200, Math.min(400, (measured || 300) - 4));
       window.google.accounts.id.renderButton(googleButtonRef.current, {
         theme: "outline",
         size: "large",
@@ -1627,7 +1647,10 @@ export default function App() {
         text: "continue_with",
         locale: "fr",
       });
-    }
+    };
+
+    tryRender();
+    return () => { cancelled = true; };
   }, [showAuthModal, authTab]);
 
   const handleLogout = () => {
@@ -5115,7 +5138,7 @@ export default function App() {
             ) : (
               <>
                 {GOOGLE_CLIENT_ID ? (
-                  <div ref={googleButtonRef} className="w-full flex justify-center min-h-[44px]" />
+                  <div ref={googleButtonRef} className="w-full max-w-full flex justify-center items-center min-h-[44px] overflow-hidden" />
                 ) : (
                   <div className="w-full py-3 bg-[#1b2230] text-slate-500 font-bold text-xs rounded-xl flex items-center justify-center gap-2 border border-[#2b374d]">
                     Connexion Google indisponible
