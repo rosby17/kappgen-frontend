@@ -966,6 +966,7 @@ export default function App() {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showChannelPickerModal, setShowChannelPickerModal] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [openChannelMenuId, setOpenChannelMenuId] = useState(null);
   const [openVideoMenuId, setOpenVideoMenuId] = useState(null);
   const [editingTitleId, setEditingTitleId] = useState(null);
@@ -1607,10 +1608,14 @@ export default function App() {
     });
     if (googleButtonRef.current) {
       googleButtonRef.current.innerHTML = "";
+      // Google's renderButton `width` is a fixed pixel value, not responsive —
+      // a hardcoded 376 overflowed the modal on narrow (mobile) viewports.
+      // Measure the actual container instead, capped at Google's own max (400).
+      const containerWidth = Math.min(400, Math.floor(googleButtonRef.current.getBoundingClientRect().width) || 300);
       window.google.accounts.id.renderButton(googleButtonRef.current, {
         theme: "outline",
         size: "large",
-        width: 376,
+        width: containerWidth,
         text: "continue_with",
         locale: "fr",
       });
@@ -2362,10 +2367,101 @@ export default function App() {
 
   return (
     <div className="font-body-md antialiased overflow-hidden flex h-screen bg-[#0f1217] text-[#e5e8f0]">
-      
+
+      {/* MOBILE TOP BAR — the desktop sidenav + header below are both `hidden`
+          under md, so mobile needs its own always-visible bar with a hamburger
+          to reach navigation at all. */}
+      <div className="flex md:hidden items-center justify-between px-4 h-14 fixed top-0 left-0 right-0 z-40 bg-[#141923] border-b border-[#263042]">
+        <button
+          onClick={() => setMobileMenuOpen(true)}
+          className="w-9 h-9 flex items-center justify-center rounded-lg text-slate-300 hover:bg-[#1f2838] hover:text-white -ml-1.5"
+          aria-label="Ouvrir le menu"
+        >
+          <span className="material-symbols-outlined text-[24px]">menu</span>
+        </button>
+        <div className="flex items-center gap-2" onClick={() => setView('home')}>
+          <img src="/assets/logo/logo-nichecut.png" alt="NicheCut" className="w-7 h-7 rounded-lg object-cover" />
+          <span className="font-title-sm text-sm font-black text-white tracking-wide">NicheCut</span>
+        </div>
+        {currentUser ? (
+          <button onClick={() => setShowProfileModal(true)} className="w-8 h-8 rounded-full overflow-hidden border border-[#2b374d] flex-shrink-0">
+            {currentUser.picture_url ? (
+              <img src={currentUser.picture_url} alt={currentUser.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+            ) : (
+              <div className="w-full h-full bg-gradient-to-br from-[#00c2ff] to-[#0088ff] flex items-center justify-center text-slate-950 text-xs font-black">
+                {(currentUser.name || '?')[0].toUpperCase()}
+              </div>
+            )}
+          </button>
+        ) : (
+          <div className="w-8 h-8" />
+        )}
+      </div>
+
+      {/* MOBILE NAV DRAWER */}
+      {mobileMenuOpen && (
+        <div className="md:hidden fixed inset-0 z-50 flex">
+          <div className="absolute inset-0 bg-slate-950/70 backdrop-blur-sm" onClick={() => setMobileMenuOpen(false)} />
+          <nav className="relative w-[260px] max-w-[80vw] h-full bg-[#141923] border-r border-[#263042] py-6 flex flex-col justify-between overflow-y-auto">
+            <div>
+              <div className="px-6 mb-8 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <img src="/assets/logo/logo-nichecut.png" alt="NicheCut" className="w-9 h-9 rounded-xl shadow-lg shadow-[#00c2ff]/20 object-cover" />
+                  <div>
+                    <div className="font-title-sm text-base font-black text-white tracking-wide">NicheCut</div>
+                    <div className="text-slate-400 text-xs font-normal">Video Automation</div>
+                  </div>
+                </div>
+                <button onClick={() => setMobileMenuOpen(false)} className="text-slate-400 hover:text-white">
+                  <span className="material-symbols-outlined">close</span>
+                </button>
+              </div>
+              <div className="px-3 space-y-1.5">
+                {[
+                  { id: 'home', label: 'Home', icon: 'home', active: view === 'home' || view === 'dashboard' },
+                  { id: 'channels', label: 'Mes Chaînes', icon: 'subscriptions', active: view === 'channels' || view === 'channel_detail' },
+                  { id: 'videos', label: 'Mes Vidéos', icon: 'movie', active: view === 'videos' },
+                ].map(({ id, label, icon, active }) => (
+                  <button
+                    key={id}
+                    onClick={() => { setView(id); setMobileMenuOpen(false); }}
+                    className={`w-full flex items-center gap-3.5 px-4 py-3 cursor-pointer rounded-xl transition-all font-medium text-sm ${
+                      active
+                        ? 'bg-gradient-to-r from-[#00c2ff] to-[#0099ff] text-slate-950 font-bold shadow-md shadow-[#00c2ff]/20'
+                        : 'text-slate-300 hover:bg-[#1f2838] hover:text-white'
+                    }`}
+                  >
+                    <span className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: active ? "'FILL' 1" : "'FILL' 0" }}>{icon}</span>
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="px-3">
+              {currentUser ? (
+                <button
+                  onClick={() => { handleLogout(); setMobileMenuOpen(false); }}
+                  className="w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-medium text-slate-300 hover:bg-[#1f2838] hover:text-white"
+                >
+                  <span className="material-symbols-outlined text-[20px]">logout</span>
+                  Déconnexion
+                </button>
+              ) : (
+                <button
+                  onClick={() => { setShowAuthModal(true); setMobileMenuOpen(false); }}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold bg-[#00c2ff] text-slate-950"
+                >
+                  Connexion
+                </button>
+              )}
+            </div>
+          </nav>
+        </div>
+      )}
+
       {/* SIDE NAVBAR */}
       <nav className="hidden md:flex flex-col bg-[#141923] text-primary font-label-bold text-label-bold fixed left-0 top-0 h-screen w-[240px] z-40 border-r border-[#263042] py-6 justify-between">
-        
+
         <div>
           {/* Brand Logo Header */}
           <div className="px-6 mb-8 flex items-center gap-3 cursor-pointer" onClick={() => setView('home')}>
@@ -4589,12 +4685,9 @@ export default function App() {
             </div>
 
             {/* Active Channel (read-only — already chosen before opening this modal) */}
-            <div className="flex items-center gap-3 bg-[#11151c] border border-[#202938] rounded-2xl p-3">
-              <ChannelAvatar channel={activeChannel} logoUrl={getChannelLogoUrl(activeChannel)} sizeClass="w-10 h-10" roundedClass="rounded-xl" textClass="text-sm" />
-              <div className="min-w-0">
-                <div className="text-sm font-bold text-white truncate">{activeChannel.name}</div>
-                <div className="text-[11px] text-slate-400 truncate">{activeChannel.niche}</div>
-              </div>
+            <div className="bg-[#11151c] border border-[#202938] rounded-2xl p-3">
+              <div className="text-sm font-bold text-white truncate">{activeChannel.name}</div>
+              <div className="text-[11px] text-slate-400 truncate">{activeChannel.niche}</div>
             </div>
 
             {submitStep === 1 ? (
@@ -4708,12 +4801,13 @@ export default function App() {
                       { id: 'logo', label: 'Logo de la chaîne', icon: 'workspace_premium', group: 'branding', field: 'logo_enabled', checked: activeChannel.branding?.logo_enabled ?? true },
                       { id: 'subtitles', label: 'Sous-titres', icon: 'subtitles', group: 'subtitle_style', field: 'enabled', checked: activeChannel.subtitle_style?.enabled ?? true },
                       { id: 'effects', label: 'Effets visuels', icon: 'auto_awesome', group: 'effects_config', field: 'enabled', checked: activeChannel.effects_config?.enabled ?? true },
+                      { id: 'visual', label: 'Visuel de fond', icon: 'image', checked: recapVisible.visual },
                       { id: 'music', label: 'Musique de fond', icon: 'music_note', group: 'music_preference', field: 'enabled', checked: activeChannel.music_preference?.enabled ?? true },
                     ].map(({ id, label, icon, group, field, checked }) => (
                       <button
                         key={id}
                         type="button"
-                        onClick={() => toggleActiveChannelFlag(group, field)}
+                        onClick={() => group ? toggleActiveChannelFlag(group, field) : setRecapVisible(prev => ({ ...prev, visual: !prev.visual }))}
                         className={`w-full px-3 py-2 rounded-xl text-xs font-bold border transition-colors flex items-center gap-2.5 text-left ${
                           checked
                             ? 'bg-emerald-950/60 border-emerald-700 text-emerald-400'
@@ -4733,7 +4827,7 @@ export default function App() {
                   <div>
                     <div className="text-xs text-slate-400 mb-2">Aperçu visuel du rendu final</div>
                     <div ref={submitSubtitlePreviewRef} className="w-full aspect-video rounded-2xl overflow-hidden relative border border-[#2b374d] shadow-lg">
-                      {activeChannel.image_style?.source !== 'ai_generated' && (
+                      {recapVisible.visual && activeChannel.image_style?.source !== 'ai_generated' && (
                         <img
                           src={`${API_BASE}/channels/${activeChannel.id}/library-preview`}
                           alt="Image aléatoire de la bibliothèque"
@@ -4802,8 +4896,16 @@ export default function App() {
                     {submitMode === 'text' ? (
                       <p className="text-xs text-white line-clamp-4">{singleScriptText}</p>
                     ) : (
-                      <div className="space-y-2">
-                        {audioFilesList.map((f, i) => <AudioFilePreview key={`${f.name}-${f.size}-${i}`} file={f} onRemove={() => setAudioFilesList(prev => prev.filter((_, idx) => idx !== i))} />)}
+                      // No full waveform player here — this audio becomes the video's own
+                      // narration track, playable directly once the render is done; a
+                      // second full-length player at this step just wastes space.
+                      <div className="space-y-1.5">
+                        {audioFilesList.map((f, i) => (
+                          <div key={`${f.name}-${f.size}-${i}`} className="flex items-center gap-2.5 text-xs text-white bg-[#161b22] border border-[#202938] rounded-lg px-3 py-2">
+                            <span className="material-symbols-outlined text-[16px] text-slate-400 shrink-0">audiotrack</span>
+                            <span className="flex-1 truncate">{f.name}</span>
+                          </div>
+                        ))}
                       </div>
                     )}
                   </div>
