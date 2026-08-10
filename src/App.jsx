@@ -1122,7 +1122,10 @@ export default function App() {
   const [wizardStep, setWizardStep] = useState(1);
   // Aperçu Final (step 6) recap checklist — purely local to the preview, lets the
   // user toggle each configured element on/off to see the mockup with/without it.
-  const [recapVisible, setRecapVisible] = useState({ logo: true, subtitles: true, music: true, visual: true, effects: true });
+  // Only "visual" has no real per-channel setting (a video always needs a
+  // background) — logo/subtitles/effects/music toggle real newChannel fields
+  // instead, see isRecapChecked/toggleRecap in the step-6 wizard block.
+  const [recapVisible, setRecapVisible] = useState({ visual: true });
   const [wizardMode, setWizardMode] = useState('create');
   const [fontPickerOpen, setFontPickerOpen] = useState(false);
   const [fontSearchQuery, setFontSearchQuery] = useState('');
@@ -1234,6 +1237,7 @@ export default function App() {
     name: '',
     niche: 'Philosophie & Stoïcisme',
     subtitle_style: {
+      enabled: true,
       font: 'Inter',
       size: 44,
       color: '#FFD700',
@@ -1261,6 +1265,7 @@ export default function App() {
     },
     branding: {
       logo_path: '',
+      logo_enabled: true,
     },
     music_preference: {
       enabled: true,
@@ -1275,6 +1280,7 @@ export default function App() {
       library_image_count: 0
     },
     effects_config: {
+      enabled: true,
       grain: true,
       overlay_effect: 'grain',
       overlay_effects: ['grain'],
@@ -2016,6 +2022,30 @@ export default function App() {
     const formData = new FormData();
     formData.append("file", logoFile);
     await fetch(`${API_BASE}/channels/${channelId}/logo`, { method: 'POST', body: formData });
+  };
+
+  // Toggles a real, saved channel setting (used by the "Aperçu avant lancement"
+  // recap) — optimistic local update + immediate PUT so it survives the launch
+  // and any later edit, exactly like toggling the same setting in the pipeline.
+  const toggleActiveChannelFlag = async (group, field) => {
+    if (!activeChannel) return;
+    const previous = activeChannel;
+    const updatedGroup = { ...activeChannel[group], [field]: !activeChannel[group]?.[field] };
+    setActiveChannel({ ...activeChannel, [group]: updatedGroup });
+    try {
+      const res = await fetch(`${API_BASE}/channels/${activeChannel.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ [group]: updatedGroup })
+      });
+      if (!res.ok) throw new Error();
+      const saved = await res.json();
+      setActiveChannel(saved);
+      setChannels(prev => prev.map(c => c.id === saved.id ? saved : c));
+    } catch {
+      showToast("Impossible d'enregistrer ce réglage.", "error");
+      setActiveChannel(previous);
+    }
   };
 
   const handleSaveChannel = async () => {
@@ -4303,6 +4333,24 @@ export default function App() {
                     { id: 'visual', label: 'Visuel de fond', icon: 'image', available: !!(userImagePreview || (wizardMode === 'edit' && activeChannel)) },
                     { id: 'music', label: 'Musique de fond', icon: 'music_note', available: !!musicLabel },
                   ];
+                  // Logo/sous-titres/effets/musique are real, saved settings — toggling them
+                  // here actually edits `newChannel` (persisted on save), same as any other
+                  // field in the wizard. Only "visual" has no real off-switch (a video always
+                  // needs a background), so it stays a local, cosmetic preview-only toggle.
+                  const isRecapChecked = (id) => {
+                    if (id === 'logo') return newChannel.branding.logo_enabled ?? true;
+                    if (id === 'subtitles') return newChannel.subtitle_style.enabled ?? true;
+                    if (id === 'effects') return newChannel.effects_config.enabled ?? true;
+                    if (id === 'music') return newChannel.music_preference.enabled ?? true;
+                    return recapVisible.visual;
+                  };
+                  const toggleRecap = (id) => {
+                    if (id === 'logo') return setNewChannel({ ...newChannel, branding: { ...newChannel.branding, logo_enabled: !isRecapChecked('logo') } });
+                    if (id === 'subtitles') return setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, enabled: !isRecapChecked('subtitles') } });
+                    if (id === 'effects') return setNewChannel({ ...newChannel, effects_config: { ...newChannel.effects_config, enabled: !isRecapChecked('effects') } });
+                    if (id === 'music') return setNewChannel({ ...newChannel, music_preference: { ...newChannel.music_preference, enabled: !isRecapChecked('music') } });
+                    setRecapVisible(prev => ({ ...prev, visual: !prev.visual }));
+                  };
                   return (
                     <div className="space-y-6">
                       <div className="flex justify-between items-center">
@@ -4325,18 +4373,18 @@ export default function App() {
                                 key={id}
                                 type="button"
                                 disabled={!available}
-                                onClick={() => setRecapVisible(prev => ({ ...prev, [id]: !prev[id] }))}
+                                onClick={() => toggleRecap(id)}
                                 className={`relative z-10 w-full mb-1.5 px-3 py-2.5 rounded-xl text-xs font-bold border transition-colors flex items-center gap-2.5 text-left ${
                                   !available
                                     ? 'bg-[#1b2230]/50 border-[#2b374d]/50 text-slate-600 cursor-not-allowed'
-                                    : recapVisible[id]
+                                    : isRecapChecked(id)
                                       ? 'bg-emerald-950/60 border-emerald-700 text-emerald-400'
                                       : 'bg-[#1b2230] border-[#2b374d] text-slate-500 hover:border-slate-500'
                                 }`}
                               >
                                 <span className="material-symbols-outlined text-[16px] shrink-0">{icon}</span>
                                 <span className="flex-1 truncate">{label}</span>
-                                <span className="material-symbols-outlined text-[16px] shrink-0">{available && recapVisible[id] ? 'check_box' : 'check_box_outline_blank'}</span>
+                                <span className="material-symbols-outlined text-[16px] shrink-0">{available && isRecapChecked(id) ? 'check_box' : 'check_box_outline_blank'}</span>
                               </button>
                             ))}
                           </div>
@@ -4350,7 +4398,7 @@ export default function App() {
                               session takes priority; otherwise fall back to a real random image
                               already stored server-side for this channel (not a generic stock photo). */}
                           <div className="absolute inset-0">
-                            {!recapVisible.visual ? null : userImagePreview ? (
+                            {!isRecapChecked('visual') ? null : userImagePreview ? (
                               <img
                                 src={userImagePreview}
                                 alt="Aperçu visuel de la vidéo"
@@ -4368,7 +4416,7 @@ export default function App() {
                             <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/30"></div>
                           </div>
 
-                          {recapVisible.effects && stepHasGrain && (
+                          {isRecapChecked('effects') && stepHasGrain && (
                             <div
                               className="absolute inset-0 mix-blend-overlay z-10"
                               style={{
@@ -4377,13 +4425,13 @@ export default function App() {
                               }}
                             />
                           )}
-                          {recapVisible.effects && stepHasVignette && (
+                          {isRecapChecked('effects') && stepHasVignette && (
                             <div className="absolute inset-0 z-10" style={{ boxShadow: `inset 0 0 ${60 * stepVignetteIntensity}px ${20 * stepVignetteIntensity}px rgba(0,0,0,0.8)` }} />
                           )}
 
                           {/* Top-right logo — matches exactly what's burned into the real render. */}
                           <div className="relative z-20 flex justify-end items-start">
-                            {recapVisible.logo && resolvedLogoUrl && (
+                            {isRecapChecked('logo') && resolvedLogoUrl && (
                               <img
                                 src={resolvedLogoUrl}
                                 alt="Logo"
@@ -4394,7 +4442,7 @@ export default function App() {
                           </div>
 
                           {/* Bottom-left music cue — informational only, not burned into the real render. */}
-                          {recapVisible.music && musicLabel && (
+                          {isRecapChecked('music') && musicLabel && (
                             <div className="relative z-20 flex items-center gap-1.5 text-[10px] font-bold text-white/90 bg-black/50 backdrop-blur-sm px-2.5 py-1.5 rounded-lg w-fit">
                               <span className="material-symbols-outlined text-[14px]">music_note</span>
                               <span className="truncate max-w-[160px]">{musicLabel}</span>
@@ -4402,7 +4450,7 @@ export default function App() {
                           )}
 
                           {/* Animated subtitle at the exact configured vertical position */}
-                          {recapVisible.subtitles && (
+                          {isRecapChecked('subtitles') && (
                           <div className={`absolute inset-x-5 z-20 flex justify-center ${subtitlePositionClass(newChannel.subtitle_style.position)}`}>
                             <div
                               style={{
@@ -4643,6 +4691,33 @@ export default function App() {
                       <span className="text-xs font-bold text-white">{VOICE_MODELS.find(v => v.id === selectedVoice)?.name || selectedVoice}</span>
                     </div>
                   )}
+                  {/* Same recap/toggle principle as the pipeline's Aperçu Final — these
+                      toggle the channel's real, saved settings immediately, not just this
+                      one video, so the state matches whichever screen the client checks. */}
+                  <div className="space-y-1.5">
+                    {[
+                      { id: 'logo', label: 'Logo de la chaîne', icon: 'workspace_premium', group: 'branding', field: 'logo_enabled', checked: activeChannel.branding?.logo_enabled ?? true },
+                      { id: 'subtitles', label: 'Sous-titres', icon: 'subtitles', group: 'subtitle_style', field: 'enabled', checked: activeChannel.subtitle_style?.enabled ?? true },
+                      { id: 'effects', label: 'Effets visuels', icon: 'auto_awesome', group: 'effects_config', field: 'enabled', checked: activeChannel.effects_config?.enabled ?? true },
+                      { id: 'music', label: 'Musique de fond', icon: 'music_note', group: 'music_preference', field: 'enabled', checked: activeChannel.music_preference?.enabled ?? true },
+                    ].map(({ id, label, icon, group, field, checked }) => (
+                      <button
+                        key={id}
+                        type="button"
+                        onClick={() => toggleActiveChannelFlag(group, field)}
+                        className={`w-full px-3 py-2 rounded-xl text-xs font-bold border transition-colors flex items-center gap-2.5 text-left ${
+                          checked
+                            ? 'bg-emerald-950/60 border-emerald-700 text-emerald-400'
+                            : 'bg-[#1b2230] border-[#2b374d] text-slate-500 hover:border-slate-500'
+                        }`}
+                      >
+                        <span className="material-symbols-outlined text-[16px] shrink-0">{icon}</span>
+                        <span className="flex-1 truncate">{label}</span>
+                        <span className="material-symbols-outlined text-[16px] shrink-0">{checked ? 'check_box' : 'check_box_outline_blank'}</span>
+                      </button>
+                    ))}
+                  </div>
+
                   {/* Real visual mockup of the final rendered frame: background style,
                       subtitle font/color/outline/position, and active effects — everything
                       exactly as configured on the channel, not just a text summary. */}
@@ -4667,13 +4742,13 @@ export default function App() {
                             : 'linear-gradient(160deg, #232938 0%, #14171f 60%, #0a0b0f 100%)'
                         }}
                       />
-                      {activeChannel.effects_config?.grain && (
+                      {(activeChannel.effects_config?.enabled ?? true) && activeChannel.effects_config?.grain && (
                         <div
                           className="absolute inset-0 opacity-[0.15] mix-blend-overlay pointer-events-none"
                           style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='60'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")" }}
                         />
                       )}
-                      {getChannelLogoUrl(activeChannel) !== "/assets/logo/logo-nichecut.png" && (
+                      {(activeChannel.branding?.logo_enabled ?? true) && getChannelLogoUrl(activeChannel) !== "/assets/logo/logo-nichecut.png" && (
                         <div className="absolute top-3 right-3 z-20">
                           <img
                             src={getChannelLogoUrl(activeChannel)}
@@ -4683,6 +4758,7 @@ export default function App() {
                           />
                         </div>
                       )}
+                      {(activeChannel.subtitle_style?.enabled ?? true) && (
                       <div
                         className={`absolute inset-x-0 flex justify-center px-6 ${subtitlePositionClass(activeChannel.subtitle_style?.position)}`}
                       >
@@ -4708,6 +4784,7 @@ export default function App() {
                           ))}
                         </div>
                       </div>
+                      )}
                     </div>
                   </div>
 
