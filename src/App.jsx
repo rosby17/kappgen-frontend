@@ -687,6 +687,7 @@ export default function App() {
   const [selectedFolderName, setSelectedFolderName] = useState('');
   const [isFolderDragging, setIsFolderDragging] = useState(false);
   const wizardFolderInputRef = useRef(null);
+  const channelSyncInputRef = useRef(null);
   const libraryUploadXhrRef = useRef(null);
 
   const defaultChannelForm = {
@@ -2150,37 +2151,57 @@ export default function App() {
 
                   <div className="flex items-center gap-3 flex-shrink-0">
                     {(activeChannel.image_style?.source === 'library' || activeChannel.image_style?.source === 'hybrid') && (
-                      <div className="flex flex-col items-end gap-1">
-                        <div className="flex items-center gap-1.5">
-                          {librarySyncHasHandle && (
-                            <button
-                              onClick={async (e) => {
-                                e.stopPropagation();
-                                setLibrarySyncing(true);
+                      <div className="flex items-center gap-2">
+                          <input
+                            type="file"
+                            ref={channelSyncInputRef}
+                            webkitdirectory="true"
+                            directory="true"
+                            multiple
+                            onChange={(e) => {
+                              const files = Array.from(e.target.files).filter(f =>
+                                f.type.startsWith('image/') || /\.(jpg|jpeg|png|webp|gif|avif)$/i.test(f.name)
+                              );
+                              if (files.length > 0) {
+                                const firstPath = files[0].webkitRelativePath || '';
+                                const folderName = firstPath ? firstPath.split('/')[0] : 'Dossier Images';
+                                prepareLocalImageFiles(files, folderName, activeChannel.id);
+                              }
+                              setLibrarySyncing(false);
+                            }}
+                            className="hidden"
+                          />
+                          <button
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              setLibrarySyncing(true);
+                              // Already-authorized folder → resync it directly, no dialog at all.
+                              if (librarySyncHasHandle) {
                                 const ok = await refreshFromRememberedFolder(activeChannel.id);
                                 setLibrarySyncing(false);
                                 if (!ok) showToast("Impossible de rafraîchir automatiquement — resélectionne le dossier.", "error");
-                                setLibrarySyncTick(t => t + 1);
-                              }}
-                              disabled={librarySyncing}
-                              title="Relit le dossier déjà autorisé, sans avoir à le resélectionner"
-                              className="p-2.5 bg-[#1b2230] text-[#00c2ff] rounded-xl hover:bg-[#252f42] transition-colors border border-[#2b374d] disabled:opacity-50"
-                            >
-                              <span className={`material-symbols-outlined text-[18px] ${librarySyncing ? 'animate-spin' : ''}`}>refresh</span>
-                            </button>
-                          )}
-                          <button
-                            onClick={(e) => openEditWizard(activeChannel, e, 4)}
-                            title="Réimporter le dossier d'images depuis ton ordinateur (les navigateurs ne peuvent pas surveiller un dossier local automatiquement — il faut le resélectionner à chaque mise à jour)"
-                            className="px-4 py-2.5 bg-[#1b2230] text-white rounded-xl font-bold text-xs hover:bg-[#252f42] transition-colors flex items-center gap-2 border border-[#2b374d]"
+                                return;
+                              }
+                              // First time (or unsupported browser): pick the folder right here,
+                              // no navigation to the wizard.
+                              const handled = await pickFolderModern(activeChannel.id);
+                              if (!handled && channelSyncInputRef.current) {
+                                channelSyncInputRef.current.click();
+                                return; // syncing flag cleared by the input's onChange above
+                              }
+                              setLibrarySyncing(false);
+                              setLibrarySyncHasHandle(!!(await getFolderHandle(activeChannel.id)));
+                            }}
+                            disabled={librarySyncing}
+                            title="Synchronise la bibliothèque avec ton dossier local, sans quitter la page"
+                            className="px-4 py-2.5 bg-[#1b2230] text-white rounded-xl font-bold text-xs hover:bg-[#252f42] transition-colors flex items-center gap-2 border border-[#2b374d] disabled:opacity-60"
                           >
-                            <span className="material-symbols-outlined text-[18px]">sync</span>
-                            Mettre à jour la bibliothèque
+                            <span className={`material-symbols-outlined text-[18px] ${librarySyncing ? 'animate-spin' : ''}`}>{librarySyncing ? 'progress_activity' : 'sync'}</span>
+                            {librarySyncing ? 'Synchronisation…' : 'Mettre à jour la bibliothèque'}
                           </button>
-                        </div>
-                        <span className="text-[10px] text-slate-500">
-                          Dernière synchro : {formatSyncAgo(activeChannel.id, nowTick)}
-                        </span>
+                          <span className="text-[10px] text-slate-500 whitespace-nowrap">
+                            Dernière synchro : {formatSyncAgo(activeChannel.id, nowTick)}
+                          </span>
                       </div>
                     )}
                     <button
@@ -2369,7 +2390,10 @@ export default function App() {
                     </h2>
                     <p className="text-xs text-slate-400 mt-1">Étape {wizardStep} sur 5</p>
                   </div>
-                  <button onClick={() => setView('channels')} className="text-slate-400 hover:text-white p-2">
+                  <button
+                    onClick={() => setView(wizardMode === 'edit' && editingChannelId ? 'channel_detail' : 'channels')}
+                    className="text-slate-400 hover:text-white p-2"
+                  >
                     <span className="material-symbols-outlined">close</span>
                   </button>
                 </div>
