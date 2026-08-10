@@ -576,6 +576,88 @@ const subtitleAlignClass = (align) => {
   return 'justify-center';
 };
 
+// Custom swatch + popover color picker, styled to match the app instead of
+// the browser's native <input type="color"> dialog. Still delegates to a
+// hidden native input for full-spectrum picking ("Autre couleur..."), but
+// the everyday path is a hex field plus a curated preset row.
+const COLOR_PICKER_PRESETS = [
+  '#FFFFFF', '#000000', '#FFD700', '#00FFFF', '#FF3D9A', '#FF3B3B',
+  '#3DA9FF', '#8FF0C6', '#CCFF00', '#F2C94C', '#D8B4FE', '#FF7A29'
+];
+
+function ColorPickerButton({ value, onChange, label, allowNone = false }) {
+  const [open, setOpen] = useState(false);
+  const isNone = allowNone && (!value || value === 'transparent');
+  const [hexDraft, setHexDraft] = useState(isNone ? '' : (value || '#FFFFFF'));
+  const wrapRef = useRef(null);
+
+  useEffect(() => { setHexDraft(isNone ? '' : (value || '#FFFFFF')); }, [value, isNone]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onClickOutside = (e) => { if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', onClickOutside);
+    return () => document.removeEventListener('mousedown', onClickOutside);
+  }, [open]);
+
+  const commitHex = (hex) => {
+    setHexDraft(hex);
+    if (/^#[0-9a-fA-F]{6}$/.test(hex)) onChange(hex);
+  };
+
+  return (
+    <div className="relative inline-block" ref={wrapRef}>
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        className="flex items-center gap-2 bg-[#1b2230] border border-[#2b374d] hover:border-[#00c2ff] rounded-xl px-2.5 py-2 transition-colors"
+      >
+        <span
+          className="w-6 h-6 rounded-lg border border-white/20 flex-shrink-0"
+          style={isNone ? { backgroundImage: 'linear-gradient(45deg, #ef4444 45%, transparent 45%, transparent 55%, #ef4444 55%)' } : { backgroundColor: value || '#FFFFFF' }}
+        />
+        <span className="text-xs font-mono text-slate-300">{isNone ? 'Aucune' : (value || '#FFFFFF').toUpperCase()}</span>
+      </button>
+
+      {open && (
+        <div className="absolute z-30 top-full left-0 mt-2 w-56 bg-[#1f2838] border border-[#2d3a52] rounded-xl shadow-2xl p-3 space-y-3">
+          {label && <div className="text-[11px] font-bold text-slate-300">{label}</div>}
+          <div className="grid grid-cols-6 gap-2">
+            {COLOR_PICKER_PRESETS.map(c => (
+              <button
+                key={c}
+                type="button"
+                onClick={() => { commitHex(c); onChange(c); }}
+                className={`w-full aspect-square rounded-lg border-2 transition-transform hover:scale-110 ${!isNone && value?.toUpperCase() === c ? 'border-[#00c2ff]' : 'border-white/15'}`}
+                style={{ backgroundColor: c }}
+                title={c}
+              />
+            ))}
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="w-6 h-6 rounded-lg border border-white/20 flex-shrink-0" style={{ backgroundColor: /^#[0-9a-fA-F]{6}$/.test(hexDraft) ? hexDraft : 'transparent' }} />
+            <input
+              value={hexDraft}
+              onChange={e => commitHex(e.target.value)}
+              placeholder="#RRGGBB"
+              className="flex-1 min-w-0 bg-[#1b2230] border border-[#2b374d] rounded-lg px-2 py-1.5 text-xs font-mono text-white focus:border-[#00c2ff] outline-none"
+            />
+          </div>
+          {allowNone && (
+            <button
+              type="button"
+              onClick={() => { onChange('transparent'); setOpen(false); }}
+              className={`w-full text-center text-[11px] font-bold py-1.5 rounded-lg transition-colors ${isNone ? 'bg-[#00c2ff]/10 text-[#00c2ff]' : 'text-slate-400 hover:text-white'}`}
+            >
+              Aucune couleur
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function AudioFilePreview({ file, onRemove }) {
   const audioRef = useRef(null);
   const [src, setSrc] = useState('');
@@ -931,6 +1013,7 @@ export default function App() {
   const [wizardMode, setWizardMode] = useState('create');
   const [fontPickerOpen, setFontPickerOpen] = useState(false);
   const [fontSearchQuery, setFontSearchQuery] = useState('');
+  const [subtitleTab, setSubtitleTab] = useState('presets');
   const [editingChannelId, setEditingChannelId] = useState(null);
   const [logoFile, setLogoFile] = useState(null);
   const [logoPreviewUrl, setLogoPreviewUrl] = useState(null);
@@ -2802,10 +2885,35 @@ export default function App() {
                     <h3 className="text-base font-bold text-white">2. Personnalisation Avancée des Sous-Titres</h3>
 
                     <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_520px] gap-8 items-start">
-                      {/* Settings column — scrolls independently while the preview stays put */}
-                      <div className="space-y-6 min-w-0">
+                      {/* Settings column — split into CapCut-style toggle sections instead
+                          of one long scroll, so the preview stays reachable without
+                          hunting through every control at once. */}
+                      <div className="space-y-4 min-w-0">
+                        <div className="flex flex-wrap gap-2 border-b border-[#263042] pb-3">
+                          {[
+                            { id: 'presets', label: 'Préréglages', icon: 'style' },
+                            { id: 'text', label: 'Police & Couleurs', icon: 'text_fields' },
+                            { id: 'format', label: 'Mise en Forme', icon: 'tune' },
+                            { id: 'background', label: 'Arrière-plan', icon: 'crop_square' },
+                            { id: 'shadow', label: 'Ombre', icon: 'flare' },
+                          ].map(tab => (
+                            <button
+                              key={tab.id}
+                              type="button"
+                              onClick={() => setSubtitleTab(tab.id)}
+                              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-colors ${
+                                subtitleTab === tab.id ? 'bg-[#00c2ff] text-slate-950' : 'bg-[#1b2230] text-slate-300 hover:bg-[#252f42]'
+                              }`}
+                            >
+                              <span className="material-symbols-outlined text-[16px]">{tab.icon}</span>
+                              {tab.label}
+                            </button>
+                          ))}
+                        </div>
+
                         {/* Presets Grid — CapCut-style: a square tile rendering the actual
                             style ("ABC123") so you pick by look, with the name below it. */}
+                        {subtitleTab === 'presets' && (
                         <div>
                           <label className="block text-xs font-bold text-slate-300 mb-2">Presets de style sous-titre recommandés</label>
                           <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
@@ -2868,8 +2976,10 @@ export default function App() {
                             })}
                           </div>
                         </div>
+                        )}
 
                         {/* Custom Controls */}
+                        {subtitleTab === 'text' && (
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div>
                             <label className="block text-xs font-bold text-slate-300 mb-2">Police (Font)</label>
@@ -2899,42 +3009,54 @@ export default function App() {
                           </div>
 
                           <div>
-                            <label className="block text-xs font-bold text-slate-300 mb-2">Couleur du Texte (mot actif)</label>
-                            <div className="flex items-center gap-2">
-                              <input
-                                type="color"
-                                value={newChannel.subtitle_style.color?.startsWith('#') ? newChannel.subtitle_style.color : '#FFD700'}
-                                onChange={e => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, color: e.target.value } })}
-                                className="w-10 h-10 rounded-xl bg-[#1b2230] border border-[#2b374d] cursor-pointer"
-                              />
-                              <span className="text-xs font-mono text-slate-300">{newChannel.subtitle_style.color}</span>
-                            </div>
-                          </div>
-
-                          <div>
-                            <label className="block text-xs font-bold text-slate-300 mb-2">Couleur du Contour</label>
-                            <div className="flex items-center gap-2">
-                              <input
-                                type="color"
-                                value={newChannel.subtitle_style.outline_color?.startsWith('#') ? newChannel.subtitle_style.outline_color : '#000000'}
-                                onChange={e => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, outline_color: e.target.value } })}
-                                className="w-10 h-10 rounded-xl bg-[#1b2230] border border-[#2b374d] cursor-pointer"
-                              />
-                              <span className="text-xs font-mono text-slate-300">{newChannel.subtitle_style.outline_color}</span>
-                            </div>
-                          </div>
-
-                          <div>
-                            <label className="block text-xs font-bold text-slate-300 mb-2">Épaisseur du Contour ({newChannel.subtitle_style.outline_width || 3}px)</label>
-                            <input
-                              type="range"
-                              min="0"
-                              max="8"
-                              value={newChannel.subtitle_style.outline_width || 3}
-                              onChange={e => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, outline_width: parseInt(e.target.value) || 0 } })}
-                              className="w-full accent-[#00c2ff] mt-3"
+                            <label className="block text-xs font-bold text-slate-300 mb-2">Couleur du Texte</label>
+                            <ColorPickerButton
+                              value={newChannel.subtitle_style.base_color || '#FFFFFF'}
+                              onChange={hex => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, base_color: hex } })}
+                              label="Couleur du texte (au repos)"
                             />
                           </div>
+
+                          <div>
+                            <label className="block text-xs font-bold text-slate-300 mb-2">Couleur du Mot Actif (surbrillance)</label>
+                            <ColorPickerButton
+                              value={newChannel.subtitle_style.color || '#FFD700'}
+                              onChange={hex => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, color: hex } })}
+                              label="Couleur de surbrillance"
+                            />
+                          </div>
+
+                          {(!newChannel.subtitle_style.box_color || newChannel.subtitle_style.box_color === 'transparent') && (
+                            <>
+                              <div>
+                                <label className="block text-xs font-bold text-slate-300 mb-2">Couleur du Contour</label>
+                                <ColorPickerButton
+                                  value={newChannel.subtitle_style.outline_color || '#000000'}
+                                  onChange={hex => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, outline_color: hex } })}
+                                  label="Couleur du contour"
+                                />
+                              </div>
+
+                              <div>
+                                <label className="block text-xs font-bold text-slate-300 mb-2">Épaisseur du Contour ({newChannel.subtitle_style.outline_width ?? 3}px)</label>
+                                <input
+                                  type="range"
+                                  min="0"
+                                  max="8"
+                                  value={newChannel.subtitle_style.outline_width ?? 3}
+                                  onChange={e => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, outline_width: parseInt(e.target.value) } })}
+                                  className="w-full accent-[#00c2ff] mt-3"
+                                />
+                                <p className="text-[10px] text-slate-500 mt-1">Mets 0 pour un texte simple sans contour.</p>
+                              </div>
+                            </>
+                          )}
+                          {newChannel.subtitle_style.box_color && newChannel.subtitle_style.box_color !== 'transparent' && (
+                            <div className="sm:col-span-2 bg-[#00c2ff]/10 border border-[#00c2ff]/30 rounded-xl p-3 flex items-center gap-2.5 text-xs text-[#00c2ff]">
+                              <span className="material-symbols-outlined text-[18px]">info</span>
+                              <span>Un fond est actif : le contour est automatiquement désactivé (le fond suffit à faire ressortir le texte).</span>
+                            </div>
+                          )}
 
                           <div>
                             <label className="block text-xs font-bold text-slate-300 mb-2">Position</label>
@@ -2963,9 +3085,11 @@ export default function App() {
                           </div>
 
                         </div>
+                        )}
 
                         {/* Mise en forme du texte */}
-                        <div className="pt-4 border-t border-[#263042] space-y-4">
+                        {subtitleTab === 'format' && (
+                        <div className="space-y-4">
                           <label className="block text-xs font-bold text-[#00c2ff]">Mise en Forme du Texte</label>
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div>
@@ -3111,31 +3235,21 @@ export default function App() {
                             </div>
                           </div>
                         </div>
+                        )}
 
                         {/* Arrière-plan (boîte) */}
-                        <div className="pt-4 border-t border-[#263042] space-y-4">
+                        {subtitleTab === 'background' && (
+                        <div className="space-y-4">
                           <label className="block text-xs font-bold text-[#00c2ff]">Arrière-plan (rectangle derrière le texte)</label>
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div>
                               <label className="block text-[11px] font-bold text-slate-300 mb-2">Couleur</label>
-                              <div className="flex items-center gap-2">
-                                <button
-                                  type="button"
-                                  onClick={() => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, box_color: 'transparent' } })}
-                                  className={`px-3 py-2.5 rounded-xl text-[11px] font-bold border transition-colors ${(!newChannel.subtitle_style.box_color || newChannel.subtitle_style.box_color === 'transparent') ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]' : 'bg-[#1b2230] border-[#2b374d] text-slate-300 hover:border-slate-500'}`}
-                                >
-                                  Aucune
-                                </button>
-                                <input
-                                  type="color"
-                                  value={newChannel.subtitle_style.box_color?.startsWith('#') ? newChannel.subtitle_style.box_color : '#000000'}
-                                  onChange={e => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, box_color: e.target.value } })}
-                                  className="w-10 h-10 rounded-xl bg-[#1b2230] border border-[#2b374d] cursor-pointer"
-                                />
-                                <span className="text-xs font-mono text-slate-300">
-                                  {newChannel.subtitle_style.box_color && newChannel.subtitle_style.box_color !== 'transparent' ? newChannel.subtitle_style.box_color : 'Transparent'}
-                                </span>
-                              </div>
+                              <ColorPickerButton
+                                allowNone
+                                value={newChannel.subtitle_style.box_color}
+                                onChange={hex => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, box_color: hex } })}
+                                label="Couleur de fond"
+                              />
                             </div>
 
                             <div>
@@ -3152,9 +3266,11 @@ export default function App() {
                           </div>
                           <p className="text-[10px] text-slate-500">Le moteur de rendu vidéo dessine un rectangle plein autour du texte — les coins arrondis ne s'appliquent qu'à cet aperçu, pas encore au rendu final.</p>
                         </div>
+                        )}
 
                         {/* Ombre */}
-                        <div className="pt-4 border-t border-[#263042] space-y-4">
+                        {subtitleTab === 'shadow' && (
+                        <div className="space-y-4">
                           <div className="flex items-center gap-3">
                             <input
                               type="checkbox"
@@ -3169,15 +3285,11 @@ export default function App() {
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                               <div>
                                 <label className="block text-[11px] font-bold text-slate-300 mb-2">Couleur de l'ombre</label>
-                                <div className="flex items-center gap-2">
-                                  <input
-                                    type="color"
-                                    value={newChannel.subtitle_style.shadow_color?.startsWith('#') ? newChannel.subtitle_style.shadow_color : '#000000'}
-                                    onChange={e => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, shadow_color: e.target.value } })}
-                                    className="w-10 h-10 rounded-xl bg-[#1b2230] border border-[#2b374d] cursor-pointer"
-                                  />
-                                  <span className="text-xs font-mono text-slate-300">{newChannel.subtitle_style.shadow_color}</span>
-                                </div>
+                                <ColorPickerButton
+                                  value={newChannel.subtitle_style.shadow_color || '#000000'}
+                                  onChange={hex => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, shadow_color: hex } })}
+                                  label="Couleur de l'ombre"
+                                />
                               </div>
                               <div>
                                 <label className="block text-[11px] font-bold text-slate-300 mb-2">Distance ({newChannel.subtitle_style.shadow_distance ?? 3}px)</label>
@@ -3193,6 +3305,7 @@ export default function App() {
                             </div>
                           )}
                         </div>
+                        )}
                       </div>
 
                       {/* Preview column — sticks in place so it stays visible while the
@@ -3216,6 +3329,8 @@ export default function App() {
                                 const highlightMode = newChannel.subtitle_style.highlight_mode || (newChannel.subtitle_style.karaoke === false ? 'line' : 'word');
                                 const isColored = highlightMode === 'line' || (highlightMode === 'word' && wordObj.highlight);
                                 const displayText = applySubtitleCase(wordObj.text, newChannel.subtitle_style.text_case);
+                                const hasBox = newChannel.subtitle_style.box_color && newChannel.subtitle_style.box_color !== 'transparent';
+                                const outlinePx = hasBox ? 0 : (newChannel.subtitle_style.outline_width ?? 3) * wizardSubtitlePreviewScale;
                                 return (
                                   <span
                                     key={i}
@@ -3226,11 +3341,11 @@ export default function App() {
                                       fontStyle: newChannel.subtitle_style.italic ? 'italic' : 'normal',
                                       letterSpacing: `${(newChannel.subtitle_style.letter_spacing || 0) * wizardSubtitlePreviewScale}px`,
                                       color: isColored ? (newChannel.subtitle_style.color || '#FFD700') : (newChannel.subtitle_style.base_color || '#FFFFFF'),
-                                      WebkitTextStroke: `${Math.max(1, (newChannel.subtitle_style.outline_width || 3) * wizardSubtitlePreviewScale)}px ${newChannel.subtitle_style.outline_color || '#000000'}`,
+                                      WebkitTextStroke: outlinePx > 0 ? `${outlinePx}px ${newChannel.subtitle_style.outline_color || '#000000'}` : 'none',
                                       paintOrder: 'stroke fill',
                                       textShadow: newChannel.subtitle_style.shadow
                                         ? `${(newChannel.subtitle_style.shadow_distance ?? 3)}px ${(newChannel.subtitle_style.shadow_distance ?? 3)}px 4px ${newChannel.subtitle_style.shadow_color || '#000000'}`
-                                        : '0 2px 8px rgba(0,0,0,0.6)'
+                                        : 'none'
                                     }}
                                     className="inline-block"
                                   >
@@ -3897,8 +4012,10 @@ export default function App() {
                                 fontFamily: activeChannel.subtitle_style?.font || 'Arial',
                                 fontSize: `${(activeChannel.subtitle_style?.size || 44) * submitSubtitlePreviewScale}px`,
                                 fontWeight: '900',
-                                color: (activeChannel.subtitle_style?.karaoke === false || wordObj.highlight) ? (activeChannel.subtitle_style?.color || '#FFD700') : '#FFFFFF',
-                                WebkitTextStroke: `${Math.max(1, (activeChannel.subtitle_style?.outline_width || 3) * submitSubtitlePreviewScale)}px ${activeChannel.subtitle_style?.outline_color || '#000000'}`,
+                                color: (activeChannel.subtitle_style?.karaoke === false || wordObj.highlight) ? (activeChannel.subtitle_style?.color || '#FFD700') : (activeChannel.subtitle_style?.base_color || '#FFFFFF'),
+                                WebkitTextStroke: (activeChannel.subtitle_style?.box_color && activeChannel.subtitle_style.box_color !== 'transparent')
+                                  ? 'none'
+                                  : `${(activeChannel.subtitle_style?.outline_width ?? 3) * submitSubtitlePreviewScale}px ${activeChannel.subtitle_style?.outline_color || '#000000'}`,
                                 paintOrder: 'stroke fill',
                                 textShadow: '0 2px 8px rgba(0,0,0,0.6)'
                               }}
