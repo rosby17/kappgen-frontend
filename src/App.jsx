@@ -3026,51 +3026,41 @@ export default function App() {
                             />
                           </div>
 
-                          {(!newChannel.subtitle_style.box_color || newChannel.subtitle_style.box_color === 'transparent') && (
-                            <>
-                              <div>
-                                <label className="block text-xs font-bold text-slate-300 mb-2">Couleur du Contour</label>
-                                <ColorPickerButton
-                                  allowNone
-                                  value={(newChannel.subtitle_style.outline_width ?? 3) === 0 ? 'transparent' : (newChannel.subtitle_style.outline_color || '#000000')}
-                                  onChange={hex => {
-                                    if (hex === 'transparent') {
-                                      setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, outline_width: 0 } });
-                                    } else {
-                                      setNewChannel({
-                                        ...newChannel,
-                                        subtitle_style: {
-                                          ...newChannel.subtitle_style,
-                                          outline_color: hex,
-                                          outline_width: (newChannel.subtitle_style.outline_width ?? 3) === 0 ? 3 : (newChannel.subtitle_style.outline_width ?? 3)
-                                        }
-                                      });
+                          <div>
+                            <label className="block text-xs font-bold text-slate-300 mb-2">Couleur du Contour</label>
+                            <ColorPickerButton
+                              allowNone
+                              value={(newChannel.subtitle_style.outline_width ?? 3) === 0 ? 'transparent' : (newChannel.subtitle_style.outline_color || '#000000')}
+                              onChange={hex => {
+                                if (hex === 'transparent') {
+                                  setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, outline_width: 0 } });
+                                } else {
+                                  setNewChannel({
+                                    ...newChannel,
+                                    subtitle_style: {
+                                      ...newChannel.subtitle_style,
+                                      outline_color: hex,
+                                      outline_width: (newChannel.subtitle_style.outline_width ?? 3) === 0 ? 3 : (newChannel.subtitle_style.outline_width ?? 3)
                                     }
-                                  }}
-                                  label="Couleur du contour"
-                                />
-                                <p className="text-[10px] text-slate-500 mt-1">Choisis « Aucune couleur » pour un texte simple sans contour.</p>
-                              </div>
+                                  });
+                                }
+                              }}
+                              label="Couleur du contour"
+                            />
+                            <p className="text-[10px] text-slate-500 mt-1">Choisis « Aucune couleur » pour un texte simple sans contour.</p>
+                          </div>
 
-                              {(newChannel.subtitle_style.outline_width ?? 3) > 0 && (
-                                <div>
-                                  <label className="block text-xs font-bold text-slate-300 mb-2">Épaisseur du Contour ({newChannel.subtitle_style.outline_width ?? 3}px)</label>
-                                  <input
-                                    type="range"
-                                    min="1"
-                                    max="8"
-                                    value={newChannel.subtitle_style.outline_width ?? 3}
-                                    onChange={e => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, outline_width: parseInt(e.target.value) } })}
-                                    className="w-full accent-[#00c2ff] mt-3"
-                                  />
-                                </div>
-                              )}
-                            </>
-                          )}
-                          {newChannel.subtitle_style.box_color && newChannel.subtitle_style.box_color !== 'transparent' && (
-                            <div className="sm:col-span-2 bg-[#00c2ff]/10 border border-[#00c2ff]/30 rounded-xl p-3 flex items-center gap-2.5 text-xs text-[#00c2ff]">
-                              <span className="material-symbols-outlined text-[18px]">info</span>
-                              <span>Un fond est actif : le contour est automatiquement désactivé (le fond suffit à faire ressortir le texte).</span>
+                          {(newChannel.subtitle_style.outline_width ?? 3) > 0 && (
+                            <div>
+                              <label className="block text-xs font-bold text-slate-300 mb-2">Épaisseur du Contour ({newChannel.subtitle_style.outline_width ?? 3}px)</label>
+                              <input
+                                type="range"
+                                min="1"
+                                max="8"
+                                value={newChannel.subtitle_style.outline_width ?? 3}
+                                onChange={e => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, outline_width: parseInt(e.target.value) } })}
+                                className="w-full accent-[#00c2ff] mt-3"
+                              />
                             </div>
                           )}
 
