@@ -1780,12 +1780,17 @@ export default function App() {
       try {
         finalFile = await resizeImageFile(file);
       } catch {
-        showToast("Impossible de traiter cette image. Essayez-en une autre.", "error");
-        return;
+        // Browser couldn't decode this image (e.g. an iPhone HEIC photo) — fall back
+        // to uploading the original file as-is rather than blocking the user entirely.
+        showToast("Aperçu indisponible pour ce format d'image, mais le fichier sera quand même importé.");
       }
     }
     setLogoFile(finalFile);
-    setLogoPreviewUrl(URL.createObjectURL(finalFile));
+    try {
+      setLogoPreviewUrl(URL.createObjectURL(finalFile));
+    } catch {
+      setLogoPreviewUrl(null);
+    }
   };
 
   const uploadLibraryWithProgress = (files, folderName) => {
@@ -3148,8 +3153,7 @@ export default function App() {
                             alt="Logo"
                             className="w-full h-full object-cover"
                             onError={() => {
-                              showToast("Impossible d'afficher l'aperçu de ce logo. Essayez une autre image.", "error");
-                              setLogoFile(null);
+                              // Preview only — the file itself (logoFile) stays selected and will still upload.
                               setLogoPreviewUrl(null);
                             }}
                           />
