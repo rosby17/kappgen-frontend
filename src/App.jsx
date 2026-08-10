@@ -1354,6 +1354,66 @@ export default function App() {
     }
   };
 
+  const [folders, setFolders] = useState([]);
+  const [videoFilterFolderId, setVideoFilterFolderId] = useState('all');
+  const [showNewFolderModal, setShowNewFolderModal] = useState(false);
+  const [newFolderName, setNewFolderName] = useState('');
+  const [creatingFolder, setCreatingFolder] = useState(false);
+  const [movingVideoId, setMovingVideoId] = useState(null);
+
+  const fetchFolders = async () => {
+    try {
+      const url = currentUser
+        ? `${API_BASE}/folders?user_id=${encodeURIComponent(currentUser.id)}`
+        : `${API_BASE}/folders`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`API ${res.status}`);
+      setFolders(await res.json());
+    } catch (e) {
+      console.error("Erreur chargement des dossiers:", e);
+    }
+  };
+
+  const createFolder = async () => {
+    const name = newFolderName.trim();
+    if (!name) return;
+    setCreatingFolder(true);
+    try {
+      const res = await fetch(`${API_BASE}/folders`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, user_id: currentUser?.id || null }),
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || 'Échec de création');
+      setNewFolderName('');
+      setShowNewFolderModal(false);
+      fetchFolders();
+    } catch (e) {
+      console.error("Erreur création dossier:", e);
+      alert("Impossible de créer le dossier : " + e.message);
+    } finally {
+      setCreatingFolder(false);
+    }
+  };
+
+  const moveVideoToFolder = async (videoId, folderId) => {
+    setMovingVideoId(null);
+    setOpenVideoMenuId(null);
+    try {
+      const res = await fetch(`${API_BASE}/videos/${videoId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(folderId ? { folder_id: folderId } : { clear_folder: true }),
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || 'Échec du déplacement');
+      fetchAllVideos();
+      fetchFolders();
+    } catch (e) {
+      console.error("Erreur déplacement vidéo:", e);
+      alert("Impossible de déplacer la vidéo : " + e.message);
+    }
+  };
+
   const fetchChannelVideos = async (channelId) => {
     try {
       const res = await fetch(`${API_BASE}/videos/channel/${channelId}`);
@@ -1509,6 +1569,7 @@ export default function App() {
     if (!currentUser) return;
     fetchChannels();
     fetchAllVideos();
+    fetchFolders();
     const interval = setInterval(() => {
       fetchChannels();
       fetchAllVideos();
@@ -2962,6 +3023,35 @@ export default function App() {
                   </div>
                 </div>
 
+                {/* Folder chips — organize videos into folders as the library grows */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <button
+                    onClick={() => setVideoFilterFolderId('all')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                      videoFilterFolderId === 'all' ? 'bg-[#00c2ff] text-slate-950' : 'bg-[#1b2230] text-slate-300 hover:text-white border border-[#2b374d]'
+                    }`}
+                  >
+                    <span className="material-symbols-outlined text-[15px]">apps</span> Toutes ({allVideos.length})
+                  </button>
+                  {folders.map(f => (
+                    <button
+                      key={f.id}
+                      onClick={() => setVideoFilterFolderId(f.id)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                        videoFilterFolderId === f.id ? 'bg-[#00c2ff] text-slate-950' : 'bg-[#1b2230] text-slate-300 hover:text-white border border-[#2b374d]'
+                      }`}
+                    >
+                      <span className="material-symbols-outlined text-[15px]">folder</span> {f.name} ({f.video_count})
+                    </button>
+                  ))}
+                  <button
+                    onClick={() => setShowNewFolderModal(true)}
+                    className="px-3 py-1.5 rounded-lg text-xs font-bold text-[#00c2ff] hover:bg-[#00c2ff]/10 border border-dashed border-[#00c2ff]/40 flex items-center gap-1.5 transition-all"
+                  >
+                    <span className="material-symbols-outlined text-[15px]">create_new_folder</span> Nouveau dossier
+                  </button>
+                </div>
+
                 {/* Visual Video Cards Grid */}
                 {!videosLoaded ? (
                   <SkeletonGrid count={8} cardClassName="min-h-[260px]" />
@@ -2990,6 +3080,7 @@ export default function App() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
                     {allVideos
                       .filter(v => videoFilterChannelId === 'all' || v.channel_id === videoFilterChannelId)
+                      .filter(v => videoFilterFolderId === 'all' || v.folder_id === videoFilterFolderId)
                       .map(vid => {
                         const channelObj = channels.find(c => c.id === vid.channel_id);
                         return (
@@ -3082,6 +3173,35 @@ export default function App() {
                                     <button disabled={reusingAudioId === vid.id} onClick={(e) => handleReuseAudio(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[#2c394e] hover:text-white flex items-center gap-2 font-medium disabled:opacity-50">
                                       <span className="material-symbols-outlined text-[16px] text-[#00c2ff]">graphic_eq</span> {reusingAudioId === vid.id ? 'Récupération…' : "Réutiliser l'audio"}
                                     </button>
+                                  )}
+                                  {vid.status === 'done' && vid.editable && (
+                                    <button onClick={(e) => { e.stopPropagation(); setOpenVideoMenuId(null); openStudio(vid); }} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[#2c394e] hover:text-white flex items-center gap-2 font-medium">
+                                      <span className="material-symbols-outlined text-[16px] text-[#00c2ff]">auto_fix_high</span> Éditer
+                                    </button>
+                                  )}
+                                  <div className="h-[1px] bg-[#2d3a52] my-1"></div>
+                                  <button onClick={(e) => { e.stopPropagation(); setMovingVideoId(movingVideoId === vid.id ? null : vid.id); }} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[#2c394e] hover:text-white flex items-center gap-2 font-medium">
+                                    <span className="material-symbols-outlined text-[16px] text-amber-400">drive_file_move</span> Déplacer vers…
+                                  </button>
+                                  {movingVideoId === vid.id && (
+                                    <div className="border-t border-[#2d3a52] mt-1 pt-1 max-h-40 overflow-y-auto">
+                                      {vid.folder_id && (
+                                        <button onClick={(e) => { e.stopPropagation(); moveVideoToFolder(vid.id, null); }} className="w-full text-left px-4 py-2 text-[11px] text-slate-400 hover:bg-[#2c394e] hover:text-white flex items-center gap-2">
+                                          <span className="material-symbols-outlined text-[14px]">folder_off</span> Retirer du dossier
+                                        </button>
+                                      )}
+                                      {folders.length === 0 ? (
+                                        <p className="px-4 py-2 text-[11px] text-slate-500">Aucun dossier — créez-en un.</p>
+                                      ) : folders.map(f => (
+                                        <button
+                                          key={f.id}
+                                          onClick={(e) => { e.stopPropagation(); moveVideoToFolder(vid.id, f.id); }}
+                                          className="w-full text-left px-4 py-2 text-[11px] text-slate-300 hover:bg-[#2c394e] hover:text-white flex items-center gap-2 truncate"
+                                        >
+                                          <span className="material-symbols-outlined text-[14px] text-[#00c2ff]">folder</span> {f.name}
+                                        </button>
+                                      ))}
+                                    </div>
                                   )}
                                   <div className="h-[1px] bg-[#2d3a52] my-1"></div>
                                   <button onClick={(e) => handleDeleteVideo(vid.id, e)} className="w-full text-left px-4 py-2.5 text-xs text-rose-400 hover:bg-rose-950/50 flex items-center gap-2 font-medium">
@@ -5160,6 +5280,35 @@ export default function App() {
                 </div>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* NEW FOLDER MODAL */}
+      {showNewFolderModal && (
+        <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-[60] flex items-center justify-center p-6">
+          <div className="bg-[#161b22] border border-[#263042] rounded-2xl p-6 max-w-[380px] w-full shadow-2xl space-y-4">
+            <div className="flex justify-between items-center">
+              <h3 className="text-sm font-bold text-white">Nouveau dossier</h3>
+              <button onClick={() => { setShowNewFolderModal(false); setNewFolderName(''); }} className="text-slate-400 hover:text-white">
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+            <input
+              autoFocus
+              value={newFolderName}
+              onChange={e => setNewFolderName(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') createFolder(); }}
+              placeholder="Nom du dossier"
+              className="w-full bg-[#1b2230] border border-[#2b374d] rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-[#00c2ff]"
+            />
+            <button
+              onClick={createFolder}
+              disabled={!newFolderName.trim() || creatingFolder}
+              className="w-full py-2.5 bg-[#00c2ff] text-slate-950 font-bold text-xs rounded-xl hover:bg-[#38d0ff] transition-all disabled:opacity-50"
+            >
+              {creatingFolder ? 'Création...' : 'Créer le dossier'}
+            </button>
           </div>
         </div>
       )}
