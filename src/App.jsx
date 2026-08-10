@@ -688,9 +688,13 @@ function AudioFilePreview({ file, onRemove, volume }) {
   const togglePlayback = async (event) => {
     event.stopPropagation();
     const audio = audioRef.current;
-    if (!audio) return;
-    if (audio.paused) await audio.play();
-    else audio.pause();
+    if (!audio || !src) return;
+    try {
+      if (audio.paused) await audio.play();
+      else audio.pause();
+    } catch {
+      // play() was interrupted (e.g. src not ready yet or a pause() raced it) — ignore, UI reflects actual state via onPlay/onPause.
+    }
   };
 
   const seek = (event) => {
@@ -702,18 +706,20 @@ function AudioFilePreview({ file, onRemove, volume }) {
 
   return (
     <div className="rounded-xl border border-[#2b374d] bg-[#11151c] p-3" onClick={(event) => event.stopPropagation()}>
-      <audio
-        ref={audioRef}
-        src={src}
-        preload="metadata"
-        onLoadedMetadata={(event) => setDuration(event.currentTarget.duration || 0)}
-        onTimeUpdate={(event) => setCurrentTime(event.currentTarget.currentTime)}
-        onPlay={() => setPlaying(true)}
-        onPause={() => setPlaying(false)}
-        onEnded={() => setPlaying(false)}
-      />
+      {src && (
+        <audio
+          ref={audioRef}
+          src={src}
+          preload="metadata"
+          onLoadedMetadata={(event) => setDuration(event.currentTarget.duration || 0)}
+          onTimeUpdate={(event) => setCurrentTime(event.currentTarget.currentTime)}
+          onPlay={() => setPlaying(true)}
+          onPause={() => setPlaying(false)}
+          onEnded={() => setPlaying(false)}
+        />
+      )}
       <div className="flex items-center gap-3">
-        <button type="button" onClick={togglePlayback} className="w-9 h-9 shrink-0 rounded-full bg-[#00c2ff] text-slate-950 flex items-center justify-center hover:bg-[#39d0ff]">
+        <button type="button" onClick={togglePlayback} disabled={!src} className="w-9 h-9 shrink-0 rounded-full bg-[#00c2ff] text-slate-950 flex items-center justify-center hover:bg-[#39d0ff] disabled:opacity-40 disabled:cursor-not-allowed">
           <span className="material-symbols-outlined text-[22px]">{playing ? 'pause' : 'play_arrow'}</span>
         </button>
         <div className="min-w-0 flex-1">
@@ -754,9 +760,13 @@ function ServerAudioPreview({ src, name, volume, onRemove }) {
   const togglePlayback = async (event) => {
     event.stopPropagation();
     const audio = audioRef.current;
-    if (!audio) return;
-    if (audio.paused) await audio.play();
-    else audio.pause();
+    if (!audio || !src) return;
+    try {
+      if (audio.paused) await audio.play();
+      else audio.pause();
+    } catch {
+      // play() was interrupted (e.g. src not ready yet or a pause() raced it) — ignore, UI reflects actual state via onPlay/onPause.
+    }
   };
 
   const seek = (event) => {
@@ -768,18 +778,20 @@ function ServerAudioPreview({ src, name, volume, onRemove }) {
 
   return (
     <div className="rounded-xl border border-[#2b374d] bg-[#11151c] p-3" onClick={(event) => event.stopPropagation()}>
-      <audio
-        ref={audioRef}
-        src={src}
-        preload="metadata"
-        onLoadedMetadata={(event) => setDuration(event.currentTarget.duration || 0)}
-        onTimeUpdate={(event) => setCurrentTime(event.currentTarget.currentTime)}
-        onPlay={() => setPlaying(true)}
-        onPause={() => setPlaying(false)}
-        onEnded={() => setPlaying(false)}
-      />
+      {src && (
+        <audio
+          ref={audioRef}
+          src={src}
+          preload="metadata"
+          onLoadedMetadata={(event) => setDuration(event.currentTarget.duration || 0)}
+          onTimeUpdate={(event) => setCurrentTime(event.currentTarget.currentTime)}
+          onPlay={() => setPlaying(true)}
+          onPause={() => setPlaying(false)}
+          onEnded={() => setPlaying(false)}
+        />
+      )}
       <div className="flex items-center gap-3">
-        <button type="button" onClick={togglePlayback} className="w-9 h-9 shrink-0 rounded-full bg-[#00c2ff] text-slate-950 flex items-center justify-center hover:bg-[#39d0ff]">
+        <button type="button" onClick={togglePlayback} disabled={!src} className="w-9 h-9 shrink-0 rounded-full bg-[#00c2ff] text-slate-950 flex items-center justify-center hover:bg-[#39d0ff] disabled:opacity-40 disabled:cursor-not-allowed">
           <span className="material-symbols-outlined text-[22px]">{playing ? 'pause' : 'play_arrow'}</span>
         </button>
         <div className="min-w-0 flex-1">
