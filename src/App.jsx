@@ -1124,6 +1124,9 @@ export default function App() {
   const [singleScriptText, setSingleScriptText] = useState('');
   const [selectedVoice, setSelectedVoice] = useState('fr-FR-Thomas');
   const [audioFilesList, setAudioFilesList] = useState([]);
+  // Izivoice STT transcription (for accurate audio-upload subtitles) is billable —
+  // default on, but the user can opt out in the final preview to avoid credit cost.
+  const [transcribeAudio, setTranscribeAudio] = useState(true);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef(null);
 
@@ -2277,6 +2280,7 @@ export default function App() {
       audioFilesList.forEach(file => {
         formData.append("audio_files", file);
       });
+      formData.append("transcribe_audio", transcribeAudio ? "true" : "false");
     }
 
     try {
@@ -5062,6 +5066,23 @@ export default function App() {
                       </button>
                     ))}
                   </div>
+
+                  {submitMode === 'audio_upload' && (
+                    <button
+                      type="button"
+                      onClick={() => setTranscribeAudio(prev => !prev)}
+                      className={`w-full px-3 py-2 rounded-xl text-xs font-bold border transition-colors flex items-center gap-2.5 text-left ${
+                        transcribeAudio
+                          ? 'bg-emerald-950/60 border-emerald-700 text-emerald-400'
+                          : 'bg-[#1b2230] border-[#2b374d] text-slate-500 hover:border-slate-500'
+                      }`}
+                      title="Sans transcription, les sous-titres utiliseront le titre du fichier au lieu du texte réel parlé."
+                    >
+                      <span className="material-symbols-outlined text-[16px] shrink-0">record_voice_over</span>
+                      <span className="flex-1 truncate">Transcrire l'audio pour des sous-titres précis (IA, facturable)</span>
+                      <span className="material-symbols-outlined text-[16px] shrink-0">{transcribeAudio ? 'check_box' : 'check_box_outline_blank'}</span>
+                    </button>
+                  )}
 
                   {/* Real visual mockup of the final rendered frame: background style,
                       subtitle font/color/outline/position, and active effects — everything
