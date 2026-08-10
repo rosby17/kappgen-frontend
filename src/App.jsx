@@ -2245,30 +2245,24 @@ export default function App() {
     setDownloadModalVideo(vid);
   };
 
-  const runDownload = async (vid, quality) => {
+  const runDownload = (vid, quality) => {
+    // Deliberately not fetch()+blob(): that buffers the entire file (hundreds
+    // of MB for a real video) in JS memory with no progress feedback before
+    // anything happens — it just looks stuck. The /download endpoint already
+    // sends Content-Disposition: attachment, so a plain navigation lets the
+    // browser stream straight to disk with its own native download UI.
     setDownloadingQuality(quality);
-    try {
-      const url = quality === 'hd'
-        ? getVideoUrl(vid.output_path)
-        : `${API_BASE}/videos/${vid.id}/download?quality=${quality}`;
-      const res = await fetch(url);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const blob = await res.blob();
-      const objectUrl = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = objectUrl;
-      a.download = `nichecut-${(vid.script_text || 'video').slice(0, 40).replace(/[^a-z0-9]+/gi, '-')}-${quality}.mp4`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(objectUrl);
-      setDownloadModalVideo(null);
-    } catch (err) {
-      console.error("Erreur de téléchargement:", err);
-      showToast("Le téléchargement a échoué. Réessayez.", "error");
-    } finally {
+    const url = `${API_BASE}/videos/${vid.id}/download?quality=${quality}`;
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `nichecut-${(vid.script_text || 'video').slice(0, 40).replace(/[^a-z0-9]+/gi, '-')}-${quality}.mp4`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => {
       setDownloadingQuality(null);
-    }
+      setDownloadModalVideo(null);
+    }, 600);
   };
 
   const [reusingAudioId, setReusingAudioId] = useState(null);
