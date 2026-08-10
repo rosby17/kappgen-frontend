@@ -181,6 +181,165 @@ const SUBTITLE_PRESETS = [
     position: 'center',
     karaoke: true,
     box_color: 'transparent'
+  },
+  // Box/pill-background presets — text sits on a solid rounded rectangle
+  // instead of relying on an outline for contrast (the "caption bubble" look).
+  {
+    id: 'white_pill',
+    name: 'Bulle Blanche ⬜',
+    font: 'Inter',
+    size: 40,
+    color: '#0A0A0A',
+    outline_color: '#FFFFFF',
+    outline_width: 0,
+    position: 'bottom',
+    karaoke: false,
+    box_color: '#FFFFFF'
+  },
+  {
+    id: 'black_pill',
+    name: 'Bulle Noire ⬛',
+    font: 'Inter',
+    size: 40,
+    color: '#FFFFFF',
+    outline_color: '#000000',
+    outline_width: 0,
+    position: 'bottom',
+    karaoke: true,
+    box_color: '#000000'
+  },
+  {
+    id: 'sunny_yellow_box',
+    name: 'Boîte Jaune Soleil 🌞',
+    font: 'Poppins',
+    size: 42,
+    color: '#1A1400',
+    outline_color: '#1A1400',
+    outline_width: 0,
+    position: 'bottom',
+    karaoke: true,
+    box_color: '#FFD400'
+  },
+  {
+    id: 'coral_box',
+    name: 'Boîte Corail 🪸',
+    font: 'Poppins',
+    size: 40,
+    color: '#FFFFFF',
+    outline_color: '#7A1E00',
+    outline_width: 0,
+    position: 'bottom',
+    karaoke: true,
+    box_color: '#FF6B4A'
+  },
+  {
+    id: 'mint_box',
+    name: 'Boîte Menthe 🌿',
+    font: 'Comfortaa',
+    size: 38,
+    color: '#043D2E',
+    outline_color: '#043D2E',
+    outline_width: 0,
+    position: 'bottom',
+    karaoke: false,
+    box_color: '#8FF0C6'
+  },
+  {
+    id: 'gold_box',
+    name: 'Boîte Dorée 🏆',
+    font: 'Montserrat',
+    size: 42,
+    color: '#231600',
+    outline_color: '#231600',
+    outline_width: 0,
+    position: 'center',
+    karaoke: true,
+    box_color: '#F2C94C'
+  },
+  // More outline-only styles, extra font/color variety
+  {
+    id: 'ice_blue',
+    name: 'Bleu Glacé ❄️',
+    font: 'Poppins',
+    size: 44,
+    color: '#E0F7FF',
+    outline_color: '#053B4D',
+    outline_width: 3,
+    position: 'bottom',
+    karaoke: true,
+    box_color: 'transparent'
+  },
+  {
+    id: 'forest_green',
+    name: 'Vert Forêt 🌲',
+    font: 'Cabin',
+    size: 44,
+    color: '#B7F0B1',
+    outline_color: '#0C2B0A',
+    outline_width: 3,
+    position: 'bottom',
+    karaoke: true,
+    box_color: 'transparent'
+  },
+  {
+    id: 'hot_pink',
+    name: 'Rose Vif 💗',
+    font: 'Poppins',
+    size: 44,
+    color: '#FF3D9A',
+    outline_color: '#3A001C',
+    outline_width: 4,
+    position: 'bottom',
+    karaoke: true,
+    box_color: 'transparent'
+  },
+  {
+    id: 'noir_serif',
+    name: 'Noir Élégant 🎩',
+    font: 'Georgia',
+    size: 42,
+    color: '#F5F5F5',
+    outline_color: '#000000',
+    outline_width: 2,
+    position: 'bottom',
+    karaoke: false,
+    box_color: 'transparent'
+  },
+  {
+    id: 'sunset_orange',
+    name: 'Coucher de Soleil 🌅',
+    font: 'Bebas Neue',
+    size: 50,
+    color: '#FF7A29',
+    outline_color: '#4A1900',
+    outline_width: 4,
+    position: 'bottom',
+    karaoke: true,
+    box_color: 'transparent'
+  },
+  {
+    id: 'electric_blue',
+    name: 'Bleu Électrique ⚡',
+    font: 'Montserrat',
+    size: 46,
+    color: '#3DA9FF',
+    outline_color: '#00142E',
+    outline_width: 4,
+    position: 'bottom',
+    karaoke: true,
+    box_color: 'transparent'
+  },
+  {
+    id: 'blood_moon',
+    name: 'Lune de Sang 🌑',
+    font: 'Bebas Neue',
+    size: 48,
+    color: '#E8E8E8',
+    outline_color: '#5C0000',
+    outline_width: 4,
+    position: 'bottom',
+    karaoke: true,
+    box_color: 'transparent'
   }
 ];
 
@@ -193,20 +352,60 @@ const NICHE_OPTIONS = [
   "Histoire", "Science", "Faits Divers", "True Crime", "Voyage", "Cuisine",
 ];
 
+// Every family below is actually installed on the render server (see
+// Dockerfile) — verified by downloading each Debian font package and
+// reading its real name table, not guessed from the package name.
 const SUBTITLE_FONTS = [
-  { value: 'Montserrat', label: 'Montserrat (Moderne, Impact)' },
-  { value: 'Bebas Neue', label: 'Bebas Neue (Grand, Display)' },
-  { value: 'Roboto', label: 'Roboto (Clean, Neutre)' },
-  { value: 'Open Sans', label: 'Open Sans (Lisible, Doux)' },
-  { value: 'Lato', label: 'Lato (Humaniste)' },
-  { value: 'Inter', label: 'Inter (UI, Précis)' },
-  { value: 'Source Sans 3', label: 'Source Sans 3 (Éditorial)' },
-  { value: 'Liberation Sans', label: 'Liberation Sans (Style Arial)' },
-  { value: 'DejaVu Sans', label: 'DejaVu Sans (Classique, Fiable)' },
-  { value: 'Comfortaa', label: 'Comfortaa (Rond, Doux)' },
-  { value: 'Cabin', label: 'Cabin (Humaniste, Moderne)' },
-  { value: 'Noto Sans', label: 'Noto Sans (Universel)' },
-  { value: 'Comic Neue', label: 'Comic Neue (Ludique, Décontracté)' }
+  { value: 'Montserrat', label: 'Montserrat', group: 'Sans-serif' },
+  { value: 'Roboto', label: 'Roboto', group: 'Sans-serif' },
+  { value: 'Open Sans', label: 'Open Sans', group: 'Sans-serif' },
+  { value: 'Lato', label: 'Lato', group: 'Sans-serif' },
+  { value: 'Inter', label: 'Inter', group: 'Sans-serif' },
+  { value: 'Source Sans 3', label: 'Source Sans 3', group: 'Sans-serif' },
+  { value: 'Liberation Sans', label: 'Liberation Sans', group: 'Sans-serif' },
+  { value: 'DejaVu Sans', label: 'DejaVu Sans', group: 'Sans-serif' },
+  { value: 'Noto Sans', label: 'Noto Sans', group: 'Sans-serif' },
+  { value: 'Cabin', label: 'Cabin', group: 'Sans-serif' },
+  { value: 'Karla', label: 'Karla', group: 'Sans-serif' },
+  { value: 'Manrope', label: 'Manrope', group: 'Sans-serif' },
+  { value: 'Sora', label: 'Sora', group: 'Sans-serif' },
+  { value: 'Clear Sans', label: 'Clear Sans', group: 'Sans-serif' },
+  { value: 'Carlito', label: 'Carlito', group: 'Sans-serif' },
+  { value: 'Cantarell', label: 'Cantarell', group: 'Sans-serif' },
+  { value: 'National Park', label: 'National Park', group: 'Sans-serif' },
+  { value: 'Oxygen-Sans', label: 'Oxygen', group: 'Sans-serif' },
+
+  { value: 'Bebas Neue', label: 'Bebas Neue', group: 'Display / Impact' },
+  { value: 'League Spartan', label: 'League Spartan', group: 'Display / Impact' },
+  { value: 'Yanone Kaffeesatz', label: 'Yanone Kaffeesatz', group: 'Display / Impact' },
+  { value: 'Play', label: 'Play', group: 'Display / Impact' },
+  { value: 'Jura', label: 'Jura', group: 'Display / Impact' },
+  { value: 'B612', label: 'B612', group: 'Display / Impact' },
+
+  { value: 'Comfortaa', label: 'Comfortaa', group: 'Rond, doux' },
+  { value: 'Quicksand', label: 'Quicksand', group: 'Rond, doux' },
+  { value: 'Dosis', label: 'Dosis', group: 'Rond, doux' },
+
+  { value: 'Comic Neue', label: 'Comic Neue', group: 'Ludique' },
+  { value: 'Lobster Two', label: 'Lobster Two', group: 'Ludique' },
+  { value: 'Kaushan Script', label: 'Kaushan Script', group: 'Ludique' },
+  { value: 'Dancing Script', label: 'Dancing Script', group: 'Ludique' },
+  { value: 'Leckerli One', label: 'Leckerli One', group: 'Ludique' },
+  { value: 'Lemonada', label: 'Lemonada', group: 'Ludique' },
+  { value: 'Cabin Sketch', label: 'Cabin Sketch', group: 'Ludique' },
+  { value: 'Tuffy', label: 'Tuffy', group: 'Ludique' },
+
+  { value: 'Vollkorn', label: 'Vollkorn', group: 'Éditorial / Serif' },
+  { value: 'EB Garamond', label: 'EB Garamond', group: 'Éditorial / Serif' },
+  { value: 'Cardo', label: 'Cardo', group: 'Éditorial / Serif' },
+  { value: 'Quattrocento', label: 'Quattrocento', group: 'Éditorial / Serif' },
+  { value: 'Caladea', label: 'Caladea', group: 'Éditorial / Serif' },
+  { value: 'Liberation Serif', label: 'Liberation Serif', group: 'Éditorial / Serif' },
+  { value: 'Linux Libertine O', label: 'Linux Libertine', group: 'Éditorial / Serif' },
+  { value: 'Roboto Slab', label: 'Roboto Slab', group: 'Éditorial / Serif' },
+  { value: 'Karmilla', label: 'Karmilla', group: 'Éditorial / Serif' },
+
+  { value: 'Courier Prime', label: 'Courier Prime', group: 'Machine à écrire' },
 ];
 
 // Available Voice Models
@@ -362,6 +561,19 @@ const subtitlePositionClass = (position) => {
   if (normalized === 'top') return 'top-[12%]';
   if (normalized === 'center') return 'top-1/2 -translate-y-1/2';
   return 'bottom-[12%]';
+};
+
+const applySubtitleCase = (text, caseMode) => {
+  if (caseMode === 'upper') return text.toUpperCase();
+  if (caseMode === 'lower') return text.toLowerCase();
+  return text;
+};
+
+const subtitleAlignClass = (align) => {
+  const normalized = String(align || 'center').toLowerCase();
+  if (normalized === 'left') return 'justify-start';
+  if (normalized === 'right') return 'justify-end';
+  return 'justify-center';
 };
 
 function AudioFilePreview({ file, onRemove }) {
@@ -717,6 +929,8 @@ export default function App() {
   // Wizard State
   const [wizardStep, setWizardStep] = useState(1);
   const [wizardMode, setWizardMode] = useState('create');
+  const [fontPickerOpen, setFontPickerOpen] = useState(false);
+  const [fontSearchQuery, setFontSearchQuery] = useState('');
   const [editingChannelId, setEditingChannelId] = useState(null);
   const [logoFile, setLogoFile] = useState(null);
   const [logoPreviewUrl, setLogoPreviewUrl] = useState(null);
@@ -741,12 +955,27 @@ export default function App() {
       font: 'Montserrat',
       size: 44,
       color: '#FFD700',
+      base_color: '#FFFFFF',
       outline_color: '#000000',
       outline_width: 3,
       position: 'bottom',
+      align: 'center',
       karaoke: true,
+      highlight_mode: 'word',
       box_color: 'transparent',
-      words_per_line: 6
+      box_padding: 10,
+      words_per_line: 6,
+      text_case: 'none',
+      bold: false,
+      italic: false,
+      letter_spacing: 0,
+      opacity: 100,
+      rotation: 0,
+      x_offset: 0,
+      y_offset: 0,
+      shadow: false,
+      shadow_color: '#000000',
+      shadow_distance: 3
     },
     branding: {
       logo_path: '',
@@ -2461,7 +2690,7 @@ export default function App() {
 
             {/* VIEW 5: CHANNEL WIZARD (CREATE / EDIT) */}
             {view === 'wizard' && (
-              <div className="max-w-[900px] mx-auto bg-[#161b22] border border-[#263042] rounded-3xl p-8 shadow-2xl space-y-8">
+              <div className="max-w-[1240px] mx-auto bg-[#161b22] border border-[#263042] rounded-3xl p-8 shadow-2xl space-y-8">
                 {/* Wizard Header Stepper */}
                 <div className="flex items-center justify-between border-b border-[#263042] pb-6">
                   <div>
@@ -2570,42 +2799,73 @@ export default function App() {
                 {/* STEP 2: SOUS-TITRES & KARAOKÉ ASS */}
                 {wizardStep === 2 && (
                   <div className="space-y-6">
-                    <div className="flex justify-between items-center">
-                      <h3 className="text-base font-bold text-white">2. Personnalisation Avancée des Sous-Titres Karaoké</h3>
-                      <span className="text-xs font-mono text-[#00c2ff] bg-[#00c2ff]/10 px-2.5 py-1 rounded-lg">Fichier ASS Ultra-Fluid</span>
-                    </div>
+                    <h3 className="text-base font-bold text-white">2. Personnalisation Avancée des Sous-Titres</h3>
 
-                    <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_360px] gap-6 items-start">
+                    <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_520px] gap-8 items-start">
                       {/* Settings column — scrolls independently while the preview stays put */}
                       <div className="space-y-6 min-w-0">
-                        {/* Presets Grid */}
+                        {/* Presets Grid — CapCut-style: a square tile rendering the actual
+                            style ("ABC123") so you pick by look, with the name below it. */}
                         <div>
                           <label className="block text-xs font-bold text-slate-300 mb-2">Presets de style sous-titre recommandés</label>
-                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                            {SUBTITLE_PRESETS.map(preset => (
-                              <button
-                                key={preset.id}
-                                type="button"
-                                onClick={() => {
-                                  setNewChannel(prev => ({
-                                    ...prev,
-                                    subtitle_style: {
-                                      ...prev.subtitle_style,
-                                      font: preset.font,
-                                      size: preset.size,
-                                      color: preset.color,
-                                      outline_color: preset.outline_color,
-                                      outline_width: preset.outline_width,
-                                      box_color: preset.box_color
-                                    }
-                                  }));
-                                }}
-                                className="p-3 bg-[#1b2230] hover:bg-[#252f42] border border-[#2b374d] rounded-xl text-left transition-all hover:border-[#00c2ff]"
-                              >
-                                <div className="text-xs font-bold text-white">{preset.name}</div>
-                                <div className="text-[10px] text-slate-400 mt-1 font-mono">{preset.font} • {preset.size}px</div>
-                              </button>
-                            ))}
+                          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
+                            {SUBTITLE_PRESETS.map(preset => {
+                              const isActive = newChannel.subtitle_style.font === preset.font
+                                && newChannel.subtitle_style.color === preset.color
+                                && newChannel.subtitle_style.size === preset.size;
+                              return (
+                                <button
+                                  key={preset.id}
+                                  type="button"
+                                  onClick={() => {
+                                    setNewChannel(prev => ({
+                                      ...prev,
+                                      subtitle_style: {
+                                        ...prev.subtitle_style,
+                                        font: preset.font,
+                                        size: preset.size,
+                                        color: preset.color,
+                                        outline_color: preset.outline_color,
+                                        outline_width: preset.outline_width,
+                                        box_color: preset.box_color
+                                      }
+                                    }));
+                                  }}
+                                  className="group text-center"
+                                  title={preset.name}
+                                >
+                                  <div
+                                    className={`aspect-square rounded-xl flex items-center justify-center overflow-hidden bg-[#12161f] border-2 transition-all ${
+                                      isActive ? 'border-[#00c2ff] shadow-lg shadow-[#00c2ff]/20' : 'border-[#2b374d] group-hover:border-slate-500'
+                                    }`}
+                                    style={{
+                                      backgroundImage: 'radial-gradient(circle at center, rgba(255,255,255,0.06), transparent 70%)'
+                                    }}
+                                  >
+                                    <span
+                                      style={{
+                                        fontFamily: preset.font,
+                                        color: preset.color,
+                                        WebkitTextStroke: `${Math.min(1.5, (preset.outline_width || 3) / 2.5)}px ${preset.outline_color || '#000000'}`,
+                                        paintOrder: 'stroke fill',
+                                        fontSize: '15px',
+                                        ...(preset.box_color && preset.box_color !== 'transparent' ? {
+                                          backgroundColor: preset.box_color,
+                                          padding: '3px 6px',
+                                          borderRadius: '4px'
+                                        } : {})
+                                      }}
+                                      className="font-black"
+                                    >
+                                      ABC123
+                                    </span>
+                                  </div>
+                                  <div className={`text-[10px] font-semibold mt-1.5 truncate ${isActive ? 'text-[#00c2ff]' : 'text-slate-300'}`}>
+                                    {preset.name}
+                                  </div>
+                                </button>
+                              );
+                            })}
                           </div>
                         </div>
 
@@ -2613,16 +2873,17 @@ export default function App() {
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div>
                             <label className="block text-xs font-bold text-slate-300 mb-2">Police (Font)</label>
-                            <select
-                              value={newChannel.subtitle_style.font}
-                              onChange={e => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, font: e.target.value } })}
-                              className="w-full bg-[#1b2230] border border-[#2b374d] rounded-xl px-4 py-2.5 text-xs text-white focus:border-[#00c2ff] outline-none"
+                            <button
+                              type="button"
+                              onClick={() => { setFontSearchQuery(''); setFontPickerOpen(true); }}
+                              className="w-full flex items-center justify-between bg-[#1b2230] border border-[#2b374d] rounded-xl px-4 py-2.5 text-left hover:border-[#00c2ff] transition-colors"
                             >
-                              {SUBTITLE_FONTS.map(f => (
-                                <option key={f.value} value={f.value}>{f.label}</option>
-                              ))}
-                            </select>
-                            <p className="text-[10px] text-slate-500 mt-1.5">Polices réellement installées sur le serveur de rendu — l'aperçu est fidèle au rendu final.</p>
+                              <span style={{ fontFamily: newChannel.subtitle_style.font }} className="text-sm text-white truncate">
+                                {SUBTITLE_FONTS.find(f => f.value === newChannel.subtitle_style.font)?.label || newChannel.subtitle_style.font}
+                              </span>
+                              <span className="material-symbols-outlined text-[18px] text-slate-400 flex-shrink-0">expand_more</span>
+                            </button>
+                            <p className="text-[10px] text-slate-500 mt-1.5">{SUBTITLE_FONTS.length} polices réellement installées sur le serveur de rendu — l'aperçu est fidèle au rendu final.</p>
                           </div>
 
                           <div>
@@ -2701,16 +2962,236 @@ export default function App() {
                             <p className="text-[11px] text-slate-500 mt-1">Nombre de mots affichés en même temps à l'écran.</p>
                           </div>
 
-                          <div className="flex items-center gap-3 pt-6">
+                        </div>
+
+                        {/* Mise en forme du texte */}
+                        <div className="pt-4 border-t border-[#263042] space-y-4">
+                          <label className="block text-xs font-bold text-[#00c2ff]">Mise en Forme du Texte</label>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                              <label className="block text-[11px] font-bold text-slate-300 mb-2">Style</label>
+                              <div className="flex gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, bold: !newChannel.subtitle_style.bold } })}
+                                  className={`flex-1 py-2.5 rounded-xl text-sm font-black border transition-colors ${newChannel.subtitle_style.bold ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]' : 'bg-[#1b2230] border-[#2b374d] text-slate-300 hover:border-slate-500'}`}
+                                >
+                                  B
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, italic: !newChannel.subtitle_style.italic } })}
+                                  className={`flex-1 py-2.5 rounded-xl text-sm italic font-bold border transition-colors ${newChannel.subtitle_style.italic ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]' : 'bg-[#1b2230] border-[#2b374d] text-slate-300 hover:border-slate-500'}`}
+                                >
+                                  I
+                                </button>
+                              </div>
+                            </div>
+
+                            <div>
+                              <label className="block text-[11px] font-bold text-slate-300 mb-2">Casse</label>
+                              <div className="grid grid-cols-3 gap-2">
+                                {[
+                                  { id: 'none', label: 'Aa' },
+                                  { id: 'upper', label: 'AA' },
+                                  { id: 'lower', label: 'aa' },
+                                ].map(({ id, label }) => (
+                                  <button
+                                    key={id}
+                                    type="button"
+                                    onClick={() => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, text_case: id } })}
+                                    className={`py-2.5 rounded-xl text-xs font-bold border transition-colors ${(newChannel.subtitle_style.text_case || 'none') === id ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]' : 'bg-[#1b2230] border-[#2b374d] text-slate-300 hover:border-slate-500'}`}
+                                  >
+                                    {label}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+
+                            <div>
+                              <label className="block text-[11px] font-bold text-slate-300 mb-2">Alignement</label>
+                              <div className="grid grid-cols-3 gap-2">
+                                {[
+                                  { id: 'left', icon: 'format_align_left' },
+                                  { id: 'center', icon: 'format_align_center' },
+                                  { id: 'right', icon: 'format_align_right' },
+                                ].map(({ id, icon }) => (
+                                  <button
+                                    key={id}
+                                    type="button"
+                                    onClick={() => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, align: id } })}
+                                    className={`py-2.5 rounded-xl border transition-colors flex items-center justify-center ${(newChannel.subtitle_style.align || 'center') === id ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]' : 'bg-[#1b2230] border-[#2b374d] text-slate-300 hover:border-slate-500'}`}
+                                  >
+                                    <span className="material-symbols-outlined text-[18px]">{icon}</span>
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+
+                            <div>
+                              <label className="block text-[11px] font-bold text-slate-300 mb-2">Mode de surbrillance</label>
+                              <div className="grid grid-cols-3 gap-2">
+                                {[
+                                  { id: 'word', label: 'Mot actif' },
+                                  { id: 'line', label: 'Phrase' },
+                                  { id: 'none', label: 'Aucune' },
+                                ].map(({ id, label }) => (
+                                  <button
+                                    key={id}
+                                    type="button"
+                                    onClick={() => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, highlight_mode: id, karaoke: id === 'word' } })}
+                                    className={`py-2 rounded-xl text-[10px] font-bold border transition-colors ${(newChannel.subtitle_style.highlight_mode || 'word') === id ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]' : 'bg-[#1b2230] border-[#2b374d] text-slate-300 hover:border-slate-500'}`}
+                                  >
+                                    {label}
+                                  </button>
+                                ))}
+                              </div>
+                              <p className="text-[10px] text-slate-500 mt-1.5">« Mot actif » colore le mot en cours de lecture ; « Phrase » colore toute la ligne ; « Aucune » garde une couleur neutre.</p>
+                            </div>
+
+                            <div>
+                              <label className="block text-[11px] font-bold text-slate-300 mb-2">Espacement des lettres ({newChannel.subtitle_style.letter_spacing || 0}px)</label>
+                              <input
+                                type="range"
+                                min="-2"
+                                max="20"
+                                value={newChannel.subtitle_style.letter_spacing || 0}
+                                onChange={e => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, letter_spacing: parseInt(e.target.value) || 0 } })}
+                                className="w-full accent-[#00c2ff] mt-3"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="block text-[11px] font-bold text-slate-300 mb-2">Opacité ({newChannel.subtitle_style.opacity ?? 100}%)</label>
+                              <input
+                                type="range"
+                                min="10"
+                                max="100"
+                                value={newChannel.subtitle_style.opacity ?? 100}
+                                onChange={e => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, opacity: parseInt(e.target.value) ?? 100 } })}
+                                className="w-full accent-[#00c2ff] mt-3"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="block text-[11px] font-bold text-slate-300 mb-2">Rotation ({newChannel.subtitle_style.rotation || 0}°)</label>
+                              <input
+                                type="range"
+                                min="-45"
+                                max="45"
+                                value={newChannel.subtitle_style.rotation || 0}
+                                onChange={e => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, rotation: parseInt(e.target.value) || 0 } })}
+                                className="w-full accent-[#00c2ff] mt-3"
+                              />
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-3">
+                              <div>
+                                <label className="block text-[11px] font-bold text-slate-300 mb-2">Décalage X ({newChannel.subtitle_style.x_offset || 0}px)</label>
+                                <input
+                                  type="range"
+                                  min="-400"
+                                  max="400"
+                                  value={newChannel.subtitle_style.x_offset || 0}
+                                  onChange={e => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, x_offset: parseInt(e.target.value) || 0 } })}
+                                  className="w-full accent-[#00c2ff] mt-3"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[11px] font-bold text-slate-300 mb-2">Décalage Y ({newChannel.subtitle_style.y_offset || 0}px)</label>
+                                <input
+                                  type="range"
+                                  min="-400"
+                                  max="400"
+                                  value={newChannel.subtitle_style.y_offset || 0}
+                                  onChange={e => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, y_offset: parseInt(e.target.value) || 0 } })}
+                                  className="w-full accent-[#00c2ff] mt-3"
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Arrière-plan (boîte) */}
+                        <div className="pt-4 border-t border-[#263042] space-y-4">
+                          <label className="block text-xs font-bold text-[#00c2ff]">Arrière-plan (rectangle derrière le texte)</label>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                              <label className="block text-[11px] font-bold text-slate-300 mb-2">Couleur</label>
+                              <div className="flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, box_color: 'transparent' } })}
+                                  className={`px-3 py-2.5 rounded-xl text-[11px] font-bold border transition-colors ${(!newChannel.subtitle_style.box_color || newChannel.subtitle_style.box_color === 'transparent') ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]' : 'bg-[#1b2230] border-[#2b374d] text-slate-300 hover:border-slate-500'}`}
+                                >
+                                  Aucune
+                                </button>
+                                <input
+                                  type="color"
+                                  value={newChannel.subtitle_style.box_color?.startsWith('#') ? newChannel.subtitle_style.box_color : '#000000'}
+                                  onChange={e => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, box_color: e.target.value } })}
+                                  className="w-10 h-10 rounded-xl bg-[#1b2230] border border-[#2b374d] cursor-pointer"
+                                />
+                                <span className="text-xs font-mono text-slate-300">
+                                  {newChannel.subtitle_style.box_color && newChannel.subtitle_style.box_color !== 'transparent' ? newChannel.subtitle_style.box_color : 'Transparent'}
+                                </span>
+                              </div>
+                            </div>
+
+                            <div>
+                              <label className="block text-[11px] font-bold text-slate-300 mb-2">Épaisseur de la bulle ({newChannel.subtitle_style.box_padding ?? 10}px)</label>
+                              <input
+                                type="range"
+                                min="0"
+                                max="40"
+                                value={newChannel.subtitle_style.box_padding ?? 10}
+                                onChange={e => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, box_padding: parseInt(e.target.value) || 0 } })}
+                                className="w-full accent-[#00c2ff] mt-3"
+                              />
+                            </div>
+                          </div>
+                          <p className="text-[10px] text-slate-500">Le moteur de rendu vidéo dessine un rectangle plein autour du texte — les coins arrondis ne s'appliquent qu'à cet aperçu, pas encore au rendu final.</p>
+                        </div>
+
+                        {/* Ombre */}
+                        <div className="pt-4 border-t border-[#263042] space-y-4">
+                          <div className="flex items-center gap-3">
                             <input
                               type="checkbox"
-                              id="karaoke-toggle"
-                              checked={!!newChannel.subtitle_style.karaoke}
-                              onChange={e => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, karaoke: e.target.checked } })}
+                              id="shadow-toggle"
+                              checked={!!newChannel.subtitle_style.shadow}
+                              onChange={e => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, shadow: e.target.checked } })}
                               className="w-4 h-4 accent-[#00c2ff]"
                             />
-                            <label htmlFor="karaoke-toggle" className="text-xs font-bold text-slate-300">Karaoké mot-par-mot (recommandé)</label>
+                            <label htmlFor="shadow-toggle" className="text-xs font-bold text-[#00c2ff]">Ombre portée</label>
                           </div>
+                          {newChannel.subtitle_style.shadow && (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                              <div>
+                                <label className="block text-[11px] font-bold text-slate-300 mb-2">Couleur de l'ombre</label>
+                                <div className="flex items-center gap-2">
+                                  <input
+                                    type="color"
+                                    value={newChannel.subtitle_style.shadow_color?.startsWith('#') ? newChannel.subtitle_style.shadow_color : '#000000'}
+                                    onChange={e => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, shadow_color: e.target.value } })}
+                                    className="w-10 h-10 rounded-xl bg-[#1b2230] border border-[#2b374d] cursor-pointer"
+                                  />
+                                  <span className="text-xs font-mono text-slate-300">{newChannel.subtitle_style.shadow_color}</span>
+                                </div>
+                              </div>
+                              <div>
+                                <label className="block text-[11px] font-bold text-slate-300 mb-2">Distance ({newChannel.subtitle_style.shadow_distance ?? 3}px)</label>
+                                <input
+                                  type="range"
+                                  min="0"
+                                  max="15"
+                                  value={newChannel.subtitle_style.shadow_distance ?? 3}
+                                  onChange={e => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, shadow_distance: parseInt(e.target.value) || 0 } })}
+                                  className="w-full accent-[#00c2ff] mt-3"
+                                />
+                              </div>
+                            </div>
+                          )}
                         </div>
                       </div>
 
@@ -2720,24 +3201,44 @@ export default function App() {
                         <label className="block text-xs font-bold text-slate-300 mb-2">Aperçu en direct</label>
                         <div ref={wizardSubtitlePreviewRef} className="w-full aspect-video rounded-2xl bg-gradient-to-b from-slate-900 to-black border border-[#2b374d] relative overflow-hidden px-6">
                           <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(0,194,255,0.08),transparent_70%)]"></div>
-                          <div className={`absolute inset-x-6 z-10 flex flex-wrap justify-center items-center gap-2 text-center ${subtitlePositionClass(newChannel.subtitle_style.position)}`}>
-                            {sampleWords.map((wordObj, i) => (
-                              <span
-                                key={i}
-                                style={{
-                                  fontFamily: newChannel.subtitle_style.font,
-                                  fontSize: `${(newChannel.subtitle_style.size || 44) * wizardSubtitlePreviewScale}px`,
-                                  fontWeight: '900',
-                                  color: (newChannel.subtitle_style.karaoke === false || wordObj.highlight) ? (newChannel.subtitle_style.color || '#FFD700') : '#FFFFFF',
-                                  WebkitTextStroke: `${Math.max(1, (newChannel.subtitle_style.outline_width || 3) * wizardSubtitlePreviewScale)}px ${newChannel.subtitle_style.outline_color || '#000000'}`,
-                                  paintOrder: 'stroke fill',
-                                  textShadow: '0 2px 8px rgba(0,0,0,0.6)'
-                                }}
-                                className="inline-block"
-                              >
-                                {wordObj.text}
-                              </span>
-                            ))}
+                          <div className={`absolute inset-x-6 z-10 flex ${subtitleAlignClass(newChannel.subtitle_style.align)} ${subtitlePositionClass(newChannel.subtitle_style.position)}`}>
+                            <div
+                              style={{
+                                backgroundColor: newChannel.subtitle_style.box_color && newChannel.subtitle_style.box_color !== 'transparent' ? newChannel.subtitle_style.box_color : 'transparent',
+                                padding: `${Math.max(2, (newChannel.subtitle_style.box_padding ?? 10) * 0.6)}px ${Math.max(4, (newChannel.subtitle_style.box_padding ?? 10) * 0.9)}px`,
+                                borderRadius: '10px',
+                                opacity: (newChannel.subtitle_style.opacity ?? 100) / 100,
+                                transform: `translateX(${(newChannel.subtitle_style.x_offset || 0) * wizardSubtitlePreviewScale}px) translateY(${(newChannel.subtitle_style.y_offset || 0) * wizardSubtitlePreviewScale}px) rotate(${newChannel.subtitle_style.rotation || 0}deg)`
+                              }}
+                              className="flex flex-wrap justify-center items-center gap-2 text-center"
+                            >
+                              {sampleWords.map((wordObj, i) => {
+                                const highlightMode = newChannel.subtitle_style.highlight_mode || (newChannel.subtitle_style.karaoke === false ? 'line' : 'word');
+                                const isColored = highlightMode === 'line' || (highlightMode === 'word' && wordObj.highlight);
+                                const displayText = applySubtitleCase(wordObj.text, newChannel.subtitle_style.text_case);
+                                return (
+                                  <span
+                                    key={i}
+                                    style={{
+                                      fontFamily: newChannel.subtitle_style.font,
+                                      fontSize: `${(newChannel.subtitle_style.size || 44) * wizardSubtitlePreviewScale}px`,
+                                      fontWeight: newChannel.subtitle_style.bold ? '900' : '700',
+                                      fontStyle: newChannel.subtitle_style.italic ? 'italic' : 'normal',
+                                      letterSpacing: `${(newChannel.subtitle_style.letter_spacing || 0) * wizardSubtitlePreviewScale}px`,
+                                      color: isColored ? (newChannel.subtitle_style.color || '#FFD700') : (newChannel.subtitle_style.base_color || '#FFFFFF'),
+                                      WebkitTextStroke: `${Math.max(1, (newChannel.subtitle_style.outline_width || 3) * wizardSubtitlePreviewScale)}px ${newChannel.subtitle_style.outline_color || '#000000'}`,
+                                      paintOrder: 'stroke fill',
+                                      textShadow: newChannel.subtitle_style.shadow
+                                        ? `${(newChannel.subtitle_style.shadow_distance ?? 3)}px ${(newChannel.subtitle_style.shadow_distance ?? 3)}px 4px ${newChannel.subtitle_style.shadow_color || '#000000'}`
+                                        : '0 2px 8px rgba(0,0,0,0.6)'
+                                    }}
+                                    className="inline-block"
+                                  >
+                                    {displayText}
+                                  </span>
+                                );
+                              })}
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -3144,7 +3645,7 @@ export default function App() {
                 {/* Wizard Footer Navigation */}
                 <div className="flex justify-between items-center pt-6 border-t border-[#263042]">
                   {wizardStep > 1 ? (
-                    <button 
+                    <button
                       onClick={() => setWizardStep(wizardStep - 1)}
                       className="px-6 py-2.5 rounded-xl bg-[#1b2230] text-white font-bold text-xs hover:bg-[#252f42] transition-colors"
                     >
@@ -3152,8 +3653,23 @@ export default function App() {
                     </button>
                   ) : <div></div>}
 
-                  {wizardStep < 5 ? (
-                    <button 
+                  <div className="flex items-center gap-3">
+                    {/* In edit mode the pipeline already exists — no need to click through
+                        every step just to save a change made on this one. Create mode keeps
+                        the guided step-by-step flow since nothing's configured yet. */}
+                    {wizardMode === 'edit' && wizardStep < 5 && (
+                      <button
+                        onClick={handleSaveChannel}
+                        disabled={loading}
+                        className="px-6 py-2.5 rounded-xl bg-emerald-500 text-slate-950 font-bold text-xs hover:bg-emerald-400 transition-all flex items-center gap-2 shadow-md disabled:opacity-40"
+                      >
+                        <span className="material-symbols-outlined text-[18px]">check</span>
+                        {loading ? "Enregistrement..." : "Enregistrer et quitter"}
+                      </button>
+                    )}
+
+                    {wizardStep < 5 ? (
+                    <button
                       onClick={() => {
                         const needsLibrary = newChannel.image_style.source === 'library' || newChannel.image_style.source === 'hybrid';
                         const stored = Number(newChannel.image_style.library_image_count || 0) > 0
@@ -3188,6 +3704,7 @@ export default function App() {
                       {loading ? "Enregistrement..." : (wizardMode === 'edit' ? "Enregistrer les modifications" : "Créer le Pipeline")}
                     </button>
                   )}
+                  </div>
                 </div>
               </div>
             )}
@@ -3972,6 +4489,74 @@ export default function App() {
           </div>
         </div>
       )}
+
+      {fontPickerOpen && (() => {
+        const query = fontSearchQuery.trim().toLowerCase();
+        const filtered = SUBTITLE_FONTS.filter(f => !query || f.label.toLowerCase().includes(query) || f.group.toLowerCase().includes(query));
+        const groups = [];
+        for (const f of filtered) {
+          const lastGroup = groups[groups.length - 1];
+          if (lastGroup && lastGroup.name === f.group) lastGroup.fonts.push(f);
+          else groups.push({ name: f.group, fonts: [f] });
+        }
+        return (
+          <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-[110] flex items-center justify-center p-6" onClick={() => setFontPickerOpen(false)}>
+            <div className="bg-[#161b22] border border-[#263042] rounded-3xl w-full max-w-lg shadow-2xl flex flex-col max-h-[80vh]" onClick={e => e.stopPropagation()}>
+              <div className="p-5 border-b border-[#263042] space-y-3 flex-shrink-0">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-base font-bold text-white">Choisir une police</h3>
+                  <button onClick={() => setFontPickerOpen(false)} className="text-slate-400 hover:text-white">
+                    <span className="material-symbols-outlined">close</span>
+                  </button>
+                </div>
+                <div className="relative">
+                  <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-[18px]">search</span>
+                  <input
+                    autoFocus
+                    value={fontSearchQuery}
+                    onChange={e => setFontSearchQuery(e.target.value)}
+                    placeholder="Rechercher une police..."
+                    className="w-full bg-[#1b2230] border border-[#2b374d] rounded-xl pl-10 pr-4 py-2.5 text-sm text-white focus:border-[#00c2ff] outline-none"
+                  />
+                </div>
+              </div>
+              <div className="overflow-y-auto p-3 space-y-4">
+                {filtered.length === 0 && (
+                  <p className="text-xs text-slate-500 text-center py-8">Aucune police ne correspond à "{fontSearchQuery}".</p>
+                )}
+                {groups.map(group => (
+                  <div key={group.name}>
+                    <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider px-2 mb-1.5">{group.name}</div>
+                    <div className="space-y-1">
+                      {group.fonts.map(f => {
+                        const isActive = newChannel.subtitle_style.font === f.value;
+                        return (
+                          <button
+                            key={f.value}
+                            type="button"
+                            onClick={() => {
+                              setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, font: f.value } });
+                              setFontPickerOpen(false);
+                            }}
+                            className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-left transition-colors ${
+                              isActive ? 'bg-[#00c2ff]/10 border border-[#00c2ff]' : 'hover:bg-[#1b2230] border border-transparent'
+                            }`}
+                          >
+                            <span style={{ fontFamily: f.value }} className={`text-base ${isActive ? 'text-[#00c2ff]' : 'text-white'}`}>
+                              {f.label}
+                            </span>
+                            {isActive && <span className="material-symbols-outlined text-[18px] text-[#00c2ff]">check</span>}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {confirmDialog && (
         <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-[110] flex items-center justify-center p-6">
