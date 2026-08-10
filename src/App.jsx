@@ -1477,7 +1477,13 @@ export default function App() {
   const handleLogout = () => {
     setCurrentUser(null);
     localStorage.removeItem("nichecut_user");
+    sessionStorage.removeItem('nichecut_view');
+    sessionStorage.removeItem('nichecut_active_channel_id');
+    setActiveChannel(null);
     setShowProfileModal(false);
+    setView('home');
+    setAuthTab('login');
+    setShowAuthModal(true);
   };
 
   useEffect(() => {
