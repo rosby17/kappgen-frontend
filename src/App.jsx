@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate, useLocation, useParams } from 'react-router-dom';
 
 const getOrigin = () => (typeof window !== 'undefined' ? window.location.origin : '');
 const isLocalhost = getOrigin().includes('localhost') || getOrigin().includes('127.0.0.1');
@@ -16,6 +17,15 @@ if (rawStorageBase.startsWith("http://api-nichecut.tools-cl.com")) {
 const STORAGE_BASE = rawStorageBase;
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || "";
+
+// Human-readable URL slug derived from a channel name, e.g. "Riviere de Grace" -> "riviere-de-grace".
+// Purely a display/routing convenience — the channel's real id is still what's sent to the API.
+const slugifyChannelName = (name) =>
+  (name || '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '') || 'chaine';
 
 const getVideoUrl = (path) => {
   if (!path) return '';
@@ -909,13 +919,24 @@ function SkeletonGrid({ count = 6, cardClassName = "min-h-[220px]" }) {
   );
 }
 
+function viewFromPath(path) {
+  if (path === '/channels') return 'channels';
+  if (path === '/videos') return 'videos';
+  if (path === '/channels/new') return 'wizard';
+  if (/^\/channels\/[^/]+\/edit$/.test(path)) return 'wizard';
+  if (/^\/channels\/[^/]+$/.test(path)) return 'channel_detail';
+  return 'home';
+}
+
 export default function App() {
+  const navigate = useNavigate();
+  const location = useLocation();
   const [channels, setChannels] = useState([]);
   const [nicheOptions, setNicheOptions] = useState(NICHE_OPTIONS);
   const [activeChannel, setActiveChannel] = useState(null);
   const [channelVideos, setChannelVideos] = useState([]);
   const [allVideos, setAllVideos] = useState([]);
-  const [view, setView] = useState(() => sessionStorage.getItem('nichecut_view') || 'home'); // 'home', 'channels', 'videos', 'channel_detail', 'wizard'
+  const [view, setView] = useState(() => viewFromPath(window.location.pathname)); // 'home', 'channels', 'videos', 'channel_detail', 'wizard'
   const [channelsLoaded, setChannelsLoaded] = useState(false);
   const [videosLoaded, setVideosLoaded] = useState(false);
   const [channelsLoadError, setChannelsLoadError] = useState('');
@@ -1305,6 +1326,84 @@ export default function App() {
     }
   };
 
+  // URL <-> app-state routing. The app keeps its existing `view`/`activeChannel`/
+  // `wizardMode` state machine; these two effects just keep the browser URL in
+  // sync with it (state -> URL) and rebuild state from the URL on load, refresh,
+  // or back/forward navigation (URL -> state).
+  const findChannelBySlug = (slug) => channels.find((c) => slugifyChannelName(c.name) === slug);
+  const editingChannel = editingChannelId ? channels.find((c) => c.id === editingChannelId) : null;
+
+  const pathForState = () => {
+    switch (view) {
+      case 'channels': return '/channels';
+      case 'videos': return '/videos';
+      case 'channel_detail': return activeChannel ? `/channels/${slugifyChannelName(activeChannel.name)}` : '/channels';
+      case 'wizard': return wizardMode === 'edit' && editingChannel ? `/channels/${slugifyChannelName(editingChannel.name)}/edit` : '/channels/new';
+      case 'home':
+      default: return '/home';
+    }
+  };
+
+  // state -> URL
+  useEffect(() => {
+    if (showAuthModal) return; // auth modal owns the URL while open (see next effect)
+    // On a hard refresh of /channels/:slug(/edit), activeChannel/editingChannel resolve to
+    // null until the URL -> state effect below finds them in `channels`. Don't bounce the
+    // URL away in that gap — let that effect stay authoritative for hydrating these routes.
+    if (view === 'channel_detail' && !activeChannel) return;
+    if (view === 'wizard' && wizardMode === 'edit' && editingChannelId && !editingChannel) return;
+    const target = pathForState();
+    if (location.pathname !== target) navigate(target);
+  }, [view, activeChannel, wizardMode, editingChannelId, showAuthModal]);
+
+  // auth modal <-> /login, /signin
+  useEffect(() => {
+    if (showAuthModal) {
+      const authPath = authTab === 'register' ? '/signin' : '/login';
+      if (location.pathname !== authPath) navigate(authPath);
+    } else if (location.pathname === '/login' || location.pathname === '/signin') {
+      navigate(pathForState());
+    }
+  }, [showAuthModal, authTab]);
+
+  // URL -> state (initial load, refresh, direct link, back/forward)
+  useEffect(() => {
+    const path = location.pathname;
+    if (path === '/login') { setShowAuthModal(true); setAuthTab('login'); return; }
+    if (path === '/signin') { setShowAuthModal(true); setAuthTab('register'); return; }
+    if (path === '/channels') { setView('channels'); return; }
+    if (path === '/videos') { setView('videos'); return; }
+    if (path === '/channels/new') { setWizardMode('create'); setEditingChannelId(null); setView('wizard'); return; }
+    const editMatch = path.match(/^\/channels\/([^/]+)\/edit$/);
+    if (editMatch) {
+      const chan = findChannelBySlug(editMatch[1]);
+      if (chan) {
+        setActiveChannel(chan);
+        setEditingChannelId(chan.id);
+        setWizardMode('edit');
+        setView('wizard');
+      } else if (channelsLoaded) {
+        navigate('/channels'); // unknown slug once channels are known
+      }
+      return;
+    }
+    const detailMatch = path.match(/^\/channels\/([^/]+)$/);
+    if (detailMatch) {
+      const chan = findChannelBySlug(detailMatch[1]);
+      if (chan) {
+        if (!activeChannel || activeChannel.id !== chan.id) {
+          setActiveChannel(chan);
+          fetchChannelVideos(chan.id);
+        }
+        setView('channel_detail');
+      } else if (channelsLoaded) {
+        navigate('/channels'); // unknown slug once channels are known
+      }
+      return;
+    }
+    setView('home');
+  }, [location.pathname, channels]);
+
   // Persist the current page/tab so a refresh (or the polling re-render below)
   // doesn't bounce the user back to Home.
   useEffect(() => {
@@ -1316,20 +1415,6 @@ export default function App() {
       sessionStorage.setItem('nichecut_active_channel_id', activeChannel.id);
     }
   }, [activeChannel]);
-
-  // Restore the active channel once channels have loaded, if we reopened on channel_detail.
-  useEffect(() => {
-    if (view === 'channel_detail' && !activeChannel && channels.length > 0) {
-      const savedId = sessionStorage.getItem('nichecut_active_channel_id');
-      const found = savedId && channels.find((c) => c.id === savedId);
-      if (found) {
-        setActiveChannel(found);
-        fetchChannelVideos(found.id);
-      } else {
-        setView('home');
-      }
-    }
-  }, [channels, view, activeChannel]);
 
   // Local image library auto-sync: checks whether a folder handle was
   // remembered for this channel (File System Access API), and if the browser
@@ -1480,6 +1565,8 @@ export default function App() {
     sessionStorage.removeItem('nichecut_view');
     sessionStorage.removeItem('nichecut_active_channel_id');
     setActiveChannel(null);
+    setWizardMode('create');
+    setEditingChannelId(null);
     setShowProfileModal(false);
     setView('home');
     setAuthTab('login');
@@ -2717,8 +2804,6 @@ export default function App() {
                       <h1 className="text-2xl font-extrabold text-white truncate">{activeChannel.name}</h1>
                       <div className="flex items-center gap-3 text-slate-400 text-xs font-medium mt-1">
                         <span>Niche: <strong className="text-white">{activeChannel.niche}</strong></span>
-                        <span>•</span>
-                        <span className="font-mono">ID: {activeChannel.id.slice(0, 8)}</span>
                       </div>
                       {(() => {
                         const s = getChannelStatusInfo(activeChannel);
