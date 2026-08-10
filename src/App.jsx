@@ -661,7 +661,7 @@ function ColorPickerButton({ value, onChange, label, allowNone = false }) {
   );
 }
 
-function AudioFilePreview({ file, onRemove }) {
+function AudioFilePreview({ file, onRemove, volume }) {
   const audioRef = useRef(null);
   const [src, setSrc] = useState('');
   const [playing, setPlaying] = useState(false);
@@ -673,6 +673,10 @@ function AudioFilePreview({ file, onRemove }) {
     setSrc(objectUrl);
     return () => URL.revokeObjectURL(objectUrl);
   }, [file]);
+
+  useEffect(() => {
+    if (audioRef.current && typeof volume === 'number') audioRef.current.volume = Math.max(0, Math.min(1, volume));
+  }, [volume]);
 
   const togglePlayback = async (event) => {
     event.stopPropagation();
@@ -707,6 +711,72 @@ function AudioFilePreview({ file, onRemove }) {
         </button>
         <div className="min-w-0 flex-1">
           <div className="text-xs font-semibold text-white truncate mb-2">{file.name}</div>
+          <input type="range" min="0" max={duration || 0} step="0.01" value={Math.min(currentTime, duration || 0)} onChange={seek} className="w-full h-1 accent-[#00c2ff] cursor-pointer" />
+          <div className="flex justify-between text-[10px] font-mono text-slate-400 mt-1">
+            <span>{formatMediaTime(currentTime)}</span><span>{formatMediaTime(duration)}</span>
+          </div>
+        </div>
+        {onRemove && (
+          <button
+            type="button"
+            onClick={(event) => { event.stopPropagation(); onRemove(); }}
+            title="Retirer ce fichier"
+            className="shrink-0 w-7 h-7 rounded-full bg-[#1b2230] hover:bg-rose-950 text-slate-400 hover:text-rose-300 flex items-center justify-center transition-colors"
+          >
+            <span className="material-symbols-outlined text-[16px]">close</span>
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Same playback UI as AudioFilePreview, but for a track that's already on the
+// server (a URL, not a local File) — used for already-uploaded music tracks
+// and for a just-generated AI music preview.
+function ServerAudioPreview({ src, name, volume, onRemove }) {
+  const audioRef = useRef(null);
+  const [playing, setPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+
+  useEffect(() => {
+    if (audioRef.current && typeof volume === 'number') audioRef.current.volume = Math.max(0, Math.min(1, volume));
+  }, [volume]);
+
+  const togglePlayback = async (event) => {
+    event.stopPropagation();
+    const audio = audioRef.current;
+    if (!audio) return;
+    if (audio.paused) await audio.play();
+    else audio.pause();
+  };
+
+  const seek = (event) => {
+    event.stopPropagation();
+    const audio = audioRef.current;
+    if (!audio || !duration) return;
+    audio.currentTime = Number(event.target.value);
+  };
+
+  return (
+    <div className="rounded-xl border border-[#2b374d] bg-[#11151c] p-3" onClick={(event) => event.stopPropagation()}>
+      <audio
+        ref={audioRef}
+        src={src}
+        preload="metadata"
+        onLoadedMetadata={(event) => setDuration(event.currentTarget.duration || 0)}
+        onTimeUpdate={(event) => setCurrentTime(event.currentTarget.currentTime)}
+        onPlay={() => setPlaying(true)}
+        onPause={() => setPlaying(false)}
+        onEnded={() => setPlaying(false)}
+      />
+      <div className="flex items-center gap-3">
+        <button type="button" onClick={togglePlayback} className="w-9 h-9 shrink-0 rounded-full bg-[#00c2ff] text-slate-950 flex items-center justify-center hover:bg-[#39d0ff]">
+          <span className="material-symbols-outlined text-[22px]">{playing ? 'pause' : 'play_arrow'}</span>
+        </button>
+        <div className="min-w-0 flex-1">
+          <div className="text-xs font-semibold text-white truncate mb-2">{name}</div>
           <input type="range" min="0" max={duration || 0} step="0.01" value={Math.min(currentTime, duration || 0)} onChange={seek} className="w-full h-1 accent-[#00c2ff] cursor-pointer" />
           <div className="flex justify-between text-[10px] font-mono text-slate-400 mt-1">
             <span>{formatMediaTime(currentTime)}</span><span>{formatMediaTime(duration)}</span>
@@ -1023,6 +1093,31 @@ export default function App() {
   const [musicFiles, setMusicFiles] = useState([]);
   const [musicUploading, setMusicUploading] = useState(false);
   const musicInputRef = useRef(null);
+  const [aiMusicGenerating, setAiMusicGenerating] = useState(false);
+  const [aiMusicPreviewUrl, setAiMusicPreviewUrl] = useState(null);
+
+  const handleGenerateMusicPreview = async () => {
+    setAiMusicGenerating(true);
+    if (aiMusicPreviewUrl) URL.revokeObjectURL(aiMusicPreviewUrl);
+    setAiMusicPreviewUrl(null);
+    try {
+      const formData = new FormData();
+      formData.append('niche', newChannel.niche || '');
+      if (newChannel.music_preference.ai_prompt) formData.append('ai_prompt', newChannel.music_preference.ai_prompt);
+      formData.append('duration', '20');
+      const res = await fetch(`${API_BASE}/channels/preview-ai-music`, { method: 'POST', body: formData });
+      if (!res.ok) {
+        const detail = await res.json().catch(() => ({}));
+        throw new Error(detail.detail || "Génération impossible.");
+      }
+      const blob = await res.blob();
+      setAiMusicPreviewUrl(URL.createObjectURL(blob));
+    } catch (err) {
+      showToast(err.message || "Erreur lors de la génération de la musique.", "error");
+    } finally {
+      setAiMusicGenerating(false);
+    }
+  };
 
   const handleMusicFileSelect = (e) => {
     const files = Array.from(e.target.files || []);
@@ -1128,8 +1223,9 @@ export default function App() {
     },
     music_preference: {
       enabled: true,
+      mode: 'library',
       track_id_or_style: 'ambient',
-      volume: 0.15
+      volume: 0.10
     },
     image_style: {
       source: 'library',
@@ -1139,7 +1235,10 @@ export default function App() {
     },
     effects_config: {
       grain: true,
+      overlay_effect: 'grain',
       color_grade: 'warm',
+      grain_intensity: 50,
+      vignette_intensity: 50,
       zoom_min_pct: 1.0,
       zoom_max_pct: 1.15
     }
@@ -2869,7 +2968,7 @@ export default function App() {
                     <h2 className="text-xl font-extrabold text-white">
                       {wizardMode === 'edit' ? 'Modifier le Pipeline de la Chaîne' : 'Configuration du Template de Montage de sa Chaîne'}
                     </h2>
-                    <p className="text-xs text-slate-400 mt-1">Étape {wizardStep} sur 5</p>
+                    <p className="text-xs text-slate-400 mt-1">Étape {wizardStep} sur 6</p>
                   </div>
                   <button
                     onClick={() => setView(wizardMode === 'edit' && editingChannelId ? 'channel_detail' : 'channels')}
@@ -2880,8 +2979,8 @@ export default function App() {
                 </div>
 
                 {/* Steps Timeline Indicator */}
-                <div className="grid grid-cols-5 gap-2">
-                  {['Identité', 'Sous-titres', 'Musique', 'Visuels', 'Aperçu Final'].map((label, idx) => {
+                <div className="grid grid-cols-6 gap-2">
+                  {['Identité', 'Sous-titres', 'Musique', 'Visuels', 'Effets', 'Aperçu Final'].map((label, idx) => {
                     const stepNum = idx + 1;
                     const isActive = wizardStep === stepNum;
                     const isPassed = wizardStep > stepNum;
@@ -3513,27 +3612,29 @@ export default function App() {
                         />
 
                         {(newChannel.music_preference.tracks || []).length > 0 && (
-                          <div className="space-y-1.5">
+                          <div className="space-y-2">
                             {(newChannel.music_preference.tracks || []).map(t => (
-                              <div key={t} className="flex items-center justify-between bg-[#11151c] border border-[#202938] rounded-xl px-3 py-2">
-                                <span className="text-xs text-slate-300 truncate flex items-center gap-2"><span className="material-symbols-outlined text-[16px] text-emerald-400">music_note</span>{t.split('/').pop()}</span>
-                                <button type="button" onClick={() => handleDeleteMusicTrack(t)} className="text-rose-400 hover:text-rose-300">
-                                  <span className="material-symbols-outlined text-[16px]">delete</span>
-                                </button>
-                              </div>
+                              <ServerAudioPreview
+                                key={t}
+                                src={getVideoUrl(t)}
+                                name={t.split('/').pop()}
+                                volume={newChannel.music_preference.volume ?? 0.10}
+                                onRemove={() => handleDeleteMusicTrack(t)}
+                              />
                             ))}
                           </div>
                         )}
 
                         {musicFiles.length > 0 && (
-                          <div className="space-y-1.5">
+                          <div className="space-y-2">
+                            <p className="text-[10px] text-slate-500">Écoute directement — ils seront importés quand tu enregistres.</p>
                             {musicFiles.map((f, i) => (
-                              <div key={`${f.name}-${i}`} className="flex items-center justify-between bg-[#00c2ff]/10 border border-[#00c2ff]/30 rounded-xl px-3 py-2">
-                                <span className="text-xs text-[#00c2ff] truncate flex items-center gap-2"><span className="material-symbols-outlined text-[16px]">pending</span>{f.name} <span className="text-slate-400">(sera importé à l'enregistrement)</span></span>
-                                <button type="button" onClick={() => setMusicFiles(prev => prev.filter((_, idx) => idx !== i))} className="text-slate-400 hover:text-white">
-                                  <span className="material-symbols-outlined text-[16px]">close</span>
-                                </button>
-                              </div>
+                              <AudioFilePreview
+                                key={`${f.name}-${i}`}
+                                file={f}
+                                volume={newChannel.music_preference.volume ?? 0.10}
+                                onRemove={() => setMusicFiles(prev => prev.filter((_, idx) => idx !== i))}
+                              />
                             ))}
                           </div>
                         )}
@@ -3556,17 +3657,36 @@ export default function App() {
                             placeholder="Ex : piano doux et cordes légères, ambiance méditative, tempo lent, pas de percussions... (laisse vide pour laisser NicheCut générer le prompt automatiquement)"
                           />
                         </div>
+
+                        <button
+                          type="button"
+                          onClick={handleGenerateMusicPreview}
+                          disabled={aiMusicGenerating}
+                          className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-[#00c2ff] text-slate-950 font-bold text-xs hover:bg-[#38d0ff] transition-all disabled:opacity-50"
+                        >
+                          <span className="material-symbols-outlined text-[18px]">{aiMusicGenerating ? 'hourglass_top' : 'auto_awesome'}</span>
+                          {aiMusicGenerating ? 'Génération en cours (peut prendre une minute)...' : (aiMusicPreviewUrl ? 'Régénérer et réécouter' : 'Générer et écouter un aperçu')}
+                        </button>
+
+                        {aiMusicPreviewUrl && (
+                          <ServerAudioPreview
+                            src={aiMusicPreviewUrl}
+                            name="Aperçu généré (20s)"
+                            volume={newChannel.music_preference.volume ?? 0.10}
+                          />
+                        )}
+                        <p className="text-[10px] text-slate-500">L'aperçu génère un extrait de 20s avec le même prompt qui sera utilisé pour chaque vidéo. Ajuste le volume ci-dessous puis réécoute jusqu'à ce que le mix te convienne.</p>
                       </div>
                     )}
 
                     <div>
-                      <label className="block text-xs font-bold text-slate-300 mb-2">Volume Musique ({Math.round((newChannel.music_preference.volume || 0.15) * 100)}%)</label>
+                      <label className="block text-xs font-bold text-slate-300 mb-2">Volume Musique ({Math.round((newChannel.music_preference.volume ?? 0.10) * 100)}%)</label>
                       <input
                         type="range"
                         min="0.05"
                         max="0.5"
                         step="0.01"
-                        value={newChannel.music_preference.volume || 0.15}
+                        value={newChannel.music_preference.volume ?? 0.10}
                         onChange={e => setNewChannel({ ...newChannel, music_preference: { ...newChannel.music_preference, volume: parseFloat(e.target.value) } })}
                         className="w-full accent-[#00c2ff]"
                       />
@@ -3594,6 +3714,9 @@ export default function App() {
                     let source = nextA && nextB ? 'hybrid' : nextA ? 'library' : 'ai_generated';
                     setNewChannel({ ...newChannel, image_style: { ...newChannel.image_style, source } });
                   };
+
+                  const hasStoredLibrary = Number(newChannel.image_style.library_image_count || 0) > 0
+                    && String(newChannel.image_style.library_path || '').startsWith('channels/');
 
                   return (
                     <div className="space-y-6">
@@ -3670,6 +3793,11 @@ export default function App() {
                             {localImageFiles.length > 0 && (
                               <div className="mt-3 px-2.5 py-1 bg-emerald-950 text-emerald-300 rounded-lg text-[10px] font-bold font-mono truncate">
                                 ✓ {selectedFolderName || 'Dossier'} : {localImageFiles.length} images sélectionnées
+                              </div>
+                            )}
+                            {localImageFiles.length === 0 && !libraryUploadStatus && hasStoredLibrary && (
+                              <div className="mt-3 px-3 py-2 bg-emerald-950/60 border border-emerald-700/60 text-emerald-300 rounded-lg text-[10px] font-bold">
+                                ✓ {newChannel.image_style.library_image_count} images déjà enregistrées sur le serveur — pas besoin de réimporter, choisis un dossier seulement pour remplacer.
                               </div>
                             )}
                             {libraryUploadStatus && (
@@ -3796,79 +3924,167 @@ export default function App() {
                           <span><strong>Mode Hybride activé !</strong> Le système utilisera vos images locales prioritaires et l'IA pour compléter les scènes manquantes.</span>
                         </div>
                       )}
+                    </div>
+                  );
+                })()}
 
-                      {/* Visual Effects — grading + overlay texture applied on top of every clip.
-                          Transitions and zoom/pan are already automatic; this is the extra
-                          "make it move" layer (grain, white noise, vignette...) the client can pick. */}
-                      <div className="pt-4 border-t border-[#263042] space-y-4">
-                        <div>
-                          <label className="block text-xs font-bold text-[#00c2ff]">Effets Visuels</label>
-                          <p className="text-[11px] text-slate-400 mt-0.5">Appliqués sur l'ensemble de la vidéo, en plus des transitions et du zoom automatiques.</p>
+                {/* STEP 5: EFFETS VISUELS — réglages + un aperçu dédié aux effets seuls
+                    (couleur/texture sur une vraie image), distinct de l'Aperçu Final complet
+                    de l'étape 6 qui montre tous les réglages ensemble (sous-titres, logo...). */}
+                {wizardStep === 5 && (() => {
+                  const colorGrade = newChannel.effects_config.color_grade || 'warm';
+                  const overlayEffect = newChannel.effects_config.overlay_effect || 'grain';
+                  const hasGrain = overlayEffect === 'grain' || overlayEffect === 'white_noise' || overlayEffect === 'grain_vignette';
+                  const hasVignette = overlayEffect === 'vignette' || overlayEffect === 'grain_vignette';
+                  const grainIntensity = (newChannel.effects_config.grain_intensity ?? 50) / 100;
+                  const vignetteIntensity = (newChannel.effects_config.vignette_intensity ?? 50) / 100;
+
+                  const previewImgSrc = localImageFiles.length > 0
+                    ? URL.createObjectURL(localImageFiles[0])
+                    : (wizardMode === 'edit' && activeChannel ? `${API_BASE}/channels/${activeChannel.id}/library-preview` : null);
+
+                  const colorGradeFilter = ({
+                    warm: 'saturate(1.25) sepia(0.12) brightness(1.05)',
+                    vintage: 'saturate(0.75) sepia(0.2) contrast(1.05)',
+                    dramatic: 'contrast(1.3) saturate(0.85)',
+                    none: 'none',
+                  })[colorGrade] || 'none';
+
+                  return (
+                    <div className="space-y-6">
+                      <div>
+                        <h3 className="text-base font-bold text-white">5. Effets Visuels</h3>
+                        <p className="text-xs text-slate-400 mt-1">Appliqués sur l'ensemble de la vidéo, en plus des transitions et du zoom automatiques déjà actifs.</p>
+                      </div>
+
+                      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_360px] gap-8 items-start">
+                        <div className="space-y-5 min-w-0">
+                          <div>
+                            <label className="block text-xs font-bold text-slate-300 mb-2">Étalonnage des couleurs</label>
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                              {[
+                                { id: 'none', label: 'Aucun' },
+                                { id: 'warm', label: 'Chaud' },
+                                { id: 'vintage', label: 'Vintage' },
+                                { id: 'dramatic', label: 'Dramatique' },
+                              ].map(({ id, label }) => (
+                                <button
+                                  key={id}
+                                  type="button"
+                                  onClick={() => setNewChannel({ ...newChannel, effects_config: { ...newChannel.effects_config, color_grade: id } })}
+                                  className={`px-3 py-2 rounded-xl text-xs font-bold border transition-colors ${
+                                    colorGrade === id
+                                      ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]'
+                                      : 'bg-[#1b2230] border-[#2b374d] text-slate-300 hover:border-slate-500'
+                                  }`}
+                                >
+                                  {label}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          <div>
+                            <label className="block text-xs font-bold text-slate-300 mb-2">Texture / Effet superposé</label>
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                              {[
+                                { id: 'none', label: 'Aucun' },
+                                { id: 'grain', label: 'Grain léger' },
+                                { id: 'white_noise', label: 'Bruit blanc' },
+                                { id: 'vignette', label: 'Vignette' },
+                                { id: 'grain_vignette', label: 'Grain + Vignette' },
+                              ].map(({ id, label }) => (
+                                <button
+                                  key={id}
+                                  type="button"
+                                  onClick={() => setNewChannel({ ...newChannel, effects_config: { ...newChannel.effects_config, overlay_effect: id } })}
+                                  className={`px-3 py-2 rounded-xl text-xs font-bold border transition-colors ${
+                                    overlayEffect === id
+                                      ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]'
+                                      : 'bg-[#1b2230] border-[#2b374d] text-slate-300 hover:border-slate-500'
+                                  }`}
+                                >
+                                  {label}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          {(hasGrain || hasVignette) && (
+                            <div className="pt-2 border-t border-[#263042] space-y-4">
+                              <label className="block text-xs font-bold text-[#00c2ff]">Intensité</label>
+                              {hasGrain && (
+                                <div>
+                                  <label className="block text-[11px] font-bold text-slate-300 mb-2">
+                                    Grain / Bruit ({newChannel.effects_config.grain_intensity ?? 50}%)
+                                  </label>
+                                  <input
+                                    type="range"
+                                    min="0"
+                                    max="100"
+                                    value={newChannel.effects_config.grain_intensity ?? 50}
+                                    onChange={e => setNewChannel({ ...newChannel, effects_config: { ...newChannel.effects_config, grain_intensity: parseInt(e.target.value) } })}
+                                    className="w-full accent-[#00c2ff]"
+                                  />
+                                </div>
+                              )}
+                              {hasVignette && (
+                                <div>
+                                  <label className="block text-[11px] font-bold text-slate-300 mb-2">
+                                    Assombrissement des bords ({newChannel.effects_config.vignette_intensity ?? 50}%)
+                                  </label>
+                                  <input
+                                    type="range"
+                                    min="0"
+                                    max="100"
+                                    value={newChannel.effects_config.vignette_intensity ?? 50}
+                                    onChange={e => setNewChannel({ ...newChannel, effects_config: { ...newChannel.effects_config, vignette_intensity: parseInt(e.target.value) } })}
+                                    className="w-full accent-[#00c2ff]"
+                                  />
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </div>
 
-                        <div>
-                          <label className="block text-[11px] font-bold text-slate-300 mb-2">Étalonnage des couleurs</label>
-                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                            {[
-                              { id: 'warm', label: 'Chaud' },
-                              { id: 'vintage', label: 'Vintage' },
-                              { id: 'dramatic', label: 'Dramatique' },
-                              { id: 'none', label: 'Aucun' },
-                            ].map(({ id, label }) => (
-                              <button
-                                key={id}
-                                type="button"
-                                onClick={() => setNewChannel({ ...newChannel, effects_config: { ...newChannel.effects_config, color_grade: id } })}
-                                className={`px-3 py-2 rounded-xl text-xs font-bold border transition-colors ${
-                                  (newChannel.effects_config.color_grade || 'warm') === id
-                                    ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]'
-                                    : 'bg-[#1b2230] border-[#2b374d] text-slate-300 hover:border-slate-500'
-                                }`}
-                              >
-                                {label}
-                              </button>
-                            ))}
+                        <div className="lg:sticky lg:top-4">
+                          <label className="block text-xs font-bold text-slate-300 mb-2">Aperçu des effets</label>
+                          <div className="relative aspect-video rounded-2xl overflow-hidden border-2 border-[#2b374d] bg-[#0f1217]">
+                            {previewImgSrc ? (
+                              <img src={previewImgSrc} alt="Aperçu des effets" className="w-full h-full object-cover" style={{ filter: colorGradeFilter }} onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-center px-6">
+                                <p className="text-xs text-slate-500">Importe un dossier d'images à l'étape "Visuels" pour voir l'aperçu sur une vraie image de ta chaîne.</p>
+                              </div>
+                            )}
+                            {hasGrain && (
+                              <div
+                                className="absolute inset-0 mix-blend-overlay"
+                                style={{
+                                  opacity: (overlayEffect === 'white_noise' ? 0.6 : 0.3) * grainIntensity,
+                                  backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")"
+                                }}
+                              />
+                            )}
+                            {hasVignette && (
+                              <div className="absolute inset-0" style={{ boxShadow: `inset 0 0 ${60 * vignetteIntensity}px ${20 * vignetteIntensity}px rgba(0,0,0,0.8)` }} />
+                            )}
                           </div>
-                        </div>
-
-                        <div>
-                          <label className="block text-[11px] font-bold text-slate-300 mb-2">Texture / Effet superposé</label>
-                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                            {[
-                              { id: 'none', label: 'Aucun' },
-                              { id: 'grain', label: 'Grain léger' },
-                              { id: 'white_noise', label: 'Bruit blanc' },
-                              { id: 'vignette', label: 'Vignette' },
-                              { id: 'grain_vignette', label: 'Grain + Vignette' },
-                            ].map(({ id, label }) => (
-                              <button
-                                key={id}
-                                type="button"
-                                onClick={() => setNewChannel({ ...newChannel, effects_config: { ...newChannel.effects_config, overlay_effect: id } })}
-                                className={`px-3 py-2 rounded-xl text-xs font-bold border transition-colors ${
-                                  (newChannel.effects_config.overlay_effect || 'grain') === id
-                                    ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]'
-                                    : 'bg-[#1b2230] border-[#2b374d] text-slate-300 hover:border-slate-500'
-                                }`}
-                              >
-                                {label}
-                              </button>
-                            ))}
-                          </div>
+                          <p className="text-[10px] text-slate-500 mt-2">Aperçu approximatif — le rendu final vidéo peut légèrement varier.</p>
                         </div>
                       </div>
                     </div>
                   );
                 })()}
 
-                {/* STEP 5: APERÇU FINAL DU DESIGN VIDÉO (LIVE 16:9 LANDSCAPE PREVIEW) */}
-                {wizardStep === 5 && (() => {
+                {/* STEP 6: APERÇU FINAL DU DESIGN VIDÉO (LIVE 16:9 LANDSCAPE PREVIEW) */}
+                {wizardStep === 6 && (() => {
                   const userImagePreview = localImageFiles.length > 0 ? URL.createObjectURL(localImageFiles[0]) : null;
                   return (
                     <div className="space-y-6">
                       <div className="flex justify-between items-center">
                         <div>
-                          <h3 className="text-base font-bold text-white">5. Aperçu Final du Layout & Design Vidéo</h3>
+                          <h3 className="text-base font-bold text-white">6. Aperçu Final du Layout & Design Vidéo</h3>
                           <p className="text-xs text-slate-400 mt-0.5">Voici le rendu final simulé — format vidéo longue durée 16:9 (YouTube).</p>
                         </div>
                         <span className="text-xs font-mono font-bold text-emerald-400 bg-emerald-950/80 px-3 py-1 rounded-lg border border-emerald-800">Format 16:9 Paysage</span>
@@ -3899,12 +4115,6 @@ export default function App() {
                             ) : null}
                             <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/30"></div>
                           </div>
-                          {userImagePreview && (
-                            <div className="absolute top-3 left-3 z-20 bg-black/70 backdrop-blur-md px-3 py-1 rounded-lg text-[10px] font-mono text-slate-200 border border-white/20 flex items-center gap-1.5 shadow-lg">
-                              <span className="material-symbols-outlined text-emerald-400 text-[14px]">check_circle</span>
-                              <span className="font-bold text-emerald-300">Image du dossier: {selectedFolderName || 'Local'} ({localImageFiles[0]?.name})</span>
-                            </div>
-                          )}
 
                           {/* Top-right logo — matches exactly what's burned into the real render. */}
                           <div className="relative z-20 flex justify-end items-start">
@@ -3971,7 +4181,7 @@ export default function App() {
                     {/* In edit mode the pipeline already exists — no need to click through
                         every step just to save a change made on this one. Create mode keeps
                         the guided step-by-step flow since nothing's configured yet. */}
-                    {wizardMode === 'edit' && wizardStep < 5 && (
+                    {wizardMode === 'edit' && wizardStep < 6 && (
                       <button
                         onClick={handleSaveChannel}
                         disabled={loading}
@@ -3982,7 +4192,7 @@ export default function App() {
                       </button>
                     )}
 
-                    {wizardStep < 5 ? (
+                    {wizardStep < 6 ? (
                     <button
                       onClick={() => {
                         const needsLibrary = newChannel.image_style.source === 'library' || newChannel.image_style.source === 'hybrid';
