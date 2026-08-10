@@ -3489,7 +3489,7 @@ export default function App() {
                           <span className="material-symbols-outlined text-[#00c2ff] text-[22px]">auto_awesome</span>
                           <h4 className="font-bold text-white text-xs">Générer avec l'IA</h4>
                         </div>
-                        <p className="text-[11px] text-slate-400">Claude analyse la niche (et le script) pour écrire le prompt, puis IziVoice génère la musique.</p>
+                        <p className="text-[11px] text-slate-400">NicheCut analyse la niche (et le script) pour écrire le prompt, puis IziVoice génère la musique.</p>
                       </button>
                     </div>
 
@@ -3544,7 +3544,7 @@ export default function App() {
                       <div className="space-y-3">
                         <div className="bg-[#00c2ff]/10 border border-[#00c2ff]/30 rounded-xl p-3 flex items-start gap-2.5 text-xs text-[#00c2ff]">
                           <span className="material-symbols-outlined text-[18px]">info</span>
-                          <span>Par défaut, Claude écrit automatiquement le prompt musical à partir de la niche « {newChannel.niche || '...'} » et du script de chaque vidéo. Tu peux forcer ton propre prompt ci-dessous si tu préfères.</span>
+                          <span>Par défaut, NicheCut écrit automatiquement le prompt musical à partir de la niche « {newChannel.niche || '...'} » et du script de chaque vidéo. Tu peux forcer ton propre prompt ci-dessous si tu préfères et ajouter plus de détails sur le style de musique souhaité (instruments, ambiance, tempo...).</span>
                         </div>
                         <div>
                           <label className="block text-xs font-bold text-slate-300 mb-2">Prompt musical personnalisé (optionnel)</label>
@@ -3553,7 +3553,7 @@ export default function App() {
                             value={newChannel.music_preference.ai_prompt || ''}
                             onChange={e => setNewChannel({ ...newChannel, music_preference: { ...newChannel.music_preference, ai_prompt: e.target.value } })}
                             className="w-full bg-[#1b2230] border border-[#2b374d] rounded-xl p-2.5 text-xs text-white focus:border-[#00c2ff] outline-none placeholder-slate-500"
-                            placeholder="Laisse vide pour laisser Claude générer le prompt automatiquement..."
+                            placeholder="Ex : piano doux et cordes légères, ambiance méditative, tempo lent, pas de percussions... (laisse vide pour laisser NicheCut générer le prompt automatiquement)"
                           />
                         </div>
                       </div>
