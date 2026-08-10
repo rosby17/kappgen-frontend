@@ -1738,11 +1738,42 @@ export default function App() {
     setView('wizard');
   };
 
-  const handleLogoFileSelect = (e) => {
+  const resizeImageFile = (file, maxDim = 512, quality = 0.9) => new Promise((resolve, reject) => {
+    const img = new Image();
+    const objectUrl = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+      const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+      const w = Math.round(img.width * scale);
+      const h = Math.round(img.height * scale);
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      canvas.toBlob((blob) => {
+        if (!blob) return reject(new Error('resize failed'));
+        resolve(new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' }));
+      }, 'image/jpeg', quality);
+    };
+    img.onerror = () => { URL.revokeObjectURL(objectUrl); reject(new Error('image load failed')); };
+    img.src = objectUrl;
+  });
+
+  const handleLogoFileSelect = async (e) => {
     const file = e.target.files && e.target.files[0];
+    e.target.value = ''; // allow re-selecting the same file after an error
     if (!file) return;
-    setLogoFile(file);
-    setLogoPreviewUrl(URL.createObjectURL(file));
+    let finalFile = file;
+    if (file.size > 800 * 1024) {
+      try {
+        finalFile = await resizeImageFile(file);
+      } catch {
+        showToast("Impossible de traiter cette image. Essayez-en une autre.", "error");
+        return;
+      }
+    }
+    setLogoFile(finalFile);
+    setLogoPreviewUrl(URL.createObjectURL(finalFile));
   };
 
   const uploadLibraryWithProgress = (files, folderName) => {
@@ -3100,7 +3131,16 @@ export default function App() {
                         title={logoPreviewUrl ? "Changer la photo" : "Sélectionner une photo"}
                       >
                         {logoPreviewUrl ? (
-                          <img src={logoPreviewUrl} alt="Logo" className="w-full h-full object-cover" />
+                          <img
+                            src={logoPreviewUrl}
+                            alt="Logo"
+                            className="w-full h-full object-cover"
+                            onError={() => {
+                              showToast("Impossible d'afficher l'aperçu de ce logo. Essayez une autre image.", "error");
+                              setLogoFile(null);
+                              setLogoPreviewUrl(null);
+                            }}
+                          />
                         ) : (
                           <span className="material-symbols-outlined text-slate-400 group-hover:text-[#00c2ff] text-[32px]">add_a_photo</span>
                         )}
