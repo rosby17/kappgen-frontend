@@ -411,6 +411,56 @@ function useSubtitlePreviewScale() {
   return [ref, scale];
 }
 
+// Remembers a local folder handle (File System Access API — Chrome/Edge only)
+// per channel, in IndexedDB, so "Rafraîchir" can re-read the same folder with
+// a single permission click instead of re-opening the OS file picker.
+// Browsers deliberately don't let a site auto-watch or silently re-read a
+// local folder without the user re-confirming access, so this is the closest
+// a website can get to "one-click refresh".
+const FOLDER_HANDLE_DB = "nichecut_folder_handles";
+function openHandleDb() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(FOLDER_HANDLE_DB, 1);
+    req.onupgradeneeded = () => req.result.createObjectStore("handles");
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+async function saveFolderHandle(channelKey, handle) {
+  try {
+    const db = await openHandleDb();
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction("handles", "readwrite");
+      tx.objectStore("handles").put(handle, channelKey);
+      tx.oncomplete = resolve;
+      tx.onerror = () => reject(tx.error);
+    });
+  } catch { /* best-effort — refresh button just won't appear */ }
+}
+async function getFolderHandle(channelKey) {
+  try {
+    const db = await openHandleDb();
+    return await new Promise((resolve, reject) => {
+      const tx = db.transaction("handles", "readonly");
+      const req = tx.objectStore("handles").get(channelKey);
+      req.onsuccess = () => resolve(req.result || null);
+      req.onerror = () => reject(req.error);
+    });
+  } catch {
+    return null;
+  }
+}
+async function readImagesFromDirHandle(dirHandle) {
+  const files = [];
+  for await (const entry of dirHandle.values()) {
+    if (entry.kind === "file" && /\.(jpg|jpeg|png|webp|gif|avif)$/i.test(entry.name)) {
+      const file = await entry.getFile();
+      files.push(file);
+    }
+  }
+  return files;
+}
+
 function ChannelAvatar({ channel, logoUrl, sizeClass = "w-12 h-12", roundedClass = "rounded-xl", textClass = "text-lg" }) {
   const [failed, setFailed] = useState(false);
   if (!logoUrl || failed) {
@@ -511,6 +561,21 @@ export default function App() {
     const days = Math.floor(hours / 24);
     return `il y a ${days}j`;
   };
+  const formatSyncAgo = (channelId, _tick) => {
+    if (!channelId) return 'jamais';
+    let iso = null;
+    try { iso = localStorage.getItem(`nichecut_last_sync_${channelId}`); } catch {}
+    if (!iso) return 'jamais';
+    const diffMs = Date.now() - new Date(iso).getTime();
+    const mins = Math.floor(diffMs / 60000);
+    if (mins < 1) return "à l'instant";
+    if (mins < 60) return `il y a ${mins} min`;
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return `il y a ${hours}h`;
+    const days = Math.floor(hours / 24);
+    return `il y a ${days}j`;
+  };
+
   const [submitStep, setSubmitStep] = useState(1); // 1 = form, 2 = confirm/preview before launch
 
   useEffect(() => {
@@ -521,6 +586,9 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [videoFilterChannelId, setVideoFilterChannelId] = useState('all');
   const [toast, setToast] = useState(null); // { message, type: 'success' | 'error' }
+  const [librarySyncHasHandle, setLibrarySyncHasHandle] = useState(false);
+  const [librarySyncing, setLibrarySyncing] = useState(false);
+  const [librarySyncTick, setLibrarySyncTick] = useState(0); // bumped to force the relative-time label to re-render
   // Each subtitle preview box is a different pixel width on screen, so each
   // needs its own live-measured scale relative to the real 1920-wide render.
   const [wizardSubtitlePreviewRef, wizardSubtitlePreviewScale] = useSubtitlePreviewScale();
@@ -735,6 +803,30 @@ export default function App() {
       }
     }
   }, [channels, view, activeChannel]);
+
+  // Local image library auto-sync: checks whether a folder handle was
+  // remembered for this channel (File System Access API), and if the browser
+  // still has standing "read" permission for it (no prompt needed), silently
+  // re-reads and re-uploads it every 4h while this tab stays open. This can't
+  // run when the tab/browser is closed — no website can sync a local folder
+  // in the true background, browsers block that for privacy reasons.
+  useEffect(() => {
+    if (view !== 'channel_detail' || !activeChannel) {
+      setLibrarySyncHasHandle(false);
+      return;
+    }
+    let cancelled = false;
+    getFolderHandle(activeChannel.id).then((handle) => {
+      if (!cancelled) setLibrarySyncHasHandle(!!handle);
+    });
+    const AUTO_SYNC_MS = 4 * 60 * 60 * 1000;
+    const interval = setInterval(() => {
+      refreshFromRememberedFolder(activeChannel.id, { silent: true }).then((ok) => {
+        if (ok) setLibrarySyncTick(t => t + 1);
+      });
+    }, AUTO_SYNC_MS);
+    return () => { cancelled = true; clearInterval(interval); };
+  }, [view, activeChannel]);
 
   useEffect(() => {
     fetchChannels();
@@ -1093,10 +1185,61 @@ export default function App() {
     });
   };
 
-  const prepareLocalImageFiles = (files, folderName) => {
+  const markLibrarySynced = (channelKey) => {
+    if (!channelKey) return;
+    try { localStorage.setItem(`nichecut_last_sync_${channelKey}`, new Date().toISOString()); } catch {}
+  };
+
+  const prepareLocalImageFiles = (files, folderName, channelKeyForSync) => {
     setSelectedFolderName(folderName);
     setLocalImageFiles(files);
-    uploadLibraryWithProgress(files, folderName).catch(() => {});
+    uploadLibraryWithProgress(files, folderName)
+      .then(() => markLibrarySynced(channelKeyForSync))
+      .catch(() => {});
+  };
+
+  // File System Access API (Chrome/Edge): remembers the folder handle so a
+  // later "Rafraîchir" can re-read it with one permission click instead of
+  // reopening the OS folder picker. Falls back to the classic <input
+  // webkitdirectory> picker on browsers that don't support it (Safari, Firefox).
+  const pickFolderModern = async (channelKeyForSync) => {
+    if (!window.showDirectoryPicker) return false;
+    try {
+      const dirHandle = await window.showDirectoryPicker({ mode: 'read' });
+      const files = await readImagesFromDirHandle(dirHandle);
+      if (files.length === 0) {
+        showToast("Aucune image trouvée dans ce dossier.", "error");
+        return true;
+      }
+      if (channelKeyForSync) await saveFolderHandle(channelKeyForSync, dirHandle);
+      prepareLocalImageFiles(files, dirHandle.name, channelKeyForSync);
+      return true;
+    } catch (err) {
+      if (err && err.name === 'AbortError') return true; // user cancelled the picker — not an error
+      return false; // unexpected failure — fall back to the classic picker
+    }
+  };
+
+  const refreshFromRememberedFolder = async (channelKeyForSync, { silent = false } = {}) => {
+    const handle = await getFolderHandle(channelKeyForSync);
+    if (!handle) return false;
+    try {
+      let permission = await handle.queryPermission({ mode: 'read' });
+      if (permission !== 'granted') {
+        if (silent) return false; // never prompt during a silent background sync
+        permission = await handle.requestPermission({ mode: 'read' });
+      }
+      if (permission !== 'granted') return false;
+      const files = await readImagesFromDirHandle(handle);
+      if (files.length === 0) {
+        if (!silent) showToast("Le dossier semble vide maintenant.", "error");
+        return false;
+      }
+      prepareLocalImageFiles(files, handle.name, channelKeyForSync);
+      return true;
+    } catch {
+      return false;
+    }
   };
 
   const handleLocalFolderSelect = (e) => {
@@ -2007,14 +2150,38 @@ export default function App() {
 
                   <div className="flex items-center gap-3 flex-shrink-0">
                     {(activeChannel.image_style?.source === 'library' || activeChannel.image_style?.source === 'hybrid') && (
-                      <button
-                        onClick={(e) => openEditWizard(activeChannel, e, 4)}
-                        title="Réimporter le dossier d'images depuis ton ordinateur (les navigateurs ne peuvent pas surveiller un dossier local automatiquement — il faut le resélectionner à chaque mise à jour)"
-                        className="px-4 py-2.5 bg-[#1b2230] text-white rounded-xl font-bold text-xs hover:bg-[#252f42] transition-colors flex items-center gap-2 border border-[#2b374d]"
-                      >
-                        <span className="material-symbols-outlined text-[18px]">sync</span>
-                        Mettre à jour la bibliothèque
-                      </button>
+                      <div className="flex flex-col items-end gap-1">
+                        <div className="flex items-center gap-1.5">
+                          {librarySyncHasHandle && (
+                            <button
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                setLibrarySyncing(true);
+                                const ok = await refreshFromRememberedFolder(activeChannel.id);
+                                setLibrarySyncing(false);
+                                if (!ok) showToast("Impossible de rafraîchir automatiquement — resélectionne le dossier.", "error");
+                                setLibrarySyncTick(t => t + 1);
+                              }}
+                              disabled={librarySyncing}
+                              title="Relit le dossier déjà autorisé, sans avoir à le resélectionner"
+                              className="p-2.5 bg-[#1b2230] text-[#00c2ff] rounded-xl hover:bg-[#252f42] transition-colors border border-[#2b374d] disabled:opacity-50"
+                            >
+                              <span className={`material-symbols-outlined text-[18px] ${librarySyncing ? 'animate-spin' : ''}`}>refresh</span>
+                            </button>
+                          )}
+                          <button
+                            onClick={(e) => openEditWizard(activeChannel, e, 4)}
+                            title="Réimporter le dossier d'images depuis ton ordinateur (les navigateurs ne peuvent pas surveiller un dossier local automatiquement — il faut le resélectionner à chaque mise à jour)"
+                            className="px-4 py-2.5 bg-[#1b2230] text-white rounded-xl font-bold text-xs hover:bg-[#252f42] transition-colors flex items-center gap-2 border border-[#2b374d]"
+                          >
+                            <span className="material-symbols-outlined text-[18px]">sync</span>
+                            Mettre à jour la bibliothèque
+                          </button>
+                        </div>
+                        <span className="text-[10px] text-slate-500">
+                          Dernière synchro : {formatSyncAgo(activeChannel.id, nowTick)}
+                        </span>
+                      </div>
                     )}
                     <button
                       onClick={(e) => openEditWizard(activeChannel, e)}
@@ -2610,9 +2777,11 @@ export default function App() {
                             <div className="flex flex-col gap-2 mt-1">
                               <button
                                 type="button"
-                                onClick={(e) => {
+                                onClick={async (e) => {
                                   e.stopPropagation();
-                                  if (wizardFolderInputRef.current) wizardFolderInputRef.current.click();
+                                  const channelKey = wizardMode === 'edit' ? editingChannelId : null;
+                                  const handled = await pickFolderModern(channelKey);
+                                  if (!handled && wizardFolderInputRef.current) wizardFolderInputRef.current.click();
                                 }}
                                 className="px-3 py-1.5 bg-[#00c2ff] text-slate-950 rounded-lg text-xs font-bold hover:bg-[#38d0ff] transition-all"
                               >
