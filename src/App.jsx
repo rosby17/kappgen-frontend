@@ -682,8 +682,11 @@ function AudioFilePreview({ file, onRemove, volume }) {
   }, [file]);
 
   useEffect(() => {
-    if (audioRef.current && typeof volume === 'number') audioRef.current.volume = Math.max(0, Math.min(1, volume));
-  }, [volume]);
+    // HTML5 audio.volume is linear, but human hearing perceives loudness roughly
+    // logarithmically — a cubic taper makes the low end of the slider (where this
+    // ambient/ducked music mostly lives) actually sound as quiet as the % implies.
+    if (audioRef.current && typeof volume === 'number') audioRef.current.volume = Math.pow(Math.max(0, Math.min(1, volume)), 3);
+  }, [volume, src]);
 
   const togglePlayback = async (event) => {
     event.stopPropagation();
@@ -754,8 +757,11 @@ function ServerAudioPreview({ src, name, volume, onRemove }) {
   const [duration, setDuration] = useState(0);
 
   useEffect(() => {
-    if (audioRef.current && typeof volume === 'number') audioRef.current.volume = Math.max(0, Math.min(1, volume));
-  }, [volume]);
+    // HTML5 audio.volume is linear, but human hearing perceives loudness roughly
+    // logarithmically — a cubic taper makes the low end of the slider (where this
+    // ambient/ducked music mostly lives) actually sound as quiet as the % implies.
+    if (audioRef.current && typeof volume === 'number') audioRef.current.volume = Math.pow(Math.max(0, Math.min(1, volume)), 3);
+  }, [volume, src]);
 
   const togglePlayback = async (event) => {
     event.stopPropagation();
@@ -1114,6 +1120,9 @@ export default function App() {
 
   // Wizard State
   const [wizardStep, setWizardStep] = useState(1);
+  // Aperçu Final (step 6) recap checklist — purely local to the preview, lets the
+  // user toggle each configured element on/off to see the mockup with/without it.
+  const [recapVisible, setRecapVisible] = useState({ logo: true, subtitles: true, music: true, visual: true, effects: true });
   const [wizardMode, setWizardMode] = useState('create');
   const [fontPickerOpen, setFontPickerOpen] = useState(false);
   const [fontSearchQuery, setFontSearchQuery] = useState('');
@@ -1205,6 +1214,8 @@ export default function App() {
   const [editingChannelId, setEditingChannelId] = useState(null);
   const [logoFile, setLogoFile] = useState(null);
   const [logoPreviewUrl, setLogoPreviewUrl] = useState(null);
+  const [avatarFile, setAvatarFile] = useState(null);
+  const [avatarPreviewUrl, setAvatarPreviewUrl] = useState(null);
   const logoInputRef = useRef(null);
 
   // Local Image Folder Upload State for Wizard Step 5
@@ -1266,6 +1277,7 @@ export default function App() {
     effects_config: {
       grain: true,
       overlay_effect: 'grain',
+      overlay_effects: ['grain'],
       color_grade: 'warm',
       grain_intensity: 50,
       vignette_intensity: 50,
@@ -1344,6 +1356,7 @@ export default function App() {
   // or back/forward navigation (URL -> state).
   const findChannelBySlug = (slug) => channels.find((c) => slugifyChannelName(c.name) === slug);
   const editingChannel = editingChannelId ? channels.find((c) => c.id === editingChannelId) : null;
+  const urlHydratedRef = useRef(false);
 
   const pathForState = () => {
     switch (view) {
@@ -1359,6 +1372,13 @@ export default function App() {
   // state -> URL
   useEffect(() => {
     if (showAuthModal) return; // auth modal owns the URL while open (see next effect)
+    // On first mount, `view`/`wizardMode`/`editingChannelId` still hold their bare
+    // useState defaults for one render — before the URL -> state effect below has
+    // run even once to hydrate them from the actual URL. Firing this effect in
+    // that gap would compute a URL from those defaults (e.g. bounce a direct hit
+    // on /channels/:slug/edit to /channels/new) and clobber the real URL before
+    // it's ever read. So do nothing here until hydration has happened at least once.
+    if (!urlHydratedRef.current) return;
     // On a hard refresh of /channels/:slug(/edit), activeChannel/editingChannel resolve to
     // null until the URL -> state effect below finds them in `channels`. Don't bounce the
     // URL away in that gap — let that effect stay authoritative for hydrating these routes.
@@ -1380,20 +1400,31 @@ export default function App() {
 
   // URL -> state (initial load, refresh, direct link, back/forward)
   useEffect(() => {
+    urlHydratedRef.current = true;
     const path = location.pathname;
     if (path === '/login') { setShowAuthModal(true); setAuthTab('login'); return; }
     if (path === '/signin') { setShowAuthModal(true); setAuthTab('register'); return; }
     if (path === '/channels') { setView('channels'); return; }
     if (path === '/videos') { setView('videos'); return; }
-    if (path === '/channels/new') { setWizardMode('create'); setEditingChannelId(null); setView('wizard'); return; }
+    if (path === '/channels/new') {
+      // Guard against re-running on every `channels` refetch — only (re)reset the
+      // form the first time we land here, not on every poll while the user is
+      // actively filling it in.
+      if (wizardMode !== 'create' || view !== 'wizard') openCreateWizard();
+      return;
+    }
     const editMatch = path.match(/^\/channels\/([^/]+)\/edit$/);
     if (editMatch) {
       const chan = findChannelBySlug(editMatch[1]);
       if (chan) {
-        setActiveChannel(chan);
-        setEditingChannelId(chan.id);
-        setWizardMode('edit');
-        setView('wizard');
+        // Same guard: only (re)populate the wizard the first time we land on this
+        // channel's edit URL, not on every `channels` refetch — otherwise every
+        // background poll would silently wipe whatever the user is mid-editing.
+        if (editingChannelId !== chan.id || view !== 'wizard') {
+          openEditWizard(chan);
+        } else {
+          setActiveChannel(chan);
+        }
       } else if (channelsLoaded) {
         navigate('/channels'); // unknown slug once channels are known
       }
@@ -1706,8 +1737,30 @@ export default function App() {
     setWizardStep(1);
   };
 
+  // Draft persistence — configured settings (music mode/volume, subtitle style,
+  // effects, niche, etc.) survive navigating away from the wizard and back within
+  // the same browser session, so an accidental step-away doesn't lose unsaved
+  // work. Cleared once the channel is actually saved. Can't cover raw files
+  // (a not-yet-uploaded logo/music/image picked in this session) — those really
+  // are gone if the wizard unmounts, since a File object can't survive that.
+  const draftKey = (id) => `nichecut_draft_${id || 'new'}`;
+  const loadDraft = (id) => {
+    try {
+      const raw = sessionStorage.getItem(draftKey(id));
+      return raw ? JSON.parse(raw) : null;
+    } catch { return null; }
+  };
+  const clearDraft = (id) => { try { sessionStorage.removeItem(draftKey(id)); } catch {} };
+
+  useEffect(() => {
+    if (view !== 'wizard') return;
+    try { sessionStorage.setItem(draftKey(editingChannelId), JSON.stringify(newChannel)); } catch {}
+  }, [newChannel, view, editingChannelId]);
+
   const openCreateWizard = () => {
     resetWizardState();
+    const draft = loadDraft(null);
+    if (draft) setNewChannel(draft);
     setView('wizard');
   };
 
@@ -1734,9 +1787,20 @@ export default function App() {
       branding: { ...defaultChannelForm.branding, ...(channel.branding || {}) },
       music_preference: { ...defaultChannelForm.music_preference, ...(channel.music_preference || {}) },
       image_style: { ...defaultChannelForm.image_style, ...(channel.image_style || {}) },
-      effects_config: { ...defaultChannelForm.effects_config, ...(channel.effects_config || {}) }
+      effects_config: {
+        ...defaultChannelForm.effects_config,
+        ...(channel.effects_config || {}),
+        // Channels saved before overlay effects were multi-select only have the old
+        // single-choice string — expand it into the new array the first time it's opened.
+        overlay_effects: channel.effects_config?.overlay_effects || ({
+          none: [], grain: ['grain'], white_noise: ['white_noise'],
+          vignette: ['vignette'], grain_vignette: ['grain', 'vignette'],
+        })[channel.effects_config?.overlay_effect || 'grain'] || ['grain'],
+      }
     });
-    setNicheMode(nicheOptions.includes(channel.niche) ? 'preset' : 'custom');
+    const draft = loadDraft(channel.id);
+    if (draft) setNewChannel(draft);
+    setNicheMode(nicheOptions.includes((draft || channel).niche) ? 'preset' : 'custom');
     setLogoFile(null);
     setMusicFiles([]);
     setLocalImageFiles([]);
@@ -1775,19 +1839,21 @@ export default function App() {
     const file = e.target.files && e.target.files[0];
     e.target.value = ''; // allow re-selecting the same file after an error
     if (!file) return;
-    let finalFile = file;
+    // The original file is what gets uploaded and burned into the rendered video —
+    // never downscaled. Only the on-screen preview thumbnail is resized, purely so a
+    // huge photo doesn't stall the browser's blob decode.
+    setLogoFile(file);
+    let previewFile = file;
     if (file.size > 800 * 1024) {
       try {
-        finalFile = await resizeImageFile(file);
+        previewFile = await resizeImageFile(file);
       } catch {
-        // Browser couldn't decode this image (e.g. an iPhone HEIC photo) — fall back
-        // to uploading the original file as-is rather than blocking the user entirely.
-        showToast("Aperçu indisponible pour ce format d'image, mais le fichier sera quand même importé.");
+        // Browser couldn't decode this image (e.g. an iPhone HEIC photo) — no preview,
+        // but the original file is already staged above and will still upload fine.
       }
     }
-    setLogoFile(finalFile);
     try {
-      setLogoPreviewUrl(URL.createObjectURL(finalFile));
+      setLogoPreviewUrl(URL.createObjectURL(previewFile));
     } catch {
       setLogoPreviewUrl(null);
     }
@@ -2021,6 +2087,7 @@ export default function App() {
       setActiveChannel(saved);
       setView('channel_detail');
       fetchChannelVideos(saved.id);
+      clearDraft(wizardMode === 'edit' ? editingChannelId : null);
       resetWizardState();
     } catch (e) {
       showToast("Erreur lors de l'enregistrement de la chaîne: " + e.message, "error");
@@ -3144,7 +3211,7 @@ export default function App() {
                     <div className="flex items-start gap-5">
                       <div
                         onClick={() => logoInputRef.current && logoInputRef.current.click()}
-                        className="w-24 h-24 rounded-full bg-[#1b2230] border-2 border-dashed border-[#2b374d] hover:border-[#00c2ff] cursor-pointer flex items-center justify-center overflow-hidden flex-shrink-0 transition-colors group"
+                        className="w-28 h-28 rounded-full bg-[#1b2230] border-2 border-dashed border-[#2b374d] hover:border-[#00c2ff] cursor-pointer flex items-center justify-center overflow-hidden flex-shrink-0 transition-colors group"
                         title={logoPreviewUrl ? "Changer la photo" : "Sélectionner une photo"}
                       >
                         {logoPreviewUrl ? (
@@ -4070,9 +4137,13 @@ export default function App() {
                     de l'étape 6 qui montre tous les réglages ensemble (sous-titres, logo...). */}
                 {wizardStep === 5 && (() => {
                   const colorGrade = newChannel.effects_config.color_grade || 'warm';
-                  const overlayEffect = newChannel.effects_config.overlay_effect || 'grain';
-                  const hasGrain = overlayEffect === 'grain' || overlayEffect === 'white_noise' || overlayEffect === 'grain_vignette';
-                  const hasVignette = overlayEffect === 'vignette' || overlayEffect === 'grain_vignette';
+                  const overlayEffects = newChannel.effects_config.overlay_effects || ['grain'];
+                  const toggleOverlayEffect = (id) => {
+                    const next = overlayEffects.includes(id) ? overlayEffects.filter(e => e !== id) : [...overlayEffects, id];
+                    setNewChannel({ ...newChannel, effects_config: { ...newChannel.effects_config, overlay_effects: next } });
+                  };
+                  const hasGrain = overlayEffects.includes('grain') || overlayEffects.includes('white_noise');
+                  const hasVignette = overlayEffects.includes('vignette');
                   const grainIntensity = (newChannel.effects_config.grain_intensity ?? 50) / 100;
                   const vignetteIntensity = (newChannel.effects_config.vignette_intensity ?? 50) / 100;
 
@@ -4098,9 +4169,8 @@ export default function App() {
                         <div className="space-y-5 min-w-0">
                           <div>
                             <label className="block text-xs font-bold text-slate-300 mb-2">Étalonnage des couleurs</label>
-                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                            <div className="grid grid-cols-3 gap-2">
                               {[
-                                { id: 'none', label: 'Aucun' },
                                 { id: 'warm', label: 'Chaud' },
                                 { id: 'vintage', label: 'Vintage' },
                                 { id: 'dramatic', label: 'Dramatique' },
@@ -4122,25 +4192,25 @@ export default function App() {
                           </div>
 
                           <div>
-                            <label className="block text-xs font-bold text-slate-300 mb-2">Texture / Effet superposé</label>
+                            <label className="block text-xs font-bold text-slate-300 mb-2">Texture / Effets superposés — combinables entre eux</label>
                             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                               {[
-                                { id: 'none', label: 'Aucun' },
                                 { id: 'grain', label: 'Grain léger' },
                                 { id: 'white_noise', label: 'Bruit blanc' },
                                 { id: 'vignette', label: 'Vignette' },
-                                { id: 'grain_vignette', label: 'Grain + Vignette' },
                               ].map(({ id, label }) => (
                                 <button
                                   key={id}
                                   type="button"
-                                  onClick={() => setNewChannel({ ...newChannel, effects_config: { ...newChannel.effects_config, overlay_effect: id } })}
-                                  className={`px-3 py-2 rounded-xl text-xs font-bold border transition-colors ${
-                                    overlayEffect === id
+                                  onClick={() => toggleOverlayEffect(id)}
+                                  aria-pressed={overlayEffects.includes(id)}
+                                  className={`px-3 py-2 rounded-xl text-xs font-bold border transition-colors flex items-center justify-center gap-1.5 ${
+                                    overlayEffects.includes(id)
                                       ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]'
                                       : 'bg-[#1b2230] border-[#2b374d] text-slate-300 hover:border-slate-500'
                                   }`}
                                 >
+                                  {overlayEffects.includes(id) && <span className="material-symbols-outlined text-[14px]">check</span>}
                                   {label}
                                 </button>
                               ))}
@@ -4198,7 +4268,7 @@ export default function App() {
                               <div
                                 className="absolute inset-0 mix-blend-overlay"
                                 style={{
-                                  opacity: (overlayEffect === 'white_noise' ? 0.6 : 0.3) * grainIntensity,
+                                  opacity: (overlayEffects.includes('white_noise') && !overlayEffects.includes('grain') ? 0.6 : 0.3) * grainIntensity,
                                   backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")"
                                 }}
                               />
@@ -4217,25 +4287,70 @@ export default function App() {
                 {/* STEP 6: APERÇU FINAL DU DESIGN VIDÉO (LIVE 16:9 LANDSCAPE PREVIEW) */}
                 {wizardStep === 6 && (() => {
                   const userImagePreview = localImageFiles.length > 0 ? URL.createObjectURL(localImageFiles[0]) : null;
+                  const stepOverlayEffects = newChannel.effects_config.overlay_effects || ['grain'];
+                  const stepHasGrain = stepOverlayEffects.includes('grain') || stepOverlayEffects.includes('white_noise');
+                  const stepHasVignette = stepOverlayEffects.includes('vignette');
+                  const stepGrainIntensity = (newChannel.effects_config.grain_intensity ?? 50) / 100;
+                  const stepVignetteIntensity = (newChannel.effects_config.vignette_intensity ?? 50) / 100;
+                  const resolvedLogoUrl = logoPreviewUrl || (wizardMode === 'edit' && activeChannel && getChannelLogoUrl(activeChannel) !== "/assets/logo/logo-nichecut.png" ? getChannelLogoUrl(activeChannel) : null);
+                  const musicLabel = musicFiles[0]?.name
+                    || newChannel.music_preference?.tracks?.[0]?.split('/').pop()
+                    || (newChannel.music_preference?.mode === 'ai_generate' ? 'Musique générée par IA' : null);
+                  const recapItems = [
+                    { id: 'logo', label: 'Logo de la chaîne', icon: 'workspace_premium', available: !!resolvedLogoUrl },
+                    { id: 'subtitles', label: 'Sous-titres', icon: 'subtitles', available: true },
+                    { id: 'effects', label: 'Effets visuels', icon: 'auto_awesome', available: stepHasGrain || stepHasVignette || (newChannel.effects_config.color_grade && newChannel.effects_config.color_grade !== 'none') },
+                    { id: 'visual', label: 'Visuel de fond', icon: 'image', available: !!(userImagePreview || (wizardMode === 'edit' && activeChannel)) },
+                    { id: 'music', label: 'Musique', icon: 'music_note', available: !!musicLabel },
+                  ];
                   return (
                     <div className="space-y-6">
                       <div className="flex justify-between items-center">
                         <div>
                           <h3 className="text-base font-bold text-white">6. Aperçu Final du Layout & Design Vidéo</h3>
-                          <p className="text-xs text-slate-400 mt-0.5">Voici le rendu final simulé — format vidéo longue durée 16:9 (YouTube).</p>
+                          <p className="text-xs text-slate-400 mt-0.5">Voici le rendu final simulé, au format vidéo longue durée YouTube (16:9).</p>
                         </div>
-                        <span className="text-xs font-mono font-bold text-emerald-400 bg-emerald-950/80 px-3 py-1 rounded-lg border border-emerald-800">Format 16:9 Paysage</span>
                       </div>
 
-                      {/* Live 16:9 Landscape Video Mockup Preview */}
-                      <div className="flex justify-center">
+                      <div className="grid grid-cols-1 lg:grid-cols-[260px_minmax(0,1fr)] gap-8 items-start">
+                        {/* Layers — vertical, ordered back-to-front like the real composite.
+                            Decocher un calque le masque dans l'aperçu à droite, sans rien
+                            changer à la configuration réelle de la chaîne. */}
+                        <div className="space-y-1">
+                          <label className="block text-xs font-bold text-slate-300 mb-3">Calques (arrière-plan → premier plan)</label>
+                          <div className="relative pl-2">
+                            <div className="absolute left-[19px] top-3 bottom-3 w-px bg-[#2b374d]"></div>
+                            {recapItems.map(({ id, label, icon, available }, idx) => (
+                              <button
+                                key={id}
+                                type="button"
+                                disabled={!available}
+                                onClick={() => setRecapVisible(prev => ({ ...prev, [id]: !prev[id] }))}
+                                className={`relative z-10 w-full mb-1.5 px-3 py-2.5 rounded-xl text-xs font-bold border transition-colors flex items-center gap-2.5 text-left ${
+                                  !available
+                                    ? 'bg-[#1b2230]/50 border-[#2b374d]/50 text-slate-600 cursor-not-allowed'
+                                    : recapVisible[id]
+                                      ? 'bg-emerald-950/60 border-emerald-700 text-emerald-400'
+                                      : 'bg-[#1b2230] border-[#2b374d] text-slate-500 hover:border-slate-500'
+                                }`}
+                              >
+                                <span className="material-symbols-outlined text-[16px] shrink-0">{icon}</span>
+                                <span className="flex-1 truncate">{label}</span>
+                                <span className="material-symbols-outlined text-[16px] shrink-0">{available && recapVisible[id] ? 'check_box' : 'check_box_outline_blank'}</span>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Live 16:9 Landscape Video Mockup Preview */}
+                        <div className="flex justify-center">
                         <div ref={mockupSubtitlePreviewRef} className="w-full max-w-[640px] aspect-[16/9] bg-slate-950 rounded-2xl border-4 border-[#2b374d] relative overflow-hidden shadow-2xl flex flex-col justify-between p-5">
 
                           {/* Background Scene Visual — a freshly picked file from this wizard
                               session takes priority; otherwise fall back to a real random image
                               already stored server-side for this channel (not a generic stock photo). */}
                           <div className="absolute inset-0">
-                            {userImagePreview ? (
+                            {!recapVisible.visual ? null : userImagePreview ? (
                               <img
                                 src={userImagePreview}
                                 alt="Aperçu visuel de la vidéo"
@@ -4253,19 +4368,41 @@ export default function App() {
                             <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/30"></div>
                           </div>
 
+                          {recapVisible.effects && stepHasGrain && (
+                            <div
+                              className="absolute inset-0 mix-blend-overlay z-10"
+                              style={{
+                                opacity: (stepOverlayEffects.includes('white_noise') && !stepOverlayEffects.includes('grain') ? 0.6 : 0.3) * stepGrainIntensity,
+                                backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")"
+                              }}
+                            />
+                          )}
+                          {recapVisible.effects && stepHasVignette && (
+                            <div className="absolute inset-0 z-10" style={{ boxShadow: `inset 0 0 ${60 * stepVignetteIntensity}px ${20 * stepVignetteIntensity}px rgba(0,0,0,0.8)` }} />
+                          )}
+
                           {/* Top-right logo — matches exactly what's burned into the real render. */}
                           <div className="relative z-20 flex justify-end items-start">
-                            {logoPreviewUrl && (
+                            {recapVisible.logo && resolvedLogoUrl && (
                               <img
-                                src={logoPreviewUrl}
+                                src={resolvedLogoUrl}
                                 alt="Logo"
-                                style={{ width: `${100 * mockupSubtitlePreviewScale}px`, height: `${100 * mockupSubtitlePreviewScale}px` }}
-                                className="rounded-md object-cover shadow-lg"
+                                style={{ width: `${130 * mockupSubtitlePreviewScale}px`, height: `${130 * mockupSubtitlePreviewScale}px` }}
+                                className="object-cover shadow-lg"
                               />
                             )}
                           </div>
 
+                          {/* Bottom-left music cue — informational only, not burned into the real render. */}
+                          {recapVisible.music && musicLabel && (
+                            <div className="relative z-20 flex items-center gap-1.5 text-[10px] font-bold text-white/90 bg-black/50 backdrop-blur-sm px-2.5 py-1.5 rounded-lg w-fit">
+                              <span className="material-symbols-outlined text-[14px]">music_note</span>
+                              <span className="truncate max-w-[160px]">{musicLabel}</span>
+                            </div>
+                          )}
+
                           {/* Animated subtitle at the exact configured vertical position */}
+                          {recapVisible.subtitles && (
                           <div className={`absolute inset-x-5 z-20 flex justify-center ${subtitlePositionClass(newChannel.subtitle_style.position)}`}>
                             <div
                               style={{
@@ -4291,15 +4428,17 @@ export default function App() {
                                   }}
                                   className="inline-block"
                                 >
-                                  {wordObj.text}
+                                  {applySubtitleCase(wordObj.text, newChannel.subtitle_style.text_case)}
                                 </span>
                               ))}
                             </div>
                           </div>
+                          )}
 
+                        </div>
+                        </div>
                       </div>
                     </div>
-                  </div>
                   );
                 })()}
 
@@ -4534,17 +4673,14 @@ export default function App() {
                           style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='60'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")" }}
                         />
                       )}
-                      <div className="absolute top-3 left-3 flex items-center gap-1.5 bg-black/40 backdrop-blur-sm px-2.5 py-1 rounded-lg">
-                        <span className="material-symbols-outlined text-[13px] text-[#00c2ff]">
-                          {activeChannel.image_style?.source === 'ai_generated' ? 'auto_awesome' : 'photo_library'}
-                        </span>
-                        <span className="text-[10px] font-bold text-white">
-                          {activeChannel.image_style?.source === 'ai_generated' ? 'Images générées par IA' : 'Bibliothèque d\'images'}
-                        </span>
-                      </div>
-                      {activeChannel.effects_config?.grain && (
-                        <div className="absolute top-3 right-3 bg-black/40 backdrop-blur-sm px-2.5 py-1 rounded-lg text-[10px] font-bold text-white">
-                          Grain actif
+                      {getChannelLogoUrl(activeChannel) !== "/assets/logo/logo-nichecut.png" && (
+                        <div className="absolute top-3 right-3 z-20">
+                          <img
+                            src={getChannelLogoUrl(activeChannel)}
+                            alt="Logo"
+                            style={{ width: `${130 * submitSubtitlePreviewScale}px`, height: `${130 * submitSubtitlePreviewScale}px` }}
+                            className="object-cover shadow-lg"
+                          />
                         </div>
                       )}
                       <div
@@ -4567,7 +4703,7 @@ export default function App() {
                               }}
                               className="inline-block"
                             >
-                              {wordObj.text}
+                              {applySubtitleCase(wordObj.text, activeChannel.subtitle_style?.text_case)}
                             </span>
                           ))}
                         </div>
