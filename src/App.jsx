@@ -220,11 +220,13 @@ const VOICE_MODELS = [
 // Custom video player styled to match the app's dark/cyan design, replacing native browser controls.
 function VideoPlayer({ src, autoPlay, className }) {
   const videoRef = useRef(null);
+  const seekBarRef = useRef(null);
   const [isPlaying, setIsPlaying] = useState(!!autoPlay);
   const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
+  const [isScrubbing, setIsScrubbing] = useState(false);
 
   const togglePlay = (e) => {
     e.stopPropagation();
@@ -233,13 +235,45 @@ function VideoPlayer({ src, autoPlay, className }) {
     if (v.paused) { v.play(); setIsPlaying(true); } else { v.pause(); setIsPlaying(false); }
   };
 
-  const handleSeek = (e) => {
+  const seekToClientX = (clientX) => {
+    const v = videoRef.current;
+    const bar = seekBarRef.current;
+    if (!v || !bar || !duration) return;
+    const rect = bar.getBoundingClientRect();
+    const pct = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
+    const t = pct * duration;
+    v.currentTime = t;
+    setCurrentTime(t);
+    setProgress(pct * 100);
+  };
+
+  // Native onClick only fires on mouse-up-without-move, so dragging the
+  // thumb previously did nothing until release — felt "stuck". Track the
+  // drag on window so it keeps following the cursor outside the bar too.
+  const startScrub = (e) => {
+    e.stopPropagation();
+    setIsScrubbing(true);
+    seekToClientX(e.clientX);
+  };
+
+  useEffect(() => {
+    if (!isScrubbing) return;
+    const onMove = (e) => seekToClientX(e.clientX);
+    const onUp = () => setIsScrubbing(false);
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    return () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isScrubbing, duration]);
+
+  const skip = (seconds) => (e) => {
     e.stopPropagation();
     const v = videoRef.current;
-    if (!v || !duration) return;
-    const rect = e.currentTarget.getBoundingClientRect();
-    const pct = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
-    v.currentTime = pct * duration;
+    if (!v) return;
+    v.currentTime = Math.min(duration || Infinity, Math.max(0, v.currentTime + seconds));
   };
 
   const toggleMute = (e) => {
@@ -280,15 +314,25 @@ function VideoPlayer({ src, autoPlay, className }) {
       {/* Custom controls bar */}
       <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent px-3 pt-8 pb-2 pointer-events-none">
         <div className="pointer-events-auto">
-          <div onClick={handleSeek} className="w-full h-1.5 bg-white/20 rounded-full cursor-pointer mb-2 group/seek">
-            <div className="h-full bg-[#00c2ff] rounded-full relative" style={{ width: `${progress}%` }}>
-              <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-[#00c2ff] rounded-full shadow-md opacity-0 group-hover/seek:opacity-100 transition-opacity"></div>
+          <div
+            ref={seekBarRef}
+            onMouseDown={startScrub}
+            className="w-full h-1.5 bg-white/20 rounded-full cursor-pointer mb-2 group/seek select-none"
+          >
+            <div className={`h-full bg-[#00c2ff] rounded-full relative ${isScrubbing ? '' : 'transition-[width]'}`} style={{ width: `${progress}%` }}>
+              <div className={`absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-[#00c2ff] rounded-full shadow-md transition-opacity ${isScrubbing ? 'opacity-100' : 'opacity-0 group-hover/seek:opacity-100'}`}></div>
             </div>
           </div>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
+              <button onClick={skip(-10)} title="Reculer de 10s" className="text-white hover:text-[#00c2ff] transition-colors">
+                <span className="material-symbols-outlined text-[20px]">replay_10</span>
+              </button>
               <button onClick={togglePlay} className="text-white hover:text-[#00c2ff] transition-colors">
                 <span className="material-symbols-outlined text-[22px]">{isPlaying ? 'pause' : 'play_arrow'}</span>
+              </button>
+              <button onClick={skip(10)} title="Avancer de 10s" className="text-white hover:text-[#00c2ff] transition-colors">
+                <span className="material-symbols-outlined text-[20px]">forward_10</span>
               </button>
               <span className="text-[10px] font-mono text-white/80">{formatTime(currentTime)} / {formatTime(duration)}</span>
             </div>
