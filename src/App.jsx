@@ -2297,6 +2297,84 @@ export default function App() {
     }, 600);
   };
 
+  // NicheCut Studio — post-render editor: swap a bad scene image without
+  // redoing TTS/pacing/image-gen for the whole video.
+  const [studioVideo, setStudioVideo] = useState(null);
+  const [studioScenes, setStudioScenes] = useState([]);
+  const [studioLoading, setStudioLoading] = useState(false);
+  const [studioReplacingIndex, setStudioReplacingIndex] = useState(null);
+  const [studioReassembling, setStudioReassembling] = useState(false);
+
+  const openStudio = async (vid) => {
+    setStudioVideo(vid);
+    setSelectedVideo(null);
+    setStudioLoading(true);
+    setStudioScenes([]);
+    try {
+      const res = await fetch(`${API_BASE}/videos/${vid.id}/scenes`);
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || 'Scènes indisponibles');
+      setStudioScenes(await res.json());
+    } catch (err) {
+      console.error("Erreur chargement des scènes:", err);
+      setStudioScenes(null); // null = "not editable", distinct from [] = "loaded, no scenes"
+    } finally {
+      setStudioLoading(false);
+    }
+  };
+
+  const closeStudio = async () => {
+    const vid = studioVideo;
+    setStudioVideo(null);
+    setStudioScenes([]);
+    if (vid) {
+      try { await fetch(`${API_BASE}/videos/${vid.id}/close-edit`, { method: 'POST' }); }
+      catch (err) { console.error("Erreur fermeture éditeur:", err); }
+    }
+  };
+
+  const replaceSceneImage = async (sceneIndex, file) => {
+    if (!studioVideo || !file) return;
+    setStudioReplacingIndex(sceneIndex);
+    try {
+      const form = new FormData();
+      form.append('image', file);
+      const res = await fetch(`${API_BASE}/videos/${studioVideo.id}/scenes/${sceneIndex}/image`, {
+        method: 'POST',
+        body: form,
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || 'Échec du remplacement');
+      const updatedVideo = await res.json();
+      setStudioReassembling(true);
+      fetchAllVideos();
+      if (activeChannel) fetchChannelVideos(activeChannel.id);
+      pollReassembly(updatedVideo.id);
+    } catch (err) {
+      console.error("Erreur remplacement image:", err);
+      alert("Le remplacement de l'image a échoué : " + err.message);
+    } finally {
+      setStudioReplacingIndex(null);
+    }
+  };
+
+  const pollReassembly = (videoId) => {
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(`${API_BASE}/videos/${videoId}`);
+        if (!res.ok) return;
+        const v = await res.json();
+        if (v.status === 'done' || v.status === 'failed') {
+          clearInterval(interval);
+          setStudioReassembling(false);
+          fetchAllVideos();
+          if (activeChannel) fetchChannelVideos(activeChannel.id);
+          if (v.status === 'failed') alert("Le réassemblage a échoué : " + (v.error_message || 'Erreur inconnue'));
+        }
+      } catch (err) {
+        console.error("Erreur polling réassemblage:", err);
+      }
+    }, 3000);
+  };
+
   const [reusingAudioId, setReusingAudioId] = useState(null);
 
   const handleReuseAudio = async (vid, e) => {
@@ -5001,13 +5079,86 @@ export default function App() {
               />
             </div>
 
-            <div className="flex justify-between items-center pt-2">
+            <div className="flex items-center gap-3 pt-2">
+              <button
+                onClick={() => openStudio(selectedVideo)}
+                className="flex-1 py-3 bg-[#1b2230] text-white font-bold text-xs rounded-xl text-center hover:bg-[#252f42] transition-all flex items-center justify-center gap-2 border border-[#2b374d]"
+              >
+                <span className="material-symbols-outlined text-[18px]">edit</span> Éditer
+              </button>
               <button
                 onClick={() => setDownloadModalVideo(selectedVideo)}
-                className="w-full py-3 bg-[#00c2ff] text-slate-950 font-bold text-xs rounded-xl text-center hover:bg-[#38d0ff] transition-all flex items-center justify-center gap-2"
+                className="flex-1 py-3 bg-[#00c2ff] text-slate-950 font-bold text-xs rounded-xl text-center hover:bg-[#38d0ff] transition-all flex items-center justify-center gap-2"
               >
                 <span className="material-symbols-outlined text-[18px]">download</span> Télécharger MP4
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* NICHECUT STUDIO — post-render scene image editor */}
+      {studioVideo && (
+        <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-50 flex items-center justify-center p-6">
+          <div className="bg-[#161b22] border border-[#263042] rounded-3xl p-6 max-w-[min(1000px,92vw)] w-full max-h-[88vh] shadow-2xl flex flex-col">
+            <div className="flex justify-between items-center mb-1">
+              <div>
+                <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                  <span className="material-symbols-outlined text-[18px] text-[#00c2ff]">auto_fix_high</span>
+                  NicheCut Studio
+                </h3>
+                <p className="text-[11px] text-slate-500 mt-0.5">Remplacez une image de scène ratée — le reste de la vidéo n'est pas retouché.</p>
+              </div>
+              <button onClick={closeStudio} className="text-slate-400 hover:text-white">
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+
+            {studioReassembling && (
+              <div className="mt-3 px-4 py-2.5 bg-[#00c2ff]/10 border border-[#00c2ff]/30 rounded-xl text-xs text-[#38d0ff] flex items-center gap-2">
+                <span className="material-symbols-outlined text-[16px] animate-spin">progress_activity</span>
+                Réassemblage de la vidéo en cours...
+              </div>
+            )}
+
+            <div className="mt-4 overflow-y-auto pr-1 flex-1">
+              {studioLoading ? (
+                <div className="py-16 text-center text-xs text-slate-500">Chargement des scènes...</div>
+              ) : studioScenes === null ? (
+                <div className="py-16 text-center text-xs text-slate-500">
+                  Cette vidéo n'est plus éditable (fichiers sources purgés après 7 jours, ou vidéo antérieure à cette fonctionnalité).
+                </div>
+              ) : studioScenes.length === 0 ? (
+                <div className="py-16 text-center text-xs text-slate-500">Aucune scène trouvée.</div>
+              ) : (
+                <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+                  {studioScenes.map((scene) => (
+                    <div key={scene.index} className="relative rounded-xl overflow-hidden border border-[#2b374d] bg-slate-950 group">
+                      <img src={`${API_BASE}${scene.image_url}`} alt={`Scène ${scene.index + 1}`} className="w-full aspect-[16/9] object-cover" />
+                      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent px-2 py-1.5 text-[10px] text-slate-300">
+                        Scène {scene.index + 1} · {scene.duration.toFixed(1)}s
+                      </div>
+                      <label className={`absolute inset-0 flex items-center justify-center bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer ${studioReplacingIndex === scene.index ? 'opacity-100' : ''}`}>
+                        {studioReplacingIndex === scene.index ? (
+                          <span className="material-symbols-outlined text-white animate-spin text-[22px]">progress_activity</span>
+                        ) : (
+                          <span className="flex flex-col items-center gap-1 text-white text-[10px] font-bold">
+                            <span className="material-symbols-outlined text-[22px]">image</span>
+                            Remplacer
+                          </span>
+                        )}
+                        <input
+                          type="file"
+                          accept="image/png,image/jpeg,image/webp"
+                          className="hidden"
+                          disabled={studioReplacingIndex !== null}
+                          onChange={(e) => e.target.files[0] && replaceSceneImage(scene.index, e.target.files[0])}
+                        />
+                      </label>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>
