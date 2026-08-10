@@ -3558,48 +3558,30 @@ export default function App() {
                   <div className="space-y-6">
                     <h3 className="text-base font-bold text-white">3. Musique de Fond Ambiante & Auto-Ducking</h3>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <button
-                        type="button"
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {/* OPTION A: MES PROPRES MUSIQUES */}
+                      <div
                         onClick={() => setNewChannel({ ...newChannel, music_preference: { ...newChannel.music_preference, mode: 'library' } })}
-                        className={`p-4 rounded-2xl border-2 text-left transition-all ${
+                        className={`p-5 rounded-2xl border-2 transition-all cursor-pointer space-y-4 flex flex-col ${
                           (newChannel.music_preference.mode || 'library') === 'library'
                             ? 'bg-[#1b2230] border-[#00c2ff] shadow-lg shadow-[#00c2ff]/10'
-                            : 'bg-[#141923] border-[#263042] hover:border-slate-500'
+                            : 'bg-[#141923] border-[#263042] hover:border-slate-500 opacity-60'
                         }`}
                       >
-                        <div className="flex items-center gap-2.5 mb-1.5">
-                          <span className="material-symbols-outlined text-[#00c2ff] text-[22px]">library_music</span>
-                          <h4 className="font-bold text-white text-xs">Mes propres musiques</h4>
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2.5">
+                            <span className="material-symbols-outlined text-[#00c2ff] text-[24px]">library_music</span>
+                            <h4 className="font-bold text-white text-xs">Mes propres musiques</h4>
+                          </div>
+                          <p className="text-[11px] text-slate-400">Importe tes morceaux — un est choisi au hasard à chaque vidéo. Jamais de musique tierce sans droits.</p>
                         </div>
-                        <p className="text-[11px] text-slate-400">Importe tes morceaux — un est choisi au hasard à chaque vidéo. Jamais de musique tierce sans droits.</p>
-                      </button>
 
-                      <button
-                        type="button"
-                        onClick={() => setNewChannel({ ...newChannel, music_preference: { ...newChannel.music_preference, mode: 'ai_generate' } })}
-                        className={`p-4 rounded-2xl border-2 text-left transition-all ${
-                          newChannel.music_preference.mode === 'ai_generate'
-                            ? 'bg-[#1b2230] border-[#00c2ff] shadow-lg shadow-[#00c2ff]/10'
-                            : 'bg-[#141923] border-[#263042] hover:border-slate-500'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2.5 mb-1.5">
-                          <span className="material-symbols-outlined text-[#00c2ff] text-[22px]">auto_awesome</span>
-                          <h4 className="font-bold text-white text-xs">Générer avec l'IA</h4>
-                        </div>
-                        <p className="text-[11px] text-slate-400">NicheCut analyse la niche (et le script) pour écrire le prompt, puis IziVoice génère la musique.</p>
-                      </button>
-                    </div>
-
-                    {(newChannel.music_preference.mode || 'library') === 'library' && (
-                      <div className="space-y-3">
                         <div
-                          onClick={() => musicInputRef.current && musicInputRef.current.click()}
-                          className="border-2 border-dashed border-[#2b374d] hover:border-[#00c2ff] rounded-xl p-6 text-center cursor-pointer transition-colors"
+                          onClick={(e) => { e.stopPropagation(); musicInputRef.current && musicInputRef.current.click(); }}
+                          className="border-2 border-dashed border-[#2b374d] hover:border-[#00c2ff] rounded-xl p-4 text-center cursor-pointer transition-colors"
                         >
-                          <span className="material-symbols-outlined text-slate-400 text-[28px]">upload_file</span>
-                          <p className="text-xs text-slate-300 mt-1 font-bold">Clique pour importer un ou plusieurs morceaux</p>
+                          <span className="material-symbols-outlined text-slate-400 text-[24px]">upload_file</span>
+                          <p className="text-[11px] text-slate-300 mt-1 font-bold">Clique pour importer un ou plusieurs morceaux</p>
                           <p className="text-[10px] text-slate-500 mt-0.5">MP3, WAV, M4A, OGG</p>
                         </div>
                         <input
@@ -3612,7 +3594,7 @@ export default function App() {
                         />
 
                         {(newChannel.music_preference.tracks || []).length > 0 && (
-                          <div className="space-y-2">
+                          <div className="space-y-2" onClick={(e) => e.stopPropagation()}>
                             {(newChannel.music_preference.tracks || []).map(t => (
                               <ServerAudioPreview
                                 key={t}
@@ -3626,7 +3608,7 @@ export default function App() {
                         )}
 
                         {musicFiles.length > 0 && (
-                          <div className="space-y-2">
+                          <div className="space-y-2" onClick={(e) => e.stopPropagation()}>
                             <p className="text-[10px] text-slate-500">Écoute directement — ils seront importés quand tu enregistres.</p>
                             {musicFiles.map((f, i) => (
                               <AudioFilePreview
@@ -3639,45 +3621,56 @@ export default function App() {
                           </div>
                         )}
                       </div>
-                    )}
 
-                    {newChannel.music_preference.mode === 'ai_generate' && (
-                      <div className="space-y-3">
-                        <div className="bg-[#00c2ff]/10 border border-[#00c2ff]/30 rounded-xl p-3 flex items-start gap-2.5 text-xs text-[#00c2ff]">
-                          <span className="material-symbols-outlined text-[18px]">info</span>
-                          <span>Par défaut, NicheCut écrit automatiquement le prompt musical à partir de la niche « {newChannel.niche || '...'} » et du script de chaque vidéo. Tu peux forcer ton propre prompt ci-dessous si tu préfères et ajouter plus de détails sur le style de musique souhaité (instruments, ambiance, tempo...).</span>
+                      {/* OPTION B: GÉNÉRER AVEC L'IA */}
+                      <div
+                        onClick={() => setNewChannel({ ...newChannel, music_preference: { ...newChannel.music_preference, mode: 'ai_generate' } })}
+                        className={`p-5 rounded-2xl border-2 transition-all cursor-pointer space-y-4 flex flex-col ${
+                          newChannel.music_preference.mode === 'ai_generate'
+                            ? 'bg-[#1b2230] border-[#00c2ff] shadow-lg shadow-[#00c2ff]/10'
+                            : 'bg-[#141923] border-[#263042] hover:border-slate-500 opacity-60'
+                        }`}
+                      >
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2.5">
+                            <span className="material-symbols-outlined text-[#00c2ff] text-[24px]">auto_awesome</span>
+                            <h4 className="font-bold text-white text-xs">Générer avec l'IA</h4>
+                          </div>
+                          <p className="text-[11px] text-slate-400">NicheCut écrit le prompt à partir de la niche (et du script), puis IziVoice génère la musique.</p>
                         </div>
-                        <div>
-                          <label className="block text-xs font-bold text-slate-300 mb-2">Prompt musical personnalisé (optionnel)</label>
+
+                        <div onClick={(e) => e.stopPropagation()}>
+                          <label className="block text-[10px] font-bold text-slate-300 mb-1">Prompt musical personnalisé (optionnel)</label>
                           <textarea
                             rows="2"
                             value={newChannel.music_preference.ai_prompt || ''}
                             onChange={e => setNewChannel({ ...newChannel, music_preference: { ...newChannel.music_preference, ai_prompt: e.target.value } })}
-                            className="w-full bg-[#1b2230] border border-[#2b374d] rounded-xl p-2.5 text-xs text-white focus:border-[#00c2ff] outline-none placeholder-slate-500"
-                            placeholder="Ex : piano doux et cordes légères, ambiance méditative, tempo lent, pas de percussions... (laisse vide pour laisser NicheCut générer le prompt automatiquement)"
+                            className="w-full bg-[#0f1217] border border-[#2b374d] rounded-xl p-2.5 text-[11px] text-white focus:border-[#00c2ff] outline-none placeholder-slate-500"
+                            placeholder="Ex : piano doux, ambiance méditative, tempo lent... (laisse vide pour un prompt automatique)"
                           />
                         </div>
 
                         <button
                           type="button"
-                          onClick={handleGenerateMusicPreview}
+                          onClick={(e) => { e.stopPropagation(); handleGenerateMusicPreview(); }}
                           disabled={aiMusicGenerating}
-                          className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-[#00c2ff] text-slate-950 font-bold text-xs hover:bg-[#38d0ff] transition-all disabled:opacity-50"
+                          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#00c2ff] text-slate-950 font-bold text-xs hover:bg-[#38d0ff] transition-all disabled:opacity-50"
                         >
                           <span className="material-symbols-outlined text-[18px]">{aiMusicGenerating ? 'hourglass_top' : 'auto_awesome'}</span>
-                          {aiMusicGenerating ? 'Génération en cours (peut prendre une minute)...' : (aiMusicPreviewUrl ? 'Régénérer et réécouter' : 'Générer et écouter un aperçu')}
+                          {aiMusicGenerating ? 'Génération...' : (aiMusicPreviewUrl ? 'Régénérer et réécouter' : 'Générer et écouter un aperçu')}
                         </button>
 
                         {aiMusicPreviewUrl && (
-                          <ServerAudioPreview
-                            src={aiMusicPreviewUrl}
-                            name="Aperçu généré (20s)"
-                            volume={newChannel.music_preference.volume ?? 0.10}
-                          />
+                          <div onClick={(e) => e.stopPropagation()}>
+                            <ServerAudioPreview
+                              src={aiMusicPreviewUrl}
+                              name="Aperçu généré (20s)"
+                              volume={newChannel.music_preference.volume ?? 0.10}
+                            />
+                          </div>
                         )}
-                        <p className="text-[10px] text-slate-500">L'aperçu génère un extrait de 20s avec le même prompt qui sera utilisé pour chaque vidéo. Ajuste le volume ci-dessous puis réécoute jusqu'à ce que le mix te convienne.</p>
                       </div>
-                    )}
+                    </div>
 
                     <div>
                       <label className="block text-xs font-bold text-slate-300 mb-2">Volume Musique ({Math.round((newChannel.music_preference.volume ?? 0.10) * 100)}%)</label>
