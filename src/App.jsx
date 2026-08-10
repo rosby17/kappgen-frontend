@@ -745,7 +745,8 @@ export default function App() {
       outline_width: 3,
       position: 'bottom',
       karaoke: true,
-      box_color: 'transparent'
+      box_color: 'transparent',
+      words_per_line: 6
     },
     branding: {
       logo_path: '',
@@ -2574,151 +2575,170 @@ export default function App() {
                       <span className="text-xs font-mono text-[#00c2ff] bg-[#00c2ff]/10 px-2.5 py-1 rounded-lg">Fichier ASS Ultra-Fluid</span>
                     </div>
 
-                    {/* Presets Grid */}
-                    <div>
-                      <label className="block text-xs font-bold text-slate-300 mb-2">Presets de style sous-titre recommandés</label>
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                        {SUBTITLE_PRESETS.map(preset => (
-                          <button
-                            key={preset.id}
-                            type="button"
-                            onClick={() => {
-                              setNewChannel(prev => ({
-                                ...prev,
-                                subtitle_style: {
-                                  ...prev.subtitle_style,
-                                  font: preset.font,
-                                  size: preset.size,
-                                  color: preset.color,
-                                  outline_color: preset.outline_color,
-                                  outline_width: preset.outline_width,
-                                  box_color: preset.box_color
-                                }
-                              }));
-                            }}
-                            className="p-3 bg-[#1b2230] hover:bg-[#252f42] border border-[#2b374d] rounded-xl text-left transition-all hover:border-[#00c2ff]"
-                          >
-                            <div className="text-xs font-bold text-white">{preset.name}</div>
-                            <div className="text-[10px] text-slate-400 mt-1 font-mono">{preset.font} • {preset.size}px</div>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Custom Controls */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-xs font-bold text-slate-300 mb-2">Police (Font)</label>
-                        <select
-                          value={newChannel.subtitle_style.font}
-                          onChange={e => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, font: e.target.value } })}
-                          className="w-full bg-[#1b2230] border border-[#2b374d] rounded-xl px-4 py-2.5 text-xs text-white focus:border-[#00c2ff] outline-none"
-                        >
-                          {SUBTITLE_FONTS.map(f => (
-                            <option key={f.value} value={f.value}>{f.label}</option>
-                          ))}
-                        </select>
-                        <p className="text-[10px] text-slate-500 mt-1.5">Polices réellement installées sur le serveur de rendu — l'aperçu ci-dessous est fidèle au rendu final.</p>
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-bold text-slate-300 mb-2">Taille du Texte ({newChannel.subtitle_style.size}px)</label>
-                        <input
-                          type="range"
-                          min="28"
-                          max="64"
-                          value={newChannel.subtitle_style.size}
-                          onChange={e => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, size: parseInt(e.target.value) || 44 } })}
-                          className="w-full accent-[#00c2ff] mt-3"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-bold text-slate-300 mb-2">Couleur du Texte (mot actif)</label>
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="color"
-                            value={newChannel.subtitle_style.color?.startsWith('#') ? newChannel.subtitle_style.color : '#FFD700'}
-                            onChange={e => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, color: e.target.value } })}
-                            className="w-10 h-10 rounded-xl bg-[#1b2230] border border-[#2b374d] cursor-pointer"
-                          />
-                          <span className="text-xs font-mono text-slate-300">{newChannel.subtitle_style.color}</span>
+                    <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_360px] gap-6 items-start">
+                      {/* Settings column — scrolls independently while the preview stays put */}
+                      <div className="space-y-6 min-w-0">
+                        {/* Presets Grid */}
+                        <div>
+                          <label className="block text-xs font-bold text-slate-300 mb-2">Presets de style sous-titre recommandés</label>
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                            {SUBTITLE_PRESETS.map(preset => (
+                              <button
+                                key={preset.id}
+                                type="button"
+                                onClick={() => {
+                                  setNewChannel(prev => ({
+                                    ...prev,
+                                    subtitle_style: {
+                                      ...prev.subtitle_style,
+                                      font: preset.font,
+                                      size: preset.size,
+                                      color: preset.color,
+                                      outline_color: preset.outline_color,
+                                      outline_width: preset.outline_width,
+                                      box_color: preset.box_color
+                                    }
+                                  }));
+                                }}
+                                className="p-3 bg-[#1b2230] hover:bg-[#252f42] border border-[#2b374d] rounded-xl text-left transition-all hover:border-[#00c2ff]"
+                              >
+                                <div className="text-xs font-bold text-white">{preset.name}</div>
+                                <div className="text-[10px] text-slate-400 mt-1 font-mono">{preset.font} • {preset.size}px</div>
+                              </button>
+                            ))}
+                          </div>
                         </div>
-                      </div>
 
-                      <div>
-                        <label className="block text-xs font-bold text-slate-300 mb-2">Couleur du Contour</label>
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="color"
-                            value={newChannel.subtitle_style.outline_color?.startsWith('#') ? newChannel.subtitle_style.outline_color : '#000000'}
-                            onChange={e => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, outline_color: e.target.value } })}
-                            className="w-10 h-10 rounded-xl bg-[#1b2230] border border-[#2b374d] cursor-pointer"
-                          />
-                          <span className="text-xs font-mono text-slate-300">{newChannel.subtitle_style.outline_color}</span>
-                        </div>
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-bold text-slate-300 mb-2">Épaisseur du Contour ({newChannel.subtitle_style.outline_width || 3}px)</label>
-                        <input
-                          type="range"
-                          min="0"
-                          max="8"
-                          value={newChannel.subtitle_style.outline_width || 3}
-                          onChange={e => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, outline_width: parseInt(e.target.value) || 0 } })}
-                          className="w-full accent-[#00c2ff] mt-3"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-bold text-slate-300 mb-2">Position</label>
-                        <select
-                          value={newChannel.subtitle_style.position}
-                          onChange={e => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, position: e.target.value } })}
-                          className="w-full bg-[#1b2230] border border-[#2b374d] rounded-xl px-4 py-2.5 text-xs text-white focus:border-[#00c2ff] outline-none"
-                        >
-                          <option value="bottom">Bas</option>
-                          <option value="center">Centre</option>
-                          <option value="top">Haut</option>
-                        </select>
-                      </div>
-
-                      <div className="flex items-center gap-3 pt-6">
-                        <input
-                          type="checkbox"
-                          id="karaoke-toggle"
-                          checked={!!newChannel.subtitle_style.karaoke}
-                          onChange={e => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, karaoke: e.target.checked } })}
-                          className="w-4 h-4 accent-[#00c2ff]"
-                        />
-                        <label htmlFor="karaoke-toggle" className="text-xs font-bold text-slate-300">Karaoké mot-par-mot (recommandé)</label>
-                      </div>
-                    </div>
-
-                    {/* Live Subtitle Preview — matches the real ASS/libass render */}
-                    <div>
-                      <label className="block text-xs font-bold text-slate-300 mb-2">Aperçu en direct</label>
-                      <div ref={wizardSubtitlePreviewRef} className="w-full h-40 rounded-2xl bg-gradient-to-b from-slate-900 to-black border border-[#2b374d] relative overflow-hidden px-6">
-                        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(0,194,255,0.08),transparent_70%)]"></div>
-                        <div className={`absolute inset-x-6 z-10 flex flex-wrap justify-center items-center gap-2 text-center ${subtitlePositionClass(newChannel.subtitle_style.position)}`}>
-                          {sampleWords.map((wordObj, i) => (
-                            <span
-                              key={i}
-                              style={{
-                                fontFamily: newChannel.subtitle_style.font,
-                                fontSize: `${(newChannel.subtitle_style.size || 44) * wizardSubtitlePreviewScale}px`,
-                                fontWeight: '900',
-                                color: (newChannel.subtitle_style.karaoke === false || wordObj.highlight) ? (newChannel.subtitle_style.color || '#FFD700') : '#FFFFFF',
-                                WebkitTextStroke: `${Math.max(1, (newChannel.subtitle_style.outline_width || 3) * wizardSubtitlePreviewScale)}px ${newChannel.subtitle_style.outline_color || '#000000'}`,
-                                paintOrder: 'stroke fill',
-                                textShadow: '0 2px 8px rgba(0,0,0,0.6)'
-                              }}
-                              className="inline-block"
+                        {/* Custom Controls */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-xs font-bold text-slate-300 mb-2">Police (Font)</label>
+                            <select
+                              value={newChannel.subtitle_style.font}
+                              onChange={e => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, font: e.target.value } })}
+                              className="w-full bg-[#1b2230] border border-[#2b374d] rounded-xl px-4 py-2.5 text-xs text-white focus:border-[#00c2ff] outline-none"
                             >
-                              {wordObj.text}
-                            </span>
-                          ))}
+                              {SUBTITLE_FONTS.map(f => (
+                                <option key={f.value} value={f.value}>{f.label}</option>
+                              ))}
+                            </select>
+                            <p className="text-[10px] text-slate-500 mt-1.5">Polices réellement installées sur le serveur de rendu — l'aperçu est fidèle au rendu final.</p>
+                          </div>
+
+                          <div>
+                            <label className="block text-xs font-bold text-slate-300 mb-2">Taille du Texte ({newChannel.subtitle_style.size}px)</label>
+                            <input
+                              type="range"
+                              min="28"
+                              max="64"
+                              value={newChannel.subtitle_style.size}
+                              onChange={e => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, size: parseInt(e.target.value) || 44 } })}
+                              className="w-full accent-[#00c2ff] mt-3"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-xs font-bold text-slate-300 mb-2">Couleur du Texte (mot actif)</label>
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="color"
+                                value={newChannel.subtitle_style.color?.startsWith('#') ? newChannel.subtitle_style.color : '#FFD700'}
+                                onChange={e => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, color: e.target.value } })}
+                                className="w-10 h-10 rounded-xl bg-[#1b2230] border border-[#2b374d] cursor-pointer"
+                              />
+                              <span className="text-xs font-mono text-slate-300">{newChannel.subtitle_style.color}</span>
+                            </div>
+                          </div>
+
+                          <div>
+                            <label className="block text-xs font-bold text-slate-300 mb-2">Couleur du Contour</label>
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="color"
+                                value={newChannel.subtitle_style.outline_color?.startsWith('#') ? newChannel.subtitle_style.outline_color : '#000000'}
+                                onChange={e => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, outline_color: e.target.value } })}
+                                className="w-10 h-10 rounded-xl bg-[#1b2230] border border-[#2b374d] cursor-pointer"
+                              />
+                              <span className="text-xs font-mono text-slate-300">{newChannel.subtitle_style.outline_color}</span>
+                            </div>
+                          </div>
+
+                          <div>
+                            <label className="block text-xs font-bold text-slate-300 mb-2">Épaisseur du Contour ({newChannel.subtitle_style.outline_width || 3}px)</label>
+                            <input
+                              type="range"
+                              min="0"
+                              max="8"
+                              value={newChannel.subtitle_style.outline_width || 3}
+                              onChange={e => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, outline_width: parseInt(e.target.value) || 0 } })}
+                              className="w-full accent-[#00c2ff] mt-3"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-xs font-bold text-slate-300 mb-2">Position</label>
+                            <select
+                              value={newChannel.subtitle_style.position}
+                              onChange={e => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, position: e.target.value } })}
+                              className="w-full bg-[#1b2230] border border-[#2b374d] rounded-xl px-4 py-2.5 text-xs text-white focus:border-[#00c2ff] outline-none"
+                            >
+                              <option value="bottom">Bas</option>
+                              <option value="center">Centre</option>
+                              <option value="top">Haut</option>
+                            </select>
+                          </div>
+
+                          <div>
+                            <label className="block text-xs font-bold text-slate-300 mb-2">Longueur des sous-titres ({newChannel.subtitle_style.words_per_line || 6} mots)</label>
+                            <input
+                              type="range"
+                              min="1"
+                              max="14"
+                              value={newChannel.subtitle_style.words_per_line || 6}
+                              onChange={e => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, words_per_line: parseInt(e.target.value) || 6 } })}
+                              className="w-full accent-[#00c2ff] mt-3"
+                            />
+                            <p className="text-[11px] text-slate-500 mt-1">Nombre de mots affichés en même temps à l'écran.</p>
+                          </div>
+
+                          <div className="flex items-center gap-3 pt-6">
+                            <input
+                              type="checkbox"
+                              id="karaoke-toggle"
+                              checked={!!newChannel.subtitle_style.karaoke}
+                              onChange={e => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, karaoke: e.target.checked } })}
+                              className="w-4 h-4 accent-[#00c2ff]"
+                            />
+                            <label htmlFor="karaoke-toggle" className="text-xs font-bold text-slate-300">Karaoké mot-par-mot (recommandé)</label>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Preview column — sticks in place so it stays visible while the
+                          settings column (which can run long) scrolls under it. */}
+                      <div className="lg:sticky lg:top-4">
+                        <label className="block text-xs font-bold text-slate-300 mb-2">Aperçu en direct</label>
+                        <div ref={wizardSubtitlePreviewRef} className="w-full aspect-video rounded-2xl bg-gradient-to-b from-slate-900 to-black border border-[#2b374d] relative overflow-hidden px-6">
+                          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(0,194,255,0.08),transparent_70%)]"></div>
+                          <div className={`absolute inset-x-6 z-10 flex flex-wrap justify-center items-center gap-2 text-center ${subtitlePositionClass(newChannel.subtitle_style.position)}`}>
+                            {sampleWords.map((wordObj, i) => (
+                              <span
+                                key={i}
+                                style={{
+                                  fontFamily: newChannel.subtitle_style.font,
+                                  fontSize: `${(newChannel.subtitle_style.size || 44) * wizardSubtitlePreviewScale}px`,
+                                  fontWeight: '900',
+                                  color: (newChannel.subtitle_style.karaoke === false || wordObj.highlight) ? (newChannel.subtitle_style.color || '#FFD700') : '#FFFFFF',
+                                  WebkitTextStroke: `${Math.max(1, (newChannel.subtitle_style.outline_width || 3) * wizardSubtitlePreviewScale)}px ${newChannel.subtitle_style.outline_color || '#000000'}`,
+                                  paintOrder: 'stroke fill',
+                                  textShadow: '0 2px 8px rgba(0,0,0,0.6)'
+                                }}
+                                className="inline-block"
+                              >
+                                {wordObj.text}
+                              </span>
+                            ))}
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -2961,6 +2981,67 @@ export default function App() {
                           <span><strong>Mode Hybride activé !</strong> Le système utilisera vos images locales prioritaires et l'IA pour compléter les scènes manquantes.</span>
                         </div>
                       )}
+
+                      {/* Visual Effects — grading + overlay texture applied on top of every clip.
+                          Transitions and zoom/pan are already automatic; this is the extra
+                          "make it move" layer (grain, white noise, vignette...) the client can pick. */}
+                      <div className="pt-4 border-t border-[#263042] space-y-4">
+                        <div>
+                          <label className="block text-xs font-bold text-[#00c2ff]">Effets Visuels</label>
+                          <p className="text-[11px] text-slate-400 mt-0.5">Appliqués sur l'ensemble de la vidéo, en plus des transitions et du zoom automatiques.</p>
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-300 mb-2">Étalonnage des couleurs</label>
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                            {[
+                              { id: 'warm', label: 'Chaud' },
+                              { id: 'vintage', label: 'Vintage' },
+                              { id: 'dramatic', label: 'Dramatique' },
+                              { id: 'none', label: 'Aucun' },
+                            ].map(({ id, label }) => (
+                              <button
+                                key={id}
+                                type="button"
+                                onClick={() => setNewChannel({ ...newChannel, effects_config: { ...newChannel.effects_config, color_grade: id } })}
+                                className={`px-3 py-2 rounded-xl text-xs font-bold border transition-colors ${
+                                  (newChannel.effects_config.color_grade || 'warm') === id
+                                    ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]'
+                                    : 'bg-[#1b2230] border-[#2b374d] text-slate-300 hover:border-slate-500'
+                                }`}
+                              >
+                                {label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-300 mb-2">Texture / Effet superposé</label>
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                            {[
+                              { id: 'none', label: 'Aucun' },
+                              { id: 'grain', label: 'Grain léger' },
+                              { id: 'white_noise', label: 'Bruit blanc' },
+                              { id: 'vignette', label: 'Vignette' },
+                              { id: 'grain_vignette', label: 'Grain + Vignette' },
+                            ].map(({ id, label }) => (
+                              <button
+                                key={id}
+                                type="button"
+                                onClick={() => setNewChannel({ ...newChannel, effects_config: { ...newChannel.effects_config, overlay_effect: id } })}
+                                className={`px-3 py-2 rounded-xl text-xs font-bold border transition-colors ${
+                                  (newChannel.effects_config.overlay_effect || 'grain') === id
+                                    ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]'
+                                    : 'bg-[#1b2230] border-[#2b374d] text-slate-300 hover:border-slate-500'
+                                }`}
+                              >
+                                {label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   );
                 })()}
