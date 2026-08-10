@@ -345,11 +345,14 @@ const SUBTITLE_PRESETS = [
 
 // Fonts actually installed on the render server (see Dockerfile) — what you pick here
 // is exactly what libass will use to burn the subtitles into the final video.
+// A starting point only — the real list grows from what channels actually
+// use (see fetchNicheOptions/GET /api/channels/niches), merged in at runtime.
 const NICHE_OPTIONS = [
-  "Philosophie", "Stoïcisme", "Spiritualité", "Méditation", "Religion",
-  "Histoires Antiques", "Développement Personnel", "Motivation", "Récits Captivants",
-  "Mythologie", "Psychologie", "Finance", "Business", "Santé & Bien-être",
-  "Histoire", "Science", "Faits Divers", "True Crime", "Voyage", "Cuisine",
+  "Philosophie", "Philosophie Stoïcienne", "Philosophie de Machiavel", "Philosophie de Napoleon Hill",
+  "Stoïcisme", "Spiritualité", "Méditation", "Religion", "Christianisme", "Bouddhisme", "Islam",
+  "Mythologie", "Histoires Antiques", "Histoire Africaine", "Histoire Européenne", "Histoire",
+  "Développement Personnel", "Motivation", "Récits Captivants", "Psychologie", "Finance", "Business",
+  "Santé & Bien-être", "Football", "Sport", "Science", "Faits Divers", "True Crime", "Voyage", "Cuisine",
 ];
 
 // Every family below is actually installed on the render server (see
@@ -841,6 +844,7 @@ function SkeletonGrid({ count = 6, cardClassName = "min-h-[220px]" }) {
 
 export default function App() {
   const [channels, setChannels] = useState([]);
+  const [nicheOptions, setNicheOptions] = useState(NICHE_OPTIONS);
   const [activeChannel, setActiveChannel] = useState(null);
   const [channelVideos, setChannelVideos] = useState([]);
   const [allVideos, setAllVideos] = useState([]);
@@ -1102,6 +1106,19 @@ export default function App() {
     }
   };
 
+  const fetchNicheOptions = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/channels/niches`);
+      if (!res.ok) return;
+      const saved = await res.json();
+      if (Array.isArray(saved)) {
+        setNicheOptions(prev => Array.from(new Set([...NICHE_OPTIONS, ...saved])).sort((a, b) => a.localeCompare(b, 'fr')));
+      }
+    } catch (e) {
+      console.error("Erreur lors du chargement des niches:", e);
+    }
+  };
+
   const fetchAllVideos = async () => {
     try {
       const url = currentUser
@@ -1182,6 +1199,10 @@ export default function App() {
     }, AUTO_SYNC_MS);
     return () => { cancelled = true; clearInterval(interval); };
   }, [view, activeChannel]);
+
+  useEffect(() => {
+    fetchNicheOptions();
+  }, []);
 
   useEffect(() => {
     fetchChannels();
@@ -1692,6 +1713,7 @@ export default function App() {
       }
 
       await fetchChannels();
+      fetchNicheOptions();
       setActiveChannel(saved);
       setView('channel_detail');
       fetchChannelVideos(saved.id);
@@ -2778,7 +2800,7 @@ export default function App() {
                 <div className="flex items-center justify-between border-b border-[#263042] pb-6">
                   <div>
                     <h2 className="text-xl font-extrabold text-white">
-                      {wizardMode === 'edit' ? 'Modifier le Pipeline de la Chaîne' : 'Assistant de Configuration de Chaîne'}
+                      {wizardMode === 'edit' ? 'Modifier le Pipeline de la Chaîne' : 'Configuration du Template de Montage de sa Chaîne'}
                     </h2>
                     <p className="text-xs text-slate-400 mt-1">Étape {wizardStep} sur 5</p>
                   </div>
@@ -2817,42 +2839,28 @@ export default function App() {
                   <div className="space-y-6">
                     <h3 className="text-base font-bold text-white">1. Identité de la Chaîne</h3>
                     
-                    <div>
-                      <label className="block text-xs font-bold text-slate-300 mb-2">Photo / Logo de la chaîne</label>
-                      <div className="flex items-center gap-5">
-                        <div
-                          onClick={() => logoInputRef.current && logoInputRef.current.click()}
-                          className="w-24 h-24 rounded-2xl bg-[#1b2230] border-2 border-dashed border-[#2b374d] hover:border-[#00c2ff] cursor-pointer flex items-center justify-center overflow-hidden flex-shrink-0 transition-colors group"
-                        >
-                          {logoPreviewUrl ? (
-                            <img src={logoPreviewUrl} alt="Logo" className="w-full h-full object-cover" />
-                          ) : (
-                            <span className="material-symbols-outlined text-slate-400 group-hover:text-[#00c2ff] text-[32px]">add_a_photo</span>
-                          )}
-                        </div>
-                        <div>
-                          <input
-                            type="file"
-                            ref={logoInputRef}
-                            accept="image/*"
-                            onChange={handleLogoFileSelect}
-                            className="hidden"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => logoInputRef.current && logoInputRef.current.click()}
-                            className="px-4 py-2.5 bg-[#1b2230] text-white rounded-xl font-bold text-xs hover:bg-[#252f42] transition-colors border border-[#2b374d]"
-                          >
-                            {logoPreviewUrl ? "Changer l'image" : "Sélectionner un logo"}
-                          </button>
-                          <p className="text-[11px] text-slate-400 mt-2">Format conseillé: PNG ou JPG carré (512x512)</p>
-                        </div>
+                    <div className="flex items-start gap-5">
+                      <div
+                        onClick={() => logoInputRef.current && logoInputRef.current.click()}
+                        className="w-24 h-24 rounded-full bg-[#1b2230] border-2 border-dashed border-[#2b374d] hover:border-[#00c2ff] cursor-pointer flex items-center justify-center overflow-hidden flex-shrink-0 transition-colors group"
+                        title={logoPreviewUrl ? "Changer la photo" : "Sélectionner une photo"}
+                      >
+                        {logoPreviewUrl ? (
+                          <img src={logoPreviewUrl} alt="Logo" className="w-full h-full object-cover" />
+                        ) : (
+                          <span className="material-symbols-outlined text-slate-400 group-hover:text-[#00c2ff] text-[32px]">add_a_photo</span>
+                        )}
                       </div>
-                    </div>
+                      <input
+                        type="file"
+                        ref={logoInputRef}
+                        accept="image/*"
+                        onChange={handleLogoFileSelect}
+                        className="hidden"
+                      />
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-xs font-bold text-slate-300 mb-2">Nom de la chaîne YouTube / TikTok</label>
+                      <div className="flex-1">
+                        <label className="block text-xs font-bold text-slate-300 mb-2">Nom de la chaîne YouTube</label>
                         <input
                           value={newChannel.name}
                           onChange={e => setNewChannel({ ...newChannel, name: e.target.value })}
@@ -2860,20 +2868,18 @@ export default function App() {
                           placeholder="Ex: Stoic Mind Daily"
                         />
                       </div>
+                    </div>
+                    <p className="text-[11px] text-slate-400 -mt-3">Clique sur la photo pour {logoPreviewUrl ? 'la changer' : 'la sélectionner'} — format conseillé : PNG ou JPG carré (512x512), affiché en rond comme sur YouTube.</p>
 
-                      <div>
-                        <label className="block text-xs font-bold text-slate-300 mb-2">Niche de contenu</label>
-                        <input
-                          list="niche-options"
-                          value={newChannel.niche}
-                          onChange={e => setNewChannel({ ...newChannel, niche: e.target.value })}
-                          className="w-full bg-[#1b2230] border border-[#2b374d] rounded-xl px-4 py-3 text-sm text-white focus:border-[#00c2ff] outline-none"
-                          placeholder="Choisissez ou saisissez votre propre niche"
-                        />
-                        <datalist id="niche-options">
-                          {NICHE_OPTIONS.map(n => <option key={n} value={n} />)}
-                        </datalist>
-                      </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-300 mb-2">Niche de contenu</label>
+                      <input
+                        value={newChannel.niche}
+                        onChange={e => setNewChannel({ ...newChannel, niche: e.target.value })}
+                        className="w-full bg-[#1b2230] border border-[#2b374d] rounded-xl px-4 py-3 text-sm text-white focus:border-[#00c2ff] outline-none"
+                        placeholder="Ex: Philosophie, Football, Religion, Histoire africaine..."
+                      />
+                      <p className="text-[11px] text-slate-500 mt-1.5">Écris n'importe quelle niche — ex. {nicheOptions.slice(0, 6).join(', ')}...</p>
                     </div>
 
                   </div>
