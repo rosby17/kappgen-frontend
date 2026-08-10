@@ -1524,6 +1524,34 @@ export default function App() {
     }
   };
 
+  const [reusingAudioId, setReusingAudioId] = useState(null);
+
+  const handleReuseAudio = async (vid, e) => {
+    if (e) e.stopPropagation();
+    setOpenVideoMenuId(null);
+    if (!vid.output_path) return;
+    setReusingAudioId(vid.id);
+    try {
+      const res = await fetch(`${API_BASE}/videos/${vid.id}/audio`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const blob = await res.blob();
+      const fileName = `${(vid.script_text || 'audio').slice(0, 40).replace(/[^a-z0-9]+/gi, '-')}.m4a`;
+      const file = new File([blob], fileName, { type: blob.type || 'audio/mp4' });
+
+      const channel = channels.find(c => c.id === vid.channel_id) || null;
+      if (channel) setActiveChannel(channel);
+      setSubmitMode('audio_upload');
+      setAudioFilesList([file]);
+      setSubmitStep(1);
+      setShowSubmitModal(true);
+    } catch (err) {
+      console.error("Erreur lors de la réutilisation de l'audio:", err);
+      showToast("Impossible de récupérer l'audio de cette vidéo.", "error");
+    } finally {
+      setReusingAudioId(null);
+    }
+  };
+
   const startEditingTitle = (vid, e) => {
     if (e) e.stopPropagation();
     setOpenVideoMenuId(null);
@@ -2108,6 +2136,11 @@ export default function App() {
                                       <span className="material-symbols-outlined text-[16px] text-emerald-400">download</span> Télécharger
                                     </button>
                                   )}
+                                  {vid.status === 'done' && (
+                                    <button disabled={reusingAudioId === vid.id} onClick={(e) => handleReuseAudio(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[#2c394e] hover:text-white flex items-center gap-2 font-medium disabled:opacity-50">
+                                      <span className="material-symbols-outlined text-[16px] text-[#00c2ff]">graphic_eq</span> {reusingAudioId === vid.id ? 'Récupération…' : "Réutiliser l'audio"}
+                                    </button>
+                                  )}
                                   <div className="h-[1px] bg-[#2d3a52] my-1"></div>
                                   <button onClick={(e) => handleDeleteVideo(vid.id, e)} className="w-full text-left px-4 py-2.5 text-xs text-rose-400 hover:bg-rose-950/50 flex items-center gap-2 font-medium">
                                     <span className="material-symbols-outlined text-[16px]">delete</span> Supprimer
@@ -2364,6 +2397,11 @@ export default function App() {
                                 {vid.status === 'done' && (
                                   <button onClick={(e) => handleDownloadVideo(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[#2c394e] hover:text-white flex items-center gap-2 font-medium">
                                     <span className="material-symbols-outlined text-[16px] text-emerald-400">download</span> Télécharger
+                                  </button>
+                                )}
+                                {vid.status === 'done' && (
+                                  <button disabled={reusingAudioId === vid.id} onClick={(e) => handleReuseAudio(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[#2c394e] hover:text-white flex items-center gap-2 font-medium disabled:opacity-50">
+                                    <span className="material-symbols-outlined text-[16px] text-[#00c2ff]">graphic_eq</span> {reusingAudioId === vid.id ? 'Récupération…' : "Réutiliser l'audio"}
                                   </button>
                                 )}
                                 <div className="h-[1px] bg-[#2d3a52] my-1"></div>
