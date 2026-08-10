@@ -1494,6 +1494,9 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    // No dashboard data — not even a fetch attempt — until the visitor is signed
+    // in. Anonymous access to the dashboard used to leak every user's channels.
+    if (!currentUser) return;
     fetchChannels();
     fetchAllVideos();
     const interval = setInterval(() => {
@@ -1505,6 +1508,12 @@ export default function App() {
     }, 6000);
     return () => clearInterval(interval);
   }, [activeChannel, currentUser?.id]);
+
+  // Mandatory auth gate: an unauthenticated visitor always sees the login/signup
+  // modal, with no way to dismiss it, instead of the dashboard behind it.
+  useEffect(() => {
+    if (!currentUser) setShowAuthModal(true);
+  }, [currentUser]);
 
   const handleAuthSubmit = async (e) => {
     e.preventDefault();
@@ -4910,10 +4919,15 @@ export default function App() {
                 {authTab === 'register' && 'Inscription'}
                 {authTab === 'forgot' && 'Mot de passe oublié'}
               </h3>
-              <button onClick={() => setShowAuthModal(false)} className="text-slate-400 hover:text-white">
-                <span className="material-symbols-outlined">close</span>
-              </button>
+              {currentUser && (
+                <button onClick={() => setShowAuthModal(false)} className="text-slate-400 hover:text-white">
+                  <span className="material-symbols-outlined">close</span>
+                </button>
+              )}
             </div>
+            {!currentUser && (
+              <p className="text-[11px] text-slate-500 -mt-3">Un compte est requis pour accéder au tableau de bord.</p>
+            )}
 
             {authTab !== 'forgot' && (
               <div className="flex bg-[#1b2230] p-1 rounded-xl border border-[#2b374d]">
