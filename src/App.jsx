@@ -1020,6 +1020,39 @@ export default function App() {
   const [subtitleTab, setSubtitleTab] = useState('presets');
   const [nicheMode, setNicheMode] = useState('preset');
   const [styleAnalyzing, setStyleAnalyzing] = useState(false);
+  const [musicFiles, setMusicFiles] = useState([]);
+  const [musicUploading, setMusicUploading] = useState(false);
+  const musicInputRef = useRef(null);
+
+  const handleMusicFileSelect = (e) => {
+    const files = Array.from(e.target.files || []);
+    e.target.value = '';
+    if (files.length) setMusicFiles(prev => [...prev, ...files]);
+  };
+
+  const uploadChannelMusic = async (channelId) => {
+    if (!musicFiles.length) return;
+    const formData = new FormData();
+    musicFiles.forEach(f => formData.append('files', f));
+    const res = await fetch(`${API_BASE}/channels/${channelId}/music`, { method: 'POST', body: formData });
+    if (!res.ok) {
+      const detail = await res.json().catch(() => ({}));
+      throw new Error(detail.detail || "Impossible d'importer les musiques.");
+    }
+    return res.json();
+  };
+
+  const handleDeleteMusicTrack = async (trackPath) => {
+    if (!editingChannelId) return;
+    try {
+      const res = await fetch(`${API_BASE}/channels/${editingChannelId}/music?track_path=${encodeURIComponent(trackPath)}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error("Suppression impossible.");
+      const updated = await res.json();
+      setNewChannel(prev => ({ ...prev, music_preference: { ...prev.music_preference, tracks: updated.music_preference?.tracks || [] } }));
+    } catch (err) {
+      showToast(err.message, "error");
+    }
+  };
   const styleReferenceInputRef = useRef(null);
 
   const handleAnalyzeStyleImage = async (e) => {
@@ -1463,6 +1496,7 @@ export default function App() {
     setLogoFile(null);
     setLogoPreviewUrl(null);
     setLocalImageFiles([]);
+    setMusicFiles([]);
     setLibraryUploadStatus(null);
     setLibraryUploadProgress(0);
     setLibraryUploadMessage('');
@@ -1503,6 +1537,7 @@ export default function App() {
     });
     setNicheMode(nicheOptions.includes(channel.niche) ? 'preset' : 'custom');
     setLogoFile(null);
+    setMusicFiles([]);
     setLocalImageFiles([]);
     setSelectedFolderName('');
     setLibraryUploadStatus(null);
@@ -1728,6 +1763,10 @@ export default function App() {
 
       if (logoFile) {
         await uploadChannelLogo(saved.id);
+      }
+      if (musicFiles.length) {
+        saved = await uploadChannelMusic(saved.id);
+        setMusicFiles([]);
       }
       if (stagedLibraryToken && needsLibrary) {
         const attachForm = new FormData();
@@ -3419,24 +3458,110 @@ export default function App() {
                 {wizardStep === 3 && (
                   <div className="space-y-6">
                     <h3 className="text-base font-bold text-white">3. Musique de Fond Ambiante & Auto-Ducking</h3>
-                    
-                    <div>
-                      <label className="block text-xs font-bold text-slate-300 mb-2">Ambiance Musicale</label>
-                      <select 
-                        value={newChannel.music_preference.track_id_or_style}
-                        onChange={e => setNewChannel({ ...newChannel, music_preference: { ...newChannel.music_preference, track_id_or_style: e.target.value } })}
-                        className="w-full bg-[#1b2230] border border-[#2b374d] rounded-xl px-4 py-3 text-sm text-white focus:border-[#00c2ff] outline-none"
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <button
+                        type="button"
+                        onClick={() => setNewChannel({ ...newChannel, music_preference: { ...newChannel.music_preference, mode: 'library' } })}
+                        className={`p-4 rounded-2xl border-2 text-left transition-all ${
+                          (newChannel.music_preference.mode || 'library') === 'library'
+                            ? 'bg-[#1b2230] border-[#00c2ff] shadow-lg shadow-[#00c2ff]/10'
+                            : 'bg-[#141923] border-[#263042] hover:border-slate-500'
+                        }`}
                       >
-                        <option value="ambient">Zen & Méditation (Ambiant Relax)</option>
-                        <option value="dramatic">Dark Ambient Stoïcien & Profond</option>
-                        <option value="cinematic">Cinématique Épique & Émotionnel</option>
-                        <option value="lofi">Lo-Fi Chill & Focus</option>
-                      </select>
+                        <div className="flex items-center gap-2.5 mb-1.5">
+                          <span className="material-symbols-outlined text-[#00c2ff] text-[22px]">library_music</span>
+                          <h4 className="font-bold text-white text-xs">Mes propres musiques</h4>
+                        </div>
+                        <p className="text-[11px] text-slate-400">Importe tes morceaux — un est choisi au hasard à chaque vidéo. Jamais de musique tierce sans droits.</p>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setNewChannel({ ...newChannel, music_preference: { ...newChannel.music_preference, mode: 'ai_generate' } })}
+                        className={`p-4 rounded-2xl border-2 text-left transition-all ${
+                          newChannel.music_preference.mode === 'ai_generate'
+                            ? 'bg-[#1b2230] border-[#00c2ff] shadow-lg shadow-[#00c2ff]/10'
+                            : 'bg-[#141923] border-[#263042] hover:border-slate-500'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5 mb-1.5">
+                          <span className="material-symbols-outlined text-[#00c2ff] text-[22px]">auto_awesome</span>
+                          <h4 className="font-bold text-white text-xs">Générer avec l'IA</h4>
+                        </div>
+                        <p className="text-[11px] text-slate-400">Claude analyse la niche (et le script) pour écrire le prompt, puis IziVoice génère la musique.</p>
+                      </button>
                     </div>
+
+                    {(newChannel.music_preference.mode || 'library') === 'library' && (
+                      <div className="space-y-3">
+                        <div
+                          onClick={() => musicInputRef.current && musicInputRef.current.click()}
+                          className="border-2 border-dashed border-[#2b374d] hover:border-[#00c2ff] rounded-xl p-6 text-center cursor-pointer transition-colors"
+                        >
+                          <span className="material-symbols-outlined text-slate-400 text-[28px]">upload_file</span>
+                          <p className="text-xs text-slate-300 mt-1 font-bold">Clique pour importer un ou plusieurs morceaux</p>
+                          <p className="text-[10px] text-slate-500 mt-0.5">MP3, WAV, M4A, OGG</p>
+                        </div>
+                        <input
+                          ref={musicInputRef}
+                          type="file"
+                          accept="audio/mpeg,audio/wav,audio/mp4,audio/ogg,.mp3,.wav,.m4a,.ogg"
+                          multiple
+                          onChange={handleMusicFileSelect}
+                          className="hidden"
+                        />
+
+                        {(newChannel.music_preference.tracks || []).length > 0 && (
+                          <div className="space-y-1.5">
+                            {(newChannel.music_preference.tracks || []).map(t => (
+                              <div key={t} className="flex items-center justify-between bg-[#11151c] border border-[#202938] rounded-xl px-3 py-2">
+                                <span className="text-xs text-slate-300 truncate flex items-center gap-2"><span className="material-symbols-outlined text-[16px] text-emerald-400">music_note</span>{t.split('/').pop()}</span>
+                                <button type="button" onClick={() => handleDeleteMusicTrack(t)} className="text-rose-400 hover:text-rose-300">
+                                  <span className="material-symbols-outlined text-[16px]">delete</span>
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {musicFiles.length > 0 && (
+                          <div className="space-y-1.5">
+                            {musicFiles.map((f, i) => (
+                              <div key={`${f.name}-${i}`} className="flex items-center justify-between bg-[#00c2ff]/10 border border-[#00c2ff]/30 rounded-xl px-3 py-2">
+                                <span className="text-xs text-[#00c2ff] truncate flex items-center gap-2"><span className="material-symbols-outlined text-[16px]">pending</span>{f.name} <span className="text-slate-400">(sera importé à l'enregistrement)</span></span>
+                                <button type="button" onClick={() => setMusicFiles(prev => prev.filter((_, idx) => idx !== i))} className="text-slate-400 hover:text-white">
+                                  <span className="material-symbols-outlined text-[16px]">close</span>
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {newChannel.music_preference.mode === 'ai_generate' && (
+                      <div className="space-y-3">
+                        <div className="bg-[#00c2ff]/10 border border-[#00c2ff]/30 rounded-xl p-3 flex items-start gap-2.5 text-xs text-[#00c2ff]">
+                          <span className="material-symbols-outlined text-[18px]">info</span>
+                          <span>Par défaut, Claude écrit automatiquement le prompt musical à partir de la niche « {newChannel.niche || '...'} » et du script de chaque vidéo. Tu peux forcer ton propre prompt ci-dessous si tu préfères.</span>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-slate-300 mb-2">Prompt musical personnalisé (optionnel)</label>
+                          <textarea
+                            rows="2"
+                            value={newChannel.music_preference.ai_prompt || ''}
+                            onChange={e => setNewChannel({ ...newChannel, music_preference: { ...newChannel.music_preference, ai_prompt: e.target.value } })}
+                            className="w-full bg-[#1b2230] border border-[#2b374d] rounded-xl p-2.5 text-xs text-white focus:border-[#00c2ff] outline-none placeholder-slate-500"
+                            placeholder="Laisse vide pour laisser Claude générer le prompt automatiquement..."
+                          />
+                        </div>
+                      </div>
+                    )}
 
                     <div>
                       <label className="block text-xs font-bold text-slate-300 mb-2">Volume Musique ({Math.round((newChannel.music_preference.volume || 0.15) * 100)}%)</label>
-                      <input 
+                      <input
                         type="range"
                         min="0.05"
                         max="0.5"
