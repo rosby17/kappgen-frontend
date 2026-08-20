@@ -2084,6 +2084,8 @@ export default function App() {
       }
       const blob = await res.blob();
       setAiMusicPreviewUrl(URL.createObjectURL(blob));
+      // A real music choice was made — same rule as picking a file in "Mes propres musiques".
+      setNewChannel(prev => ({ ...prev, music_preference: { ...prev.music_preference, enabled: true } }));
     } catch (err) {
       showToast(err.message || "Erreur lors de la génération de la musique.", "error");
     } finally {
@@ -5819,7 +5821,17 @@ export default function App() {
                           >
                             {activeVoice ? (
                               <>
-                                <VoiceAvatar voice={activeVoice} size={34} />
+                                <VoiceAvatar
+                                  voice={activeVoice}
+                                  size={34}
+                                  playable={!!activeVoice.preview_url}
+                                  playing={playingId === activeVoice.id}
+                                  onTogglePlay={() => {
+                                    if (playingId === activeVoice.id) { stopVoicePreview(); setPlayingId(null); return; }
+                                    playVoicePreviewExclusive(activeVoice.preview_url, () => setPlayingId(null));
+                                    setPlayingId(activeVoice.id);
+                                  }}
+                                />
                                 <div className="min-w-0 flex-1">
                                   <p className="text-xs font-bold text-white truncate">{activeVoice.name}</p>
                                   <p className="text-[10px] text-slate-500 truncate">{activeVoice.desc}</p>
@@ -6268,12 +6280,13 @@ export default function App() {
                         )}
                       </div>
 
-                      {/* OPTION B: GÉNÉRER AVEC L'IA — gated behind the toggle, unlike
-                          Option A: there's nothing useful to do here (no file staged
-                          yet, no auto-enable trigger) until music is actually on. */}
+                      {/* OPTION B: GÉNÉRER AVEC L'IA — same rule as Option A: stays
+                          selectable even while the toggle above is off, so the creator
+                          can generate/preview a track first and have the toggle
+                          auto-flip on (see handleGenerateMusicPreview). */}
                       <div
                         onClick={() => setNewChannel({ ...newChannel, music_preference: { ...newChannel.music_preference, mode: 'ai_generate' } })}
-                        className={`p-5 rounded-2xl border-2 transition-all cursor-pointer space-y-4 flex flex-col ${(newChannel.music_preference.enabled ?? true) ? '' : 'opacity-40 pointer-events-none'} ${
+                        className={`p-5 rounded-2xl border-2 transition-all cursor-pointer space-y-4 flex flex-col ${
                           newChannel.music_preference.mode === 'ai_generate'
                             ? 'bg-[#1b2230] border-[#00c2ff] shadow-lg shadow-[#00c2ff]/10'
                             : 'bg-[#141923] border-[#263042] hover:border-slate-500 opacity-60'
@@ -7253,7 +7266,9 @@ export default function App() {
                   // composited into the video itself.
                   const recapItems = [
                     { id: 'logo', label: 'Logo de la chaîne', icon: 'workspace_premium', available: !!resolvedLogoUrl },
-                    { id: 'voiceover', label: 'Voix Off', icon: 'mic', available: !!newChannel.voice_id },
+                    // A channel always has a voice — either the one explicitly picked, or the
+                    // platform default the creator never bothered changing — so this is always on.
+                    { id: 'voiceover', label: 'Voix Off', icon: 'mic', available: true },
                     { id: 'visual', label: 'Visuel de fond', icon: 'image', available: !!(userImagePreview || (wizardMode === 'edit' && activeChannel)) },
                     { id: 'music', label: 'Musique de fond', icon: 'music_note', available: !!musicLabel },
                     { id: 'subtitles', label: 'Sous-titres', icon: 'subtitles', available: true },
@@ -7271,7 +7286,7 @@ export default function App() {
                     // Music defaults to off — it only counts as "on" once the creator
                     // actually picked a track/AI generation, same rule as the Musique step.
                     if (id === 'music') return newChannel.music_preference.enabled ?? false;
-                    if (id === 'voiceover') return !!newChannel.voice_id;
+                    if (id === 'voiceover') return true;
                     return recapVisible.visual;
                   };
                   const toggleRecap = (id) => {
@@ -7327,7 +7342,10 @@ export default function App() {
 
                           {/* Background Scene Visual — a freshly picked file from this wizard
                               session takes priority; otherwise fall back to a real random image
-                              already stored server-side for this channel (not a generic stock photo). */}
+                              already stored server-side for this channel (not a generic stock photo);
+                              and if that 404s (or the channel is AI-generated-only, so there's no
+                              library preview at all), fall back to the same bundled demo image used
+                              in the Effets step, so this mockup never renders as a flat black box. */}
                           <div className="absolute inset-0">
                             {!isRecapChecked('visual') ? null : userImagePreview ? (
                               <img
@@ -7341,9 +7359,15 @@ export default function App() {
                                 src={`${API_BASE}/channels/${activeChannel.id}/library-preview`}
                                 alt="Aperçu visuel de la vidéo"
                                 className="w-full h-full object-cover opacity-85"
-                                onError={(event) => { event.currentTarget.style.display = 'none'; }}
+                                onError={(event) => { event.currentTarget.onerror = null; event.currentTarget.src = STABLE_EFFECT_PREVIEW_IMAGES[0]; }}
                               />
-                            ) : null}
+                            ) : (
+                              <img
+                                src={STABLE_EFFECT_PREVIEW_IMAGES[0]}
+                                alt="Aperçu visuel de la vidéo"
+                                className="w-full h-full object-cover opacity-85"
+                              />
+                            )}
                             <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/30"></div>
                           </div>
 
@@ -8822,6 +8846,18 @@ export default function App() {
         };
         const addPart = () => updateStructure({ parts: [...parts, { name: `part_${parts.length + 1}`, word_count: 300, guidance: '' }] });
         const removePart = (idx) => updateStructure({ parts: parts.filter((_, i) => i !== idx) });
+        // For channels created before the app switched to always-French guidance —
+        // their saved parts can still carry the old English text. Re-matches each
+        // part by name against the current French defaults and swaps just the
+        // guidance, keeping word counts and any custom part names untouched.
+        const resetGuidanceToFrench = () => {
+          const frenchParts = getScriptStructureDefaults().parts || [];
+          const next = parts.map(p => {
+            const match = frenchParts.find(fp => fp.name === p.name);
+            return match ? { ...p, guidance: match.guidance } : p;
+          });
+          updateStructure({ parts: next });
+        };
         const totalWords = parts.reduce((sum, p) => sum + (Number(p.word_count) || 0), 0);
         const rulesText = (structure.formatting_rules || []).join('\n');
 
@@ -8935,7 +8971,17 @@ export default function App() {
 
                 <div className="space-y-3">
                   <div className="flex items-center justify-between px-1">
-                    <label className="text-[11px] font-bold text-slate-300">Parties du script</label>
+                    <div className="flex items-center gap-2">
+                      <label className="text-[11px] font-bold text-slate-300">Parties du script</label>
+                      <button
+                        type="button"
+                        onClick={resetGuidanceToFrench}
+                        title="Remet les consignes de chaque partie en français (utile si ce canal a été créé avant, avec des consignes en anglais)"
+                        className="text-[10px] font-bold text-[#00c2ff] hover:text-[#38d0ff] underline decoration-dotted underline-offset-2"
+                      >
+                        Réinitialiser en français
+                      </button>
+                    </div>
                     <span className="text-[10px] text-slate-500 font-bold pr-11">Mots</span>
                   </div>
                   {parts.map((part, idx) => (
