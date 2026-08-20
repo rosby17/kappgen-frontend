@@ -541,6 +541,16 @@ const SUBTITLE_FONTS = [
 ];
 
 // Available Voice Models
+// Stable, bundled stock photos for the Effets step's preview when the client
+// hasn't uploaded their own image library yet — previously that preview was
+// just blank text ("importez un dossier") until they did, which made it
+// impossible to actually see any effect before finishing the whole wizard.
+const STABLE_EFFECT_PREVIEW_IMAGES = [
+  '/assets/dashboard/freedom-sunrise.png',
+  '/assets/dashboard/freedom-sleep.png',
+  '/assets/backgrounds/nichecut-abstract-tech.webp',
+];
+
 const VOICE_MODELS = [
   { id: 'fr-FR-Thomas', name: 'Thomas — Voix Stoïque & Profonde', lang: 'fr-FR', desc: 'Idéal pour philosophie, citations et stoïcisme' },
   { id: 'fr-FR-Elodie', name: 'Élodie — Narrative Éléganter', lang: 'fr-FR', desc: 'Idéal pour récits historiques et contes' },
@@ -2041,7 +2051,11 @@ export default function App() {
   const handleMusicFileSelect = (e) => {
     const files = Array.from(e.target.files || []);
     e.target.value = '';
-    if (files.length) setMusicFiles(prev => [...prev, ...files]);
+    if (files.length) {
+      setMusicFiles(prev => [...prev, ...files]);
+      // A real music choice was made — turn the feature on automatically.
+      setNewChannel(prev => ({ ...prev, music_preference: { ...prev.music_preference, enabled: true } }));
+    }
   };
 
   const uploadChannelMusic = async (channelId) => {
@@ -2067,30 +2081,6 @@ export default function App() {
       showToast(err.message, "error");
     }
   };
-  const [detectingNiche, setDetectingNiche] = useState(false);
-  const handleDetectNiche = async () => {
-    setDetectingNiche(true);
-    try {
-      const res = await fetch(`${API_BASE}/channels/suggest-niche`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: newChannel.name, description: newChannel.description }),
-      });
-      if (!res.ok) throw new Error();
-      const data = await res.json();
-      if (data.niche) {
-        setNewChannel(prev => ({ ...prev, niche: data.niche }));
-        showToast(`Niche détectée : ${data.niche}`, 'success');
-      } else {
-        showToast("Pas assez d'informations pour détecter une niche — précise la description.", 'error');
-      }
-    } catch {
-      showToast('Détection de niche impossible.', 'error');
-    } finally {
-      setDetectingNiche(false);
-    }
-  };
-
   const styleReferenceInputRef = useRef(null);
 
   const handleAnalyzeStyleImage = async (e) => {
@@ -2219,7 +2209,10 @@ export default function App() {
       logo_enabled: true,
     },
     music_preference: {
-      enabled: true,
+      // Off until the creator actually picks something (upload / AI generate) —
+      // auto-flips to true the moment they make a real choice, see handleMusicFileSelect
+      // and the OPTION A/B card clicks in the Musique step.
+      enabled: false,
       mode: 'library',
       track_id_or_style: 'ambient',
       volume: 0.10
@@ -2254,6 +2247,7 @@ export default function App() {
     automation_window_end_hour: 11,
     active_days: null,
     publish_mode: 'manual',
+    publish_time_mode: 'range',
     publish_schedule_hour: 8,
     publish_schedule_day_offset: 1,
     script_structure: {
@@ -2967,6 +2961,7 @@ export default function App() {
       active_days: channel.active_days || null,
       timezone: channel.timezone || defaultChannelForm.timezone,
       publish_mode: channel.publish_mode || 'manual',
+      publish_time_mode: channel.publish_time_mode || 'range',
       publish_schedule_hour: channel.publish_schedule_hour ?? 8,
       publish_schedule_day_offset: channel.publish_schedule_day_offset ?? 1,
       script_structure: channel.script_structure || defaultChannelForm.script_structure,
@@ -5529,7 +5524,7 @@ export default function App() {
 
                 {/* Steps Timeline Indicator */}
                 <div className="grid grid-cols-9 gap-2">
-                  {['Identité', 'Script', 'Voix Off', 'Musique', 'Visuels', 'Sous-titres', 'Effets', 'Aperçu', 'Publication'].map((label, idx) => {
+                  {['Identité', 'Script', 'Voix Off', 'Visuels', 'Musique', 'Sous-titres', 'Effets', 'Publication', 'Aperçu'].map((label, idx) => {
                     const stepNum = idx + 1;
                     const isActive = wizardStep === stepNum;
                     const isPassed = wizardStep > stepNum;
@@ -5615,18 +5610,7 @@ export default function App() {
                     </div>
 
                     <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <label className="text-xs font-bold text-slate-300">Description de la chaîne</label>
-                        <button
-                          type="button"
-                          disabled={detectingNiche || (!newChannel.name.trim() && !newChannel.description.trim())}
-                          onClick={handleDetectNiche}
-                          className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold bg-[#00c2ff]/10 text-[#00c2ff] hover:bg-[#00c2ff]/20 transition-colors disabled:opacity-50"
-                        >
-                          <span className="material-symbols-outlined text-[13px]">{detectingNiche ? 'hourglass_top' : 'travel_explore'}</span>
-                          {detectingNiche ? 'Détection...' : 'Détecter la niche'}
-                        </button>
-                      </div>
+                      <label className="block text-xs font-bold text-slate-300 mb-2">Description de la chaîne</label>
                       <textarea
                         rows="2"
                         value={newChannel.description}
@@ -5819,160 +5803,8 @@ export default function App() {
                   </div>
                 )}
 
-                {/* STEP 4: MUSIQUE DE FOND & AUDIO */}
-                {wizardStep === 4 && (
-                  <div className="space-y-6">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-base font-bold text-white">4. Musique de Fond Ambiante & Auto-Ducking</h3>
-                      <label className="inline-flex items-center gap-2 cursor-pointer select-none">
-                        <span className="text-[11px] font-bold text-slate-400">Pas de musique</span>
-                        <button
-                          type="button"
-                          onClick={() => setNewChannel({ ...newChannel, music_preference: { ...newChannel.music_preference, enabled: !(newChannel.music_preference.enabled ?? true) } })}
-                          className={`relative w-9 h-5 rounded-full overflow-hidden transition-colors ${(newChannel.music_preference.enabled ?? true) ? 'bg-[#00c2ff]' : 'bg-[#2b374d]'}`}
-                        >
-                          <span className={`absolute left-0.5 top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${(newChannel.music_preference.enabled ?? true) ? 'translate-x-4' : 'translate-x-0'}`} />
-                        </button>
-                        <span className="text-[11px] font-bold text-slate-400">Musique activée</span>
-                      </label>
-                    </div>
-                    {!(newChannel.music_preference.enabled ?? true) && (
-                      <p className="text-[11px] text-amber-300 bg-amber-950/40 border border-amber-700/40 rounded-xl px-3 py-2">
-                        Musique désactivée — tes vidéos n'auront aucun fond sonore, seulement la voix off.
-                      </p>
-                    )}
-
-                    <div className={`grid grid-cols-1 md:grid-cols-2 gap-6 transition-opacity ${(newChannel.music_preference.enabled ?? true) ? '' : 'opacity-40 pointer-events-none'}`}>
-                      {/* OPTION A: MES PROPRES MUSIQUES */}
-                      <div
-                        onClick={() => setNewChannel({ ...newChannel, music_preference: { ...newChannel.music_preference, mode: 'library' } })}
-                        className={`p-5 rounded-2xl border-2 transition-all cursor-pointer space-y-4 flex flex-col ${
-                          (newChannel.music_preference.mode || 'library') === 'library'
-                            ? 'bg-[#1b2230] border-[#00c2ff] shadow-lg shadow-[#00c2ff]/10'
-                            : 'bg-[#141923] border-[#263042] hover:border-slate-500 opacity-60'
-                        }`}
-                      >
-                        <div className="space-y-2">
-                          <div className="flex items-center gap-2.5">
-                            <span className="material-symbols-outlined text-[#00c2ff] text-[24px]">library_music</span>
-                            <h4 className="font-bold text-white text-xs">Mes propres musiques</h4>
-                          </div>
-                          <p className="text-[11px] text-slate-400">Importe tes morceaux — un est choisi au hasard à chaque vidéo. Jamais de musique tierce sans droits.</p>
-                        </div>
-
-                        <div
-                          onClick={(e) => { e.stopPropagation(); musicInputRef.current && musicInputRef.current.click(); }}
-                          className="border-2 border-dashed border-[#2b374d] hover:border-[#00c2ff] rounded-xl p-4 text-center cursor-pointer transition-colors"
-                        >
-                          <span className="material-symbols-outlined text-slate-400 text-[24px]">upload_file</span>
-                          <p className="text-[11px] text-slate-300 mt-1 font-bold">Clique pour importer un ou plusieurs morceaux</p>
-                          <p className="text-[10px] text-slate-500 mt-0.5">MP3, WAV, M4A, OGG</p>
-                        </div>
-                        <input
-                          ref={musicInputRef}
-                          type="file"
-                          accept="audio/mpeg,audio/wav,audio/mp4,audio/ogg,.mp3,.wav,.m4a,.ogg"
-                          multiple
-                          onChange={handleMusicFileSelect}
-                          className="hidden"
-                        />
-
-                        {(newChannel.music_preference.tracks || []).length > 0 && (
-                          <div className="space-y-2" onClick={(e) => e.stopPropagation()}>
-                            {(newChannel.music_preference.tracks || []).map(t => (
-                              <ServerAudioPreview
-                                key={t}
-                                src={getVideoUrl(t)}
-                                name={t.split('/').pop()}
-                                volume={newChannel.music_preference.volume ?? 0.10}
-                                onRemove={() => handleDeleteMusicTrack(t)}
-                              />
-                            ))}
-                          </div>
-                        )}
-
-                        {musicFiles.length > 0 && (
-                          <div className="space-y-2" onClick={(e) => e.stopPropagation()}>
-                            <p className="text-[10px] text-slate-500">Écoute directement — ils seront importés quand tu enregistres.</p>
-                            {musicFiles.map((f, i) => (
-                              <AudioFilePreview
-                                key={`${f.name}-${i}`}
-                                file={f}
-                                volume={newChannel.music_preference.volume ?? 0.10}
-                                onRemove={() => setMusicFiles(prev => prev.filter((_, idx) => idx !== i))}
-                              />
-                            ))}
-                          </div>
-                        )}
-                      </div>
-
-                      {/* OPTION B: GÉNÉRER AVEC L'IA */}
-                      <div
-                        onClick={() => setNewChannel({ ...newChannel, music_preference: { ...newChannel.music_preference, mode: 'ai_generate' } })}
-                        className={`p-5 rounded-2xl border-2 transition-all cursor-pointer space-y-4 flex flex-col ${
-                          newChannel.music_preference.mode === 'ai_generate'
-                            ? 'bg-[#1b2230] border-[#00c2ff] shadow-lg shadow-[#00c2ff]/10'
-                            : 'bg-[#141923] border-[#263042] hover:border-slate-500 opacity-60'
-                        }`}
-                      >
-                        <div className="space-y-2">
-                          <div className="flex items-center gap-2.5">
-                            <span className="material-symbols-outlined text-[#00c2ff] text-[24px]">auto_awesome</span>
-                            <h4 className="font-bold text-white text-xs">Générer avec l'IA</h4>
-                          </div>
-                          <p className="text-[11px] text-slate-400">NicheCut écrit le prompt à partir de la niche (et du script), puis IziVoice génère la musique.</p>
-                        </div>
-
-                        <div onClick={(e) => e.stopPropagation()}>
-                          <label className="block text-[10px] font-bold text-slate-300 mb-1">Prompt musical personnalisé (optionnel)</label>
-                          <textarea
-                            rows="2"
-                            value={newChannel.music_preference.ai_prompt || ''}
-                            onChange={e => setNewChannel({ ...newChannel, music_preference: { ...newChannel.music_preference, ai_prompt: e.target.value } })}
-                            className="w-full bg-[#0f1217] border border-[#2b374d] rounded-xl p-2.5 text-[11px] text-white focus:border-[#00c2ff] outline-none placeholder-slate-500"
-                            placeholder="Ex : piano doux, ambiance méditative, tempo lent... (laisse vide pour un prompt automatique)"
-                          />
-                        </div>
-
-                        <button
-                          type="button"
-                          onClick={(e) => { e.stopPropagation(); handleGenerateMusicPreview(); }}
-                          disabled={aiMusicGenerating}
-                          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#00c2ff] text-slate-950 font-bold text-xs hover:bg-[#38d0ff] transition-all disabled:opacity-50"
-                        >
-                          <span className="material-symbols-outlined text-[18px]">{aiMusicGenerating ? 'hourglass_top' : 'auto_awesome'}</span>
-                          {aiMusicGenerating ? 'Génération...' : (aiMusicPreviewUrl ? 'Régénérer et réécouter' : 'Générer et écouter un aperçu')}
-                        </button>
-
-                        {aiMusicPreviewUrl && (
-                          <div onClick={(e) => e.stopPropagation()}>
-                            <ServerAudioPreview
-                              src={aiMusicPreviewUrl}
-                              name="Aperçu généré (20s)"
-                              volume={newChannel.music_preference.volume ?? 0.10}
-                            />
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-bold text-slate-300 mb-2">Volume Musique ({Math.round((newChannel.music_preference.volume ?? 0.10) * 100)}%)</label>
-                      <input
-                        type="range"
-                        min="0.05"
-                        max="0.5"
-                        step="0.01"
-                        value={newChannel.music_preference.volume ?? 0.10}
-                        onChange={e => setNewChannel({ ...newChannel, music_preference: { ...newChannel.music_preference, volume: parseFloat(e.target.value) } })}
-                        className="w-full accent-[#00c2ff]"
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {/* STEP 5: VISUELS & SOURCES D'IMAGES (OPTION A & OPTION B COCHABLES) */}
-                {wizardStep === 5 && (() => {
+                {/* STEP 4: VISUELS & SOURCES D'IMAGES (OPTION A & OPTION B COCHABLES) */}
+                {wizardStep === 4 && (() => {
                   const isOptionAChecked = newChannel.image_style.source === 'library' || newChannel.image_style.source === 'hybrid';
                   const isOptionBChecked = newChannel.image_style.source === 'ai_generated' || newChannel.image_style.source === 'hybrid';
 
@@ -5998,7 +5830,7 @@ export default function App() {
                   return (
                     <div className="space-y-6">
                       <div>
-                        <h3 className="text-base font-bold text-white">5. Source d'Images Visuelles & Mode de Génération</h3>
+                        <h3 className="text-base font-bold text-white">4. Source d'Images Visuelles & Mode de Génération</h3>
                         <p className="text-xs text-slate-400 mt-1">Sélectionnez la ou les sources visuelles souhaitées (Vous pouvez cocher l'Option A, l'Option B, ou les deux !).</p>
                       </div>
 
@@ -6286,6 +6118,158 @@ export default function App() {
                     </div>
                   );
                 })()}
+
+                {/* STEP 5: MUSIQUE DE FOND & AUDIO */}
+                {wizardStep === 5 && (
+                  <div className="space-y-6">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-base font-bold text-white">5. Musique de Fond Ambiante & Auto-Ducking</h3>
+                      <label className="inline-flex items-center gap-2 cursor-pointer select-none">
+                        <span className="text-[11px] font-bold text-slate-400">Pas de musique</span>
+                        <button
+                          type="button"
+                          onClick={() => setNewChannel({ ...newChannel, music_preference: { ...newChannel.music_preference, enabled: !(newChannel.music_preference.enabled ?? true) } })}
+                          className={`relative w-9 h-5 rounded-full overflow-hidden transition-colors ${(newChannel.music_preference.enabled ?? true) ? 'bg-[#00c2ff]' : 'bg-[#2b374d]'}`}
+                        >
+                          <span className={`absolute left-0.5 top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${(newChannel.music_preference.enabled ?? true) ? 'translate-x-4' : 'translate-x-0'}`} />
+                        </button>
+                        <span className="text-[11px] font-bold text-slate-400">Musique activée</span>
+                      </label>
+                    </div>
+                    {!(newChannel.music_preference.enabled ?? true) && (
+                      <p className="text-[11px] text-amber-300 bg-amber-950/40 border border-amber-700/40 rounded-xl px-3 py-2">
+                        Musique désactivée — tes vidéos n'auront aucun fond sonore, seulement la voix off.
+                      </p>
+                    )}
+
+                    <div className={`grid grid-cols-1 md:grid-cols-2 gap-6 transition-opacity ${(newChannel.music_preference.enabled ?? true) ? '' : 'opacity-40 pointer-events-none'}`}>
+                      {/* OPTION A: MES PROPRES MUSIQUES */}
+                      <div
+                        onClick={() => setNewChannel({ ...newChannel, music_preference: { ...newChannel.music_preference, mode: 'library' } })}
+                        className={`p-5 rounded-2xl border-2 transition-all cursor-pointer space-y-4 flex flex-col ${
+                          (newChannel.music_preference.mode || 'library') === 'library'
+                            ? 'bg-[#1b2230] border-[#00c2ff] shadow-lg shadow-[#00c2ff]/10'
+                            : 'bg-[#141923] border-[#263042] hover:border-slate-500 opacity-60'
+                        }`}
+                      >
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2.5">
+                            <span className="material-symbols-outlined text-[#00c2ff] text-[24px]">library_music</span>
+                            <h4 className="font-bold text-white text-xs">Mes propres musiques</h4>
+                          </div>
+                          <p className="text-[11px] text-slate-400">Importe tes morceaux — un est choisi au hasard à chaque vidéo. Jamais de musique tierce sans droits.</p>
+                        </div>
+
+                        <div
+                          onClick={(e) => { e.stopPropagation(); musicInputRef.current && musicInputRef.current.click(); }}
+                          className="border-2 border-dashed border-[#2b374d] hover:border-[#00c2ff] rounded-xl p-4 text-center cursor-pointer transition-colors"
+                        >
+                          <span className="material-symbols-outlined text-slate-400 text-[24px]">upload_file</span>
+                          <p className="text-[11px] text-slate-300 mt-1 font-bold">Clique pour importer un ou plusieurs morceaux</p>
+                          <p className="text-[10px] text-slate-500 mt-0.5">MP3, WAV, M4A, OGG</p>
+                        </div>
+                        <input
+                          ref={musicInputRef}
+                          type="file"
+                          accept="audio/mpeg,audio/wav,audio/mp4,audio/ogg,.mp3,.wav,.m4a,.ogg"
+                          multiple
+                          onChange={handleMusicFileSelect}
+                          className="hidden"
+                        />
+
+                        {(newChannel.music_preference.tracks || []).length > 0 && (
+                          <div className="space-y-2" onClick={(e) => e.stopPropagation()}>
+                            {(newChannel.music_preference.tracks || []).map(t => (
+                              <ServerAudioPreview
+                                key={t}
+                                src={getVideoUrl(t)}
+                                name={t.split('/').pop()}
+                                volume={newChannel.music_preference.volume ?? 0.10}
+                                onRemove={() => handleDeleteMusicTrack(t)}
+                              />
+                            ))}
+                          </div>
+                        )}
+
+                        {musicFiles.length > 0 && (
+                          <div className="space-y-2" onClick={(e) => e.stopPropagation()}>
+                            <p className="text-[10px] text-slate-500">Écoute directement — ils seront importés quand tu enregistres.</p>
+                            {musicFiles.map((f, i) => (
+                              <AudioFilePreview
+                                key={`${f.name}-${i}`}
+                                file={f}
+                                volume={newChannel.music_preference.volume ?? 0.10}
+                                onRemove={() => setMusicFiles(prev => prev.filter((_, idx) => idx !== i))}
+                              />
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* OPTION B: GÉNÉRER AVEC L'IA */}
+                      <div
+                        onClick={() => setNewChannel({ ...newChannel, music_preference: { ...newChannel.music_preference, mode: 'ai_generate' } })}
+                        className={`p-5 rounded-2xl border-2 transition-all cursor-pointer space-y-4 flex flex-col ${
+                          newChannel.music_preference.mode === 'ai_generate'
+                            ? 'bg-[#1b2230] border-[#00c2ff] shadow-lg shadow-[#00c2ff]/10'
+                            : 'bg-[#141923] border-[#263042] hover:border-slate-500 opacity-60'
+                        }`}
+                      >
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2.5">
+                            <span className="material-symbols-outlined text-[#00c2ff] text-[24px]">auto_awesome</span>
+                            <h4 className="font-bold text-white text-xs">Générer avec l'IA</h4>
+                          </div>
+                          <p className="text-[11px] text-slate-400">NicheCut écrit le prompt à partir de la niche (et du script), puis IziVoice génère la musique.</p>
+                        </div>
+
+                        <div onClick={(e) => e.stopPropagation()}>
+                          <label className="block text-[10px] font-bold text-slate-300 mb-1">Prompt musical personnalisé (optionnel)</label>
+                          <textarea
+                            rows="2"
+                            value={newChannel.music_preference.ai_prompt || ''}
+                            onChange={e => setNewChannel({ ...newChannel, music_preference: { ...newChannel.music_preference, ai_prompt: e.target.value } })}
+                            className="w-full bg-[#0f1217] border border-[#2b374d] rounded-xl p-2.5 text-[11px] text-white focus:border-[#00c2ff] outline-none placeholder-slate-500"
+                            placeholder="Ex : piano doux, ambiance méditative, tempo lent... (laisse vide pour un prompt automatique)"
+                          />
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); handleGenerateMusicPreview(); }}
+                          disabled={aiMusicGenerating}
+                          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#00c2ff] text-slate-950 font-bold text-xs hover:bg-[#38d0ff] transition-all disabled:opacity-50"
+                        >
+                          <span className="material-symbols-outlined text-[18px]">{aiMusicGenerating ? 'hourglass_top' : 'auto_awesome'}</span>
+                          {aiMusicGenerating ? 'Génération...' : (aiMusicPreviewUrl ? 'Régénérer et réécouter' : 'Générer et écouter un aperçu')}
+                        </button>
+
+                        {aiMusicPreviewUrl && (
+                          <div onClick={(e) => e.stopPropagation()}>
+                            <ServerAudioPreview
+                              src={aiMusicPreviewUrl}
+                              name="Aperçu généré (20s)"
+                              volume={newChannel.music_preference.volume ?? 0.10}
+                            />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-300 mb-2">Volume Musique ({Math.round((newChannel.music_preference.volume ?? 0.10) * 100)}%)</label>
+                      <input
+                        type="range"
+                        min="0.05"
+                        max="0.5"
+                        step="0.01"
+                        value={newChannel.music_preference.volume ?? 0.10}
+                        onChange={e => setNewChannel({ ...newChannel, music_preference: { ...newChannel.music_preference, volume: parseFloat(e.target.value) } })}
+                        className="w-full accent-[#00c2ff]"
+                      />
+                    </div>
+                  </div>
+                )}
 
                 {/* STEP 6: SOUS-TITRES & KARAOKÉ ASS */}
                 {wizardStep === 6 && (
@@ -6796,15 +6780,37 @@ export default function App() {
                   const hasVignette = overlayEffects.includes('vignette');
                   const grainIntensity = (newChannel.effects_config.grain_intensity ?? 50) / 100;
                   const vignetteIntensity = (newChannel.effects_config.vignette_intensity ?? 50) / 100;
+                  const hasChromaticAberration = overlayEffects.includes('chromatic_aberration');
+                  const hasOldFilm = overlayEffects.includes('old_film');
+                  const hasFlicker = overlayEffects.includes('flicker');
+                  const hasSoftFocus = overlayEffects.includes('soft_focus');
+                  const hasSharpen = overlayEffects.includes('sharpen');
+                  const previewImgFilter = [
+                    colorGradeFilter !== 'none' ? colorGradeFilter : '',
+                    hasSoftFocus ? 'blur(1.2px)' : '',
+                    hasSharpen ? 'contrast(1.08) saturate(1.08)' : '',
+                  ].filter(Boolean).join(' ') || 'none';
 
+                  // Falls back to one of our own bundled stock photos when the
+                  // client hasn't uploaded a library yet — better than a blank
+                  // "import your images first" placeholder with no visual at all.
                   const previewImgSrc = localImageFiles.length > 0
                     ? URL.createObjectURL(localImageFiles[0])
-                    : (wizardMode === 'edit' && editingChannelId ? `${API_BASE}/channels/${editingChannelId}/library-preview` : null);
+                    : (wizardMode === 'edit' && editingChannelId
+                      ? `${API_BASE}/channels/${editingChannelId}/library-preview`
+                      : STABLE_EFFECT_PREVIEW_IMAGES[0]);
+                  const isStablePreview = localImageFiles.length === 0 && !(wizardMode === 'edit' && editingChannelId);
 
                   const colorGradeFilter = ({
                     warm: 'saturate(1.25) sepia(0.12) brightness(1.05)',
                     vintage: 'saturate(0.75) sepia(0.2) contrast(1.05)',
                     dramatic: 'contrast(1.3) saturate(0.85)',
+                    cool: 'saturate(1.1) hue-rotate(-8deg) brightness(0.98)',
+                    noir: 'grayscale(1) contrast(1.25)',
+                    sepia: 'sepia(0.75) contrast(1.05)',
+                    vibrant: 'saturate(1.6) contrast(1.1)',
+                    faded: 'contrast(0.82) brightness(1.08) saturate(0.85)',
+                    cinematic: 'saturate(1.1) contrast(1.12) hue-rotate(-4deg)',
                     none: 'none',
                   })[colorGrade] || 'none';
 
@@ -6824,6 +6830,12 @@ export default function App() {
                                 { id: 'warm', label: 'Chaud' },
                                 { id: 'vintage', label: 'Vintage' },
                                 { id: 'dramatic', label: 'Dramatique' },
+                                { id: 'cool', label: 'Froid' },
+                                { id: 'noir', label: 'Noir & Blanc' },
+                                { id: 'sepia', label: 'Sépia' },
+                                { id: 'vibrant', label: 'Vibrant' },
+                                { id: 'faded', label: 'Délavé' },
+                                { id: 'cinematic', label: 'Cinéma' },
                               ].map(({ id, label }) => (
                                 <button
                                   key={id}
@@ -6848,6 +6860,11 @@ export default function App() {
                                 { id: 'grain', label: 'Grain léger' },
                                 { id: 'white_noise', label: 'Bruit blanc' },
                                 { id: 'vignette', label: 'Vignette' },
+                                { id: 'chromatic_aberration', label: 'Aberration chromatique' },
+                                { id: 'old_film', label: 'Vieux film' },
+                                { id: 'flicker', label: 'Scintillement' },
+                                { id: 'soft_focus', label: 'Flou artistique' },
+                                { id: 'sharpen', label: 'Netteté HD' },
                               ].map(({ id, label }) => (
                                 <button
                                   key={id}
@@ -6927,23 +6944,38 @@ export default function App() {
                           <label className="block text-xs font-bold text-slate-300 mb-2">Aperçu des effets</label>
                           <div className="relative aspect-video rounded-2xl overflow-hidden border-2 border-[#2b374d] bg-[#0f1217]">
                             {previewImgSrc ? (
-                              <img src={previewImgSrc} alt="Aperçu des effets" className="w-full h-full object-cover" style={{ filter: colorGradeFilter }} onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+                              <img src={previewImgSrc} alt="Aperçu des effets" className="w-full h-full object-cover" style={{ filter: previewImgFilter }} onError={(e) => { e.currentTarget.style.display = 'none'; }} />
                             ) : (
                               <div className="w-full h-full flex items-center justify-center text-center px-6">
                                 <p className="text-xs text-slate-500">Importe un dossier d'images à l'étape "Visuels" pour voir l'aperçu sur une vraie image de ta chaîne.</p>
                               </div>
                             )}
-                            {hasGrain && (
+                            {isStablePreview && (
+                              <span className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-black/50 text-[9px] font-bold text-slate-300 backdrop-blur-sm">Image de démonstration</span>
+                            )}
+                            {hasChromaticAberration && (
+                              <>
+                                <img src={previewImgSrc} alt="" aria-hidden className="absolute inset-0 w-full h-full object-cover mix-blend-screen opacity-60" style={{ filter: 'brightness(0.6) sepia(1) saturate(6) hue-rotate(-50deg)', transform: 'translateX(-2px)' }} />
+                                <img src={previewImgSrc} alt="" aria-hidden className="absolute inset-0 w-full h-full object-cover mix-blend-screen opacity-60" style={{ filter: 'brightness(0.6) sepia(1) saturate(6) hue-rotate(140deg)', transform: 'translateX(2px)' }} />
+                              </>
+                            )}
+                            {(hasGrain || hasOldFilm) && (
                               <div
                                 className="absolute inset-0 mix-blend-overlay"
                                 style={{
-                                  opacity: (overlayEffects.includes('white_noise') && !overlayEffects.includes('grain') ? 0.6 : 0.3) * grainIntensity,
+                                  opacity: hasOldFilm ? 0.4 : (overlayEffects.includes('white_noise') && !overlayEffects.includes('grain') ? 0.6 : 0.3) * grainIntensity,
                                   backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")"
                                 }}
                               />
                             )}
-                            {hasVignette && (
-                              <div className="absolute inset-0" style={{ boxShadow: `inset 0 0 ${60 * vignetteIntensity}px ${20 * vignetteIntensity}px rgba(0,0,0,0.8)` }} />
+                            {(hasVignette || hasOldFilm) && (
+                              <div className="absolute inset-0" style={{ boxShadow: hasOldFilm ? 'inset 0 0 50px 15px rgba(0,0,0,0.75)' : `inset 0 0 ${60 * vignetteIntensity}px ${20 * vignetteIntensity}px rgba(0,0,0,0.8)` }} />
+                            )}
+                            {hasOldFilm && (
+                              <div className="absolute inset-0" style={{ backgroundColor: 'rgba(120,90,40,0.15)', mixBlendMode: 'multiply' }} />
+                            )}
+                            {hasFlicker && (
+                              <div className="absolute inset-0 bg-white animate-pulse" style={{ opacity: 0.06 }} />
                             )}
                           </div>
                           <p className="text-[10px] text-slate-500 mt-2">Aperçu approximatif — le rendu final vidéo peut légèrement varier.</p>
@@ -6953,8 +6985,192 @@ export default function App() {
                   );
                 })()}
 
-                {/* STEP 8: APERÇU FINAL DU DESIGN VIDÉO (LIVE 16:9 LANDSCAPE PREVIEW) */}
+                {/* STEP 8: PUBLICATION YOUTUBE */}
                 {wizardStep === 8 && (() => {
+                  const timeMode = newChannel.publish_time_mode || 'range';
+                  const timeModeToggle = (
+                    <div className="flex items-center gap-1 bg-[#0f1217] border border-[#2b374d] rounded-lg p-0.5 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => setNewChannel({ ...newChannel, publish_time_mode: 'fixed' })}
+                        className={`px-2 py-1 rounded-md text-[10px] font-bold transition-colors ${timeMode === 'fixed' ? 'bg-[#00c2ff] text-slate-950' : 'text-slate-400 hover:text-white'}`}
+                      >
+                        Heure fixe
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setNewChannel({ ...newChannel, publish_time_mode: 'range' })}
+                        className={`px-2 py-1 rounded-md text-[10px] font-bold transition-colors ${timeMode === 'range' ? 'bg-[#00c2ff] text-slate-950' : 'text-slate-400 hover:text-white'}`}
+                      >
+                        Plage horaire
+                      </button>
+                    </div>
+                  );
+                  const timeControls = (
+                    <div className="flex items-center gap-2 bg-[#11151c] border border-[#202938] rounded-xl px-3 py-2.5 flex-wrap">
+                      <span className="material-symbols-outlined text-[16px] text-slate-500 shrink-0">schedule</span>
+                      {timeMode === 'fixed' ? (
+                        <>
+                          <span className="text-[11px] text-slate-400 shrink-0">Heure :</span>
+                          <select
+                            value={newChannel.publish_schedule_hour ?? 8}
+                            onChange={e => setNewChannel({ ...newChannel, publish_schedule_hour: parseInt(e.target.value) })}
+                            className="bg-[#1b2230] border border-[#2b374d] rounded-lg px-2 py-1.5 text-[11px] text-white focus:border-[#00c2ff] outline-none"
+                          >
+                            {Array.from({ length: 24 }, (_, h) => <option key={h} value={h}>{String(h).padStart(2, '0')}h00</option>)}
+                          </select>
+                        </>
+                      ) : (
+                        <>
+                          <span className="text-[11px] text-slate-400 shrink-0">Plage :</span>
+                          <select
+                            value={newChannel.automation_window_start_hour ?? 7}
+                            onChange={e => setNewChannel({ ...newChannel, automation_window_start_hour: parseInt(e.target.value) })}
+                            className="bg-[#1b2230] border border-[#2b374d] rounded-lg px-2 py-1.5 text-[11px] text-white focus:border-[#00c2ff] outline-none"
+                          >
+                            {Array.from({ length: 24 }, (_, h) => <option key={h} value={h}>{String(h).padStart(2, '0')}h00</option>)}
+                          </select>
+                          <span className="text-[11px] text-slate-500">à</span>
+                          <select
+                            value={newChannel.automation_window_end_hour ?? 11}
+                            onChange={e => setNewChannel({ ...newChannel, automation_window_end_hour: parseInt(e.target.value) })}
+                            className="bg-[#1b2230] border border-[#2b374d] rounded-lg px-2 py-1.5 text-[11px] text-white focus:border-[#00c2ff] outline-none"
+                          >
+                            {Array.from({ length: 24 }, (_, h) => <option key={h} value={h}>{String(h).padStart(2, '0')}h00</option>)}
+                          </select>
+                        </>
+                      )}
+                      {timeModeToggle}
+                    </div>
+                  );
+                  const weekdaySelector = (
+                    <div className="bg-[#11151c] border border-[#202938] rounded-xl px-3 py-2.5">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="material-symbols-outlined text-[16px] text-slate-500 shrink-0">event_repeat</span>
+                        <span className="text-[11px] text-slate-400">Jours de publication</span>
+                      </div>
+                      <div className="flex gap-1.5">
+                        {[
+                          { id: 0, label: 'L' }, { id: 1, label: 'M' }, { id: 2, label: 'M' },
+                          { id: 3, label: 'J' }, { id: 4, label: 'V' }, { id: 5, label: 'S' }, { id: 6, label: 'D' },
+                        ].map(({ id, label }) => {
+                          const activeDays = newChannel.active_days;
+                          const isOn = !activeDays || activeDays.length === 0 || activeDays.includes(id);
+                          return (
+                            <button
+                              key={id}
+                              type="button"
+                              onClick={() => {
+                                const current = (activeDays && activeDays.length > 0) ? activeDays : [0, 1, 2, 3, 4, 5, 6];
+                                const next = current.includes(id) ? current.filter(d => d !== id) : [...current, id].sort();
+                                setNewChannel({ ...newChannel, active_days: next.length === 7 ? null : next });
+                              }}
+                              className={`flex-1 py-2 rounded-lg text-[11px] font-bold border transition-colors ${
+                                isOn ? 'bg-[#00c2ff] text-slate-950 border-[#00c2ff]' : 'bg-[#1b2230] border-[#2b374d] text-slate-300 hover:border-slate-500'
+                              }`}
+                            >
+                              {label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                  const timezonePicker = (
+                    <div className="flex items-center gap-2 bg-[#11151c] border border-[#202938] rounded-xl px-3 py-2.5 relative">
+                      <span className="material-symbols-outlined text-[16px] text-slate-500 shrink-0">public</span>
+                      <span className="text-[11px] text-slate-400 shrink-0">Fuseau horaire :</span>
+                      <button
+                        type="button"
+                        onClick={() => { setTimezoneMenuOpen(o => !o); setTimezoneSearch(''); }}
+                        className="flex-1 min-w-0 flex items-center justify-between gap-2 bg-[#1b2230] border border-[#2b374d] hover:border-slate-500 rounded-lg px-2.5 py-1.5 text-[11px] text-white text-left transition-colors"
+                      >
+                        <span className="truncate">{newChannel.timezone || 'Africa/Douala'}</span>
+                        <span className={`material-symbols-outlined text-[15px] text-slate-400 shrink-0 transition-transform ${timezoneMenuOpen ? 'rotate-180' : ''}`}>expand_more</span>
+                      </button>
+                      {timezoneMenuOpen && (
+                        <div className="absolute left-0 right-0 top-full mt-1.5 bg-[#1f2838] border border-[#2d3a52] rounded-xl shadow-2xl z-50 overflow-hidden">
+                          <div className="p-2 border-b border-[#2d3a52]">
+                            <input
+                              autoFocus
+                              value={timezoneSearch}
+                              onChange={e => setTimezoneSearch(e.target.value)}
+                              placeholder="Rechercher (ex: Douala, Paris...)"
+                              className="w-full bg-[#11151c] border border-[#2b374d] rounded-lg px-2.5 py-1.5 text-[11px] text-white focus:border-[#00c2ff] outline-none"
+                            />
+                          </div>
+                          <div className="max-h-52 overflow-y-auto py-1">
+                            {TIMEZONE_OPTIONS
+                              .filter(tz => tz.toLowerCase().includes(timezoneSearch.toLowerCase()))
+                              .slice(0, 200)
+                              .map(tz => (
+                                <button
+                                  key={tz}
+                                  type="button"
+                                  onClick={() => { setNewChannel({ ...newChannel, timezone: tz }); setTimezoneMenuOpen(false); }}
+                                  className={`w-full text-left px-3 py-1.5 text-[11px] hover:bg-[#2c394e] transition-colors flex items-center justify-between gap-2 ${
+                                    tz === (newChannel.timezone || 'Africa/Douala') ? 'text-[#00c2ff] font-bold' : 'text-slate-300'
+                                  }`}
+                                >
+                                  <span className="truncate">{tz}</span>
+                                  {tz === (newChannel.timezone || 'Africa/Douala') && <span className="material-symbols-outlined text-[14px] shrink-0">check</span>}
+                                </button>
+                              ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                  return (
+                    <div className="space-y-6">
+                      <h3 className="text-base font-bold text-white">8. Publication YouTube</h3>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-300 mb-2">Publication YouTube</label>
+                        <p className="text-[11px] text-slate-500 mb-2">Indépendant du mode de génération du script — décide ce qui arrive à une vidéo une fois qu'elle est prête.</p>
+                        <ModeDropdown
+                          value={newChannel.publish_mode || 'manual'}
+                          onChange={v => setNewChannel({ ...newChannel, publish_mode: v })}
+                          options={[
+                            { value: 'manual', icon: 'download', label: 'Manuelle', desc: 'Tu télécharges la vidéo, ou tu cliques « Publier » quand tu veux' },
+                            { value: 'scheduled', icon: 'schedule', label: 'Programmée', desc: 'Une seule vidéo, publiée un nombre de jours donné après le rendu' },
+                            { value: 'auto', icon: 'bolt', label: 'Automatique', desc: 'Planning récurrent — les jours et l\'heure que tu choisis' },
+                          ]}
+                        />
+                        {newChannel.publish_mode === 'scheduled' && (
+                          <div className="mt-3 space-y-2">
+                            <div>
+                              <label className="block text-[11px] font-bold text-slate-300 mb-1">Combien de jours après le rendu</label>
+                              <select
+                                value={newChannel.publish_schedule_day_offset ?? 1}
+                                onChange={e => setNewChannel({ ...newChannel, publish_schedule_day_offset: parseInt(e.target.value) })}
+                                className="bg-[#1b2230] border border-[#2b374d] rounded-xl px-3 py-2 text-xs text-white focus:border-[#00c2ff] outline-none"
+                              >
+                                <option value={0}>Le jour même</option>
+                                <option value={1}>Le lendemain</option>
+                                <option value={2}>Dans 2 jours</option>
+                                <option value={3}>Dans 3 jours</option>
+                              </select>
+                            </div>
+                            {timeControls}
+                            {timezonePicker}
+                          </div>
+                        )}
+                        {newChannel.publish_mode === 'auto' && (
+                          <div className="mt-3 space-y-2">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 items-start">
+                              {timeControls}
+                              {weekdaySelector}
+                            </div>
+                            {timezonePicker}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* STEP 9: APERÇU FINAL DU DESIGN VIDÉO (LIVE 16:9 LANDSCAPE PREVIEW) */}
+                {wizardStep === 9 && (() => {
                   const userImagePreview = localImageFiles.length > 0 ? URL.createObjectURL(localImageFiles[0]) : null;
                   const stepOverlayEffects = newChannel.effects_config.overlay_effects || ['grain'];
                   const stepHasGrain = stepOverlayEffects.includes('grain') || stepOverlayEffects.includes('white_noise');
@@ -6971,27 +7187,31 @@ export default function App() {
                     || newChannel.music_preference?.tracks?.[0]?.split('/').pop()?.replace(/^[0-9a-f]{8}_/, '')
                     || (newChannel.music_preference?.mode === 'ai_generate' ? 'Musique générée par IA' : null);
                   const hasThumbnailStyle = !!newChannel.thumbnail_style?.style_prompt;
+                  // Chronological pipeline order (1. Identité/logo → 2-3. Script/Voix Off →
+                  // 4. Visuels → 5. Musique → 6. Sous-titres → 7. Effets). The thumbnail isn't
+                  // listed here — it's generated separately at publish time, not a layer
+                  // composited into the video itself.
                   const recapItems = [
                     { id: 'logo', label: 'Logo de la chaîne', icon: 'workspace_premium', available: !!resolvedLogoUrl },
-                    { id: 'subtitles', label: 'Sous-titres', icon: 'subtitles', available: true },
-                    { id: 'effects', label: 'Effets visuels', icon: 'auto_awesome', available: stepHasGrain || stepHasVignette || (newChannel.effects_config.color_grade && newChannel.effects_config.color_grade !== 'none') },
+                    { id: 'voiceover', label: 'Voix Off', icon: 'mic', available: !!newChannel.voice_id },
                     { id: 'visual', label: 'Visuel de fond', icon: 'image', available: !!(userImagePreview || (wizardMode === 'edit' && activeChannel)) },
                     { id: 'music', label: 'Musique de fond', icon: 'music_note', available: !!musicLabel },
-                    { id: 'thumbnail', label: hasThumbnailStyle ? 'Miniature YouTube (style perso)' : 'Miniature YouTube (défaut)', icon: 'photo_camera', available: true, info: true },
+                    { id: 'subtitles', label: 'Sous-titres', icon: 'subtitles', available: true },
+                    { id: 'effects', label: 'Effets visuels', icon: 'auto_awesome', available: stepHasGrain || stepHasVignette || (newChannel.effects_config.color_grade && newChannel.effects_config.color_grade !== 'none') },
                   ];
                   // Logo/sous-titres/effets/musique are real, saved settings — toggling them
                   // here actually edits `newChannel` (persisted on save), same as any other
-                  // field in the wizard. "visual" has no real off-switch (a video always needs
-                  // a background), so it stays a local, cosmetic preview-only toggle. "thumbnail"
-                  // isn't part of the video composite at all (it's generated separately at
-                  // publish time) — it's shown here read-only, just to surface whether a
-                  // dedicated thumbnail reference style is configured for this channel.
+                  // field in the wizard. "visual" and "voiceover" have no real off-switch (a
+                  // video always needs a background and a voice track), so they stay
+                  // read-only checks — just confirming that step was actually filled in.
                   const isRecapChecked = (id) => {
                     if (id === 'logo') return newChannel.branding.logo_enabled ?? true;
                     if (id === 'subtitles') return newChannel.subtitle_style.enabled ?? true;
                     if (id === 'effects') return newChannel.effects_config.enabled ?? true;
-                    if (id === 'music') return newChannel.music_preference.enabled ?? true;
-                    if (id === 'thumbnail') return hasThumbnailStyle;
+                    // Music defaults to off — it only counts as "on" once the creator
+                    // actually picked a track/AI generation, same rule as the Musique step.
+                    if (id === 'music') return newChannel.music_preference.enabled ?? false;
+                    if (id === 'voiceover') return !!newChannel.voice_id;
                     return recapVisible.visual;
                   };
                   const toggleRecap = (id) => {
@@ -6999,14 +7219,14 @@ export default function App() {
                     if (id === 'subtitles') return setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, enabled: !isRecapChecked('subtitles') } });
                     if (id === 'effects') return setNewChannel({ ...newChannel, effects_config: { ...newChannel.effects_config, enabled: !isRecapChecked('effects') } });
                     if (id === 'music') return setNewChannel({ ...newChannel, music_preference: { ...newChannel.music_preference, enabled: !isRecapChecked('music') } });
-                    if (id === 'thumbnail') return setWizardStep(5);
+                    if (id === 'voiceover') return; // read-only — always on once a voice is picked, nothing to toggle
                     setRecapVisible(prev => ({ ...prev, visual: !prev.visual }));
                   };
                   return (
                     <div className="space-y-6">
                       <div className="flex justify-between items-center">
                         <div>
-                          <h3 className="text-base font-bold text-white">8. Aperçu Final du Layout & Design Vidéo</h3>
+                          <h3 className="text-base font-bold text-white">9. Aperçu Final du Layout & Design Vidéo</h3>
                           <p className="text-xs text-slate-400 mt-0.5">Voici le rendu final simulé, au format vidéo longue durée YouTube (16:9).</p>
                         </div>
                       </div>
@@ -7141,138 +7361,6 @@ export default function App() {
                   );
                 })()}
 
-                {/* STEP 9: PUBLICATION YOUTUBE */}
-                {wizardStep === 9 && (
-                  <div className="space-y-6">
-                    <h3 className="text-base font-bold text-white">9. Publication YouTube</h3>
-                    <div>
-                      <label className="block text-xs font-bold text-slate-300 mb-2">Publication YouTube</label>
-                      <p className="text-[11px] text-slate-500 mb-2">Indépendant du mode de génération du script — décide ce qui arrive à une vidéo une fois qu'elle est prête.</p>
-                      <ModeDropdown
-                        value={newChannel.publish_mode || 'manual'}
-                        onChange={v => setNewChannel({ ...newChannel, publish_mode: v })}
-                        options={[
-                          { value: 'manual', icon: 'download', label: 'Manuelle', desc: 'Tu télécharges la vidéo, ou tu cliques « Publier » quand tu veux' },
-                          { value: 'scheduled', icon: 'schedule', label: 'Programmée', desc: 'Publiée à une heure fixe que tu choisis' },
-                          { value: 'auto', icon: 'bolt', label: 'Automatique', desc: 'Publiée dès la fin du rendu, sans délai' },
-                        ]}
-                      />
-                      {newChannel.publish_mode === 'scheduled' && (
-                        <div className="mt-3 space-y-2">
-                          <div className="flex items-center gap-3">
-                            <div>
-                              <label className="block text-[11px] font-bold text-slate-300 mb-1">Combien de jours après le rendu</label>
-                              <select
-                                value={newChannel.publish_schedule_day_offset ?? 1}
-                                onChange={e => setNewChannel({ ...newChannel, publish_schedule_day_offset: parseInt(e.target.value) })}
-                                className="bg-[#1b2230] border border-[#2b374d] rounded-xl px-3 py-2 text-xs text-white focus:border-[#00c2ff] outline-none"
-                              >
-                                <option value={0}>Le jour même</option>
-                                <option value={1}>Le lendemain</option>
-                                <option value={2}>Dans 2 jours</option>
-                                <option value={3}>Dans 3 jours</option>
-                              </select>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2 bg-[#11151c] border border-[#202938] rounded-xl px-3 py-2.5">
-                            <span className="material-symbols-outlined text-[16px] text-slate-500 shrink-0">schedule</span>
-                            <span className="text-[11px] text-slate-400 shrink-0">Plage horaire de publication :</span>
-                            <select
-                              value={newChannel.automation_window_start_hour ?? 7}
-                              onChange={e => setNewChannel({ ...newChannel, automation_window_start_hour: parseInt(e.target.value) })}
-                              className="bg-[#1b2230] border border-[#2b374d] rounded-lg px-2 py-1.5 text-[11px] text-white focus:border-[#00c2ff] outline-none"
-                            >
-                              {Array.from({ length: 24 }, (_, h) => <option key={h} value={h}>{String(h).padStart(2, '0')}h00</option>)}
-                            </select>
-                            <span className="text-[11px] text-slate-500">à</span>
-                            <select
-                              value={newChannel.automation_window_end_hour ?? 11}
-                              onChange={e => setNewChannel({ ...newChannel, automation_window_end_hour: parseInt(e.target.value) })}
-                              className="bg-[#1b2230] border border-[#2b374d] rounded-lg px-2 py-1.5 text-[11px] text-white focus:border-[#00c2ff] outline-none"
-                            >
-                              {Array.from({ length: 24 }, (_, h) => <option key={h} value={h}>{String(h).padStart(2, '0')}h00</option>)}
-                            </select>
-                          </div>
-                          <div className="bg-[#11151c] border border-[#202938] rounded-xl px-3 py-2.5">
-                            <div className="flex items-center gap-2 mb-2">
-                              <span className="material-symbols-outlined text-[16px] text-slate-500 shrink-0">event_repeat</span>
-                              <span className="text-[11px] text-slate-400">Jours de publication — laisse tout coché pour publier tous les jours, ou choisis juste certains jours</span>
-                            </div>
-                            <div className="flex gap-1.5">
-                              {[
-                                { id: 0, label: 'L' }, { id: 1, label: 'M' }, { id: 2, label: 'M' },
-                                { id: 3, label: 'J' }, { id: 4, label: 'V' }, { id: 5, label: 'S' }, { id: 6, label: 'D' },
-                              ].map(({ id, label }) => {
-                                const activeDays = newChannel.active_days;
-                                const isOn = !activeDays || activeDays.length === 0 || activeDays.includes(id);
-                                return (
-                                  <button
-                                    key={id}
-                                    type="button"
-                                    onClick={() => {
-                                      const current = (activeDays && activeDays.length > 0) ? activeDays : [0, 1, 2, 3, 4, 5, 6];
-                                      const next = current.includes(id) ? current.filter(d => d !== id) : [...current, id].sort();
-                                      setNewChannel({ ...newChannel, active_days: next.length === 7 ? null : next });
-                                    }}
-                                    className={`flex-1 py-2 rounded-lg text-[11px] font-bold border transition-colors ${
-                                      isOn ? 'bg-[#00c2ff] text-slate-950 border-[#00c2ff]' : 'bg-[#1b2230] border-[#2b374d] text-slate-300 hover:border-slate-500'
-                                    }`}
-                                  >
-                                    {label}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2 bg-[#11151c] border border-[#202938] rounded-xl px-3 py-2.5 relative">
-                            <span className="material-symbols-outlined text-[16px] text-slate-500 shrink-0">public</span>
-                            <span className="text-[11px] text-slate-400 shrink-0">Fuseau horaire :</span>
-                            <button
-                              type="button"
-                              onClick={() => { setTimezoneMenuOpen(o => !o); setTimezoneSearch(''); }}
-                              className="flex-1 min-w-0 flex items-center justify-between gap-2 bg-[#1b2230] border border-[#2b374d] hover:border-slate-500 rounded-lg px-2.5 py-1.5 text-[11px] text-white text-left transition-colors"
-                            >
-                              <span className="truncate">{newChannel.timezone || 'Africa/Douala'}</span>
-                              <span className={`material-symbols-outlined text-[15px] text-slate-400 shrink-0 transition-transform ${timezoneMenuOpen ? 'rotate-180' : ''}`}>expand_more</span>
-                            </button>
-                            {timezoneMenuOpen && (
-                              <div className="absolute left-0 right-0 top-full mt-1.5 bg-[#1f2838] border border-[#2d3a52] rounded-xl shadow-2xl z-50 overflow-hidden">
-                                <div className="p-2 border-b border-[#2d3a52]">
-                                  <input
-                                    autoFocus
-                                    value={timezoneSearch}
-                                    onChange={e => setTimezoneSearch(e.target.value)}
-                                    placeholder="Rechercher (ex: Douala, Paris...)"
-                                    className="w-full bg-[#11151c] border border-[#2b374d] rounded-lg px-2.5 py-1.5 text-[11px] text-white focus:border-[#00c2ff] outline-none"
-                                  />
-                                </div>
-                                <div className="max-h-52 overflow-y-auto py-1">
-                                  {TIMEZONE_OPTIONS
-                                    .filter(tz => tz.toLowerCase().includes(timezoneSearch.toLowerCase()))
-                                    .slice(0, 200)
-                                    .map(tz => (
-                                      <button
-                                        key={tz}
-                                        type="button"
-                                        onClick={() => { setNewChannel({ ...newChannel, timezone: tz }); setTimezoneMenuOpen(false); }}
-                                        className={`w-full text-left px-3 py-1.5 text-[11px] hover:bg-[#2c394e] transition-colors flex items-center justify-between gap-2 ${
-                                          tz === (newChannel.timezone || 'Africa/Douala') ? 'text-[#00c2ff] font-bold' : 'text-slate-300'
-                                        }`}
-                                      >
-                                        <span className="truncate">{tz}</span>
-                                        {tz === (newChannel.timezone || 'Africa/Douala') && <span className="material-symbols-outlined text-[14px] shrink-0">check</span>}
-                                      </button>
-                                    ))}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-
                 {/* Wizard Footer Navigation */}
                 <div className="flex justify-between items-center pt-6 border-t border-[#263042]">
                   {wizardStep > 1 ? (
@@ -7306,7 +7394,7 @@ export default function App() {
                         const stored = Number(newChannel.image_style.library_image_count || 0) > 0
                           && String(newChannel.image_style.library_path || '').startsWith('channels/');
                         const ready = libraryUploadStatus === 'success' && (stagedLibraryToken || wizardMode === 'edit');
-                        if (wizardStep === 5 && needsLibrary && !stored && !ready) {
+                        if (wizardStep === 4 && needsLibrary && !stored && !ready) {
                           showToast(
                             ['analyzing', 'uploading', 'validating'].includes(libraryUploadStatus)
                               ? "L’importation est en cours. Attendez 100 % avant de continuer."
@@ -7317,10 +7405,10 @@ export default function App() {
                         }
                         setWizardStep(wizardStep + 1);
                       }}
-                      disabled={wizardStep === 5 && ['analyzing', 'uploading', 'validating'].includes(libraryUploadStatus)}
+                      disabled={wizardStep === 4 && ['analyzing', 'uploading', 'validating'].includes(libraryUploadStatus)}
                       className="px-6 py-2.5 rounded-xl bg-[#00c2ff] text-slate-950 font-bold text-xs hover:bg-[#38d0ff] transition-all flex items-center gap-2 shadow-md disabled:opacity-40 disabled:cursor-not-allowed"
                     >
-                      {wizardStep === 5 && ['analyzing', 'uploading', 'validating'].includes(libraryUploadStatus)
+                      {wizardStep === 4 && ['analyzing', 'uploading', 'validating'].includes(libraryUploadStatus)
                         ? `Importation ${libraryUploadProgress}%`
                         : 'Suivant'}
                       <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
