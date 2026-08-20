@@ -2489,7 +2489,7 @@ export default function App() {
         // channel's edit URL, not on every `channels` refetch — otherwise every
         // background poll would silently wipe whatever the user is mid-editing.
         if (editingChannelId !== chan.id || view !== 'wizard') {
-          openEditWizard(chan);
+          openEditWizard(chan, null, loadWizardStep(chan.id) || 1);
         } else {
           setActiveChannel(chan);
         }
@@ -2920,6 +2920,22 @@ export default function App() {
     if (view !== 'wizard') return;
     try { sessionStorage.setItem(draftKey(editingChannelId), JSON.stringify(newChannel)); } catch {}
   }, [newChannel, view, editingChannelId]);
+
+  // Same idea as the draft above, but for which step the creator was on — so a
+  // hard refresh on e.g. the Publication step (8) lands back there instead of
+  // bouncing to Identité (1). Keyed by channel id (or 'new' pre-save).
+  const wizardStepKey = (id) => `nichecut_wizard_step_${id || 'new'}`;
+  const loadWizardStep = (id) => {
+    try {
+      const raw = sessionStorage.getItem(wizardStepKey(id));
+      const n = raw ? parseInt(raw, 10) : NaN;
+      return Number.isFinite(n) && n >= 1 && n <= 9 ? n : null;
+    } catch { return null; }
+  };
+  useEffect(() => {
+    if (view !== 'wizard') return;
+    try { sessionStorage.setItem(wizardStepKey(editingChannelId), String(wizardStep)); } catch {}
+  }, [wizardStep, view, editingChannelId]);
 
   const openCreateWizard = () => {
     resetWizardState();
@@ -6993,7 +7009,11 @@ export default function App() {
                           <label className="block text-xs font-bold text-slate-300 mb-2">Aperçu des effets</label>
                           <div className="relative aspect-video rounded-2xl overflow-hidden border-2 border-[#2b374d] bg-[#0f1217]">
                             {previewImgSrc ? (
-                              <img src={previewImgSrc} alt="Aperçu des effets" className="w-full h-full object-cover" style={{ filter: previewImgFilter }} onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+                              // A real project image (library-preview) can 404 when the channel
+                              // has no uploaded library yet (e.g. AI-generated-only channels) —
+                              // fall back to the bundled demo image instead of hiding the whole
+                              // preview, so the effect is always visible.
+                              <img src={previewImgSrc} alt="Aperçu des effets" className="w-full h-full object-cover" style={{ filter: previewImgFilter }} onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = STABLE_EFFECT_PREVIEW_IMAGES[0]; }} />
                             ) : (
                               <div className="w-full h-full flex items-center justify-center text-center px-6">
                                 <p className="text-xs text-slate-500">Importe un dossier d'images à l'étape "Visuels" pour voir l'aperçu sur une vraie image de ta chaîne.</p>
@@ -7004,8 +7024,8 @@ export default function App() {
                             )}
                             {hasChromaticAberration && (
                               <>
-                                <img src={previewImgSrc} alt="" aria-hidden className="absolute inset-0 w-full h-full object-cover mix-blend-screen opacity-60" style={{ filter: 'brightness(0.6) sepia(1) saturate(6) hue-rotate(-50deg)', transform: 'translateX(-2px)' }} />
-                                <img src={previewImgSrc} alt="" aria-hidden className="absolute inset-0 w-full h-full object-cover mix-blend-screen opacity-60" style={{ filter: 'brightness(0.6) sepia(1) saturate(6) hue-rotate(140deg)', transform: 'translateX(2px)' }} />
+                                <img src={previewImgSrc} alt="" aria-hidden className="absolute inset-0 w-full h-full object-cover mix-blend-screen opacity-60" style={{ filter: 'brightness(0.6) sepia(1) saturate(6) hue-rotate(-50deg)', transform: 'translateX(-2px)' }} onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = STABLE_EFFECT_PREVIEW_IMAGES[0]; }} />
+                                <img src={previewImgSrc} alt="" aria-hidden className="absolute inset-0 w-full h-full object-cover mix-blend-screen opacity-60" style={{ filter: 'brightness(0.6) sepia(1) saturate(6) hue-rotate(140deg)', transform: 'translateX(2px)' }} onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = STABLE_EFFECT_PREVIEW_IMAGES[0]; }} />
                               </>
                             )}
                             {(hasGrain || hasOldFilm) && (
@@ -7057,39 +7077,30 @@ export default function App() {
                   );
                   const timeControls = (
                     <div className="flex items-center gap-2 bg-[#11151c] border border-[#202938] rounded-xl px-3 py-2.5 flex-wrap">
+                      {timeModeToggle}
                       <span className="material-symbols-outlined text-[16px] text-slate-500 shrink-0">schedule</span>
                       {timeMode === 'fixed' ? (
                         <>
                           <span className="text-[11px] text-slate-400 shrink-0">Heure :</span>
-                          <select
+                          <HourDropdown
                             value={newChannel.publish_schedule_hour ?? 8}
-                            onChange={e => setNewChannel({ ...newChannel, publish_schedule_hour: parseInt(e.target.value) })}
-                            className="bg-[#1b2230] border border-[#2b374d] rounded-lg px-2 py-1.5 text-[11px] text-white focus:border-[#00c2ff] outline-none"
-                          >
-                            {Array.from({ length: 24 }, (_, h) => <option key={h} value={h}>{String(h).padStart(2, '0')}h00</option>)}
-                          </select>
+                            onChange={h => setNewChannel({ ...newChannel, publish_schedule_hour: h })}
+                          />
                         </>
                       ) : (
                         <>
                           <span className="text-[11px] text-slate-400 shrink-0">Plage :</span>
-                          <select
+                          <HourDropdown
                             value={newChannel.automation_window_start_hour ?? 7}
-                            onChange={e => setNewChannel({ ...newChannel, automation_window_start_hour: parseInt(e.target.value) })}
-                            className="bg-[#1b2230] border border-[#2b374d] rounded-lg px-2 py-1.5 text-[11px] text-white focus:border-[#00c2ff] outline-none"
-                          >
-                            {Array.from({ length: 24 }, (_, h) => <option key={h} value={h}>{String(h).padStart(2, '0')}h00</option>)}
-                          </select>
+                            onChange={h => setNewChannel({ ...newChannel, automation_window_start_hour: h })}
+                          />
                           <span className="text-[11px] text-slate-500">à</span>
-                          <select
+                          <HourDropdown
                             value={newChannel.automation_window_end_hour ?? 11}
-                            onChange={e => setNewChannel({ ...newChannel, automation_window_end_hour: parseInt(e.target.value) })}
-                            className="bg-[#1b2230] border border-[#2b374d] rounded-lg px-2 py-1.5 text-[11px] text-white focus:border-[#00c2ff] outline-none"
-                          >
-                            {Array.from({ length: 24 }, (_, h) => <option key={h} value={h}>{String(h).padStart(2, '0')}h00</option>)}
-                          </select>
+                            onChange={h => setNewChannel({ ...newChannel, automation_window_end_hour: h })}
+                          />
                         </>
                       )}
-                      {timeModeToggle}
                     </div>
                   );
                   const weekdaySelector = (
