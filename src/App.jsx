@@ -1302,7 +1302,9 @@ export default function App() {
       zoom_min_pct: 1.0,
       zoom_max_pct: 1.15,
       watermark_enabled: true
-    }
+    },
+    automation_mode: 'manual',
+    automation_style_prompt: ''
   };
   const [newChannel, setNewChannel] = useState(defaultChannelForm);
 
@@ -1912,7 +1914,9 @@ export default function App() {
           none: [], grain: ['grain'], white_noise: ['white_noise'],
           vignette: ['vignette'], grain_vignette: ['grain', 'vignette'],
         })[channel.effects_config?.overlay_effect || 'grain'] || ['grain'],
-      }
+      },
+      automation_mode: channel.automation_mode || 'manual',
+      automation_style_prompt: channel.automation_style_prompt || ''
     });
     const draft = loadDraft(channel.id);
     if (draft) setNewChannel(draft);
@@ -3713,6 +3717,47 @@ export default function App() {
                         className="w-full mt-2 bg-[#1b2230] border border-[#2b374d] rounded-xl px-3 py-2 text-xs text-white focus:border-[#00c2ff] outline-none"
                         placeholder="Écris ta propre niche..."
                       />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-300 mb-2">Mode de publication</label>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setNewChannel({ ...newChannel, automation_mode: 'manual' })}
+                          className={`flex-1 px-3.5 py-2.5 rounded-xl text-xs font-bold border transition-colors text-left ${
+                            (newChannel.automation_mode || 'manual') === 'manual'
+                              ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]'
+                              : 'bg-[#1b2230] border-[#2b374d] text-slate-300 hover:border-slate-500'
+                          }`}
+                        >
+                          Manuel
+                          <span className="block font-normal text-[11px] text-slate-400 mt-0.5">Tu soumets chaque script toi-même.</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setNewChannel({ ...newChannel, automation_mode: 'auto' })}
+                          className={`flex-1 px-3.5 py-2.5 rounded-xl text-xs font-bold border transition-colors text-left ${
+                            newChannel.automation_mode === 'auto'
+                              ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]'
+                              : 'bg-[#1b2230] border-[#2b374d] text-slate-300 hover:border-slate-500'
+                          }`}
+                        >
+                          Automatique
+                          <span className="block font-normal text-[11px] text-slate-400 mt-0.5">Une vidéo générée et publiée chaque jour, entre 7h et 11h (heure du Cameroun), sans intervention.</span>
+                        </button>
+                      </div>
+                      {newChannel.automation_mode === 'auto' && (
+                        <div className="mt-3">
+                          <label className="block text-xs font-bold text-slate-300 mb-2">Direction créative (optionnel)</label>
+                          <textarea
+                            value={newChannel.automation_style_prompt || ''}
+                            onChange={e => setNewChannel({ ...newChannel, automation_style_prompt: e.target.value })}
+                            className="w-full bg-[#1b2230] border border-[#2b374d] rounded-xl px-3 py-2 text-xs text-white focus:border-[#00c2ff] outline-none min-h-[70px]"
+                            placeholder="Ex: ton direct et percutant, toujours finir par une question au public..."
+                          />
+                        </div>
+                      )}
                     </div>
 
                   </div>
