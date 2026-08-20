@@ -1960,10 +1960,24 @@ export default function App() {
         const res = await fetch(`${API_BASE}/channels/${returnedChannelId}`);
         if (!res.ok) throw new Error();
         const chan = await res.json();
-        setActiveChannel(chan);
-        fetchChannelVideos(chan.id);
-        setView('channel_detail');
-        navigate(`/channels/${slugifyChannelName(chan.name)}`);
+        let returnStep = null;
+        try {
+          const raw = sessionStorage.getItem('nichecut_return_to_wizard_step');
+          sessionStorage.removeItem('nichecut_return_to_wizard_step');
+          const n = raw ? parseInt(raw, 10) : NaN;
+          if (Number.isFinite(n) && n >= 1 && n <= 9) returnStep = n;
+        } catch {}
+        if (returnStep) {
+          // Back into the wizard, same step — name/description/logo are already
+          // filled in from `chan` (the backend just synced them on connect).
+          openEditWizard(chan, null, returnStep);
+          navigate(`/channels/${slugifyChannelName(chan.name)}/edit`);
+        } else {
+          setActiveChannel(chan);
+          fetchChannelVideos(chan.id);
+          setView('channel_detail');
+          navigate(`/channels/${slugifyChannelName(chan.name)}`);
+        }
       } catch {
         navigate('/channels');
       }
@@ -3357,6 +3371,18 @@ export default function App() {
         throw new Error(detail.detail || "Connexion YouTube indisponible.");
       }
       const data = await authRes.json();
+      // Google's OAuth consent screen needs a full page navigation, which
+      // unmounts the whole app — on return, the app previously always landed
+      // on the channel's detail page instead of back in the wizard, so the
+      // name/description/logo that connecting just filled in server-side were
+      // never visible until the creator manually reopened "Modifier". Leave a
+      // breadcrumb so the return effect can reopen the wizard on this same step.
+      try { sessionStorage.setItem('nichecut_return_to_wizard_step', String(wizardStep)); } catch {}
+      // The draft autosave (see the effect below) just wrote this channel's
+      // pre-connect state (blank name, no logo, etc.) to sessionStorage.
+      // openEditWizard would normally replay that draft over whatever fresh
+      // data comes back — clear it now so the real YouTube identity wins.
+      clearDraft(channelId);
       window.location.href = data.auth_url;
     } catch (err) {
       showToast(err.message, 'error');
