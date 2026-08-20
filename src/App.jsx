@@ -946,6 +946,7 @@ function SkeletonGrid({ count = 6, cardClassName = "min-h-[220px]" }) {
 }
 
 function viewFromPath(path) {
+  if (path === '/' || path === '/dashboard' || path === '/home') return 'home';
   if (path === '/channels') return 'channels';
   if (path === '/videos') return 'videos';
   if (path === '/channels/new') return 'wizard';
@@ -957,6 +958,9 @@ function viewFromPath(path) {
 export default function App() {
   const navigate = useNavigate();
   const location = useLocation();
+  useEffect(() => {
+    document.title = 'NicheCut Studio — Espace de production';
+  }, []);
   const [channels, setChannels] = useState([]);
   const [nicheOptions, setNicheOptions] = useState(NICHE_OPTIONS);
   const [activeChannel, setActiveChannel] = useState(null);
@@ -1482,7 +1486,7 @@ export default function App() {
       case 'channel_detail': return activeChannel ? `/channels/${slugifyChannelName(activeChannel.name)}` : '/channels';
       case 'wizard': return wizardMode === 'edit' && editingChannel ? `/channels/${slugifyChannelName(editingChannel.name)}/edit` : '/channels/new';
       case 'home':
-      default: return '/home';
+      default: return '/dashboard';
     }
   };
 
@@ -1505,12 +1509,12 @@ export default function App() {
     if (location.pathname !== target) navigate(target);
   }, [view, activeChannel, wizardMode, editingChannelId, showAuthModal]);
 
-  // auth modal <-> /login, /signin
+  // auth modal <-> /login, /signup
   useEffect(() => {
     if (showAuthModal) {
-      const authPath = authTab === 'register' ? '/signin' : '/login';
+      const authPath = authTab === 'register' ? '/signup' : '/login';
       if (location.pathname !== authPath) navigate(authPath);
-    } else if (location.pathname === '/login' || location.pathname === '/signin') {
+    } else if (location.pathname === '/login' || location.pathname === '/signup' || location.pathname === '/signin') {
       navigate(pathForState());
     }
   }, [showAuthModal, authTab]);
@@ -1520,7 +1524,7 @@ export default function App() {
     urlHydratedRef.current = true;
     const path = location.pathname;
     if (path === '/login') { setShowAuthModal(true); setAuthTab('login'); return; }
-    if (path === '/signin') { setShowAuthModal(true); setAuthTab('register'); return; }
+    if (path === '/signup' || path === '/signin') { setShowAuthModal(true); setAuthTab('register'); return; }
     if (path === '/channels') { setView('channels'); return; }
     if (path === '/videos') { setView('videos'); return; }
     if (path === '/channels/new') {
