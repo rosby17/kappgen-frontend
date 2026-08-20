@@ -2382,11 +2382,11 @@ export default function App() {
   const [newChannel, setNewChannel] = useState(defaultChannelForm);
 
   const fetchChannels = async () => {
+    if (!currentUser) return;
     try {
-      const url = currentUser
-        ? `${API_BASE}/channels?user_id=${encodeURIComponent(currentUser.id)}`
-        : `${API_BASE}/channels`;
-      const res = await fetch(url);
+      // The backend now derives the caller from the bearer token, not this
+      // param — it ignores it, and 401s without a token regardless.
+      const res = await authFetch(`${API_BASE}/channels`);
       if (!res.ok) throw new Error(`API ${res.status}`);
       const data = await res.json();
       if (!Array.isArray(data)) throw new Error('Réponse API invalide');
@@ -2414,11 +2414,9 @@ export default function App() {
   };
 
   const fetchAllVideos = async () => {
+    if (!currentUser) return;
     try {
-      const url = currentUser
-        ? `${API_BASE}/videos?user_id=${encodeURIComponent(currentUser.id)}`
-        : `${API_BASE}/videos`;
-      const res = await fetch(url);
+      const res = await authFetch(`${API_BASE}/videos`);
       if (!res.ok) throw new Error(`API ${res.status}`);
       const data = await res.json();
       if (!Array.isArray(data)) throw new Error('Réponse API invalide');
