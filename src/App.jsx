@@ -1111,13 +1111,15 @@ function PipelineStepper({ stage, percent, failed = false }) {
   );
 }
 
-function ChannelAvatar({ channel, logoUrl, sizeClass = "w-12 h-12", roundedClass = "rounded-xl", textClass = "text-lg" }) {
+function ChannelAvatar({ channel, logoUrl, sizeClass = "w-12 h-12", textClass = "text-lg" }) {
   const [failed, setFailed] = useState(false);
   const percent = channel?.completion_percent;
   const incomplete = percent != null && percent < 100;
 
+  // Always circular, regardless of what a caller might still pass — every
+  // channel logo across the app (cards, headers, sidebar) must be a circle.
   const image = (!logoUrl || failed) ? (
-    <div className={`${sizeClass} ${roundedClass} bg-gradient-to-tr from-[#004c66] to-[#007f99] flex items-center justify-center flex-shrink-0 border border-[#00c2ff]/30 shadow-md p-2`}>
+    <div className={`${sizeClass} rounded-full bg-gradient-to-tr from-[#004c66] to-[#007f99] flex items-center justify-center flex-shrink-0 border border-[#00c2ff]/30 shadow-md p-2`}>
       <img src="/assets/logo/logo-nichecut.png" alt="NicheCut" className="w-full h-full object-contain" />
     </div>
   ) : (
@@ -1125,7 +1127,7 @@ function ChannelAvatar({ channel, logoUrl, sizeClass = "w-12 h-12", roundedClass
       src={logoUrl}
       alt={channel?.name}
       onError={() => setFailed(true)}
-      className={`${sizeClass} ${roundedClass} object-cover border border-[#2b374d] flex-shrink-0 shadow-md`}
+      className={`${sizeClass} rounded-full object-cover border border-[#2b374d] flex-shrink-0 shadow-md`}
     />
   );
 
@@ -2831,16 +2833,13 @@ export default function App() {
   };
 
   // Compact dot-only version of the same status, overlaid on the channel avatar.
+  // Kept strictly binary (green/red) rather than the multi-color badge above —
+  // green = channel active and healthy (render-ready, nothing stuck failed),
+  // red = needs attention (pipeline incomplete, or a video failed to render).
   const getChannelStatusDotColor = (channel) => {
-    const rendering = channel.rendering_count || 0;
-    const queued = channel.queued_count || 0;
-    const done = channel.done_count || 0;
     const failed = channel.failed_count || 0;
-    if (rendering > 0) return 'bg-blue-400';
-    if (queued > 0) return 'bg-amber-400';
-    if (done > 0) return 'bg-emerald-400';
-    if (failed > 0) return 'bg-rose-400';
-    return 'bg-slate-500';
+    if (failed > 0 || !channel.is_render_ready) return 'bg-red-500';
+    return 'bg-emerald-500';
   };
 
   const handleDrop = (e) => {
@@ -4025,7 +4024,13 @@ export default function App() {
                           {/* Card Header & 3-Dots Action Button */}
                           <div className="flex items-start justify-between gap-3">
                             <div className="flex items-center gap-3.5 min-w-0">
-                              <ChannelAvatar channel={chan} logoUrl={logoUrl} sizeClass="w-12 h-12" roundedClass="rounded-xl" textClass="text-lg" />
+                              <div className="relative shrink-0">
+                                <ChannelAvatar channel={chan} logoUrl={logoUrl} sizeClass="w-12 h-12" textClass="text-lg" />
+                                <span
+                                  className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full ${getChannelStatusDotColor(chan)} ring-2 ring-[#161b22]`}
+                                  title={chan.is_render_ready ? (chan.failed_count > 0 ? 'Échec de rendu à corriger' : 'Chaîne active') : 'Configuration incomplète'}
+                                />
+                              </div>
                               <div className="min-w-0">
                                 <h4 className="font-bold text-base text-white group-hover:text-[#00c2ff] transition-colors truncate">{chan.name}</h4>
                                 <span className="text-xs font-medium text-slate-400 truncate block mt-0.5">{chan.niche}</span>
