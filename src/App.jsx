@@ -37,6 +37,71 @@ const SCRIPT_LANGUAGES = [
   ['Hrvatski', 'Croatian', 'HR'], ['Slovenčina', 'Slovak', 'SK'], ['Català', 'Catalan', 'CA'],
 ].map(([label, value, code]) => ({ label, value, code }));
 
+// Every browser exposes the IANA tz database via Intl (Safari included, since
+// 15.4) — fall back to a short curated list only on something ancient.
+const TIMEZONE_OPTIONS = (() => {
+  try {
+    if (typeof Intl !== 'undefined' && Intl.supportedValuesOf) return Intl.supportedValuesOf('timeZone');
+  } catch {}
+  return ['Africa/Douala', 'Europe/Paris', 'Europe/London', 'America/New_York', 'America/Los_Angeles', 'Asia/Dubai', 'Asia/Kolkata', 'Asia/Singapore', 'Australia/Sydney'];
+})();
+
+// Default guidance text for the auto-script structure, per script language.
+// These are meta-instructions read by the *creator* while configuring their
+// channel (Claude itself understands English instructions fine regardless of
+// the target script language) — so only languages creators actually
+// configure in are translated here; anything else falls back to English.
+const SCRIPT_STRUCTURE_DEFAULTS = {
+  English: {
+    parts: [
+      { name: 'hook_intro', word_count: 250, guidance: "Open with a striking hook, present the topic and why it matters, naturally invite the viewer to like and subscribe, tease what's coming without revealing everything." },
+      { name: 'context', word_count: 250, guidance: 'Give background and context for the topic, and explain why this truth is often misunderstood or overlooked today.' },
+      { name: 'main_part_one', word_count: 900, guidance: 'Develop the core ideas with concrete examples, stories, or analogies; ask thought-provoking questions; naturally remind the listener to like and subscribe partway through.' },
+      { name: 'main_part_two', word_count: 900, guidance: 'Go deeper, reveal less obvious insights, explain the benefits of applying this, and address common misconceptions.' },
+      { name: 'application', word_count: 900, guidance: 'Give concrete practical steps to apply today, explain how this transforms daily life, and include one short original illustrative story that carries the lesson without stating it outright.' },
+      { name: 'conclusion', word_count: 300, guidance: 'Summarize the key ideas powerfully, end with a strong closing statement, and a natural call to action to share, comment, or explore further.' },
+    ],
+    formatting_rules: [
+      'Write every number out in words, never as digits.',
+      'Do not include any section titles or labels anywhere in the text.',
+      'Write only words meant to be read aloud by a voiceover — no visual directions, no music cues, no stage directions.',
+      'Write in flowing continuous paragraphs, never a single isolated line.',
+    ],
+    cta_style: 'Weave in a natural invitation to like, subscribe, and comment without breaking the tone.',
+  },
+  Français: {
+    parts: [
+      { name: 'hook_intro', word_count: 250, guidance: "Ouvre avec une accroche percutante, présente le sujet et pourquoi il compte, invite naturellement à aimer et s'abonner, laisse entrevoir la suite sans tout révéler." },
+      { name: 'context', word_count: 250, guidance: "Donne le contexte du sujet et explique pourquoi cette vérité est souvent mal comprise ou négligée aujourd'hui." },
+      { name: 'main_part_one', word_count: 900, guidance: "Développe les idées centrales avec des exemples concrets, des histoires ou des analogies ; pose des questions qui font réfléchir ; rappelle naturellement d'aimer et de s'abonner à mi-parcours." },
+      { name: 'main_part_two', word_count: 900, guidance: "Va plus loin, révèle des aspects moins évidents, explique les bénéfices d'appliquer cela, et corrige les idées reçues courantes." },
+      { name: 'application', word_count: 900, guidance: "Donne des étapes concrètes à appliquer dès aujourd'hui, explique comment cela transforme le quotidien, et inclus une courte histoire originale illustrant la leçon sans l'énoncer directement." },
+      { name: 'conclusion', word_count: 300, guidance: "Résume les idées clés avec force, termine par une déclaration marquante, et un appel naturel à partager, commenter ou explorer davantage." },
+    ],
+    formatting_rules: [
+      "Écris tous les nombres en toutes lettres, jamais en chiffres.",
+      "N'inclus aucun titre ni label de section dans le texte.",
+      "N'écris que des mots destinés à être lus à voix haute par une narration — aucune indication visuelle, aucune référence musicale, aucune indication de mise en scène.",
+      "Écris en paragraphes fluides et continus, jamais en ligne isolée.",
+    ],
+    cta_style: "Glisse une invitation naturelle à aimer, s'abonner et commenter sans casser le ton.",
+  },
+};
+const getScriptStructureDefaults = (language) => SCRIPT_STRUCTURE_DEFAULTS[language] || SCRIPT_STRUCTURE_DEFAULTS.English;
+// True when the structure still matches an unedited default set (in any
+// covered language) — only then is it safe to auto-swap guidance text when
+// the creator changes the script language, without clobbering their edits.
+const isPristineScriptStructure = (structure) => {
+  if (!structure) return true;
+  const { language, ...rest } = structure;
+  return Object.values(SCRIPT_STRUCTURE_DEFAULTS).some(defaults => {
+    const { parts, formatting_rules, cta_style } = defaults;
+    return JSON.stringify({ parts, formatting_rules, cta_style }) === JSON.stringify({
+      parts: rest.parts, formatting_rules: rest.formatting_rules, cta_style: rest.cta_style,
+    });
+  });
+};
+
 let rawStorageBase = import.meta.env.VITE_STORAGE_BASE || (isLocalhost ? `${getOrigin()}/storage` : "https://api-nichecut.tools-cl.com/storage");
 if (rawStorageBase.startsWith("http://api-nichecut.tools-cl.com")) {
   rawStorageBase = rawStorageBase.replace("http://", "https://");
@@ -1055,10 +1120,12 @@ export default function App() {
   
   // Modals & Menu Popups
   const [showSubmitModal, setShowSubmitModal] = useState(false);
+  const [generatingAutoVideo, setGeneratingAutoVideo] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showChannelPickerModal, setShowChannelPickerModal] = useState(false);
   const [showLanguageModal, setShowLanguageModal] = useState(false);
+  const [showScriptStructureModal, setShowScriptStructureModal] = useState(false);
   const [languageSearch, setLanguageSearch] = useState('');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [openChannelMenuId, setOpenChannelMenuId] = useState(null);
@@ -1158,6 +1225,7 @@ export default function App() {
   }, [showSubmitModal]);
 
   const [loading, setLoading] = useState(false);
+  const [connectingYouTubeFromWizard, setConnectingYouTubeFromWizard] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [videoFilterChannelId, setVideoFilterChannelId] = useState('all');
   const [toast, setToast] = useState(null); // { message, type: 'success' | 'error' }
@@ -1464,26 +1532,17 @@ export default function App() {
     },
     automation_mode: 'manual',
     automation_style_prompt: '',
+    // Auto-detected from the browser — the daily generation window and the
+    // scheduled publish hour are both read in this timezone, never a single
+    // region imposed on every creator.
+    timezone: (typeof Intl !== 'undefined' && Intl.DateTimeFormat().resolvedOptions().timeZone) || 'Africa/Douala',
+    videos_per_day: 1,
     publish_mode: 'manual',
     publish_schedule_hour: 8,
     publish_schedule_day_offset: 1,
     script_structure: {
       language: 'English',
-      parts: [
-        { name: 'hook_intro', word_count: 250, guidance: "Open with a striking hook, present the topic and why it matters, naturally invite the viewer to like and subscribe, tease what's coming without revealing everything." },
-        { name: 'context', word_count: 250, guidance: 'Give background and context for the topic, and explain why this truth is often misunderstood or overlooked today.' },
-        { name: 'main_part_one', word_count: 900, guidance: 'Develop the core ideas with concrete examples, stories, or analogies; ask thought-provoking questions; naturally remind the listener to like and subscribe partway through.' },
-        { name: 'main_part_two', word_count: 900, guidance: 'Go deeper, reveal less obvious insights, explain the benefits of applying this, and address common misconceptions.' },
-        { name: 'application', word_count: 900, guidance: 'Give concrete practical steps to apply today, explain how this transforms daily life, and include one short original illustrative story that carries the lesson without stating it outright.' },
-        { name: 'conclusion', word_count: 300, guidance: 'Summarize the key ideas powerfully, end with a strong closing statement, and a natural call to action to share, comment, or explore further.' },
-      ],
-      formatting_rules: [
-        'Write every number out in words, never as digits.',
-        'Do not include any section titles or labels anywhere in the text.',
-        'Write only words meant to be read aloud by a voiceover — no visual directions, no music cues, no stage directions.',
-        'Write in flowing continuous paragraphs, never a single isolated line.',
-      ],
-      cta_style: 'Weave in a natural invitation to like, subscribe, and comment without breaking the tone.',
+      ...SCRIPT_STRUCTURE_DEFAULTS.English,
     },
     voice_id: '',
     voice_name: '',
@@ -2099,12 +2158,41 @@ export default function App() {
     setView('wizard');
   };
 
+  // Mode automatique = zéro intervention : le créateur ne doit jamais voir le
+  // formulaire manuel (script/voix) pour une chaîne "auto" — un clic sur
+  // "Nouvelle vidéo" déclenche directement la génération par l'Agent, comme
+  // le ferait le pipeline quotidien, et affiche juste l'attente du rendu.
+  const startNewVideoFor = async (channel) => {
+    if (channel.automation_mode !== 'auto') {
+      setActiveChannel(channel);
+      setShowSubmitModal(true);
+      return;
+    }
+    setActiveChannel(channel);
+    setGeneratingAutoVideo(true);
+    try {
+      const res = await fetch(`${API_BASE}/channels/${channel.id}/generate-now`, { method: 'POST' });
+      if (res.ok) {
+        fetchChannelVideos(channel.id);
+        fetchChannels();
+        fetchAllVideos();
+        showToast("C’est lancé. Tu peux quitter cet écran, NicheCut reste au travail.", "success");
+      } else {
+        const err = await res.json();
+        showToast(err.detail || "Erreur lors du lancement.", "error");
+      }
+    } catch (e) {
+      showToast("Erreur réseau: " + e.message, "error");
+    } finally {
+      setGeneratingAutoVideo(false);
+    }
+  };
+
   const openNewVideoFlow = () => {
     if (channels.length === 0) {
       openCreateWizard();
     } else if (channels.length === 1) {
-      setActiveChannel(channels[0]);
-      setShowSubmitModal(true);
+      startNewVideoFor(channels[0]);
     } else {
       setShowChannelPickerModal(true);
     }
@@ -2134,10 +2222,15 @@ export default function App() {
       },
       automation_mode: channel.automation_mode || 'manual',
       automation_style_prompt: channel.automation_style_prompt || '',
+      videos_per_day: channel.videos_per_day ?? 1,
+      timezone: channel.timezone || defaultChannelForm.timezone,
       publish_mode: channel.publish_mode || 'manual',
       publish_schedule_hour: channel.publish_schedule_hour ?? 8,
       publish_schedule_day_offset: channel.publish_schedule_day_offset ?? 1,
-      script_structure: channel.script_structure || defaultChannelForm.script_structure
+      script_structure: channel.script_structure || defaultChannelForm.script_structure,
+      voice_id: channel.voice_id || '',
+      voice_name: channel.voice_name || '',
+      voice_settings: channel.voice_settings || defaultChannelForm.voice_settings,
     });
     const draft = loadDraft(channel.id);
     if (draft) setNewChannel(draft);
@@ -2383,6 +2476,40 @@ export default function App() {
     }
   };
 
+  const handleConnectYouTubeFromWizard = async () => {
+    if (!newChannel.name.trim()) return showToast("Donne d'abord un nom à ta chaîne.", "error");
+    setConnectingYouTubeFromWizard(true);
+    try {
+      let channelId = wizardMode === 'edit' ? editingChannelId : null;
+      if (!channelId) {
+        // Not saved yet — create the channel now (defaults for everything not
+        // yet configured) so the OAuth callback has a real id to attach to.
+        const url = currentUser ? `${API_BASE}/channels?user_id=${currentUser.id}` : `${API_BASE}/channels`;
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(newChannel),
+        });
+        if (!res.ok) throw new Error("Impossible de créer la chaîne avant la connexion YouTube.");
+        const created = await res.json();
+        channelId = created.id;
+        setWizardMode('edit');
+        setEditingChannelId(channelId);
+        await fetchChannels();
+      }
+      const authRes = await fetch(`${API_BASE}/channels/${channelId}/youtube/auth-url`);
+      if (!authRes.ok) {
+        const detail = await authRes.json().catch(() => ({}));
+        throw new Error(detail.detail || "Connexion YouTube indisponible.");
+      }
+      const data = await authRes.json();
+      window.location.href = data.auth_url;
+    } catch (err) {
+      showToast(err.message, 'error');
+      setConnectingYouTubeFromWizard(false);
+    }
+  };
+
   const handleSaveChannel = async () => {
     if (!newChannel.name) return showToast("Veuillez saisir un nom de chaîne.", "error");
     const needsLibrary = newChannel.image_style.source === 'library' || newChannel.image_style.source === 'hybrid';
@@ -2553,7 +2680,11 @@ export default function App() {
   };
 
   useEffect(() => {
-    if (!showSubmitModal || submitMode !== 'text') return;
+    // Voice is a channel-level setting now — fetch the catalog whenever it's
+    // actually needed: the submit modal (read-only reminder) or the wizard's
+    // own voice section (where it's actually configured).
+    const inWizard = view === 'wizard';
+    if ((!showSubmitModal || submitMode !== 'text') && !inWizard) return;
     const ownerQuery = currentUser ? `?user_id=${encodeURIComponent(currentUser.id)}` : '';
     fetch(`${API_BASE}/channels/voice/catalog${ownerQuery}`)
       .then(res => res.ok ? res.json() : Promise.reject())
@@ -2566,16 +2697,22 @@ export default function App() {
         }));
         if (voices.length) {
           setAvailableVoices(voices);
-          const preferred = activeChannel?.voice_id;
+          const preferred = inWizard ? newChannel.voice_id : activeChannel?.voice_id;
           if (preferred && voices.some(v => v.id === preferred)) setSelectedVoice(preferred);
           else if (!voices.some(v => v.id === selectedVoice)) setSelectedVoice(voices[0].id);
         }
       })
       .catch(() => {});
-  }, [showSubmitModal, submitMode, currentUser?.id, activeChannel?.voice_id]);
+  }, [showSubmitModal, submitMode, view, currentUser?.id, activeChannel?.voice_id]);
 
   const handleCloneVoice = async (file) => {
-    if (!file || !activeChannel) return;
+    // Voice is a channel-level setting: cloned either from the "Nouvelle
+    // vidéo" modal (activeChannel already saved) or from the wizard's voice
+    // section while editing an existing channel (editingChannelId) — cloning
+    // needs a real channel id to attach to, so it's unavailable while still
+    // creating a brand-new, unsaved channel.
+    const targetChannelId = view === 'wizard' ? editingChannelId : activeChannel?.id;
+    if (!file || !targetChannelId) return;
     const consent = await askConfirm("Je confirme être propriétaire de cette voix ou disposer du consentement explicite de son propriétaire.", { title: 'Consentement vocal obligatoire' });
     if (!consent) return;
     const name = window.prompt('Nom de cette voix :', 'Ma voix');
@@ -2587,12 +2724,13 @@ export default function App() {
       form.append('consent_confirmed', 'true');
       if (currentUser) form.append('user_id', currentUser.id);
       form.append('audio', file);
-      const res = await fetch(`${API_BASE}/channels/${activeChannel.id}/voice/clone`, { method: 'POST', body: form });
+      const res = await fetch(`${API_BASE}/channels/${targetChannelId}/voice/clone`, { method: 'POST', body: form });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.detail || 'Clonage impossible.');
       const voice = { id: body.voice_id, name: body.name, desc: 'Voix personnelle clonée' };
       setAvailableVoices(prev => [voice, ...prev.filter(v => v.id !== voice.id)]);
       setSelectedVoice(voice.id);
+      if (view === 'wizard') setNewChannel(prev => ({ ...prev, voice_id: voice.id, voice_name: voice.name }));
       showToast('Ta voix a été clonée et sélectionnée.', 'success');
     } catch (err) {
       showToast(err.message, 'error');
@@ -2656,6 +2794,28 @@ export default function App() {
     setOpenVideoMenuId(null);
     if (!vid.output_path) return;
     setDownloadModalVideo(vid);
+  };
+
+  const [approvingVideoId, setApprovingVideoId] = useState(null);
+  const handleToggleApproval = async (vid, e) => {
+    if (e) e.stopPropagation();
+    setOpenVideoMenuId(null);
+    setApprovingVideoId(vid.id);
+    try {
+      const res = await fetch(`${API_BASE}/videos/${vid.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ approved_for_publish: !vid.approved_for_publish }),
+      });
+      if (!res.ok) throw new Error("Impossible de mettre à jour l'approbation.");
+      showToast(vid.approved_for_publish ? 'Publication annulée — la vidéo reste en attente.' : 'Approuvée : elle sera publiée à l’heure programmée.', 'success');
+      fetchAllVideos();
+      if (activeChannel) fetchChannelVideos(activeChannel.id);
+    } catch (e2) {
+      showToast(e2.message, 'error');
+    } finally {
+      setApprovingVideoId(null);
+    }
   };
 
   const handlePublishYouTube = (vid, e) => {
@@ -3276,20 +3436,20 @@ export default function App() {
                 </div>
 
                 {/* A single quiet promise card, integrated into the existing dashboard language. */}
-                <section className="relative min-h-[240px] overflow-hidden rounded-2xl bg-[radial-gradient(circle_at_80%_50%,rgba(0,194,255,.08),transparent_46%),#161b22]">
+                <section className="relative min-h-[300px] overflow-hidden rounded-2xl bg-[radial-gradient(circle_at_80%_50%,rgba(0,194,255,.08),transparent_46%),#161b22]">
                   <img
                     src={freedomSunrise}
                     alt=""
                     aria-hidden="true"
                     className="absolute inset-0 w-full h-full object-cover object-center md:object-right opacity-80"
                     style={{
-                      WebkitMaskImage: 'radial-gradient(ellipse 68% 125% at 82% 50%, #000 28%, rgba(0,0,0,.92) 48%, transparent 82%)',
-                      maskImage: 'radial-gradient(ellipse 68% 125% at 82% 50%, #000 28%, rgba(0,0,0,.92) 48%, transparent 82%)'
+                      WebkitMaskImage: 'radial-gradient(ellipse 68% 125% at 65% 50%, #000 28%, rgba(0,0,0,.92) 48%, transparent 82%)',
+                      maskImage: 'radial-gradient(ellipse 68% 125% at 65% 50%, #000 28%, rgba(0,0,0,.92) 48%, transparent 82%)'
                     }}
                   />
                   <div className="absolute inset-0 bg-gradient-to-r from-[#161b22] via-[#161b22]/55 to-transparent pointer-events-none" />
                   <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-[#0f141c]/65 to-transparent pointer-events-none" />
-                  <div className="relative z-10 min-h-[240px] flex flex-col justify-center p-6 md:p-8 max-w-xl">
+                  <div className="relative z-10 min-h-[300px] flex flex-col justify-center p-6 md:p-8 max-w-xl">
                     <h3 className="text-xl md:text-2xl font-extrabold text-white leading-tight">Tu vis. NicheCut travaille.</h3>
                     <p className="text-sm text-slate-400 leading-6 mt-3 max-w-md">Ton Agent prépare tes vidéos et veille sur tes publications. Voyage, repose-toi ou profite simplement de ton temps.</p>
                     <div className="flex items-center gap-3 mt-6">
@@ -3722,6 +3882,12 @@ export default function App() {
                                       <span className="material-symbols-outlined text-[16px] text-[#00c2ff]">download</span> Télécharger
                                     </button>
                                   )}
+                                  {vid.status === 'done' && vid.scheduled_publish_at && !vid.youtube_video_id && (
+                                    <button disabled={approvingVideoId === vid.id} onClick={(e) => handleToggleApproval(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[#2c394e] hover:text-white flex items-center gap-2 font-medium disabled:opacity-50">
+                                      <span className={`material-symbols-outlined text-[16px] ${vid.approved_for_publish ? 'text-emerald-400' : 'text-[#00c2ff]'}`}>{vid.approved_for_publish ? 'check_circle' : 'pending'}</span>
+                                      {vid.approved_for_publish ? 'Approuvée — annuler' : 'Approuver la publication'}
+                                    </button>
+                                  )}
                                   {vid.status === 'done' && (
                                     <button disabled={publishingVideoId === vid.id} onClick={(e) => handlePublishYouTube(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[#2c394e] hover:text-white flex items-center gap-2 font-medium disabled:opacity-50">
                                       <span className="material-symbols-outlined text-[16px] text-[#00c2ff]">{vid.youtube_video_id ? 'open_in_new' : 'smart_display'}</span>
@@ -3956,9 +4122,10 @@ export default function App() {
                       </div>
                     )}
                     <button
-                      onClick={() => setShowSubmitModal(true)}
+                      onClick={() => startNewVideoFor(activeChannel)}
+                      disabled={generatingAutoVideo}
                       title="Nouvelle Vidéo"
-                      className="min-h-11 px-4 sm:px-5 py-2 bg-gradient-to-r from-[#61dcff] to-[#16b8ff] text-[#041018] rounded-xl font-extrabold text-xs hover:brightness-110 transition-all flex items-center justify-center gap-2 shadow-lg shadow-[#00bfff]/20"
+                      className="min-h-11 px-4 sm:px-5 py-2 bg-gradient-to-r from-[#61dcff] to-[#16b8ff] text-[#041018] rounded-xl font-extrabold text-xs hover:brightness-110 transition-all flex items-center justify-center gap-2 shadow-lg shadow-[#00bfff]/20 disabled:opacity-60"
                     >
                       <span className="material-symbols-outlined text-[18px]">add</span>
                       <span className="hidden sm:inline">Nouvelle Vidéo</span>
@@ -4004,12 +4171,17 @@ export default function App() {
                     <div className="bg-[#161b22] border border-[#263042] rounded-2xl p-10 text-center">
                       <span className="material-symbols-outlined text-[40px] text-slate-500 mb-2">description</span>
                       <h4 className="text-base font-bold text-white mb-1">Aucune vidéo soumise</h4>
-                      <p className="text-xs text-slate-400 mb-5">Soumettez votre premier sujet (texte de script ou fichiers audio).</p>
-                      <button 
-                        onClick={() => setShowSubmitModal(true)}
-                        className="bg-[#00c2ff] text-slate-950 px-5 py-2.5 rounded-xl font-bold text-xs hover:bg-[#38d0ff] transition-all"
+                      <p className="text-xs text-slate-400 mb-5">
+                        {activeChannel.automation_mode === 'auto'
+                          ? "Lance la génération : l'Agent choisit le sujet et écrit le script lui-même."
+                          : 'Soumettez votre premier sujet (texte de script ou fichiers audio).'}
+                      </p>
+                      <button
+                        onClick={() => startNewVideoFor(activeChannel)}
+                        disabled={generatingAutoVideo}
+                        className="bg-[#00c2ff] text-slate-950 px-5 py-2.5 rounded-xl font-bold text-xs hover:bg-[#38d0ff] transition-all disabled:opacity-60"
                       >
-                        Soumettre un sujet de vidéo
+                        {generatingAutoVideo ? 'Génération en cours…' : (activeChannel.automation_mode === 'auto' ? 'Générer une vidéo' : 'Soumettre un sujet de vidéo')}
                       </button>
                     </div>
                   ) : (
@@ -4119,6 +4291,12 @@ export default function App() {
                                 {vid.status === 'done' && (
                                   <button onClick={(e) => handleDownloadVideo(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[#2c394e] hover:text-white flex items-center gap-2 font-medium">
                                     <span className="material-symbols-outlined text-[16px] text-[#00c2ff]">download</span> Télécharger
+                                  </button>
+                                )}
+                                {vid.status === 'done' && vid.scheduled_publish_at && !vid.youtube_video_id && (
+                                  <button disabled={approvingVideoId === vid.id} onClick={(e) => handleToggleApproval(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[#2c394e] hover:text-white flex items-center gap-2 font-medium disabled:opacity-50">
+                                    <span className={`material-symbols-outlined text-[16px] ${vid.approved_for_publish ? 'text-emerald-400' : 'text-[#00c2ff]'}`}>{vid.approved_for_publish ? 'check_circle' : 'pending'}</span>
+                                    {vid.approved_for_publish ? 'Approuvée — annuler' : 'Approuver la publication'}
                                   </button>
                                 )}
                                 {vid.status === 'done' && (
@@ -4233,8 +4411,29 @@ export default function App() {
                 {/* STEP 1: INFORMATIONS GÉNÉRALES & IDENTITÉ (LOGO & NOM) */}
                 {wizardStep === 1 && (
                   <div className="space-y-6">
-                    <h3 className="text-base font-bold text-white">1. Identité de la Chaîne</h3>
-                    
+                    <div className="flex items-center justify-between gap-3">
+                      <h3 className="text-base font-bold text-white">1. Identité de la Chaîne</h3>
+                      {editingChannel?.youtube_connected ? (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wide bg-emerald-950/80 text-emerald-300 border border-emerald-700/60">
+                          <YouTubeIcon className="w-3.5 h-2.5" /> {editingChannel.youtube_channel_title || 'Connectée'}
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          disabled={connectingYouTubeFromWizard}
+                          onClick={handleConnectYouTubeFromWizard}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wide bg-slate-800/80 text-slate-300 border border-slate-700/60 hover:bg-slate-700/80 hover:text-white transition-colors disabled:opacity-50"
+                        >
+                          <YouTubeIcon className="w-3.5 h-2.5" /> {connectingYouTubeFromWizard ? 'Connexion…' : 'Connecter la chaîne YouTube'}
+                        </button>
+                      )}
+                    </div>
+                    {!editingChannel?.youtube_connected && (
+                      <p className="text-[11px] text-slate-500 -mt-2">
+                        Connecte-la maintenant pour remplir automatiquement le nom, la photo et le pseudo à partir de ta vraie chaîne.
+                      </p>
+                    )}
+
                     <div className="flex items-start gap-5">
                       <div
                         onClick={() => logoInputRef.current && logoInputRef.current.click()}
@@ -4300,43 +4499,121 @@ export default function App() {
                       />
                     </div>
 
+                    {/* Voix off : réglage de chaîne, configuré une seule fois ici —
+                        plus jamais redemandé à chaque vidéo générée. */}
+                    <div>
+                      <label className="block text-xs font-bold text-slate-300 mb-2">Voix off</label>
+                      <select
+                        value={newChannel.voice_id || selectedVoice}
+                        onChange={e => {
+                          const voice = availableVoices.find(v => v.id === e.target.value);
+                          setNewChannel({ ...newChannel, voice_id: e.target.value, voice_name: voice?.name || e.target.value });
+                        }}
+                        className="w-full bg-[#1b2230] border border-[#2b374d] rounded-xl px-4 py-2.5 text-xs text-white focus:border-[#00c2ff] outline-none"
+                      >
+                        {availableVoices.map(v => (
+                          <option key={v.id} value={v.id}>{v.name} — {v.desc}</option>
+                        ))}
+                      </select>
+                      <div className="mt-2 flex items-center justify-between gap-3">
+                        <p className="text-[10px] text-slate-500">Utilisée automatiquement pour chaque vidéo de cette chaîne.</p>
+                        {wizardMode === 'edit' && editingChannelId ? (
+                          <>
+                            <button type="button" disabled={cloningVoice} onClick={() => cloneVoiceInputRef.current?.click()} className="shrink-0 px-3 py-2 rounded-lg border border-[#00c2ff]/35 bg-[#00c2ff]/10 text-[#56d9ff] text-[11px] font-bold flex items-center gap-1.5 disabled:opacity-50">
+                              <span className="material-symbols-outlined text-[15px]">fingerprint</span>
+                              {cloningVoice ? 'Clonage…' : 'Cloner ma voix'}
+                            </button>
+                            <input ref={cloneVoiceInputRef} type="file" accept="audio/*" className="hidden" onChange={e => handleCloneVoice(e.target.files?.[0])} />
+                          </>
+                        ) : (
+                          <span className="shrink-0 text-[10px] text-slate-600">Clonage disponible après la création</span>
+                        )}
+                      </div>
+                      <div className="grid grid-cols-2 gap-3 mt-4">
+                        {[
+                          ['speed', 'Vitesse', 0.5, 1.5, 0.05],
+                          ['stability', 'Stabilité', 0, 1, 0.05],
+                          ['similarity_boost', 'Fidélité', 0, 1, 0.05],
+                          ['style', 'Expression', 0, 1, 0.05]
+                        ].map(([field, label, min, max, step]) => {
+                          const settings = newChannel.voice_settings || { speed: 0.845, stability: 0.8, similarity_boost: 0.9, style: 0 };
+                          const value = Number(settings[field] ?? (field === 'speed' ? 0.845 : 0));
+                          return <label key={field} className="bg-[#11151c] border border-[#202938] rounded-xl p-3">
+                            <span className="flex justify-between text-[10px] font-bold text-slate-300 mb-2"><span>{label}</span><span className="text-[#55d8ff]">{value.toFixed(2)}</span></span>
+                            <input type="range" min={min} max={max} step={step} value={value} onChange={e => {
+                              setNewChannel({ ...newChannel, voice_settings: { ...settings, [field]: Number(e.target.value) } });
+                            }} className="w-full accent-[#00c2ff]" />
+                          </label>;
+                        })}
+                      </div>
+                    </div>
+
                     <div>
                       <label className="block text-xs font-bold text-slate-300 mb-2">Génération de contenu</label>
-                      <div className="flex gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setNewChannel({ ...newChannel, automation_mode: 'manual' })}
-                          className={`flex-1 px-3.5 py-2.5 rounded-xl text-xs font-bold border transition-colors text-left ${
-                            (newChannel.automation_mode || 'manual') === 'manual'
-                              ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]'
-                              : 'bg-[#1b2230] border-[#2b374d] text-slate-300 hover:border-slate-500'
-                          }`}
-                        >
-                          Manuel
-                          <span className="block font-normal text-[11px] text-slate-400 mt-0.5">Tu soumets chaque script toi-même.</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setNewChannel({ ...newChannel, automation_mode: 'auto' })}
-                          className={`flex-1 px-3.5 py-2.5 rounded-xl text-xs font-bold border transition-colors text-left ${
-                            newChannel.automation_mode === 'auto'
-                              ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]'
-                              : 'bg-[#1b2230] border-[#2b374d] text-slate-300 hover:border-slate-500'
-                          }`}
-                        >
-                          Automatique
-                          <span className="block font-normal text-[11px] text-slate-400 mt-0.5">Une vidéo générée et publiée chaque jour, entre 7h et 11h (heure du Cameroun), sans intervention.</span>
-                        </button>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {[
+                          { value: 'manual', icon: 'edit_note', label: 'Manuel', bullets: ['Tu écris ou colles le script toi-même', 'Aucune génération automatique'] },
+                          { value: 'auto', icon: 'auto_awesome', label: 'Automatique', bullets: ["L'Agent choisit le sujet et écrit le script", 'Chaque jour, entre 7h et 11h, selon ton fuseau horaire', 'Zéro intervention de ta part'] },
+                        ].map(opt => {
+                          const active = (newChannel.automation_mode || 'manual') === opt.value;
+                          return (
+                            <button
+                              key={opt.value}
+                              type="button"
+                              onClick={() => setNewChannel({ ...newChannel, automation_mode: opt.value })}
+                              className={`p-3.5 rounded-xl text-left border transition-colors ${
+                                active ? 'bg-[#00c2ff]/10 border-[#00c2ff]' : 'bg-[#1b2230] border-[#2b374d] hover:border-slate-500'
+                              }`}
+                            >
+                              <span className={`flex items-center gap-2 text-xs font-bold ${active ? 'text-[#00c2ff]' : 'text-white'}`}>
+                                <span className="material-symbols-outlined text-[16px]">{opt.icon}</span>
+                                {opt.label}
+                              </span>
+                              <ul className="mt-2 space-y-1">
+                                {opt.bullets.map((b, i) => (
+                                  <li key={i} className="flex items-start gap-1.5 text-[11px] text-slate-400">
+                                    <span className="material-symbols-outlined text-[13px] mt-[1px] text-slate-500 shrink-0">check</span>
+                                    {b}
+                                  </li>
+                                ))}
+                              </ul>
+                            </button>
+                          );
+                        })}
                       </div>
                       {newChannel.automation_mode === 'auto' && (
-                        <div className="mt-3">
-                          <label className="block text-xs font-bold text-slate-300 mb-2">Direction créative (optionnel)</label>
-                          <textarea
-                            value={newChannel.automation_style_prompt || ''}
-                            onChange={e => setNewChannel({ ...newChannel, automation_style_prompt: e.target.value })}
-                            className="w-full bg-[#1b2230] border border-[#2b374d] rounded-xl px-3 py-2 text-xs text-white focus:border-[#00c2ff] outline-none min-h-[70px]"
-                            placeholder="Ex: ton direct et percutant, toujours finir par une question au public..."
-                          />
+                        <div className="mt-3 space-y-2">
+                          <div className="flex items-center gap-2 bg-[#11151c] border border-[#202938] rounded-xl px-3 py-2.5">
+                            <span className="material-symbols-outlined text-[16px] text-slate-500 shrink-0">calendar_today</span>
+                            <span className="text-[11px] text-slate-400 shrink-0">Vidéos par jour :</span>
+                            <div className="flex-1 flex gap-1.5">
+                              {[1, 2, 3].map(n => (
+                                <button
+                                  key={n}
+                                  type="button"
+                                  onClick={() => setNewChannel({ ...newChannel, videos_per_day: n })}
+                                  className={`flex-1 py-1.5 rounded-lg text-[11px] font-bold border transition-colors ${
+                                    (newChannel.videos_per_day || 1) === n
+                                      ? 'bg-[#00c2ff] text-slate-950 border-[#00c2ff]'
+                                      : 'bg-[#1b2230] border-[#2b374d] text-slate-300 hover:border-slate-500'
+                                  }`}
+                                >
+                                  {n}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 bg-[#11151c] border border-[#202938] rounded-xl px-3 py-2.5">
+                            <span className="material-symbols-outlined text-[16px] text-slate-500 shrink-0">public</span>
+                            <span className="text-[11px] text-slate-400 shrink-0">Fuseau horaire :</span>
+                            <select
+                              value={newChannel.timezone || 'Africa/Douala'}
+                              onChange={e => setNewChannel({ ...newChannel, timezone: e.target.value })}
+                              className="flex-1 min-w-0 bg-[#1b2230] border border-[#2b374d] rounded-lg px-2 py-1.5 text-[11px] text-white focus:border-[#00c2ff] outline-none"
+                            >
+                              {TIMEZONE_OPTIONS.map(tz => <option key={tz} value={tz}>{tz}</option>)}
+                            </select>
+                          </div>
                         </div>
                       )}
                     </div>
@@ -4344,26 +4621,37 @@ export default function App() {
                     <div>
                       <label className="block text-xs font-bold text-slate-300 mb-2">Publication YouTube</label>
                       <p className="text-[11px] text-slate-500 mb-2">Indépendant du mode ci-dessus — décide ce qui arrive à une vidéo une fois qu'elle est prête.</p>
-                      <div className="grid grid-cols-3 gap-2">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                         {[
-                          { value: 'manual', label: 'Manuelle', desc: "Tu télécharges et publies toi-même, ou tu cliques «Publier» quand tu veux." },
-                          { value: 'scheduled', label: 'Programmée', desc: "Publiée automatiquement à une heure fixe que tu choisis." },
-                          { value: 'auto', label: 'Automatique', desc: 'Publiée dès que le rendu est terminé, sans délai.' },
-                        ].map(opt => (
-                          <button
-                            key={opt.value}
-                            type="button"
-                            onClick={() => setNewChannel({ ...newChannel, publish_mode: opt.value })}
-                            className={`px-3 py-2.5 rounded-xl text-xs font-bold border transition-colors text-left ${
-                              (newChannel.publish_mode || 'manual') === opt.value
-                                ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]'
-                                : 'bg-[#1b2230] border-[#2b374d] text-slate-300 hover:border-slate-500'
-                            }`}
-                          >
-                            {opt.label}
-                            <span className="block font-normal text-[10px] text-slate-400 mt-0.5">{opt.desc}</span>
-                          </button>
-                        ))}
+                          { value: 'manual', icon: 'download', label: 'Manuelle', bullets: ['Tu télécharges la vidéo toi-même', 'Ou tu cliques « Publier » quand tu veux'] },
+                          { value: 'scheduled', icon: 'schedule', label: 'Programmée', bullets: ['Publiée à une heure fixe que tu choisis', 'Nombre de jours après le rendu réglable'] },
+                          { value: 'auto', icon: 'bolt', label: 'Automatique', bullets: ['Publiée dès la fin du rendu', 'Aucun délai'] },
+                        ].map(opt => {
+                          const active = (newChannel.publish_mode || 'manual') === opt.value;
+                          return (
+                            <button
+                              key={opt.value}
+                              type="button"
+                              onClick={() => setNewChannel({ ...newChannel, publish_mode: opt.value })}
+                              className={`p-3 rounded-xl text-left border transition-colors ${
+                                active ? 'bg-[#00c2ff]/10 border-[#00c2ff]' : 'bg-[#1b2230] border-[#2b374d] hover:border-slate-500'
+                              }`}
+                            >
+                              <span className={`flex items-center gap-2 text-xs font-bold ${active ? 'text-[#00c2ff]' : 'text-white'}`}>
+                                <span className="material-symbols-outlined text-[15px]">{opt.icon}</span>
+                                {opt.label}
+                              </span>
+                              <ul className="mt-2 space-y-1">
+                                {opt.bullets.map((b, i) => (
+                                  <li key={i} className="flex items-start gap-1.5 text-[10px] text-slate-400">
+                                    <span className="material-symbols-outlined text-[12px] mt-[1px] text-slate-500 shrink-0">check</span>
+                                    {b}
+                                  </li>
+                                ))}
+                              </ul>
+                            </button>
+                          );
+                        })}
                       </div>
                       {newChannel.publish_mode === 'scheduled' && (
                         <div className="mt-3 flex items-center gap-3">
@@ -4381,7 +4669,7 @@ export default function App() {
                             </select>
                           </div>
                           <div>
-                            <label className="block text-[11px] font-bold text-slate-300 mb-1">À quelle heure (Cameroun)</label>
+                            <label className="block text-[11px] font-bold text-slate-300 mb-1">À quelle heure (ton fuseau horaire)</label>
                             <select
                               value={newChannel.publish_schedule_hour ?? 8}
                               onChange={e => setNewChannel({ ...newChannel, publish_schedule_hour: parseInt(e.target.value) })}
@@ -4398,93 +4686,27 @@ export default function App() {
 
                     {newChannel.automation_mode === 'auto' && (() => {
                       const structure = newChannel.script_structure || defaultChannelForm.script_structure;
-                      const updateStructure = (patch) => setNewChannel({ ...newChannel, script_structure: { ...structure, ...patch } });
                       const parts = structure.parts || [];
-                      const updatePart = (idx, patch) => {
-                        const next = parts.map((p, i) => i === idx ? { ...p, ...patch } : p);
-                        updateStructure({ parts: next });
-                      };
-                      const addPart = () => updateStructure({ parts: [...parts, { name: `part_${parts.length + 1}`, word_count: 300, guidance: '' }] });
-                      const removePart = (idx) => updateStructure({ parts: parts.filter((_, i) => i !== idx) });
                       const totalWords = parts.reduce((sum, p) => sum + (Number(p.word_count) || 0), 0);
-                      const rulesText = (structure.formatting_rules || []).join('\n');
-
                       return (
-                        <div className="border border-[#2b374d] rounded-xl p-4 space-y-4 bg-[#161c28]">
-                          <div className="flex items-center justify-between">
-                            <h4 className="text-xs font-bold text-white">Structure du script auto-généré</h4>
-                            <span className="text-[11px] text-slate-400">~{totalWords} mots au total</span>
-                          </div>
-
-                          <div>
-                            <label className="block text-[11px] font-bold text-slate-300 mb-1">Langue du script</label>
-                            <button
-                              type="button"
-                              onClick={() => { setLanguageSearch(''); setShowLanguageModal(true); }}
-                              className="w-full bg-[#1b2230] border border-[#2b374d] hover:border-[#00c2ff]/60 rounded-lg px-3 py-2.5 text-xs text-white transition-colors flex items-center justify-between gap-3"
-                            >
-                              <span className="flex items-center gap-2 min-w-0">
-                                <span className="material-symbols-outlined text-[17px] text-[#00c2ff]">language</span>
-                                <span className="truncate">{SCRIPT_LANGUAGES.find(lang => lang.value === (structure.language || 'English'))?.label || structure.language || 'English'}</span>
-                              </span>
-                              <span className="material-symbols-outlined text-[18px] text-slate-500">expand_more</span>
-                            </button>
-                          </div>
-
-                          <div className="space-y-3">
-                            <label className="block text-[11px] font-bold text-slate-300">Parties du script</label>
-                            {parts.map((part, idx) => (
-                              <div key={idx} className="border border-[#2b374d] rounded-lg p-3 space-y-2 bg-[#1b2230]">
-                                <div className="flex items-center gap-2">
-                                  <input
-                                    value={part.name || ''}
-                                    onChange={e => updatePart(idx, { name: e.target.value })}
-                                    className="flex-1 bg-[#0e1420] border border-[#2b374d] rounded-lg px-2.5 py-1.5 text-xs text-white focus:border-[#00c2ff] outline-none"
-                                    placeholder="Nom de la partie (interne)"
-                                  />
-                                  <input
-                                    type="number"
-                                    min="20"
-                                    value={part.word_count ?? 300}
-                                    onChange={e => updatePart(idx, { word_count: parseInt(e.target.value) || 0 })}
-                                    className="w-24 bg-[#0e1420] border border-[#2b374d] rounded-lg px-2.5 py-1.5 text-xs text-white focus:border-[#00c2ff] outline-none"
-                                    placeholder="Mots"
-                                  />
-                                  <button type="button" onClick={() => removePart(idx)} className="shrink-0 w-8 h-8 flex items-center justify-center rounded-lg text-red-400 hover:bg-red-500/10">
-                                    <span className="material-symbols-outlined text-lg">delete</span>
-                                  </button>
-                                </div>
-                                <textarea
-                                  value={part.guidance || ''}
-                                  onChange={e => updatePart(idx, { guidance: e.target.value })}
-                                  className="w-full bg-[#0e1420] border border-[#2b374d] rounded-lg px-2.5 py-1.5 text-xs text-white focus:border-[#00c2ff] outline-none min-h-[50px]"
-                                  placeholder="Ce que cette partie doit couvrir..."
-                                />
+                        <button
+                          type="button"
+                          onClick={() => setShowScriptStructureModal(true)}
+                          className="w-full flex items-center justify-between gap-3 border border-[#2b374d] hover:border-[#00c2ff]/60 rounded-xl p-4 bg-[#161c28] transition-colors text-left"
+                        >
+                          <div className="flex items-center gap-3 min-w-0">
+                            <span className="w-9 h-9 rounded-lg bg-[#00c2ff]/10 flex items-center justify-center shrink-0">
+                              <span className="material-symbols-outlined text-[18px] text-[#00c2ff]">description</span>
+                            </span>
+                            <div className="min-w-0">
+                              <div className="text-xs font-bold text-white">Structure du script auto-généré</div>
+                              <div className="text-[11px] text-slate-400 mt-0.5 truncate">
+                                {parts.length} parties · ~{totalWords} mots · {SCRIPT_LANGUAGES.find(l => l.value === (structure.language || 'English'))?.label || structure.language}
                               </div>
-                            ))}
-                            <button type="button" onClick={addPart} className="text-xs font-bold text-[#00c2ff] hover:underline">
-                              + Ajouter une partie
-                            </button>
+                            </div>
                           </div>
-
-                          <div>
-                            <label className="block text-[11px] font-bold text-slate-300 mb-1">Règles de formatage (une par ligne)</label>
-                            <textarea
-                              value={rulesText}
-                              onChange={e => updateStructure({ formatting_rules: e.target.value.split('\n').map(r => r.trim()).filter(Boolean) })}
-                              className="w-full bg-[#1b2230] border border-[#2b374d] rounded-lg px-3 py-2 text-xs text-white focus:border-[#00c2ff] outline-none min-h-[80px]"
-                            />
-                          </div>
-
-                          <div>
-                            <label className="block text-[11px] font-bold text-slate-300 mb-1">Style d'appel à l'action</label>
-                            <textarea
-                              value={structure.cta_style || ''}
-                              onChange={e => updateStructure({ cta_style: e.target.value })}
-                              className="w-full bg-[#1b2230] border border-[#2b374d] rounded-lg px-3 py-2 text-xs text-white focus:border-[#00c2ff] outline-none min-h-[50px]"
-                            />
-                          </div>
-                        </div>
+                          <span className="material-symbols-outlined text-slate-500 shrink-0">chevron_right</span>
+                        </button>
                       );
                     })()}
 
@@ -5804,45 +6026,22 @@ export default function App() {
                   </button>
                 </div>
 
-                {/* Voice Model Selection */}
+                {/* La voix est un réglage de chaîne (configuré une fois dans les
+                    paramètres) — plus de sélecteur/sliders ici, juste un rappel
+                    de la voix déjà active pour ne jamais la changer par accident
+                    à chaque vidéo. */}
                 {submitMode === 'text' && (
-                  <div>
-                    <label className="block text-xs font-bold text-slate-300 mb-2">Modèle de Voix Off IA</label>
-                    <select
-                      value={selectedVoice}
-                      onChange={e => saveChannelVoice(e.target.value)}
-                      className="w-full bg-[#1b2230] border border-[#2b374d] rounded-xl px-4 py-2.5 text-xs text-white focus:border-[#00c2ff] outline-none"
+                  <div className="flex items-center gap-2 bg-[#11151c] border border-[#202938] rounded-xl px-3.5 py-2.5">
+                    <span className="material-symbols-outlined text-[16px] text-[#00c2ff] shrink-0">graphic_eq</span>
+                    <span className="text-[11px] text-slate-400">Voix de la chaîne :</span>
+                    <span className="text-xs font-bold text-white truncate">{activeChannel.voice_name || availableVoices.find(v => v.id === activeChannel.voice_id)?.name || 'Non configurée'}</span>
+                    <button
+                      type="button"
+                      onClick={() => { setShowSubmitModal(false); openEditWizard(activeChannel, null, 1); }}
+                      className="ml-auto shrink-0 text-[11px] font-bold text-[#56d9ff] hover:underline"
                     >
-                      {availableVoices.map(v => (
-                        <option key={v.id} value={v.id}>{v.name} — {v.desc}</option>
-                      ))}
-                    </select>
-                    <div className="mt-2 flex items-center justify-between gap-3">
-                      <p className="text-[10px] text-slate-500">Voix permanente de la chaîne, réutilisée automatiquement par l’Agent.</p>
-                      <button type="button" disabled={cloningVoice} onClick={() => cloneVoiceInputRef.current?.click()} className="shrink-0 px-3 py-2 rounded-lg border border-[#00c2ff]/35 bg-[#00c2ff]/10 text-[#56d9ff] text-[11px] font-bold flex items-center gap-1.5 disabled:opacity-50">
-                        <span className="material-symbols-outlined text-[15px]">fingerprint</span>
-                        {cloningVoice ? 'Clonage…' : 'Cloner ma voix'}
-                      </button>
-                      <input ref={cloneVoiceInputRef} type="file" accept="audio/*" className="hidden" onChange={e => handleCloneVoice(e.target.files?.[0])} />
-                    </div>
-                    <div className="grid grid-cols-2 gap-3 mt-4">
-                      {[
-                        ['speed', 'Vitesse', 0.5, 1.5, 0.05],
-                        ['stability', 'Stabilité', 0, 1, 0.05],
-                        ['similarity_boost', 'Fidélité', 0, 1, 0.05],
-                        ['style', 'Expression', 0, 1, 0.05]
-                      ].map(([field, label, min, max, step]) => {
-                        const settings = activeChannel.voice_settings || { speed: 0.845, stability: 0.8, similarity_boost: 0.9, style: 0 };
-                        const value = Number(settings[field] ?? (field === 'speed' ? 0.845 : 0));
-                        return <label key={field} className="bg-[#11151c] border border-[#202938] rounded-xl p-3">
-                          <span className="flex justify-between text-[10px] font-bold text-slate-300 mb-2"><span>{label}</span><span className="text-[#55d8ff]">{value.toFixed(2)}</span></span>
-                          <input type="range" min={min} max={max} step={step} value={value} onChange={e => {
-                            const next = { ...settings, [field]: Number(e.target.value) };
-                            setActiveChannel(prev => ({ ...prev, voice_settings: next }));
-                          }} onMouseUp={e => saveChannelVoice(selectedVoice, { ...settings, [field]: Number(e.currentTarget.value) })} onTouchEnd={e => saveChannelVoice(selectedVoice, { ...settings, [field]: Number(e.currentTarget.value) })} className="w-full accent-[#00c2ff]" />
-                        </label>;
-                      })}
-                    </div>
+                      Modifier
+                    </button>
                   </div>
                 )}
 
@@ -6119,7 +6318,11 @@ export default function App() {
                   <span className="material-symbols-outlined text-[18px] text-[#00c2ff]">auto_fix_high</span>
                   NicheCut Studio
                 </h3>
-                <p className="text-[11px] text-slate-500 mt-0.5">{studioVideo.script_text}</p>
+                {/* Une ligne, tronquée — le script complet reste digeste dans le
+                    panneau "Script" scène par scène ci-dessous, pas ici. */}
+                <p className="text-[11px] text-slate-500 mt-0.5 max-w-md truncate">
+                  {studioVideo.title || (studioVideo.script_text || '').slice(0, 80) || 'Sans titre'}
+                </p>
               </div>
               <div className="flex items-center gap-3">
                 {studioReassembling && (
@@ -6915,9 +7118,8 @@ export default function App() {
                 <div
                   key={chan.id}
                   onClick={() => {
-                    setActiveChannel(chan);
                     setShowChannelPickerModal(false);
-                    setShowSubmitModal(true);
+                    startNewVideoFor(chan);
                   }}
                   className="p-4 bg-[#1b2230] hover:bg-[#252f42] border border-[#2b374d] rounded-2xl cursor-pointer flex items-center gap-4 transition-all"
                 >
@@ -6982,10 +7184,20 @@ export default function App() {
                           key={lang.code}
                           type="button"
                           onClick={() => {
-                            setNewChannel(prev => ({
-                              ...prev,
-                              script_structure: { ...prev.script_structure, language: lang.value },
-                            }));
+                            setNewChannel(prev => {
+                              const current = prev.script_structure || {};
+                              // Only swap guidance text if it's still an unedited default — never
+                              // clobber a creator's own custom parts/rules/cta just by changing language.
+                              const shouldRelocalize = isPristineScriptStructure(current);
+                              return {
+                                ...prev,
+                                script_structure: {
+                                  ...current,
+                                  language: lang.value,
+                                  ...(shouldRelocalize ? getScriptStructureDefaults(lang.value) : {}),
+                                },
+                              };
+                            });
                             setShowLanguageModal(false);
                           }}
                           className={`flex items-center gap-3 p-3 rounded-xl text-left border transition-all ${
@@ -7007,6 +7219,124 @@ export default function App() {
               <div className="px-5 py-3 border-t border-[#263042] text-[10px] text-slate-500 flex items-center gap-2 flex-shrink-0">
                 <span className="material-symbols-outlined text-[15px]">auto_awesome</span>
                 Le ton et les expressions seront adaptés naturellement à la langue sélectionnée.
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* SCRIPT STRUCTURE MODAL — pulled out of the wizard step into a popup so
+          configuring the auto-script structure doesn't force scrolling through
+          a long inline form. */}
+      {showScriptStructureModal && (() => {
+        const structure = newChannel.script_structure || defaultChannelForm.script_structure;
+        const updateStructure = (patch) => setNewChannel({ ...newChannel, script_structure: { ...structure, ...patch } });
+        const parts = structure.parts || [];
+        const updatePart = (idx, patch) => {
+          const next = parts.map((p, i) => i === idx ? { ...p, ...patch } : p);
+          updateStructure({ parts: next });
+        };
+        const addPart = () => updateStructure({ parts: [...parts, { name: `part_${parts.length + 1}`, word_count: 300, guidance: '' }] });
+        const removePart = (idx) => updateStructure({ parts: parts.filter((_, i) => i !== idx) });
+        const totalWords = parts.reduce((sum, p) => sum + (Number(p.word_count) || 0), 0);
+        const rulesText = (structure.formatting_rules || []).join('\n');
+
+        return (
+          <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-[120] flex items-center justify-center p-4 sm:p-6" onClick={() => setShowScriptStructureModal(false)}>
+            <div className="bg-[#111822] border border-[#293548] rounded-3xl w-full max-w-2xl shadow-2xl flex flex-col max-h-[88vh]" onClick={e => e.stopPropagation()}>
+              <div className="p-5 sm:p-6 border-b border-[#263042] flex items-start justify-between gap-4 flex-shrink-0">
+                <div>
+                  <div className="flex items-center gap-2 text-[#59d8ff] mb-1">
+                    <span className="material-symbols-outlined text-[20px]">description</span>
+                    <span className="text-[10px] font-bold uppercase tracking-[.16em]">Génération automatique</span>
+                  </div>
+                  <h3 className="text-lg font-extrabold text-white">Structure du script auto-généré</h3>
+                  <p className="text-xs text-slate-400 mt-1">~{totalWords} mots au total, répartis sur {parts.length} parties.</p>
+                </div>
+                <button onClick={() => setShowScriptStructureModal(false)} className="text-slate-400 hover:text-white p-1 shrink-0">
+                  <span className="material-symbols-outlined">close</span>
+                </button>
+              </div>
+
+              <div className="overflow-y-auto p-5 sm:p-6 space-y-4">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-300 mb-1">Langue du script</label>
+                  <button
+                    type="button"
+                    onClick={() => { setLanguageSearch(''); setShowLanguageModal(true); }}
+                    className="w-full bg-[#1b2230] border border-[#2b374d] hover:border-[#00c2ff]/60 rounded-lg px-3 py-2.5 text-xs text-white transition-colors flex items-center justify-between gap-3"
+                  >
+                    <span className="flex items-center gap-2 min-w-0">
+                      <span className="material-symbols-outlined text-[17px] text-[#00c2ff]">language</span>
+                      <span className="truncate">{SCRIPT_LANGUAGES.find(lang => lang.value === (structure.language || 'English'))?.label || structure.language || 'English'}</span>
+                    </span>
+                    <span className="material-symbols-outlined text-[18px] text-slate-500">expand_more</span>
+                  </button>
+                </div>
+
+                <div className="space-y-3">
+                  <label className="block text-[11px] font-bold text-slate-300">Parties du script</label>
+                  {parts.map((part, idx) => (
+                    <div key={idx} className="border border-[#2b374d] rounded-lg p-3 space-y-2 bg-[#1b2230]">
+                      <div className="flex items-center gap-2">
+                        <input
+                          value={part.name || ''}
+                          onChange={e => updatePart(idx, { name: e.target.value })}
+                          className="flex-1 bg-[#0e1420] border border-[#2b374d] rounded-lg px-2.5 py-1.5 text-xs text-white focus:border-[#00c2ff] outline-none"
+                          placeholder="Nom de la partie (interne)"
+                        />
+                        <input
+                          type="number"
+                          min="20"
+                          value={part.word_count ?? 300}
+                          onChange={e => updatePart(idx, { word_count: parseInt(e.target.value) || 0 })}
+                          className="w-24 bg-[#0e1420] border border-[#2b374d] rounded-lg px-2.5 py-1.5 text-xs text-white focus:border-[#00c2ff] outline-none"
+                          placeholder="Mots"
+                        />
+                        <button type="button" onClick={() => removePart(idx)} className="shrink-0 w-8 h-8 flex items-center justify-center rounded-lg text-red-400 hover:bg-red-500/10">
+                          <span className="material-symbols-outlined text-lg">delete</span>
+                        </button>
+                      </div>
+                      <textarea
+                        value={part.guidance || ''}
+                        onChange={e => updatePart(idx, { guidance: e.target.value })}
+                        className="w-full bg-[#0e1420] border border-[#2b374d] rounded-lg px-2.5 py-1.5 text-xs text-white focus:border-[#00c2ff] outline-none min-h-[50px]"
+                        placeholder="Ce que cette partie doit couvrir..."
+                      />
+                    </div>
+                  ))}
+                  <button type="button" onClick={addPart} className="text-xs font-bold text-[#00c2ff] hover:underline">
+                    + Ajouter une partie
+                  </button>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-300 mb-1">Règles de formatage (une par ligne)</label>
+                  <textarea
+                    value={rulesText}
+                    onChange={e => updateStructure({ formatting_rules: e.target.value.split('\n').map(r => r.trim()).filter(Boolean) })}
+                    className="w-full bg-[#1b2230] border border-[#2b374d] rounded-lg px-3 py-2 text-xs text-white focus:border-[#00c2ff] outline-none min-h-[80px]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-300 mb-1">Style d'appel à l'action</label>
+                  <textarea
+                    value={structure.cta_style || ''}
+                    onChange={e => updateStructure({ cta_style: e.target.value })}
+                    className="w-full bg-[#1b2230] border border-[#2b374d] rounded-lg px-3 py-2 text-xs text-white focus:border-[#00c2ff] outline-none min-h-[50px]"
+                  />
+                </div>
+              </div>
+
+              <div className="p-4 sm:p-5 border-t border-[#263042] flex-shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setShowScriptStructureModal(false)}
+                  className="w-full py-3 bg-[#00c2ff] text-slate-950 font-bold text-sm rounded-xl hover:bg-[#38d0ff] transition-all"
+                >
+                  Terminé
+                </button>
               </div>
             </div>
           </div>
