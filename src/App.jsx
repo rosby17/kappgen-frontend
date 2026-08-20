@@ -2578,13 +2578,20 @@ export default function App() {
     fetchChannels();
     fetchAllVideos();
     fetchFolders();
+    // Was 6s — that's 3 requests/6s sustained for as long as any tab stays
+    // open, and it multiplies with every extra NicheCut tab a creator has
+    // open at once. At that rate it's plausible to eventually trip
+    // Cloudflare's rate-limiting/bot-protection on the API's edge, which
+    // fails at the connection level (shows up in the browser as a plain
+    // "Failed to fetch", no readable HTTP error) rather than a clean 429.
+    // 15s keeps the UI reasonably live without hammering the API this hard.
     const interval = setInterval(() => {
       fetchChannels();
       fetchAllVideos();
       if (activeChannel) {
         fetchChannelVideos(activeChannel.id);
       }
-    }, 6000);
+    }, 15000);
     return () => clearInterval(interval);
   }, [activeChannel, currentUser?.id]);
 
