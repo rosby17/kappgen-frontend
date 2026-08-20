@@ -130,9 +130,9 @@ const getVideoUrl = (path) => {
 // The AI-generated thumbnail (thumbnail.jpg) always sits next to output.mp4
 // in the same render folder — used as the video card's poster so what the
 // creator sees here matches exactly what gets uploaded to YouTube.
-const getVideoThumbnailUrl = (vid) => {
+const getVideoThumbnailUrl = (vid, bustKey) => {
   if (!vid?.output_path) return null;
-  return getVideoUrl(vid.output_path.replace(/[^/]+$/, 'thumbnail.jpg')) + `?v=${vid.finished_at || ''}`;
+  return getVideoUrl(vid.output_path.replace(/[^/]+$/, 'thumbnail.jpg')) + `?v=${bustKey || vid.finished_at || ''}`;
 };
 
 // Preset Subtitle Styles
@@ -3492,6 +3492,29 @@ export default function App() {
     }
   };
 
+  const [regeneratingCardThumbnailId, setRegeneratingCardThumbnailId] = useState(null);
+  const [thumbnailBust, setThumbnailBust] = useState({});
+  const handleRegenerateCardThumbnail = async (vid, e) => {
+    if (e) e.stopPropagation();
+    setOpenVideoMenuId(null);
+    setRegeneratingCardThumbnailId(vid.id);
+    try {
+      const res = await fetch(`${API_BASE}/videos/${vid.id}/thumbnail/regenerate`, { method: 'POST' });
+      if (!res.ok) {
+        const detail = await res.json().catch(() => ({}));
+        throw new Error(detail.detail || "Échec de la régénération de la vignette.");
+      }
+      // thumbnail.jpg is overwritten in place — vid.finished_at doesn't change,
+      // so the <img>/poster would keep serving the old cached file without this.
+      setThumbnailBust(prev => ({ ...prev, [vid.id]: Date.now() }));
+      showToast('Vignette régénérée.', 'success');
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setRegeneratingCardThumbnailId(null);
+    }
+  };
+
   const handleReuseAudio = async (vid, e) => {
     if (e) e.stopPropagation();
     setOpenVideoMenuId(null);
@@ -4262,7 +4285,7 @@ export default function App() {
                                 <>
                                   <video
                                     src={getVideoUrl(vid.output_path)}
-                                    poster={getVideoThumbnailUrl(vid)}
+                                    poster={getVideoThumbnailUrl(vid, thumbnailBust[vid.id])}
                                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                                     preload="metadata"
                                   />
@@ -4335,6 +4358,11 @@ export default function App() {
                                   {vid.status === 'done' && (
                                     <button disabled={regeneratingTitleId === vid.id} onClick={(e) => handleRegenerateTitle(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[#2c394e] hover:text-white flex items-center gap-2 font-medium disabled:opacity-50">
                                       <span className={`material-symbols-outlined text-[16px] text-[#00c2ff] ${regeneratingTitleId === vid.id ? 'animate-spin' : ''}`}>{regeneratingTitleId === vid.id ? 'progress_activity' : 'auto_awesome'}</span> {regeneratingTitleId === vid.id ? 'Régénération…' : 'Régénérer le titre'}
+                                    </button>
+                                  )}
+                                  {vid.status === 'done' && (
+                                    <button disabled={regeneratingCardThumbnailId === vid.id} onClick={(e) => handleRegenerateCardThumbnail(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[#2c394e] hover:text-white flex items-center gap-2 font-medium disabled:opacity-50">
+                                      <span className={`material-symbols-outlined text-[16px] text-[#00c2ff] ${regeneratingCardThumbnailId === vid.id ? 'animate-spin' : ''}`}>{regeneratingCardThumbnailId === vid.id ? 'progress_activity' : 'photo_camera'}</span> {regeneratingCardThumbnailId === vid.id ? 'Régénération…' : 'Régénérer la vignette'}
                                     </button>
                                   )}
                                   {vid.status === 'done' && vid.editable && (
@@ -4689,7 +4717,7 @@ export default function App() {
                               <>
                                 <video
                                   src={getVideoUrl(vid.output_path)}
-                                  poster={getVideoThumbnailUrl(vid)}
+                                  poster={getVideoThumbnailUrl(vid, thumbnailBust[vid.id])}
                                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                                   preload="metadata"
                                 />
@@ -4761,6 +4789,11 @@ export default function App() {
                                 {vid.status === 'done' && (
                                   <button disabled={regeneratingTitleId === vid.id} onClick={(e) => handleRegenerateTitle(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[#2c394e] hover:text-white flex items-center gap-2 font-medium disabled:opacity-50">
                                     <span className={`material-symbols-outlined text-[16px] text-[#00c2ff] ${regeneratingTitleId === vid.id ? 'animate-spin' : ''}`}>{regeneratingTitleId === vid.id ? 'progress_activity' : 'auto_awesome'}</span> {regeneratingTitleId === vid.id ? 'Régénération…' : 'Régénérer le titre'}
+                                  </button>
+                                )}
+                                {vid.status === 'done' && (
+                                  <button disabled={regeneratingCardThumbnailId === vid.id} onClick={(e) => handleRegenerateCardThumbnail(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[#2c394e] hover:text-white flex items-center gap-2 font-medium disabled:opacity-50">
+                                    <span className={`material-symbols-outlined text-[16px] text-[#00c2ff] ${regeneratingCardThumbnailId === vid.id ? 'animate-spin' : ''}`}>{regeneratingCardThumbnailId === vid.id ? 'progress_activity' : 'photo_camera'}</span> {regeneratingCardThumbnailId === vid.id ? 'Régénération…' : 'Régénérer la vignette'}
                                   </button>
                                 )}
                                 {vid.status === 'done' && vid.editable && (
