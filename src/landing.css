@@ -1,6 +1,8 @@
 :root { --landing-bg:#070b12; --landing-panel:#0d1420; --landing-line:rgba(148,163,184,.14); --cyan:#16c8ff; --blue:#2186ff; }
 html { scroll-behavior:smooth; }
-.landing-shell { min-height:100vh; background:var(--landing-bg); color:#edf6ff; overflow:hidden; font-family:'Plus Jakarta Sans',sans-serif; }
+.landing-shell { min-height:100vh; position:relative; isolation:isolate; background:var(--landing-bg); color:#edf6ff; overflow:hidden; font-family:'Plus Jakarta Sans',sans-serif; }
+.landing-shell::before { content:''; position:fixed; z-index:-1; inset:0; pointer-events:none; background-image:linear-gradient(180deg,rgba(7,11,18,.2),rgba(7,11,18,.72)),url('/assets/backgrounds/nichecut-abstract-tech.webp'); background-position:center top; background-size:cover; opacity:.68; }
+.landing-shell::after { content:''; position:absolute; z-index:-1; inset:0; pointer-events:none; background:linear-gradient(180deg,transparent 0,rgba(7,11,18,.4) 28%,rgba(7,11,18,.82) 58%,rgba(7,11,18,.45) 100%); }
 .landing-shell * { box-sizing:border-box; }
 .landing-header { height:76px; max-width:1200px; margin:auto; padding:0 24px; display:flex; align-items:center; justify-content:space-between; position:relative; z-index:20; }
 .brand { display:flex; align-items:center; gap:10px; color:white; text-decoration:none; font-weight:800; font-size:20px; letter-spacing:-.5px; }
@@ -17,7 +19,7 @@ html { scroll-behavior:smooth; }
 .button-ghost:hover { border-color:rgba(22,200,255,.45); background:rgba(22,200,255,.06); }
 .menu-toggle { display:none; color:white; background:none; border:0; }
 .hero { min-height:760px; padding:105px 24px 76px; position:relative; display:flex; flex-direction:column; align-items:center; }
-.hero-grid { position:absolute; inset:0; background-image:linear-gradient(rgba(86,124,160,.065) 1px,transparent 1px),linear-gradient(90deg,rgba(86,124,160,.065) 1px,transparent 1px); background-size:54px 54px; mask-image:linear-gradient(to bottom,black,transparent 82%); }
+.hero-grid { position:absolute; inset:0; background-image:linear-gradient(rgba(86,124,160,.055) 1px,transparent 1px),linear-gradient(90deg,rgba(86,124,160,.055) 1px,transparent 1px); background-size:54px 54px; mask-image:linear-gradient(to bottom,black,transparent 82%); opacity:.72; }
 .hero:before { content:''; position:absolute; top:-100px; left:50%; width:850px; height:500px; transform:translateX(-50%); background:radial-gradient(ellipse,rgba(8,126,197,.22),transparent 68%); }
 .hero-orb { position:absolute; border-radius:50%; filter:blur(90px); opacity:.16; }.orb-one{width:300px;height:300px;background:#0bbaf2;left:-100px;top:260px}.orb-two{width:260px;height:260px;background:#655cff;right:-80px;top:450px}
 .hero-copy { max-width:870px; position:relative; z-index:2; text-align:center; }
