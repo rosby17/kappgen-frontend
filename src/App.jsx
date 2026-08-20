@@ -2600,9 +2600,13 @@ export default function App() {
 
   // Once a channel is connected to YouTube, its real channel avatar replaces
   // whatever placeholder logo was set during setup — same idea as the name.
+  // A logo the creator uploaded themselves always wins — it's an explicit
+  // choice they made, so it must never be silently overridden by the
+  // auto-filled YouTube avatar (that one only fills the gap when nothing
+  // was chosen manually).
   const getChannelLogoUrl = (channel) => {
-    if (channel?.youtube_channel_thumbnail_url) return channel.youtube_channel_thumbnail_url;
     if (channel?.branding?.logo_path) return getVideoUrl(channel.branding.logo_path);
+    if (channel?.youtube_channel_thumbnail_url) return channel.youtube_channel_thumbnail_url;
     return "/assets/logo/logo-nichecut.png";
   };
 
