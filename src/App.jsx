@@ -3077,6 +3077,25 @@ export default function App() {
     }
   };
 
+  const [resyncingThumbnailId, setResyncingThumbnailId] = useState(null);
+  const handleResyncThumbnail = async (vid, e) => {
+    if (e) e.stopPropagation();
+    setOpenVideoMenuId(null);
+    setResyncingThumbnailId(vid.id);
+    try {
+      const res = await fetch(`${API_BASE}/videos/${vid.id}/youtube-thumbnail/resync`, { method: 'POST' });
+      if (!res.ok) {
+        const detail = await res.json().catch(() => ({}));
+        throw new Error(detail.detail || "Échec de la mise à jour de la miniature.");
+      }
+      showToast('Miniature mise à jour sur YouTube.', 'success');
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setResyncingThumbnailId(null);
+    }
+  };
+
   const handleReuseAudio = async (vid, e) => {
     if (e) e.stopPropagation();
     setOpenVideoMenuId(null);
@@ -3909,6 +3928,12 @@ export default function App() {
                                       {vid.youtube_video_id ? 'Voir sur YouTube' : publishingVideoId === vid.id ? 'Publication…' : 'Publier sur YouTube'}
                                     </button>
                                   )}
+                                  {vid.status === 'done' && vid.youtube_video_id && (
+                                    <button disabled={resyncingThumbnailId === vid.id} onClick={(e) => handleResyncThumbnail(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[#2c394e] hover:text-white flex items-center gap-2 font-medium disabled:opacity-50">
+                                      <span className={`material-symbols-outlined text-[16px] text-[#00c2ff] ${resyncingThumbnailId === vid.id ? 'animate-spin' : ''}`}>{resyncingThumbnailId === vid.id ? 'progress_activity' : 'image'}</span>
+                                      {resyncingThumbnailId === vid.id ? 'Mise à jour…' : 'Mettre à jour la miniature'}
+                                    </button>
+                                  )}
                                   {vid.status === 'done' && (
                                     <button disabled={reusingAudioId === vid.id} onClick={(e) => handleReuseAudio(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[#2c394e] hover:text-white flex items-center gap-2 font-medium disabled:opacity-50">
                                       <span className="material-symbols-outlined text-[16px] text-[#00c2ff]">graphic_eq</span> {reusingAudioId === vid.id ? 'Récupération…' : "Réutiliser l'audio"}
@@ -4346,6 +4371,12 @@ export default function App() {
                                   <button disabled={publishingVideoId === vid.id} onClick={(e) => handlePublishYouTube(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[#2c394e] hover:text-white flex items-center gap-2 font-medium disabled:opacity-50">
                                     <span className="material-symbols-outlined text-[16px] text-[#00c2ff]">{vid.youtube_video_id ? 'open_in_new' : 'smart_display'}</span>
                                     {vid.youtube_video_id ? 'Voir sur YouTube' : publishingVideoId === vid.id ? 'Publication…' : 'Publier sur YouTube'}
+                                  </button>
+                                )}
+                                {vid.status === 'done' && vid.youtube_video_id && (
+                                  <button disabled={resyncingThumbnailId === vid.id} onClick={(e) => handleResyncThumbnail(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[#2c394e] hover:text-white flex items-center gap-2 font-medium disabled:opacity-50">
+                                    <span className={`material-symbols-outlined text-[16px] text-[#00c2ff] ${resyncingThumbnailId === vid.id ? 'animate-spin' : ''}`}>{resyncingThumbnailId === vid.id ? 'progress_activity' : 'image'}</span>
+                                    {resyncingThumbnailId === vid.id ? 'Mise à jour…' : 'Mettre à jour la miniature'}
                                   </button>
                                 )}
                                 {vid.status === 'done' && (
