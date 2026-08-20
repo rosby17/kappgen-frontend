@@ -1038,6 +1038,14 @@ export default function App() {
   const [channelVideos, setChannelVideos] = useState([]);
   const [allVideos, setAllVideos] = useState([]);
   const [view, setView] = useState(() => viewFromPath(window.location.pathname)); // 'home', 'channels', 'videos', 'channel_detail', 'wizard'
+  // Product switcher (à la IziVoice Creative) — 'montage' is the real product;
+  // 'avatar' is a placeholder entry point for a not-yet-built product line.
+  const [activeProduct, setActiveProduct] = useState('montage');
+  const [productMenuOpen, setProductMenuOpen] = useState(false);
+  const NICHECUT_PRODUCTS = [
+    { id: 'montage', label: 'NicheCut Montage Simple', icon: 'movie_edit', available: true },
+    { id: 'avatar', label: 'NicheCut Avatar', icon: 'face', available: false },
+  ];
   const [channelsLoaded, setChannelsLoaded] = useState(false);
   const [videosLoaded, setVideosLoaded] = useState(false);
   const [channelsLoadError, setChannelsLoadError] = useState('');
@@ -3097,13 +3105,40 @@ export default function App() {
       <nav className="hidden md:flex flex-col bg-[#141923] text-primary font-label-bold text-label-bold fixed left-0 top-0 h-screen w-[240px] z-40 border-r border-[#263042] py-6 justify-between">
 
         <div>
-          {/* Brand Logo Header */}
-          <div className="px-6 mb-8 flex items-center gap-3 cursor-pointer" onClick={() => setView('home')}>
-            <img src="/assets/logo/logo-nichecut.png" alt="NicheCut" className="w-9 h-9 rounded-xl shadow-lg shadow-[#00c2ff]/20 object-cover" />
-            <div>
-              <div className="font-title-sm text-base font-black text-white tracking-wide">NicheCut</div>
-              <div className="text-slate-400 text-xs font-normal">Video Automation</div>
-            </div>
+          {/* Brand / Product Switcher */}
+          <div className="px-3 mb-8 relative">
+            <button
+              onClick={() => setProductMenuOpen(o => !o)}
+              className="w-full px-3 py-2.5 flex items-center gap-3 rounded-xl hover:bg-[#1f2838] transition-colors text-left"
+            >
+              <img src="/assets/logo/logo-nichecut.png" alt="NicheCut" className="w-9 h-9 rounded-xl shadow-lg shadow-[#00c2ff]/20 object-cover flex-shrink-0" />
+              <div className="min-w-0 flex-1">
+                <div className="font-title-sm text-sm font-black text-white tracking-wide truncate">
+                  {NICHECUT_PRODUCTS.find(p => p.id === activeProduct)?.label}
+                </div>
+                <div className="text-slate-400 text-[11px] font-normal">Video Automation</div>
+              </div>
+              <span className={`material-symbols-outlined text-[18px] text-slate-400 transition-transform ${productMenuOpen ? 'rotate-180' : ''}`}>expand_more</span>
+            </button>
+
+            {productMenuOpen && (
+              <div className="absolute left-3 right-3 top-full mt-1.5 bg-[#1f2838] border border-[#2d3a52] rounded-xl shadow-2xl z-50 py-1.5 overflow-hidden">
+                {NICHECUT_PRODUCTS.map(p => (
+                  <button
+                    key={p.id}
+                    onClick={() => { setActiveProduct(p.id); setProductMenuOpen(false); setView('home'); }}
+                    className="w-full text-left px-3.5 py-2.5 text-xs font-medium flex items-center gap-2.5 hover:bg-[#2c394e] transition-colors"
+                  >
+                    <span className={`material-symbols-outlined text-[18px] ${p.id === activeProduct ? 'text-[#00c2ff]' : 'text-slate-400'}`}>{p.icon}</span>
+                    <span className={`flex-1 ${p.id === activeProduct ? 'text-white font-bold' : 'text-slate-300'}`}>{p.label}</span>
+                    {!p.available && (
+                      <span className="text-[9px] font-bold uppercase tracking-wide text-amber-400 bg-amber-400/10 px-1.5 py-0.5 rounded">Bientôt</span>
+                    )}
+                    {p.id === activeProduct && <span className="material-symbols-outlined text-[16px] text-[#00c2ff]">check</span>}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Navigation Links - Single Active Item Highlighted */}
@@ -3149,7 +3184,27 @@ export default function App() {
       </nav>
 
       {/* MAIN CONTENT AREA */}
-      <main className="flex-1 flex flex-col pt-14 md:pt-0 md:ml-[240px] h-screen overflow-hidden bg-[#0f1217]">
+      <main className="relative flex-1 flex flex-col pt-14 md:pt-0 md:ml-[240px] h-screen overflow-hidden bg-[#0f1217]">
+        {activeProduct === 'avatar' && (
+          <div className="absolute inset-0 z-30 bg-[#0f1217] flex flex-col items-center justify-center gap-4 text-center p-8">
+            <div className="w-20 h-20 rounded-2xl bg-[#00c2ff]/10 flex items-center justify-center">
+              <span className="material-symbols-outlined text-[40px] text-[#00c2ff]">face</span>
+            </div>
+            <h2 className="text-2xl font-extrabold text-white">NicheCut Avatar</h2>
+            <p className="text-sm text-slate-400 max-w-md">
+              Bientôt disponible — des vidéos avec un avatar IA qui parle à la caméra, dans le même esprit de pilote automatique.
+            </p>
+            <span className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-400 bg-amber-400/10 px-3 py-1.5 rounded-full uppercase tracking-wide">
+              <span className="material-symbols-outlined text-[16px]">construction</span> En cours de développement
+            </span>
+            <button
+              onClick={() => setActiveProduct('montage')}
+              className="mt-2 px-5 py-2.5 bg-[#1b2230] text-white rounded-xl font-bold text-xs hover:bg-[#252f42] transition-colors border border-[#2b374d]"
+            >
+              Retour à NicheCut Montage Simple
+            </button>
+          </div>
+        )}
         
         {/* Top Header Bar */}
         <div className="hidden md:flex justify-between items-center px-8 py-5 border-b border-[#202938] bg-[#141923]/60 backdrop-blur-md">
@@ -3208,90 +3263,41 @@ export default function App() {
             {/* VIEW 1: HOME / DASHBOARD OVERVIEW */}
             {(view === 'home' || view === 'dashboard') && (
               <>
-                {/* Autopilot Promise Banner — the app's core promise: configure once, forget about creation */}
-                <section className="bg-gradient-to-r from-[#0a2a3a] via-[#122a3f] to-[#161b22] border border-[#00c2ff]/25 rounded-2xl p-6 md:p-7 flex flex-col md:flex-row items-center justify-between gap-6 shadow-xl relative overflow-hidden">
-                  <div className="absolute -right-10 -top-10 w-40 h-40 bg-[#00c2ff]/10 rounded-full blur-2xl"></div>
-                  <div className="space-y-2 relative">
-                    <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-[#00c2ff] bg-[#00c2ff]/10 px-2.5 py-1 rounded-lg uppercase tracking-wide">
-                      <span className="material-symbols-outlined text-[14px]">bolt</span> Pilote automatique
-                    </span>
-                    <h3 className="text-xl font-extrabold text-white leading-snug">
-                      Configure ta/tes chaîne(s). Oublie la création.
-                    </h3>
-                    <p className="text-sm text-slate-400 max-w-xl">
-                      NicheCut choisit le sujet, écrit le script, génère la voix, monte la vidéo et la met prête à publier chaque jour — toi, tu ne regardes que tes stats sur YouTube Studio.
+                {/* Freedom first: this page sells peace of mind, not machinery. */}
+                <section className="relative min-h-[390px] md:min-h-[430px] rounded-[28px] overflow-hidden border border-white/10 shadow-2xl bg-[#09111b]">
+                  <img src="/assets/dashboard/freedom-sunrise.png" alt="Un créateur se détend face à l’océan pendant que NicheCut s’occupe de sa chaîne" className="absolute inset-0 w-full h-full object-cover" />
+                  <div className="absolute inset-0 bg-gradient-to-r from-[#07101c]/95 via-[#07101c]/72 to-transparent" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#07101c]/65 via-transparent to-[#07101c]/10" />
+                  <div className="relative z-10 min-h-[390px] md:min-h-[430px] flex flex-col justify-center px-7 py-10 md:px-12 max-w-2xl">
+                    <p className="text-[10px] md:text-[11px] uppercase tracking-[.24em] text-[#72dcff] font-bold mb-5">Ta chaîne continue. Toi, tu respires.</p>
+                    <h2 className="text-3xl md:text-5xl font-extrabold text-white leading-[1.04] tracking-[-.035em]">
+                      Sors des écrans.<br />NicheCut reste au travail.
+                    </h2>
+                    <p className="text-sm md:text-base text-slate-300/90 leading-7 mt-5 max-w-lg">
+                      Voyage, repose-toi, vis pleinement. Ton Agent prépare et publie un contenu original pendant que ta chaîne continue de grandir.
                     </p>
-                  </div>
-                  <button
-                    onClick={openCreateWizard}
-                    className="px-6 py-3 bg-[#00c2ff] hover:bg-[#38d0ff] text-slate-950 font-bold text-sm rounded-xl transition-all flex items-center gap-2 shadow-lg shadow-[#00c2ff]/20 flex-shrink-0 relative"
-                  >
-                    <span className="material-symbols-outlined text-[20px]">settings_suggest</span>
-                    Configurer une chaîne
-                  </button>
-                </section>
-
-                {/* Stats Row Bento Cards */}
-                <section className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                  <div className="bg-[#161b22] border border-[#263042] rounded-2xl p-6 flex flex-col justify-between shadow-lg relative overflow-hidden group">
-                    <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-[#00c2ff]/5 rounded-full blur-xl group-hover:bg-[#00c2ff]/10 transition-all"></div>
-                    <div className="flex justify-between items-start mb-4">
-                      <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">En Pilote Automatique</h3>
-                      <div className="p-2 rounded-xl bg-[#00c2ff]/10 text-[#00c2ff]">
-                        <span className="material-symbols-outlined text-[22px]" style={{ fontVariationSettings: "'FILL' 1" }}>smart_toy</span>
-                      </div>
-                    </div>
-                    <div className="flex items-end justify-between">
-                      <span className="text-4xl font-extrabold text-white">{autoChannelsCount}</span>
-                      <span className="text-xs font-bold text-[#00c2ff] bg-[#00c2ff]/10 px-2.5 py-1 rounded-lg">/ {channels.length} chaînes</span>
-                    </div>
-                    <div className="w-full h-1.5 bg-[#202938] mt-4 rounded-full overflow-hidden">
-                      <div className="h-full bg-gradient-to-r from-[#00c2ff] to-[#0088ff] rounded-full" style={{ width: channels.length ? `${(autoChannelsCount / channels.length) * 100}%` : '0%' }}></div>
-                    </div>
-                  </div>
-
-                  <div className="bg-[#161b22] border border-[#263042] rounded-2xl p-6 flex flex-col justify-between shadow-lg relative overflow-hidden group">
-                    <div className="flex justify-between items-start mb-4">
-                      <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">En Cours de Génération</h3>
-                      <div className="p-2 rounded-xl bg-amber-500/10 text-amber-400">
-                        <span className="material-symbols-outlined text-[22px]" style={{ fontVariationSettings: "'FILL' 1" }}>hourglass_empty</span>
-                      </div>
-                    </div>
-                    <div className="flex items-end justify-between">
-                      <span className="text-4xl font-extrabold text-white">{totalQueued}</span>
-                      <span className="text-xs font-medium text-amber-400 bg-amber-500/10 px-2.5 py-1 rounded-lg">Sans intervention</span>
-                    </div>
-                    <div className="w-full h-1.5 bg-[#202938] mt-4 rounded-full overflow-hidden flex">
-                      <div className="h-full bg-amber-400 w-2/3 animate-pulse"></div>
-                    </div>
-                  </div>
-
-                  <div className="bg-[#161b22] border border-[#263042] rounded-2xl p-6 flex flex-col justify-between shadow-lg relative overflow-hidden group">
-                    <div className="flex justify-between items-start mb-4">
-                      <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Prêtes à Publier</h3>
-                      <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-400">
-                        <span className="material-symbols-outlined text-[22px]" style={{ fontVariationSettings: "'FILL' 1" }}>task_alt</span>
-                      </div>
-                    </div>
-                    <div className="flex items-end justify-between">
-                      <span className="text-4xl font-extrabold text-white">{totalCompleted}</span>
-                      <span className="text-xs font-bold text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-lg">Direction YouTube</span>
-                    </div>
-                    <div className="w-full h-1.5 bg-[#202938] mt-4 rounded-full overflow-hidden">
-                      <div className="h-full bg-emerald-400 w-full rounded-full"></div>
+                    <div className="flex flex-wrap items-center gap-3 mt-8">
+                      <button onClick={channels.length ? () => setView('channels') : openCreateWizard} className="px-5 py-3 bg-white text-[#07101c] font-extrabold text-xs rounded-full hover:bg-[#dff7ff] transition-colors">
+                        {channels.length ? 'Voir mes chaînes' : 'Préparer ma première chaîne'}
+                      </button>
+                      <button onClick={openNewVideoFlow} className="px-5 py-3 bg-white/5 border border-white/15 text-white font-bold text-xs rounded-full hover:bg-white/10 transition-colors">
+                        Créer maintenant
+                      </button>
                     </div>
                   </div>
                 </section>
 
-                {/* Manual generation — secondary path, de-emphasized now that autopilot is the default promise */}
-                <section className="flex justify-end">
-                  <button
-                    onClick={openNewVideoFlow}
-                    className="text-xs font-bold text-slate-400 hover:text-[#00c2ff] transition-colors flex items-center gap-1.5"
-                  >
-                    <span className="material-symbols-outlined text-[16px]">videocam</span>
-                    Ou génère une vidéo manuellement
-                  </button>
+                <section className="grid grid-cols-1 lg:grid-cols-[1.15fr_.85fr] gap-5">
+                  <div className="rounded-[24px] border border-white/10 bg-[#121923] px-7 py-8 md:px-9 md:py-10 flex flex-col justify-center">
+                    <span className="material-symbols-outlined text-[#63d9ff] text-[26px] mb-5">nightlight</span>
+                    <h3 className="text-2xl md:text-3xl font-extrabold text-white tracking-[-.025em]">Tu dors. Ta chaîne avance.</h3>
+                    <p className="text-sm text-slate-400 leading-7 mt-3 max-w-xl">Plus besoin de vérifier sans cesse si le script est prêt, si le montage est terminé ou si la vidéo est publiée. Tu définis ton univers une fois. NicheCut veille sur la suite.</p>
+                    <p className="text-xs text-slate-500 mt-6">Reviens uniquement quand tu en as envie.</p>
+                  </div>
+                  <div className="relative min-h-[260px] rounded-[24px] overflow-hidden border border-white/10 bg-[#0a111b]">
+                    <img src="/assets/dashboard/freedom-sleep.png" alt="Un créateur dort paisiblement pendant que sa chaîne continue" className="absolute inset-0 w-full h-full object-cover" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-[#07101c]/60 via-transparent to-transparent" />
+                  </div>
                 </section>
 
                 {/* Pipelines Preview in Home */}
