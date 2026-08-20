@@ -1792,6 +1792,9 @@ export default function App() {
   const [showVoiceCloner, setShowVoiceCloner] = useState(false);
   const [savedVoiceIds, setSavedVoiceIds] = useState(() => readVoiceIdList(SAVED_VOICE_IDS_KEY));
   const [clonedVoiceIds, setClonedVoiceIds] = useState(() => readVoiceIdList(CLONED_VOICE_IDS_KEY));
+  const [catalogHasMore, setCatalogHasMore] = useState(false);
+  const [catalogNextPage, setCatalogNextPage] = useState(10);
+  const [loadingMoreVoices, setLoadingMoreVoices] = useState(false);
   const [audioFilesList, setAudioFilesList] = useState([]);
   // Izivoice STT transcription (for accurate audio-upload subtitles) is billable —
   // default on, but the user can opt out in the final preview to avoid credit cost.
@@ -3307,12 +3310,7 @@ export default function App() {
       fetch(`${API_BASE}/channels/voice/catalog?search=${encodeURIComponent(query)}${ownerQuery}`)
         .then(res => res.ok ? res.json() : Promise.reject())
         .then(data => {
-          const voices = (data.voices || []).map(v => ({
-            id: v.voice_id,
-            name: v.name || v.voice_id,
-            desc: [v.language, v.gender, v.accent].filter(Boolean).join(' · ') || 'Voix Izivoice',
-            preview_url: v.preview_url || v.languages?.find(item => item.preview_url)?.preview_url || null,
-          }));
+          const voices = (data.voices || []).map(mapCatalogVoice);
           setAvailableVoices(voices);
         })
         .catch(() => {})
@@ -3580,6 +3578,7 @@ export default function App() {
   const [studioIsPlaying, setStudioIsPlaying] = useState(false);
   const [studioSeekTo, setStudioSeekTo] = useState(null);
   const [studioVoiceMenuOpen, setStudioVoiceMenuOpen] = useState(false);
+  const [studioPreviewPlayingId, setStudioPreviewPlayingId] = useState(null);
   const [studioVoiceDraft, setStudioVoiceDraft] = useState(null);
   const [studioRegeneratingVoice, setStudioRegeneratingVoice] = useState(false);
 
@@ -5276,7 +5275,7 @@ export default function App() {
                     <h2 className="text-xl font-extrabold text-white">
                       {wizardMode === 'edit' ? 'Modifier le Pipeline de la Chaîne' : 'Configuration du Template de Montage de sa Chaîne'}
                     </h2>
-                    <p className="text-xs text-slate-400 mt-1">Étape {wizardStep} sur 7</p>
+                    <p className="text-xs text-slate-400 mt-1">Étape {wizardStep} sur 9</p>
                   </div>
                   <button
                     onClick={() => setView(wizardMode === 'edit' && editingChannelId ? 'channel_detail' : 'channels')}
@@ -5287,8 +5286,8 @@ export default function App() {
                 </div>
 
                 {/* Steps Timeline Indicator */}
-                <div className="grid grid-cols-7 gap-2">
-                  {['Identité', 'Sous-titres', 'Voix Off', 'Musique', 'Visuels', 'Effets', 'Aperçu Final'].map((label, idx) => {
+                <div className="grid grid-cols-9 gap-2">
+                  {['Identité', 'Script', 'Voix Off', 'Musique', 'Visuels', 'Sous-titres', 'Effets', 'Aperçu', 'Publication'].map((label, idx) => {
                     const stepNum = idx + 1;
                     const isActive = wizardStep === stepNum;
                     const isPassed = wizardStep > stepNum;
@@ -5308,7 +5307,7 @@ export default function App() {
                   })}
                 </div>
 
-                {/* STEP 1: INFORMATIONS GÉNÉRALES & IDENTITÉ (LOGO & NOM) */}
+                {/* STEP 1: IDENTITÉ DE LA CHAÎNE (LOGO & NOM) */}
                 {wizardStep === 1 && (
                   <div className="space-y-6">
                     <div className="flex items-center justify-between gap-3">
@@ -5398,7 +5397,13 @@ export default function App() {
                         placeholder="Écris ta propre niche..."
                       />
                     </div>
+                  </div>
+                )}
 
+                {/* STEP 2: GÉNÉRATION DU SCRIPT */}
+                {wizardStep === 2 && (
+                  <div className="space-y-6">
+                    <h3 className="text-base font-bold text-white">2. Génération du Script</h3>
                     <div>
                       <label className="block text-xs font-bold text-slate-300 mb-2">Génération du script</label>
                       <ModeDropdown
@@ -5527,50 +5532,6 @@ export default function App() {
                         </div>
                       )}
                     </div>
-
-                    <div>
-                      <label className="block text-xs font-bold text-slate-300 mb-2">Publication YouTube</label>
-                      <p className="text-[11px] text-slate-500 mb-2">Indépendant du mode ci-dessus — décide ce qui arrive à une vidéo une fois qu'elle est prête.</p>
-                      <ModeDropdown
-                        value={newChannel.publish_mode || 'manual'}
-                        onChange={v => setNewChannel({ ...newChannel, publish_mode: v })}
-                        options={[
-                          { value: 'manual', icon: 'download', label: 'Manuelle', desc: 'Tu télécharges la vidéo, ou tu cliques « Publier » quand tu veux' },
-                          { value: 'scheduled', icon: 'schedule', label: 'Programmée', desc: 'Publiée à une heure fixe que tu choisis' },
-                          { value: 'auto', icon: 'bolt', label: 'Automatique', desc: 'Publiée dès la fin du rendu, sans délai' },
-                        ]}
-                      />
-                      {newChannel.publish_mode === 'scheduled' && (
-                        <div className="mt-3 flex items-center gap-3">
-                          <div>
-                            <label className="block text-[11px] font-bold text-slate-300 mb-1">Combien de jours après le rendu</label>
-                            <select
-                              value={newChannel.publish_schedule_day_offset ?? 1}
-                              onChange={e => setNewChannel({ ...newChannel, publish_schedule_day_offset: parseInt(e.target.value) })}
-                              className="bg-[#1b2230] border border-[#2b374d] rounded-xl px-3 py-2 text-xs text-white focus:border-[#00c2ff] outline-none"
-                            >
-                              <option value={0}>Le jour même</option>
-                              <option value={1}>Le lendemain</option>
-                              <option value={2}>Dans 2 jours</option>
-                              <option value={3}>Dans 3 jours</option>
-                            </select>
-                          </div>
-                          <div>
-                            <label className="block text-[11px] font-bold text-slate-300 mb-1">À quelle heure (ton fuseau horaire)</label>
-                            <select
-                              value={newChannel.publish_schedule_hour ?? 8}
-                              onChange={e => setNewChannel({ ...newChannel, publish_schedule_hour: parseInt(e.target.value) })}
-                              className="bg-[#1b2230] border border-[#2b374d] rounded-xl px-3 py-2 text-xs text-white focus:border-[#00c2ff] outline-none"
-                            >
-                              {Array.from({ length: 24 }, (_, h) => (
-                                <option key={h} value={h}>{String(h).padStart(2, '0')}h00</option>
-                              ))}
-                            </select>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-
                     {newChannel.automation_mode === 'auto' && (() => {
                       const structure = newChannel.script_structure || defaultChannelForm.script_structure;
                       const parts = structure.parts || [];
@@ -5596,502 +5557,6 @@ export default function App() {
                         </button>
                       );
                     })()}
-
-                  </div>
-                )}
-
-                {/* STEP 2: SOUS-TITRES & KARAOKÉ ASS */}
-                {wizardStep === 2 && (
-                  <div className="space-y-6">
-                    <h3 className="text-base font-bold text-white">2. Personnalisation Avancée des Sous-Titres</h3>
-
-                    <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_520px] gap-8 items-start">
-                      {/* Settings column — split into CapCut-style toggle sections instead
-                          of one long scroll, so the preview stays reachable without
-                          hunting through every control at once. */}
-                      <div className="space-y-4 min-w-0">
-                        <div className="flex w-full bg-[#1b2230] rounded-xl p-1 mb-1 overflow-x-auto">
-                          {[
-                            { id: 'presets', label: 'Préréglages', icon: 'style' },
-                            { id: 'text', label: 'Police & Couleurs', icon: 'text_fields' },
-                            { id: 'format', label: 'Mise en Forme', icon: 'tune' },
-                            { id: 'background', label: 'Arrière-plan', icon: 'crop_square' },
-                            { id: 'shadow', label: 'Ombre', icon: 'flare' },
-                          ].map(tab => (
-                            <button
-                              key={tab.id}
-                              type="button"
-                              onClick={() => setSubtitleTab(tab.id)}
-                              className={`flex-1 flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg text-[11px] font-bold whitespace-nowrap transition-colors ${
-                                subtitleTab === tab.id ? 'bg-[#00c2ff] text-slate-950' : 'text-slate-300 hover:bg-[#252f42]'
-                              }`}
-                            >
-                              <span className="material-symbols-outlined text-[15px]">{tab.icon}</span>
-                              {tab.label}
-                            </button>
-                          ))}
-                        </div>
-
-                        {/* Presets Grid — CapCut-style: a square tile rendering the actual
-                            style ("ABC123") so you pick by look, with the name below it. */}
-                        {subtitleTab === 'presets' && (
-                        <div>
-                          <label className="block text-xs font-bold text-slate-300 mb-2">Presets de style sous-titre recommandés</label>
-                          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
-                            {SUBTITLE_PRESETS.map(preset => {
-                              const isActive = newChannel.subtitle_style.font === preset.font
-                                && newChannel.subtitle_style.color === preset.color
-                                && newChannel.subtitle_style.size === preset.size;
-                              return (
-                                <button
-                                  key={preset.id}
-                                  type="button"
-                                  onClick={() => {
-                                    setNewChannel(prev => ({
-                                      ...prev,
-                                      subtitle_style: {
-                                        ...prev.subtitle_style,
-                                        font: preset.font,
-                                        size: preset.size,
-                                        color: preset.color,
-                                        outline_color: preset.outline_color,
-                                        outline_width: preset.outline_width,
-                                        box_color: preset.box_color
-                                      }
-                                    }));
-                                  }}
-                                  className="group text-center"
-                                  title={preset.name}
-                                >
-                                  <div
-                                    className={`aspect-square rounded-xl flex items-center justify-center overflow-hidden bg-[#12161f] border-2 transition-all ${
-                                      isActive ? 'border-[#00c2ff] shadow-lg shadow-[#00c2ff]/20' : 'border-[#2b374d] group-hover:border-slate-500'
-                                    }`}
-                                    style={{
-                                      backgroundImage: 'radial-gradient(circle at center, rgba(255,255,255,0.06), transparent 70%)'
-                                    }}
-                                  >
-                                    <span
-                                      style={{
-                                        fontFamily: preset.font,
-                                        color: preset.color,
-                                        WebkitTextStroke: `${Math.min(1.5, (preset.outline_width || 3) / 2.5)}px ${preset.outline_color || '#000000'}`,
-                                        paintOrder: 'stroke fill',
-                                        fontSize: '15px',
-                                        ...(preset.box_color && preset.box_color !== 'transparent' ? {
-                                          backgroundColor: preset.box_color,
-                                          padding: '3px 6px',
-                                          borderRadius: '4px'
-                                        } : {})
-                                      }}
-                                      className="font-black"
-                                    >
-                                      ABC123
-                                    </span>
-                                  </div>
-                                  <div className={`text-[10px] font-semibold mt-1.5 truncate ${isActive ? 'text-[#00c2ff]' : 'text-slate-300'}`}>
-                                    {preset.name}
-                                  </div>
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </div>
-                        )}
-
-                        {/* Custom Controls */}
-                        {subtitleTab === 'text' && (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                          <div>
-                            <label className="block text-xs font-bold text-slate-300 mb-2">Police (Font)</label>
-                            <button
-                              type="button"
-                              onClick={() => { setFontSearchQuery(''); setFontPickerOpen(true); }}
-                              className="w-full flex items-center justify-between bg-[#1b2230] border border-[#2b374d] rounded-xl px-4 py-2.5 text-left hover:border-[#00c2ff] transition-colors"
-                            >
-                              <span style={{ fontFamily: newChannel.subtitle_style.font }} className="text-sm text-white truncate">
-                                {SUBTITLE_FONTS.find(f => f.value === newChannel.subtitle_style.font)?.label || newChannel.subtitle_style.font}
-                              </span>
-                              <span className="material-symbols-outlined text-[18px] text-slate-400 flex-shrink-0">expand_more</span>
-                            </button>
-                            <p className="text-[10px] text-slate-500 mt-1.5">{SUBTITLE_FONTS.length} polices réellement installées sur le serveur de rendu — l'aperçu est fidèle au rendu final.</p>
-                          </div>
-
-                          <div>
-                            <label className="block text-xs font-bold text-slate-300 mb-2">Taille du Texte ({newChannel.subtitle_style.size}px)</label>
-                            <input
-                              type="range"
-                              min="28"
-                              max="64"
-                              value={newChannel.subtitle_style.size}
-                              onChange={e => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, size: parseInt(e.target.value) || 44 } })}
-                              className="w-full accent-[#00c2ff] mt-3"
-                            />
-                          </div>
-
-                          <div>
-                            <label className="block text-xs font-bold text-slate-300 mb-2">Couleur du Texte</label>
-                            <ColorPickerButton
-                              value={newChannel.subtitle_style.base_color || '#FFFFFF'}
-                              onChange={hex => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, base_color: hex } })}
-                              label="Couleur du texte (au repos)"
-                            />
-                          </div>
-
-                          <div>
-                            <label className="block text-xs font-bold text-slate-300 mb-2">Couleur du Mot Actif (surbrillance)</label>
-                            <ColorPickerButton
-                              value={newChannel.subtitle_style.color || '#FFD700'}
-                              onChange={hex => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, color: hex } })}
-                              label="Couleur de surbrillance"
-                            />
-                          </div>
-
-                          <div>
-                            <label className="block text-xs font-bold text-slate-300 mb-2">Couleur du Contour</label>
-                            <ColorPickerButton
-                              allowNone
-                              value={(newChannel.subtitle_style.outline_width ?? 3) === 0 ? 'transparent' : (newChannel.subtitle_style.outline_color || '#000000')}
-                              onChange={hex => {
-                                if (hex === 'transparent') {
-                                  setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, outline_width: 0 } });
-                                } else {
-                                  setNewChannel({
-                                    ...newChannel,
-                                    subtitle_style: {
-                                      ...newChannel.subtitle_style,
-                                      outline_color: hex,
-                                      outline_width: (newChannel.subtitle_style.outline_width ?? 3) === 0 ? 3 : (newChannel.subtitle_style.outline_width ?? 3)
-                                    }
-                                  });
-                                }
-                              }}
-                              label="Couleur du contour"
-                            />
-                            <p className="text-[10px] text-slate-500 mt-1">Choisis « Aucune couleur » pour un texte simple sans contour.</p>
-                          </div>
-
-                          {(newChannel.subtitle_style.outline_width ?? 3) > 0 && (
-                            <div>
-                              <label className="block text-xs font-bold text-slate-300 mb-2">Épaisseur du Contour ({newChannel.subtitle_style.outline_width ?? 3}px)</label>
-                              <input
-                                type="range"
-                                min="1"
-                                max="8"
-                                value={newChannel.subtitle_style.outline_width ?? 3}
-                                onChange={e => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, outline_width: parseInt(e.target.value) } })}
-                                className="w-full accent-[#00c2ff] mt-3"
-                              />
-                            </div>
-                          )}
-
-                          <div>
-                            <label className="block text-xs font-bold text-slate-300 mb-2">Longueur des sous-titres ({newChannel.subtitle_style.words_per_line || 6} mots)</label>
-                            <input
-                              type="range"
-                              min="1"
-                              max="14"
-                              value={newChannel.subtitle_style.words_per_line || 6}
-                              onChange={e => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, words_per_line: parseInt(e.target.value) || 6 } })}
-                              className="w-full accent-[#00c2ff] mt-3"
-                            />
-                            <p className="text-[11px] text-slate-500 mt-1">Nombre de mots affichés en même temps à l'écran.</p>
-                          </div>
-
-                        </div>
-                        )}
-
-                        {/* Mise en forme du texte */}
-                        {subtitleTab === 'format' && (
-                        <div className="space-y-4">
-                          <label className="block text-xs font-bold text-[#00c2ff]">Mise en Forme du Texte</label>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div>
-                              <label className="block text-[11px] font-bold text-slate-300 mb-2">Style</label>
-                              <div className="flex gap-2">
-                                <button
-                                  type="button"
-                                  onClick={() => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, bold: !newChannel.subtitle_style.bold } })}
-                                  className={`flex-1 py-2.5 rounded-xl text-sm font-black border transition-colors ${newChannel.subtitle_style.bold ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]' : 'bg-[#1b2230] border-[#2b374d] text-slate-300 hover:border-slate-500'}`}
-                                >
-                                  B
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, italic: !newChannel.subtitle_style.italic } })}
-                                  className={`flex-1 py-2.5 rounded-xl text-sm italic font-bold border transition-colors ${newChannel.subtitle_style.italic ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]' : 'bg-[#1b2230] border-[#2b374d] text-slate-300 hover:border-slate-500'}`}
-                                >
-                                  I
-                                </button>
-                              </div>
-                            </div>
-
-                            <div>
-                              <label className="block text-[11px] font-bold text-slate-300 mb-2">Casse</label>
-                              <div className="grid grid-cols-3 gap-2">
-                                {[
-                                  { id: 'none', label: 'Aa' },
-                                  { id: 'upper', label: 'AA' },
-                                  { id: 'lower', label: 'aa' },
-                                ].map(({ id, label }) => (
-                                  <button
-                                    key={id}
-                                    type="button"
-                                    onClick={() => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, text_case: id } })}
-                                    className={`py-2.5 rounded-xl text-xs font-bold border transition-colors ${(newChannel.subtitle_style.text_case || 'none') === id ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]' : 'bg-[#1b2230] border-[#2b374d] text-slate-300 hover:border-slate-500'}`}
-                                  >
-                                    {label}
-                                  </button>
-                                ))}
-                              </div>
-                            </div>
-
-                            <div>
-                              <label className="block text-[11px] font-bold text-slate-300 mb-2">Alignement</label>
-                              <div className="grid grid-cols-3 gap-2">
-                                {[
-                                  { id: 'left', icon: 'format_align_left' },
-                                  { id: 'center', icon: 'format_align_center' },
-                                  { id: 'right', icon: 'format_align_right' },
-                                ].map(({ id, icon }) => (
-                                  <button
-                                    key={id}
-                                    type="button"
-                                    onClick={() => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, align: id } })}
-                                    className={`py-2.5 rounded-xl border transition-colors flex items-center justify-center ${(newChannel.subtitle_style.align || 'center') === id ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]' : 'bg-[#1b2230] border-[#2b374d] text-slate-300 hover:border-slate-500'}`}
-                                  >
-                                    <span className="material-symbols-outlined text-[18px]">{icon}</span>
-                                  </button>
-                                ))}
-                              </div>
-                            </div>
-
-                            <div>
-                              <label className="block text-[11px] font-bold text-slate-300 mb-2">Position</label>
-                              <div className="grid grid-cols-3 gap-2">
-                                {[
-                                  { id: 'top', icon: 'vertical_align_top' },
-                                  { id: 'center', icon: 'vertical_align_center' },
-                                  { id: 'bottom', icon: 'vertical_align_bottom' },
-                                ].map(({ id, icon }) => (
-                                  <button
-                                    key={id}
-                                    type="button"
-                                    onClick={() => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, position: id } })}
-                                    className={`py-2.5 rounded-xl border transition-colors flex items-center justify-center ${(newChannel.subtitle_style.position || 'bottom') === id ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]' : 'bg-[#1b2230] border-[#2b374d] text-slate-300 hover:border-slate-500'}`}
-                                  >
-                                    <span className="material-symbols-outlined text-[18px]">{icon}</span>
-                                  </button>
-                                ))}
-                              </div>
-                            </div>
-
-                            <div>
-                              <label className="block text-[11px] font-bold text-slate-300 mb-2">Mode de surbrillance</label>
-                              <div className="grid grid-cols-3 gap-2">
-                                {[
-                                  { id: 'word', label: 'Mot actif' },
-                                  { id: 'line', label: 'Phrase' },
-                                  { id: 'none', label: 'Aucune' },
-                                ].map(({ id, label }) => (
-                                  <button
-                                    key={id}
-                                    type="button"
-                                    onClick={() => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, highlight_mode: id, karaoke: id === 'word' } })}
-                                    className={`py-2 rounded-xl text-[10px] font-bold border transition-colors ${(newChannel.subtitle_style.highlight_mode || 'word') === id ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]' : 'bg-[#1b2230] border-[#2b374d] text-slate-300 hover:border-slate-500'}`}
-                                  >
-                                    {label}
-                                  </button>
-                                ))}
-                              </div>
-                              <p className="text-[10px] text-slate-500 mt-1.5">« Mot actif » colore le mot en cours de lecture ; « Phrase » colore toute la ligne ; « Aucune » garde une couleur neutre.</p>
-                            </div>
-
-                            <div>
-                              <label className="block text-[11px] font-bold text-slate-300 mb-2">Espacement des lettres ({newChannel.subtitle_style.letter_spacing || 0}px)</label>
-                              <input
-                                type="range"
-                                min="-2"
-                                max="20"
-                                value={newChannel.subtitle_style.letter_spacing || 0}
-                                onChange={e => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, letter_spacing: parseInt(e.target.value) || 0 } })}
-                                className="w-full accent-[#00c2ff] mt-3"
-                              />
-                            </div>
-
-                            <div>
-                              <label className="block text-[11px] font-bold text-slate-300 mb-2">Opacité ({newChannel.subtitle_style.opacity ?? 100}%)</label>
-                              <input
-                                type="range"
-                                min="10"
-                                max="100"
-                                value={newChannel.subtitle_style.opacity ?? 100}
-                                onChange={e => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, opacity: parseInt(e.target.value) ?? 100 } })}
-                                className="w-full accent-[#00c2ff] mt-3"
-                              />
-                            </div>
-
-                            <div>
-                              <label className="block text-[11px] font-bold text-slate-300 mb-2">Rotation ({newChannel.subtitle_style.rotation || 0}°)</label>
-                              <input
-                                type="range"
-                                min="-45"
-                                max="45"
-                                value={newChannel.subtitle_style.rotation || 0}
-                                onChange={e => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, rotation: parseInt(e.target.value) || 0 } })}
-                                className="w-full accent-[#00c2ff] mt-3"
-                              />
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-3">
-                              <div>
-                                <label className="block text-[11px] font-bold text-slate-300 mb-2">Décalage X ({newChannel.subtitle_style.x_offset || 0}px)</label>
-                                <input
-                                  type="range"
-                                  min="-400"
-                                  max="400"
-                                  value={newChannel.subtitle_style.x_offset || 0}
-                                  onChange={e => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, x_offset: parseInt(e.target.value) || 0 } })}
-                                  className="w-full accent-[#00c2ff] mt-3"
-                                />
-                              </div>
-                              <div>
-                                <label className="block text-[11px] font-bold text-slate-300 mb-2">Décalage Y ({newChannel.subtitle_style.y_offset || 0}px)</label>
-                                <input
-                                  type="range"
-                                  min="-400"
-                                  max="400"
-                                  value={newChannel.subtitle_style.y_offset || 0}
-                                  onChange={e => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, y_offset: parseInt(e.target.value) || 0 } })}
-                                  className="w-full accent-[#00c2ff] mt-3"
-                                />
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                        )}
-
-                        {/* Arrière-plan (boîte) */}
-                        {subtitleTab === 'background' && (
-                        <div className="space-y-4">
-                          <label className="block text-xs font-bold text-[#00c2ff]">Arrière-plan (rectangle derrière le texte)</label>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div>
-                              <label className="block text-[11px] font-bold text-slate-300 mb-2">Couleur</label>
-                              <ColorPickerButton
-                                allowNone
-                                value={newChannel.subtitle_style.box_color}
-                                onChange={hex => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, box_color: hex } })}
-                                label="Couleur de fond"
-                              />
-                            </div>
-
-                            <div>
-                              <label className="block text-[11px] font-bold text-slate-300 mb-2">Épaisseur de la bulle ({newChannel.subtitle_style.box_padding ?? 10}px)</label>
-                              <input
-                                type="range"
-                                min="0"
-                                max="40"
-                                value={newChannel.subtitle_style.box_padding ?? 10}
-                                onChange={e => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, box_padding: parseInt(e.target.value) || 0 } })}
-                                className="w-full accent-[#00c2ff] mt-3"
-                              />
-                            </div>
-                          </div>
-                          <p className="text-[10px] text-slate-500">Le moteur de rendu vidéo dessine un rectangle plein autour du texte — les coins arrondis ne s'appliquent qu'à cet aperçu, pas encore au rendu final.</p>
-                        </div>
-                        )}
-
-                        {/* Ombre */}
-                        {subtitleTab === 'shadow' && (
-                        <div className="space-y-4">
-                          <div className="flex items-center gap-3">
-                            <input
-                              type="checkbox"
-                              id="shadow-toggle"
-                              checked={!!newChannel.subtitle_style.shadow}
-                              onChange={e => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, shadow: e.target.checked } })}
-                              className="w-4 h-4 accent-[#00c2ff]"
-                            />
-                            <label htmlFor="shadow-toggle" className="text-xs font-bold text-[#00c2ff]">Ombre portée</label>
-                          </div>
-                          {newChannel.subtitle_style.shadow && (
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                              <div>
-                                <label className="block text-[11px] font-bold text-slate-300 mb-2">Couleur de l'ombre</label>
-                                <ColorPickerButton
-                                  value={newChannel.subtitle_style.shadow_color || '#000000'}
-                                  onChange={hex => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, shadow_color: hex } })}
-                                  label="Couleur de l'ombre"
-                                />
-                              </div>
-                              <div>
-                                <label className="block text-[11px] font-bold text-slate-300 mb-2">Distance ({newChannel.subtitle_style.shadow_distance ?? 3}px)</label>
-                                <input
-                                  type="range"
-                                  min="0"
-                                  max="15"
-                                  value={newChannel.subtitle_style.shadow_distance ?? 3}
-                                  onChange={e => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, shadow_distance: parseInt(e.target.value) || 0 } })}
-                                  className="w-full accent-[#00c2ff] mt-3"
-                                />
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                        )}
-                      </div>
-
-                      {/* Preview column — sticks in place so it stays visible while the
-                          settings column (which can run long) scrolls under it. */}
-                      <div className="lg:sticky lg:top-4">
-                        <label className="block text-xs font-bold text-slate-300 mb-2">Aperçu en direct</label>
-                        <div ref={wizardSubtitlePreviewRef} className="w-full aspect-video rounded-2xl bg-gradient-to-b from-slate-900 to-black border border-[#2b374d] relative overflow-hidden px-6">
-                          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(0,194,255,0.08),transparent_70%)]"></div>
-                          <div className={`absolute inset-x-6 z-10 flex ${subtitleAlignClass(newChannel.subtitle_style.align)} ${subtitlePositionClass(newChannel.subtitle_style.position)}`}>
-                            <div
-                              style={{
-                                backgroundColor: newChannel.subtitle_style.box_color && newChannel.subtitle_style.box_color !== 'transparent' ? newChannel.subtitle_style.box_color : 'transparent',
-                                padding: `${Math.max(2, (newChannel.subtitle_style.box_padding ?? 10) * 0.6)}px ${Math.max(4, (newChannel.subtitle_style.box_padding ?? 10) * 0.9)}px`,
-                                borderRadius: '10px',
-                                opacity: (newChannel.subtitle_style.opacity ?? 100) / 100,
-                                transform: `translateX(${(newChannel.subtitle_style.x_offset || 0) * wizardSubtitlePreviewScale}px) translateY(${(newChannel.subtitle_style.y_offset || 0) * wizardSubtitlePreviewScale}px) rotate(${newChannel.subtitle_style.rotation || 0}deg)`
-                              }}
-                              className="flex flex-wrap justify-center items-center gap-2 text-center"
-                            >
-                              {sampleWords.map((wordObj, i) => {
-                                const highlightMode = newChannel.subtitle_style.highlight_mode || (newChannel.subtitle_style.karaoke === false ? 'line' : 'word');
-                                const isColored = highlightMode === 'line' || (highlightMode === 'word' && wordObj.highlight);
-                                const displayText = applySubtitleCase(wordObj.text, newChannel.subtitle_style.text_case);
-                                const hasBox = newChannel.subtitle_style.box_color && newChannel.subtitle_style.box_color !== 'transparent';
-                                const outlinePx = hasBox ? 0 : (newChannel.subtitle_style.outline_width ?? 3) * wizardSubtitlePreviewScale;
-                                return (
-                                  <span
-                                    key={i}
-                                    style={{
-                                      fontFamily: newChannel.subtitle_style.font,
-                                      fontSize: `${(newChannel.subtitle_style.size || 44) * wizardSubtitlePreviewScale}px`,
-                                      fontWeight: newChannel.subtitle_style.bold ? '900' : '700',
-                                      fontStyle: newChannel.subtitle_style.italic ? 'italic' : 'normal',
-                                      letterSpacing: `${(newChannel.subtitle_style.letter_spacing || 0) * wizardSubtitlePreviewScale}px`,
-                                      color: isColored ? (newChannel.subtitle_style.color || '#FFD700') : (newChannel.subtitle_style.base_color || '#FFFFFF'),
-                                      WebkitTextStroke: outlinePx > 0 ? `${outlinePx}px ${newChannel.subtitle_style.outline_color || '#000000'}` : 'none',
-                                      paintOrder: 'stroke fill',
-                                      textShadow: newChannel.subtitle_style.shadow
-                                        ? `${(newChannel.subtitle_style.shadow_distance ?? 3)}px ${(newChannel.subtitle_style.shadow_distance ?? 3)}px 4px ${newChannel.subtitle_style.shadow_color || '#000000'}`
-                                        : 'none'
-                                    }}
-                                    className="inline-block"
-                                  >
-                                    {displayText}
-                                  </span>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
                   </div>
                 )}
 
@@ -6101,23 +5566,10 @@ export default function App() {
                     <h3 className="text-base font-bold text-white">3. Voix Off</h3>
                     <p className="text-xs text-slate-400 -mt-4">Choisie une seule fois ici — utilisée automatiquement pour chaque vidéo de cette chaîne.</p>
 
-                    <div className="flex items-center justify-between gap-3 bg-[#11151c] border border-[#202938] rounded-xl px-3.5 py-2.5">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <span className="material-symbols-outlined text-[16px] text-[#00c2ff] shrink-0">vpn_key</span>
-                        <span className="text-[11px] text-slate-300 truncate">
-                          {izivoiceStatus?.connected
-                            ? `Ta clé Izivoice personnelle est connectée (${izivoiceStatus.key_prefix}) — tes voix clonées et ton historique sont synchronisés ici.`
-                            : "Connecte ta clé Izivoice pour plus de personnalisation : retrouve directement ici tes voix déjà clonées et tout ton historique."}
-                        </span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setShowIzivoiceKeyModal(true)}
-                        className="shrink-0 px-3 py-1.5 rounded-lg border border-[#2b374d] bg-[#1b2230] text-white text-[11px] font-bold hover:border-[#00c2ff] transition-colors"
-                      >
-                        {izivoiceStatus?.connected ? 'Gérer' : 'Connecter ma clé Izivoice'}
-                      </button>
-                    </div>
+                    {/* Personal Izivoice key connect: hidden from the client-facing wizard
+                        (deemed not useful for clients) — backend support (izivoice/connect,
+                        status, key routing) stays intact, only the UI entry point is gone,
+                        so this is a one-line revert if that changes. */}
 
                     <div>
                       <label className="block text-xs font-bold text-slate-300 mb-2">Bibliothèque de voix</label>
@@ -6611,10 +6063,505 @@ export default function App() {
                   );
                 })()}
 
-                {/* STEP 6: EFFETS VISUELS — réglages + un aperçu dédié aux effets seuls
+                {/* STEP 6: SOUS-TITRES & KARAOKÉ ASS */}
+                {wizardStep === 6 && (
+                  <div className="space-y-6">
+                    <h3 className="text-base font-bold text-white">6. Personnalisation Avancée des Sous-Titres</h3>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_520px] gap-8 items-start">
+                      {/* Settings column — split into CapCut-style toggle sections instead
+                          of one long scroll, so the preview stays reachable without
+                          hunting through every control at once. */}
+                      <div className="space-y-4 min-w-0">
+                        <div className="flex w-full bg-[#1b2230] rounded-xl p-1 mb-1 overflow-x-auto">
+                          {[
+                            { id: 'presets', label: 'Préréglages', icon: 'style' },
+                            { id: 'text', label: 'Police & Couleurs', icon: 'text_fields' },
+                            { id: 'format', label: 'Mise en Forme', icon: 'tune' },
+                            { id: 'background', label: 'Arrière-plan', icon: 'crop_square' },
+                            { id: 'shadow', label: 'Ombre', icon: 'flare' },
+                          ].map(tab => (
+                            <button
+                              key={tab.id}
+                              type="button"
+                              onClick={() => setSubtitleTab(tab.id)}
+                              className={`flex-1 flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg text-[11px] font-bold whitespace-nowrap transition-colors ${
+                                subtitleTab === tab.id ? 'bg-[#00c2ff] text-slate-950' : 'text-slate-300 hover:bg-[#252f42]'
+                              }`}
+                            >
+                              <span className="material-symbols-outlined text-[15px]">{tab.icon}</span>
+                              {tab.label}
+                            </button>
+                          ))}
+                        </div>
+
+                        {/* Presets Grid — CapCut-style: a square tile rendering the actual
+                            style ("ABC123") so you pick by look, with the name below it. */}
+                        {subtitleTab === 'presets' && (
+                        <div>
+                          <label className="block text-xs font-bold text-slate-300 mb-2">Presets de style sous-titre recommandés</label>
+                          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
+                            {SUBTITLE_PRESETS.map(preset => {
+                              const isActive = newChannel.subtitle_style.font === preset.font
+                                && newChannel.subtitle_style.color === preset.color
+                                && newChannel.subtitle_style.size === preset.size;
+                              return (
+                                <button
+                                  key={preset.id}
+                                  type="button"
+                                  onClick={() => {
+                                    setNewChannel(prev => ({
+                                      ...prev,
+                                      subtitle_style: {
+                                        ...prev.subtitle_style,
+                                        font: preset.font,
+                                        size: preset.size,
+                                        color: preset.color,
+                                        outline_color: preset.outline_color,
+                                        outline_width: preset.outline_width,
+                                        box_color: preset.box_color
+                                      }
+                                    }));
+                                  }}
+                                  className="group text-center"
+                                  title={preset.name}
+                                >
+                                  <div
+                                    className={`aspect-square rounded-xl flex items-center justify-center overflow-hidden bg-[#12161f] border-2 transition-all ${
+                                      isActive ? 'border-[#00c2ff] shadow-lg shadow-[#00c2ff]/20' : 'border-[#2b374d] group-hover:border-slate-500'
+                                    }`}
+                                    style={{
+                                      backgroundImage: 'radial-gradient(circle at center, rgba(255,255,255,0.06), transparent 70%)'
+                                    }}
+                                  >
+                                    <span
+                                      style={{
+                                        fontFamily: preset.font,
+                                        color: preset.color,
+                                        WebkitTextStroke: `${Math.min(1.5, (preset.outline_width || 3) / 2.5)}px ${preset.outline_color || '#000000'}`,
+                                        paintOrder: 'stroke fill',
+                                        fontSize: '15px',
+                                        ...(preset.box_color && preset.box_color !== 'transparent' ? {
+                                          backgroundColor: preset.box_color,
+                                          padding: '3px 6px',
+                                          borderRadius: '4px'
+                                        } : {})
+                                      }}
+                                      className="font-black"
+                                    >
+                                      ABC123
+                                    </span>
+                                  </div>
+                                  <div className={`text-[10px] font-semibold mt-1.5 truncate ${isActive ? 'text-[#00c2ff]' : 'text-slate-300'}`}>
+                                    {preset.name}
+                                  </div>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                        )}
+
+                        {/* Custom Controls */}
+                        {subtitleTab === 'text' && (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-xs font-bold text-slate-300 mb-2">Police (Font)</label>
+                            <button
+                              type="button"
+                              onClick={() => { setFontSearchQuery(''); setFontPickerOpen(true); }}
+                              className="w-full flex items-center justify-between bg-[#1b2230] border border-[#2b374d] rounded-xl px-4 py-2.5 text-left hover:border-[#00c2ff] transition-colors"
+                            >
+                              <span style={{ fontFamily: newChannel.subtitle_style.font }} className="text-sm text-white truncate">
+                                {SUBTITLE_FONTS.find(f => f.value === newChannel.subtitle_style.font)?.label || newChannel.subtitle_style.font}
+                              </span>
+                              <span className="material-symbols-outlined text-[18px] text-slate-400 flex-shrink-0">expand_more</span>
+                            </button>
+                            <p className="text-[10px] text-slate-500 mt-1.5">{SUBTITLE_FONTS.length} polices réellement installées sur le serveur de rendu — l'aperçu est fidèle au rendu final.</p>
+                          </div>
+
+                          <div>
+                            <label className="block text-xs font-bold text-slate-300 mb-2">Taille du Texte ({newChannel.subtitle_style.size}px)</label>
+                            <input
+                              type="range"
+                              min="28"
+                              max="64"
+                              value={newChannel.subtitle_style.size}
+                              onChange={e => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, size: parseInt(e.target.value) || 44 } })}
+                              className="w-full accent-[#00c2ff] mt-3"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-xs font-bold text-slate-300 mb-2">Couleur du Texte</label>
+                            <ColorPickerButton
+                              value={newChannel.subtitle_style.base_color || '#FFFFFF'}
+                              onChange={hex => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, base_color: hex } })}
+                              label="Couleur du texte (au repos)"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-xs font-bold text-slate-300 mb-2">Couleur du Mot Actif (surbrillance)</label>
+                            <ColorPickerButton
+                              value={newChannel.subtitle_style.color || '#FFD700'}
+                              onChange={hex => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, color: hex } })}
+                              label="Couleur de surbrillance"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-xs font-bold text-slate-300 mb-2">Couleur du Contour</label>
+                            <ColorPickerButton
+                              allowNone
+                              value={(newChannel.subtitle_style.outline_width ?? 3) === 0 ? 'transparent' : (newChannel.subtitle_style.outline_color || '#000000')}
+                              onChange={hex => {
+                                if (hex === 'transparent') {
+                                  setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, outline_width: 0 } });
+                                } else {
+                                  setNewChannel({
+                                    ...newChannel,
+                                    subtitle_style: {
+                                      ...newChannel.subtitle_style,
+                                      outline_color: hex,
+                                      outline_width: (newChannel.subtitle_style.outline_width ?? 3) === 0 ? 3 : (newChannel.subtitle_style.outline_width ?? 3)
+                                    }
+                                  });
+                                }
+                              }}
+                              label="Couleur du contour"
+                            />
+                            <p className="text-[10px] text-slate-500 mt-1">Choisis « Aucune couleur » pour un texte simple sans contour.</p>
+                          </div>
+
+                          {(newChannel.subtitle_style.outline_width ?? 3) > 0 && (
+                            <div>
+                              <label className="block text-xs font-bold text-slate-300 mb-2">Épaisseur du Contour ({newChannel.subtitle_style.outline_width ?? 3}px)</label>
+                              <input
+                                type="range"
+                                min="1"
+                                max="8"
+                                value={newChannel.subtitle_style.outline_width ?? 3}
+                                onChange={e => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, outline_width: parseInt(e.target.value) } })}
+                                className="w-full accent-[#00c2ff] mt-3"
+                              />
+                            </div>
+                          )}
+
+                          <div>
+                            <label className="block text-xs font-bold text-slate-300 mb-2">Longueur des sous-titres ({newChannel.subtitle_style.words_per_line || 6} mots)</label>
+                            <input
+                              type="range"
+                              min="1"
+                              max="14"
+                              value={newChannel.subtitle_style.words_per_line || 6}
+                              onChange={e => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, words_per_line: parseInt(e.target.value) || 6 } })}
+                              className="w-full accent-[#00c2ff] mt-3"
+                            />
+                            <p className="text-[11px] text-slate-500 mt-1">Nombre de mots affichés en même temps à l'écran.</p>
+                          </div>
+
+                        </div>
+                        )}
+
+                        {/* Mise en forme du texte */}
+                        {subtitleTab === 'format' && (
+                        <div className="space-y-4">
+                          <label className="block text-xs font-bold text-[#00c2ff]">Mise en Forme du Texte</label>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                              <label className="block text-[11px] font-bold text-slate-300 mb-2">Style</label>
+                              <div className="flex gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, bold: !newChannel.subtitle_style.bold } })}
+                                  className={`flex-1 py-2.5 rounded-xl text-sm font-black border transition-colors ${newChannel.subtitle_style.bold ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]' : 'bg-[#1b2230] border-[#2b374d] text-slate-300 hover:border-slate-500'}`}
+                                >
+                                  B
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, italic: !newChannel.subtitle_style.italic } })}
+                                  className={`flex-1 py-2.5 rounded-xl text-sm italic font-bold border transition-colors ${newChannel.subtitle_style.italic ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]' : 'bg-[#1b2230] border-[#2b374d] text-slate-300 hover:border-slate-500'}`}
+                                >
+                                  I
+                                </button>
+                              </div>
+                            </div>
+
+                            <div>
+                              <label className="block text-[11px] font-bold text-slate-300 mb-2">Casse</label>
+                              <div className="grid grid-cols-3 gap-2">
+                                {[
+                                  { id: 'none', label: 'Aa' },
+                                  { id: 'upper', label: 'AA' },
+                                  { id: 'lower', label: 'aa' },
+                                ].map(({ id, label }) => (
+                                  <button
+                                    key={id}
+                                    type="button"
+                                    onClick={() => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, text_case: id } })}
+                                    className={`py-2.5 rounded-xl text-xs font-bold border transition-colors ${(newChannel.subtitle_style.text_case || 'none') === id ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]' : 'bg-[#1b2230] border-[#2b374d] text-slate-300 hover:border-slate-500'}`}
+                                  >
+                                    {label}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+
+                            <div>
+                              <label className="block text-[11px] font-bold text-slate-300 mb-2">Alignement</label>
+                              <div className="grid grid-cols-3 gap-2">
+                                {[
+                                  { id: 'left', icon: 'format_align_left' },
+                                  { id: 'center', icon: 'format_align_center' },
+                                  { id: 'right', icon: 'format_align_right' },
+                                ].map(({ id, icon }) => (
+                                  <button
+                                    key={id}
+                                    type="button"
+                                    onClick={() => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, align: id } })}
+                                    className={`py-2.5 rounded-xl border transition-colors flex items-center justify-center ${(newChannel.subtitle_style.align || 'center') === id ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]' : 'bg-[#1b2230] border-[#2b374d] text-slate-300 hover:border-slate-500'}`}
+                                  >
+                                    <span className="material-symbols-outlined text-[18px]">{icon}</span>
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+
+                            <div>
+                              <label className="block text-[11px] font-bold text-slate-300 mb-2">Position</label>
+                              <div className="grid grid-cols-3 gap-2">
+                                {[
+                                  { id: 'top', icon: 'vertical_align_top' },
+                                  { id: 'center', icon: 'vertical_align_center' },
+                                  { id: 'bottom', icon: 'vertical_align_bottom' },
+                                ].map(({ id, icon }) => (
+                                  <button
+                                    key={id}
+                                    type="button"
+                                    onClick={() => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, position: id } })}
+                                    className={`py-2.5 rounded-xl border transition-colors flex items-center justify-center ${(newChannel.subtitle_style.position || 'bottom') === id ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]' : 'bg-[#1b2230] border-[#2b374d] text-slate-300 hover:border-slate-500'}`}
+                                  >
+                                    <span className="material-symbols-outlined text-[18px]">{icon}</span>
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+
+                            <div>
+                              <label className="block text-[11px] font-bold text-slate-300 mb-2">Mode de surbrillance</label>
+                              <div className="grid grid-cols-3 gap-2">
+                                {[
+                                  { id: 'word', label: 'Mot actif' },
+                                  { id: 'line', label: 'Phrase' },
+                                  { id: 'none', label: 'Aucune' },
+                                ].map(({ id, label }) => (
+                                  <button
+                                    key={id}
+                                    type="button"
+                                    onClick={() => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, highlight_mode: id, karaoke: id === 'word' } })}
+                                    className={`py-2 rounded-xl text-[10px] font-bold border transition-colors ${(newChannel.subtitle_style.highlight_mode || 'word') === id ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]' : 'bg-[#1b2230] border-[#2b374d] text-slate-300 hover:border-slate-500'}`}
+                                  >
+                                    {label}
+                                  </button>
+                                ))}
+                              </div>
+                              <p className="text-[10px] text-slate-500 mt-1.5">« Mot actif » colore le mot en cours de lecture ; « Phrase » colore toute la ligne ; « Aucune » garde une couleur neutre.</p>
+                            </div>
+
+                            <div>
+                              <label className="block text-[11px] font-bold text-slate-300 mb-2">Espacement des lettres ({newChannel.subtitle_style.letter_spacing || 0}px)</label>
+                              <input
+                                type="range"
+                                min="-2"
+                                max="20"
+                                value={newChannel.subtitle_style.letter_spacing || 0}
+                                onChange={e => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, letter_spacing: parseInt(e.target.value) || 0 } })}
+                                className="w-full accent-[#00c2ff] mt-3"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="block text-[11px] font-bold text-slate-300 mb-2">Opacité ({newChannel.subtitle_style.opacity ?? 100}%)</label>
+                              <input
+                                type="range"
+                                min="10"
+                                max="100"
+                                value={newChannel.subtitle_style.opacity ?? 100}
+                                onChange={e => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, opacity: parseInt(e.target.value) ?? 100 } })}
+                                className="w-full accent-[#00c2ff] mt-3"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="block text-[11px] font-bold text-slate-300 mb-2">Rotation ({newChannel.subtitle_style.rotation || 0}°)</label>
+                              <input
+                                type="range"
+                                min="-45"
+                                max="45"
+                                value={newChannel.subtitle_style.rotation || 0}
+                                onChange={e => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, rotation: parseInt(e.target.value) || 0 } })}
+                                className="w-full accent-[#00c2ff] mt-3"
+                              />
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-3">
+                              <div>
+                                <label className="block text-[11px] font-bold text-slate-300 mb-2">Décalage X ({newChannel.subtitle_style.x_offset || 0}px)</label>
+                                <input
+                                  type="range"
+                                  min="-400"
+                                  max="400"
+                                  value={newChannel.subtitle_style.x_offset || 0}
+                                  onChange={e => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, x_offset: parseInt(e.target.value) || 0 } })}
+                                  className="w-full accent-[#00c2ff] mt-3"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[11px] font-bold text-slate-300 mb-2">Décalage Y ({newChannel.subtitle_style.y_offset || 0}px)</label>
+                                <input
+                                  type="range"
+                                  min="-400"
+                                  max="400"
+                                  value={newChannel.subtitle_style.y_offset || 0}
+                                  onChange={e => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, y_offset: parseInt(e.target.value) || 0 } })}
+                                  className="w-full accent-[#00c2ff] mt-3"
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                        )}
+
+                        {/* Arrière-plan (boîte) */}
+                        {subtitleTab === 'background' && (
+                        <div className="space-y-4">
+                          <label className="block text-xs font-bold text-[#00c2ff]">Arrière-plan (rectangle derrière le texte)</label>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                              <label className="block text-[11px] font-bold text-slate-300 mb-2">Couleur</label>
+                              <ColorPickerButton
+                                allowNone
+                                value={newChannel.subtitle_style.box_color}
+                                onChange={hex => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, box_color: hex } })}
+                                label="Couleur de fond"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="block text-[11px] font-bold text-slate-300 mb-2">Épaisseur de la bulle ({newChannel.subtitle_style.box_padding ?? 10}px)</label>
+                              <input
+                                type="range"
+                                min="0"
+                                max="40"
+                                value={newChannel.subtitle_style.box_padding ?? 10}
+                                onChange={e => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, box_padding: parseInt(e.target.value) || 0 } })}
+                                className="w-full accent-[#00c2ff] mt-3"
+                              />
+                            </div>
+                          </div>
+                          <p className="text-[10px] text-slate-500">Le moteur de rendu vidéo dessine un rectangle plein autour du texte — les coins arrondis ne s'appliquent qu'à cet aperçu, pas encore au rendu final.</p>
+                        </div>
+                        )}
+
+                        {/* Ombre */}
+                        {subtitleTab === 'shadow' && (
+                        <div className="space-y-4">
+                          <div className="flex items-center gap-3">
+                            <input
+                              type="checkbox"
+                              id="shadow-toggle"
+                              checked={!!newChannel.subtitle_style.shadow}
+                              onChange={e => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, shadow: e.target.checked } })}
+                              className="w-4 h-4 accent-[#00c2ff]"
+                            />
+                            <label htmlFor="shadow-toggle" className="text-xs font-bold text-[#00c2ff]">Ombre portée</label>
+                          </div>
+                          {newChannel.subtitle_style.shadow && (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                              <div>
+                                <label className="block text-[11px] font-bold text-slate-300 mb-2">Couleur de l'ombre</label>
+                                <ColorPickerButton
+                                  value={newChannel.subtitle_style.shadow_color || '#000000'}
+                                  onChange={hex => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, shadow_color: hex } })}
+                                  label="Couleur de l'ombre"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[11px] font-bold text-slate-300 mb-2">Distance ({newChannel.subtitle_style.shadow_distance ?? 3}px)</label>
+                                <input
+                                  type="range"
+                                  min="0"
+                                  max="15"
+                                  value={newChannel.subtitle_style.shadow_distance ?? 3}
+                                  onChange={e => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, shadow_distance: parseInt(e.target.value) || 0 } })}
+                                  className="w-full accent-[#00c2ff] mt-3"
+                                />
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                        )}
+                      </div>
+
+                      {/* Preview column — sticks in place so it stays visible while the
+                          settings column (which can run long) scrolls under it. */}
+                      <div className="lg:sticky lg:top-4">
+                        <label className="block text-xs font-bold text-slate-300 mb-2">Aperçu en direct</label>
+                        <div ref={wizardSubtitlePreviewRef} className="w-full aspect-video rounded-2xl bg-gradient-to-b from-slate-900 to-black border border-[#2b374d] relative overflow-hidden px-6">
+                          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(0,194,255,0.08),transparent_70%)]"></div>
+                          <div className={`absolute inset-x-6 z-10 flex ${subtitleAlignClass(newChannel.subtitle_style.align)} ${subtitlePositionClass(newChannel.subtitle_style.position)}`}>
+                            <div
+                              style={{
+                                backgroundColor: newChannel.subtitle_style.box_color && newChannel.subtitle_style.box_color !== 'transparent' ? newChannel.subtitle_style.box_color : 'transparent',
+                                padding: `${Math.max(2, (newChannel.subtitle_style.box_padding ?? 10) * 0.6)}px ${Math.max(4, (newChannel.subtitle_style.box_padding ?? 10) * 0.9)}px`,
+                                borderRadius: '10px',
+                                opacity: (newChannel.subtitle_style.opacity ?? 100) / 100,
+                                transform: `translateX(${(newChannel.subtitle_style.x_offset || 0) * wizardSubtitlePreviewScale}px) translateY(${(newChannel.subtitle_style.y_offset || 0) * wizardSubtitlePreviewScale}px) rotate(${newChannel.subtitle_style.rotation || 0}deg)`
+                              }}
+                              className="flex flex-wrap justify-center items-center gap-2 text-center"
+                            >
+                              {sampleWords.map((wordObj, i) => {
+                                const highlightMode = newChannel.subtitle_style.highlight_mode || (newChannel.subtitle_style.karaoke === false ? 'line' : 'word');
+                                const isColored = highlightMode === 'line' || (highlightMode === 'word' && wordObj.highlight);
+                                const displayText = applySubtitleCase(wordObj.text, newChannel.subtitle_style.text_case);
+                                const hasBox = newChannel.subtitle_style.box_color && newChannel.subtitle_style.box_color !== 'transparent';
+                                const outlinePx = hasBox ? 0 : (newChannel.subtitle_style.outline_width ?? 3) * wizardSubtitlePreviewScale;
+                                return (
+                                  <span
+                                    key={i}
+                                    style={{
+                                      fontFamily: newChannel.subtitle_style.font,
+                                      fontSize: `${(newChannel.subtitle_style.size || 44) * wizardSubtitlePreviewScale}px`,
+                                      fontWeight: newChannel.subtitle_style.bold ? '900' : '700',
+                                      fontStyle: newChannel.subtitle_style.italic ? 'italic' : 'normal',
+                                      letterSpacing: `${(newChannel.subtitle_style.letter_spacing || 0) * wizardSubtitlePreviewScale}px`,
+                                      color: isColored ? (newChannel.subtitle_style.color || '#FFD700') : (newChannel.subtitle_style.base_color || '#FFFFFF'),
+                                      WebkitTextStroke: outlinePx > 0 ? `${outlinePx}px ${newChannel.subtitle_style.outline_color || '#000000'}` : 'none',
+                                      paintOrder: 'stroke fill',
+                                      textShadow: newChannel.subtitle_style.shadow
+                                        ? `${(newChannel.subtitle_style.shadow_distance ?? 3)}px ${(newChannel.subtitle_style.shadow_distance ?? 3)}px 4px ${newChannel.subtitle_style.shadow_color || '#000000'}`
+                                        : 'none'
+                                    }}
+                                    className="inline-block"
+                                  >
+                                    {displayText}
+                                  </span>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* STEP 7: EFFETS VISUELS — réglages + un aperçu dédié aux effets seuls
                     (couleur/texture sur une vraie image), distinct de l'Aperçu Final complet
-                    de l'étape 7 qui montre tous les réglages ensemble (sous-titres, logo...). */}
-                {wizardStep === 6 && (() => {
+                    de l'étape 8 qui montre tous les réglages ensemble (sous-titres, logo...). */}
+                {wizardStep === 7 && (() => {
                   const colorGrade = newChannel.effects_config.color_grade || 'warm';
                   const overlayEffects = newChannel.effects_config.overlay_effects || ['grain'];
                   const toggleOverlayEffect = (id) => {
@@ -6640,7 +6587,7 @@ export default function App() {
                   return (
                     <div className="space-y-6">
                       <div>
-                        <h3 className="text-base font-bold text-white">6. Effets Visuels</h3>
+                        <h3 className="text-base font-bold text-white">7. Effets Visuels</h3>
                         <p className="text-xs text-slate-400 mt-1">Appliqués sur l'ensemble de la vidéo, en plus des transitions et du zoom automatiques déjà actifs.</p>
                       </div>
 
@@ -6782,8 +6729,8 @@ export default function App() {
                   );
                 })()}
 
-                {/* STEP 7: APERÇU FINAL DU DESIGN VIDÉO (LIVE 16:9 LANDSCAPE PREVIEW) */}
-                {wizardStep === 7 && (() => {
+                {/* STEP 8: APERÇU FINAL DU DESIGN VIDÉO (LIVE 16:9 LANDSCAPE PREVIEW) */}
+                {wizardStep === 8 && (() => {
                   const userImagePreview = localImageFiles.length > 0 ? URL.createObjectURL(localImageFiles[0]) : null;
                   const stepOverlayEffects = newChannel.effects_config.overlay_effects || ['grain'];
                   const stepHasGrain = stepOverlayEffects.includes('grain') || stepOverlayEffects.includes('white_noise');
@@ -6835,7 +6782,7 @@ export default function App() {
                     <div className="space-y-6">
                       <div className="flex justify-between items-center">
                         <div>
-                          <h3 className="text-base font-bold text-white">7. Aperçu Final du Layout & Design Vidéo</h3>
+                          <h3 className="text-base font-bold text-white">8. Aperçu Final du Layout & Design Vidéo</h3>
                           <p className="text-xs text-slate-400 mt-0.5">Voici le rendu final simulé, au format vidéo longue durée YouTube (16:9).</p>
                         </div>
                       </div>
@@ -6970,6 +6917,55 @@ export default function App() {
                   );
                 })()}
 
+                {/* STEP 9: PUBLICATION YOUTUBE */}
+                {wizardStep === 9 && (
+                  <div className="space-y-6">
+                    <h3 className="text-base font-bold text-white">9. Publication YouTube</h3>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-300 mb-2">Publication YouTube</label>
+                      <p className="text-[11px] text-slate-500 mb-2">Indépendant du mode de génération du script — décide ce qui arrive à une vidéo une fois qu'elle est prête.</p>
+                      <ModeDropdown
+                        value={newChannel.publish_mode || 'manual'}
+                        onChange={v => setNewChannel({ ...newChannel, publish_mode: v })}
+                        options={[
+                          { value: 'manual', icon: 'download', label: 'Manuelle', desc: 'Tu télécharges la vidéo, ou tu cliques « Publier » quand tu veux' },
+                          { value: 'scheduled', icon: 'schedule', label: 'Programmée', desc: 'Publiée à une heure fixe que tu choisis' },
+                          { value: 'auto', icon: 'bolt', label: 'Automatique', desc: 'Publiée dès la fin du rendu, sans délai' },
+                        ]}
+                      />
+                      {newChannel.publish_mode === 'scheduled' && (
+                        <div className="mt-3 flex items-center gap-3">
+                          <div>
+                            <label className="block text-[11px] font-bold text-slate-300 mb-1">Combien de jours après le rendu</label>
+                            <select
+                              value={newChannel.publish_schedule_day_offset ?? 1}
+                              onChange={e => setNewChannel({ ...newChannel, publish_schedule_day_offset: parseInt(e.target.value) })}
+                              className="bg-[#1b2230] border border-[#2b374d] rounded-xl px-3 py-2 text-xs text-white focus:border-[#00c2ff] outline-none"
+                            >
+                              <option value={0}>Le jour même</option>
+                              <option value={1}>Le lendemain</option>
+                              <option value={2}>Dans 2 jours</option>
+                              <option value={3}>Dans 3 jours</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-[11px] font-bold text-slate-300 mb-1">À quelle heure (ton fuseau horaire)</label>
+                            <select
+                              value={newChannel.publish_schedule_hour ?? 8}
+                              onChange={e => setNewChannel({ ...newChannel, publish_schedule_hour: parseInt(e.target.value) })}
+                              className="bg-[#1b2230] border border-[#2b374d] rounded-xl px-3 py-2 text-xs text-white focus:border-[#00c2ff] outline-none"
+                            >
+                              {Array.from({ length: 24 }, (_, h) => (
+                                <option key={h} value={h}>{String(h).padStart(2, '0')}h00</option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 {/* Wizard Footer Navigation */}
                 <div className="flex justify-between items-center pt-6 border-t border-[#263042]">
                   {wizardStep > 1 ? (
@@ -6985,7 +6981,7 @@ export default function App() {
                     {/* In edit mode the pipeline already exists — no need to click through
                         every step just to save a change made on this one. Create mode keeps
                         the guided step-by-step flow since nothing's configured yet. */}
-                    {wizardMode === 'edit' && wizardStep < 7 && (
+                    {wizardMode === 'edit' && wizardStep < 9 && (
                       <button
                         onClick={handleSaveChannel}
                         disabled={loading}
@@ -6996,7 +6992,7 @@ export default function App() {
                       </button>
                     )}
 
-                    {wizardStep < 7 ? (
+                    {wizardStep < 9 ? (
                     <button
                       onClick={() => {
                         const needsLibrary = newChannel.image_style.source === 'library' || newChannel.image_style.source === 'hybrid';
@@ -7757,8 +7753,17 @@ export default function App() {
                               {v.preview_url && (
                                 <span
                                   className="material-symbols-outlined text-[14px] text-slate-500 hover:text-[#00c2ff] shrink-0"
-                                  onClick={(e) => { e.stopPropagation(); new Audio(v.preview_url).play().catch(() => {}); }}
-                                >play_circle</span>
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (studioPreviewPlayingId === v.id) {
+                                      stopVoicePreview();
+                                      setStudioPreviewPlayingId(null);
+                                      return;
+                                    }
+                                    playVoicePreviewExclusive(v.preview_url, () => setStudioPreviewPlayingId(null));
+                                    setStudioPreviewPlayingId(v.id);
+                                  }}
+                                >{studioPreviewPlayingId === v.id ? 'pause_circle' : 'play_circle'}</span>
                               )}
                             </button>
                           ))}
@@ -8002,6 +8007,9 @@ export default function App() {
           onClose={() => setShowVoiceLibrary(false)}
           onOpenCloner={() => setShowVoiceCloner(true)}
           cloningEnabled={wizardMode === 'edit' && !!editingChannelId}
+          onLoadMore={loadMoreVoices}
+          loadingMore={loadingMoreVoices}
+          hasMore={catalogHasMore}
         />
       )}
 
