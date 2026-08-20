@@ -101,7 +101,6 @@ export default function LandingPage() {
         <section className="hero" id="accueil">
           <div className="hero-grid" /><div className="hero-orb orb-one" /><div className="hero-orb orb-two" />
           <div className="hero-copy">
-            <div className="eyebrow"><Sparkles size={14} /> Le studio vidéo des créateurs qui avancent vite</div>
             <h1>Votre contenu mérite mieux que des heures de <span>montage répétitif.</span></h1>
             <p>Transformez vos scripts et vos audios en vidéos YouTube cohérentes, sous-titrées et prêtes à publier — avec un pipeline conçu une fois, réutilisé à l’infini.</p>
             <div className="hero-actions">
