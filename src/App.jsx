@@ -1226,6 +1226,8 @@ export default function App() {
 
   const [loading, setLoading] = useState(false);
   const [connectingYouTubeFromWizard, setConnectingYouTubeFromWizard] = useState(false);
+  const [timezoneMenuOpen, setTimezoneMenuOpen] = useState(false);
+  const [timezoneSearch, setTimezoneSearch] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [videoFilterChannelId, setVideoFilterChannelId] = useState('all');
   const [toast, setToast] = useState(null); // { message, type: 'success' | 'error' }
@@ -1537,6 +1539,7 @@ export default function App() {
     // region imposed on every creator.
     timezone: (typeof Intl !== 'undefined' && Intl.DateTimeFormat().resolvedOptions().timeZone) || 'Africa/Douala',
     videos_per_day: 1,
+    active_days: null,
     publish_mode: 'manual',
     publish_schedule_hour: 8,
     publish_schedule_day_offset: 1,
@@ -2223,6 +2226,7 @@ export default function App() {
       automation_mode: channel.automation_mode || 'manual',
       automation_style_prompt: channel.automation_style_prompt || '',
       videos_per_day: channel.videos_per_day ?? 1,
+      active_days: channel.active_days || null,
       timezone: channel.timezone || defaultChannelForm.timezone,
       publish_mode: channel.publish_mode || 'manual',
       publish_schedule_hour: channel.publish_schedule_hour ?? 8,
@@ -4604,16 +4608,79 @@ export default function App() {
                               ))}
                             </div>
                           </div>
-                          <div className="flex items-center gap-2 bg-[#11151c] border border-[#202938] rounded-xl px-3 py-2.5">
+                          <div className="bg-[#11151c] border border-[#202938] rounded-xl px-3 py-2.5">
+                            <div className="flex items-center gap-2 mb-2">
+                              <span className="material-symbols-outlined text-[16px] text-slate-500 shrink-0">event_repeat</span>
+                              <span className="text-[11px] text-slate-400">Jours actifs — laisse tout coché pour publier tous les jours, ou choisis juste certains jours (ex: une fois par semaine, 3x/semaine...)</span>
+                            </div>
+                            <div className="flex gap-1.5">
+                              {[
+                                { id: 0, label: 'L' }, { id: 1, label: 'M' }, { id: 2, label: 'M' },
+                                { id: 3, label: 'J' }, { id: 4, label: 'V' }, { id: 5, label: 'S' }, { id: 6, label: 'D' },
+                              ].map(({ id, label }) => {
+                                const activeDays = newChannel.active_days;
+                                const isOn = !activeDays || activeDays.length === 0 || activeDays.includes(id);
+                                return (
+                                  <button
+                                    key={id}
+                                    type="button"
+                                    onClick={() => {
+                                      const current = (activeDays && activeDays.length > 0) ? activeDays : [0, 1, 2, 3, 4, 5, 6];
+                                      const next = current.includes(id) ? current.filter(d => d !== id) : [...current, id].sort();
+                                      setNewChannel({ ...newChannel, active_days: next.length === 7 ? null : next });
+                                    }}
+                                    className={`flex-1 py-2 rounded-lg text-[11px] font-bold border transition-colors ${
+                                      isOn ? 'bg-[#00c2ff] text-slate-950 border-[#00c2ff]' : 'bg-[#1b2230] border-[#2b374d] text-slate-300 hover:border-slate-500'
+                                    }`}
+                                  >
+                                    {label}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 bg-[#11151c] border border-[#202938] rounded-xl px-3 py-2.5 relative">
                             <span className="material-symbols-outlined text-[16px] text-slate-500 shrink-0">public</span>
                             <span className="text-[11px] text-slate-400 shrink-0">Fuseau horaire :</span>
-                            <select
-                              value={newChannel.timezone || 'Africa/Douala'}
-                              onChange={e => setNewChannel({ ...newChannel, timezone: e.target.value })}
-                              className="flex-1 min-w-0 bg-[#1b2230] border border-[#2b374d] rounded-lg px-2 py-1.5 text-[11px] text-white focus:border-[#00c2ff] outline-none"
+                            <button
+                              type="button"
+                              onClick={() => { setTimezoneMenuOpen(o => !o); setTimezoneSearch(''); }}
+                              className="flex-1 min-w-0 flex items-center justify-between gap-2 bg-[#1b2230] border border-[#2b374d] hover:border-slate-500 rounded-lg px-2.5 py-1.5 text-[11px] text-white text-left transition-colors"
                             >
-                              {TIMEZONE_OPTIONS.map(tz => <option key={tz} value={tz}>{tz}</option>)}
-                            </select>
+                              <span className="truncate">{newChannel.timezone || 'Africa/Douala'}</span>
+                              <span className={`material-symbols-outlined text-[15px] text-slate-400 shrink-0 transition-transform ${timezoneMenuOpen ? 'rotate-180' : ''}`}>expand_more</span>
+                            </button>
+                            {timezoneMenuOpen && (
+                              <div className="absolute left-0 right-0 top-full mt-1.5 bg-[#1f2838] border border-[#2d3a52] rounded-xl shadow-2xl z-50 overflow-hidden">
+                                <div className="p-2 border-b border-[#2d3a52]">
+                                  <input
+                                    autoFocus
+                                    value={timezoneSearch}
+                                    onChange={e => setTimezoneSearch(e.target.value)}
+                                    placeholder="Rechercher (ex: Douala, Paris...)"
+                                    className="w-full bg-[#11151c] border border-[#2b374d] rounded-lg px-2.5 py-1.5 text-[11px] text-white focus:border-[#00c2ff] outline-none"
+                                  />
+                                </div>
+                                <div className="max-h-52 overflow-y-auto py-1">
+                                  {TIMEZONE_OPTIONS
+                                    .filter(tz => tz.toLowerCase().includes(timezoneSearch.toLowerCase()))
+                                    .slice(0, 200)
+                                    .map(tz => (
+                                      <button
+                                        key={tz}
+                                        type="button"
+                                        onClick={() => { setNewChannel({ ...newChannel, timezone: tz }); setTimezoneMenuOpen(false); }}
+                                        className={`w-full text-left px-3 py-1.5 text-[11px] hover:bg-[#2c394e] transition-colors flex items-center justify-between gap-2 ${
+                                          tz === (newChannel.timezone || 'Africa/Douala') ? 'text-[#00c2ff] font-bold' : 'text-slate-300'
+                                        }`}
+                                      >
+                                        <span className="truncate">{tz}</span>
+                                        {tz === (newChannel.timezone || 'Africa/Douala') && <span className="material-symbols-outlined text-[14px] shrink-0">check</span>}
+                                      </button>
+                                    ))}
+                                </div>
+                              </div>
+                            )}
                           </div>
                         </div>
                       )}
@@ -4900,19 +4967,6 @@ export default function App() {
                           )}
 
                           <div>
-                            <label className="block text-xs font-bold text-slate-300 mb-2">Position</label>
-                            <select
-                              value={newChannel.subtitle_style.position}
-                              onChange={e => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, position: e.target.value } })}
-                              className="w-full bg-[#1b2230] border border-[#2b374d] rounded-xl px-4 py-2.5 text-xs text-white focus:border-[#00c2ff] outline-none"
-                            >
-                              <option value="bottom">Bas</option>
-                              <option value="center">Centre</option>
-                              <option value="top">Haut</option>
-                            </select>
-                          </div>
-
-                          <div>
                             <label className="block text-xs font-bold text-slate-300 mb-2">Longueur des sous-titres ({newChannel.subtitle_style.words_per_line || 6} mots)</label>
                             <input
                               type="range"
@@ -4986,6 +5040,26 @@ export default function App() {
                                     type="button"
                                     onClick={() => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, align: id } })}
                                     className={`py-2.5 rounded-xl border transition-colors flex items-center justify-center ${(newChannel.subtitle_style.align || 'center') === id ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]' : 'bg-[#1b2230] border-[#2b374d] text-slate-300 hover:border-slate-500'}`}
+                                  >
+                                    <span className="material-symbols-outlined text-[18px]">{icon}</span>
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+
+                            <div>
+                              <label className="block text-[11px] font-bold text-slate-300 mb-2">Position</label>
+                              <div className="grid grid-cols-3 gap-2">
+                                {[
+                                  { id: 'top', icon: 'vertical_align_top' },
+                                  { id: 'center', icon: 'vertical_align_center' },
+                                  { id: 'bottom', icon: 'vertical_align_bottom' },
+                                ].map(({ id, icon }) => (
+                                  <button
+                                    key={id}
+                                    type="button"
+                                    onClick={() => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, position: id } })}
+                                    className={`py-2.5 rounded-xl border transition-colors flex items-center justify-center ${(newChannel.subtitle_style.position || 'bottom') === id ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]' : 'bg-[#1b2230] border-[#2b374d] text-slate-300 hover:border-slate-500'}`}
                                   >
                                     <span className="material-symbols-outlined text-[18px]">{icon}</span>
                                   </button>
