@@ -1080,7 +1080,7 @@ export default function App() {
     return () => clearTimeout(timer);
   }, [toast]);
 
-  // Google redirects back here after a YouTube connection attempt (?youtube=connected|error).
+  // Google redirects back here after a YouTube connection attempt (?youtube=connected|error&youtube_channel_id=...).
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const ytStatus = params.get('youtube');
@@ -1091,11 +1091,26 @@ export default function App() {
       const msg = params.get('youtube_message');
       showToast(msg ? `Connexion YouTube échouée : ${msg}` : 'Connexion YouTube échouée.', 'error');
     }
-    params.delete('youtube');
-    params.delete('youtube_message');
-    const cleanUrl = window.location.pathname + (params.toString() ? `?${params.toString()}` : '');
-    window.history.replaceState({}, '', cleanUrl);
-    fetchChannels();
+    const returnedChannelId = params.get('youtube_channel_id');
+
+    (async () => {
+      await fetchChannels();
+      if (!returnedChannelId) {
+        navigate('/channels');
+        return;
+      }
+      try {
+        const res = await fetch(`${API_BASE}/channels/${returnedChannelId}`);
+        if (!res.ok) throw new Error();
+        const chan = await res.json();
+        setActiveChannel(chan);
+        fetchChannelVideos(chan.id);
+        setView('channel_detail');
+        navigate(`/channels/${slugifyChannelName(chan.name)}`);
+      } catch {
+        navigate('/channels');
+      }
+    })();
   }, []);
 
   // Karaoke Animation Preview Index
@@ -2267,7 +2282,13 @@ export default function App() {
     }
   };
 
-  const getChannelLogoUrl = (channel) => channel?.branding?.logo_path ? getVideoUrl(channel.branding.logo_path) : "/assets/logo/logo-nichecut.png";
+  // Once a channel is connected to YouTube, its real channel avatar replaces
+  // whatever placeholder logo was set during setup — same idea as the name.
+  const getChannelLogoUrl = (channel) => {
+    if (channel?.youtube_channel_thumbnail_url) return channel.youtube_channel_thumbnail_url;
+    if (channel?.branding?.logo_path) return getVideoUrl(channel.branding.logo_path);
+    return "/assets/logo/logo-nichecut.png";
+  };
 
   const getChannelStatusInfo = (channel) => {
     const rendering = channel.rendering_count || 0;
@@ -3418,22 +3439,33 @@ export default function App() {
             {/* VIEW 4: CHANNEL DETAIL VIEW */}
             {view === 'channel_detail' && activeChannel && (
               <div className="space-y-8">
-                <section className="bg-[#161b22] border border-[#263042] rounded-2xl p-6 flex flex-col md:flex-row md:items-center justify-between gap-6 shadow-xl">
-                  <div className="flex items-center gap-5 min-w-0">
-                    <ChannelAvatar channel={activeChannel} logoUrl={getChannelLogoUrl(activeChannel)} sizeClass="w-20 h-20" roundedClass="rounded-2xl" textClass="text-2xl" />
+                <section className="relative overflow-hidden bg-gradient-to-br from-[#171d27] via-[#141a23] to-[#10151d] border border-[#293446] rounded-3xl p-5 sm:p-6 shadow-[0_24px_70px_rgba(0,0,0,.22)]">
+                  <div className="absolute -top-24 -left-16 w-72 h-72 rounded-full bg-[#00c2ff]/[.055] blur-3xl pointer-events-none" />
+                  <div className="relative flex flex-col xl:flex-row xl:items-center justify-between gap-6">
+                  <div className="flex items-center gap-4 sm:gap-5 min-w-0">
+                    <div className="relative flex-shrink-0">
+                      <div className="absolute -inset-1 rounded-[22px] bg-gradient-to-br from-[#36d5ff]/35 to-[#6b7dff]/10 blur-sm" />
+                      <div className="relative">
+                        <ChannelAvatar channel={activeChannel} logoUrl={getChannelLogoUrl(activeChannel)} sizeClass="w-16 h-16 sm:w-20 sm:h-20" roundedClass="rounded-2xl" textClass="text-2xl" />
+                      </div>
+                    </div>
                     <div className="min-w-0">
-                      <h1 className="text-2xl font-extrabold text-white truncate">{activeChannel.name}</h1>
-                      <div className="flex items-center gap-3 text-slate-400 text-xs font-medium mt-1">
-                        <span>Niche: <strong className="text-white">{activeChannel.niche}</strong></span>
+                      <div className="text-[9px] font-bold tracking-[.16em] text-[#50d6ff] uppercase mb-1.5">Pipeline de chaîne</div>
+                      <h1 className="text-xl sm:text-2xl font-extrabold text-white truncate tracking-[-.025em]">{activeChannel.name}</h1>
+                      <div className="flex items-center flex-wrap gap-x-3 gap-y-1 text-slate-400 text-[11px] font-medium mt-1.5">
+                        <span>{activeChannel.niche}</span>
+                        {activeChannel.youtube_channel_handle && (
+                          <><span className="w-1 h-1 rounded-full bg-slate-600" /><span className="text-slate-300">{activeChannel.youtube_channel_handle}</span></>
+                        )}
                       </div>
                       {(() => {
                         const s = getChannelStatusInfo(activeChannel);
-                        return <span className={`inline-block mt-2.5 px-3 py-1 rounded-lg text-[11px] font-mono font-bold uppercase tracking-wider ${s.className}`}>{s.label}</span>;
+                        return <span className={`inline-flex items-center gap-1.5 mt-2.5 px-2.5 py-1 rounded-full text-[9px] font-bold uppercase tracking-[.1em] ${s.className}`}><span className="w-1.5 h-1.5 rounded-full bg-current" />{s.label}</span>;
                       })()}
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0 flex-wrap">
+                  <div className="flex items-stretch gap-2 flex-shrink-0 flex-wrap xl:justify-end rounded-2xl xl:bg-[#0a0f16]/45 xl:border xl:border-white/[.055] xl:p-2">
                     {(activeChannel.image_style?.source === 'library' || activeChannel.image_style?.source === 'hybrid') && (
                       <div className="flex items-center gap-2">
                           <input
@@ -3455,7 +3487,7 @@ export default function App() {
                             }}
                             className="hidden"
                           />
-                          <div className="flex flex-col items-center sm:items-start gap-1">
+                          <div className="flex items-stretch">
                             <button
                               onClick={async (e) => {
                                 e.stopPropagation();
@@ -3479,14 +3511,11 @@ export default function App() {
                               }}
                               disabled={librarySyncing}
                               title="Mettre à jour la bibliothèque"
-                              className="w-10 h-10 sm:w-auto sm:h-auto sm:px-4 sm:py-2.5 bg-[#1b2230] text-white rounded-xl font-bold text-xs hover:bg-[#252f42] transition-colors flex items-center justify-center gap-2 border border-[#2b374d] disabled:opacity-60"
+                              className="min-h-11 px-3.5 py-2 bg-[#18212d] text-white rounded-xl hover:bg-[#202c3b] transition-colors flex items-center justify-center gap-2.5 border border-[#2b374d] disabled:opacity-60 text-left"
                             >
-                              <span className={`material-symbols-outlined text-[18px] ${librarySyncing ? 'animate-spin' : ''}`}>{librarySyncing ? 'progress_activity' : 'sync'}</span>
-                              <span className="hidden sm:inline">{librarySyncing ? 'Synchronisation…' : 'Mettre à jour la bibliothèque'}</span>
+                              <span className={`material-symbols-outlined text-[18px] text-[#52d5ff] ${librarySyncing ? 'animate-spin' : ''}`}>{librarySyncing ? 'progress_activity' : 'sync'}</span>
+                              <span className="hidden sm:grid leading-tight"><strong className="text-[10px]">{librarySyncing ? 'Synchronisation…' : 'Bibliothèque visuelle'}</strong><small className="text-[8px] font-medium text-slate-500 mt-1">Synchronisée {formatSyncAgo(activeChannel.id, nowTick)}</small></span>
                             </button>
-                            <span className="text-[10px] text-slate-500 whitespace-nowrap">
-                              Dernière synchro : {formatSyncAgo(activeChannel.id, nowTick)}
-                            </span>
                           </div>
                       </div>
                     )}
@@ -3507,10 +3536,10 @@ export default function App() {
                           }
                         }}
                         title="YouTube connecté"
-                        className="w-10 h-10 sm:w-auto sm:h-auto sm:px-4 sm:py-2.5 bg-emerald-500/10 text-emerald-400 rounded-xl font-bold text-xs hover:bg-emerald-500/20 transition-colors flex items-center justify-center gap-2 border border-emerald-500/30"
+                        className="min-h-11 px-3.5 py-2 bg-emerald-500/[.08] text-emerald-400 rounded-xl font-bold hover:bg-emerald-500/[.14] transition-colors flex items-center justify-center gap-2 border border-emerald-500/25"
                       >
                         <span className="material-symbols-outlined text-[18px]">check_circle</span>
-                        <span className="hidden sm:inline truncate max-w-[160px]">{activeChannel.youtube_channel_title || 'YouTube connecté'}</span>
+                        <span className="hidden sm:grid text-left leading-tight"><strong className="text-[10px] truncate max-w-[130px]">{activeChannel.youtube_channel_title || 'YouTube'}</strong><small className="text-[8px] font-medium text-emerald-500/70 mt-1">Chaîne connectée</small></span>
                       </button>
                     ) : (
                       <button
@@ -3528,7 +3557,7 @@ export default function App() {
                           }
                         }}
                         title="Connecter YouTube"
-                        className="w-10 h-10 sm:w-auto sm:h-auto sm:px-4 sm:py-2.5 bg-[#1b2230] text-white rounded-xl font-bold text-xs hover:bg-[#252f42] transition-colors flex items-center justify-center gap-2 border border-[#2b374d]"
+                        className="min-h-11 px-3.5 py-2 bg-[#18212d] text-white rounded-xl font-bold text-xs hover:bg-[#202c3b] transition-colors flex items-center justify-center gap-2 border border-[#2b374d]"
                       >
                         <span className="material-symbols-outlined text-[18px]">smart_display</span>
                         <span className="hidden sm:inline">Connecter YouTube</span>
@@ -3537,19 +3566,20 @@ export default function App() {
                     <button
                       onClick={(e) => openEditWizard(activeChannel, e)}
                       title="Modifier le Pipeline"
-                      className="w-10 h-10 sm:w-auto sm:h-auto sm:px-4 sm:py-2.5 bg-[#1b2230] text-white rounded-xl font-bold text-xs hover:bg-[#252f42] transition-colors flex items-center justify-center gap-2 border border-[#2b374d]"
+                      className="min-h-11 px-3.5 py-2 bg-transparent text-slate-300 rounded-xl font-bold text-xs hover:bg-white/[.055] hover:text-white transition-colors flex items-center justify-center gap-2 border border-white/[.08]"
                     >
                       <span className="material-symbols-outlined text-[18px]">edit</span>
-                      <span className="hidden sm:inline">Modifier le Pipeline</span>
+                      <span className="hidden sm:inline">Configurer</span>
                     </button>
                     <button
                       onClick={() => setShowSubmitModal(true)}
                       title="Nouvelle Vidéo"
-                      className="w-10 h-10 sm:w-auto sm:h-auto sm:px-5 sm:py-2.5 bg-[#00c2ff] text-slate-950 rounded-xl font-bold text-xs hover:bg-[#38d0ff] transition-all flex items-center justify-center gap-2 shadow-lg shadow-[#00c2ff]/20"
+                      className="min-h-11 px-4 sm:px-5 py-2 bg-gradient-to-r from-[#61dcff] to-[#16b8ff] text-[#041018] rounded-xl font-extrabold text-xs hover:brightness-110 transition-all flex items-center justify-center gap-2 shadow-lg shadow-[#00bfff]/20"
                     >
                       <span className="material-symbols-outlined text-[18px]">add</span>
                       <span className="hidden sm:inline">Nouvelle Vidéo</span>
                     </button>
+                  </div>
                   </div>
                 </section>
 
