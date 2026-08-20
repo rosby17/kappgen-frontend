@@ -1304,7 +1304,25 @@ export default function App() {
       watermark_enabled: true
     },
     automation_mode: 'manual',
-    automation_style_prompt: ''
+    automation_style_prompt: '',
+    script_structure: {
+      language: 'English',
+      parts: [
+        { name: 'hook_intro', word_count: 250, guidance: "Open with a striking hook, present the topic and why it matters, naturally invite the viewer to like and subscribe, tease what's coming without revealing everything." },
+        { name: 'context', word_count: 250, guidance: 'Give background and context for the topic, and explain why this truth is often misunderstood or overlooked today.' },
+        { name: 'main_part_one', word_count: 900, guidance: 'Develop the core ideas with concrete examples, stories, or analogies; ask thought-provoking questions; naturally remind the listener to like and subscribe partway through.' },
+        { name: 'main_part_two', word_count: 900, guidance: 'Go deeper, reveal less obvious insights, explain the benefits of applying this, and address common misconceptions.' },
+        { name: 'application', word_count: 900, guidance: 'Give concrete practical steps to apply today, explain how this transforms daily life, and include one short original illustrative story that carries the lesson without stating it outright.' },
+        { name: 'conclusion', word_count: 300, guidance: 'Summarize the key ideas powerfully, end with a strong closing statement, and a natural call to action to share, comment, or explore further.' },
+      ],
+      formatting_rules: [
+        'Write every number out in words, never as digits.',
+        'Do not include any section titles or labels anywhere in the text.',
+        'Write only words meant to be read aloud by a voiceover — no visual directions, no music cues, no stage directions.',
+        'Write in flowing continuous paragraphs, never a single isolated line.',
+      ],
+      cta_style: 'Weave in a natural invitation to like, subscribe, and comment without breaking the tone.',
+    }
   };
   const [newChannel, setNewChannel] = useState(defaultChannelForm);
 
@@ -1916,7 +1934,8 @@ export default function App() {
         })[channel.effects_config?.overlay_effect || 'grain'] || ['grain'],
       },
       automation_mode: channel.automation_mode || 'manual',
-      automation_style_prompt: channel.automation_style_prompt || ''
+      automation_style_prompt: channel.automation_style_prompt || '',
+      script_structure: channel.script_structure || defaultChannelForm.script_structure
     });
     const draft = loadDraft(channel.id);
     if (draft) setNewChannel(draft);
@@ -3759,6 +3778,93 @@ export default function App() {
                         </div>
                       )}
                     </div>
+
+                    {newChannel.automation_mode === 'auto' && (() => {
+                      const structure = newChannel.script_structure || defaultChannelForm.script_structure;
+                      const updateStructure = (patch) => setNewChannel({ ...newChannel, script_structure: { ...structure, ...patch } });
+                      const parts = structure.parts || [];
+                      const updatePart = (idx, patch) => {
+                        const next = parts.map((p, i) => i === idx ? { ...p, ...patch } : p);
+                        updateStructure({ parts: next });
+                      };
+                      const addPart = () => updateStructure({ parts: [...parts, { name: `part_${parts.length + 1}`, word_count: 300, guidance: '' }] });
+                      const removePart = (idx) => updateStructure({ parts: parts.filter((_, i) => i !== idx) });
+                      const totalWords = parts.reduce((sum, p) => sum + (Number(p.word_count) || 0), 0);
+                      const rulesText = (structure.formatting_rules || []).join('\n');
+
+                      return (
+                        <div className="border border-[#2b374d] rounded-xl p-4 space-y-4 bg-[#161c28]">
+                          <div className="flex items-center justify-between">
+                            <h4 className="text-xs font-bold text-white">Structure du script auto-généré</h4>
+                            <span className="text-[11px] text-slate-400">~{totalWords} mots au total</span>
+                          </div>
+
+                          <div>
+                            <label className="block text-[11px] font-bold text-slate-300 mb-1">Langue du script</label>
+                            <input
+                              value={structure.language || 'English'}
+                              onChange={e => updateStructure({ language: e.target.value })}
+                              className="w-full bg-[#1b2230] border border-[#2b374d] rounded-lg px-3 py-2 text-xs text-white focus:border-[#00c2ff] outline-none"
+                              placeholder="Ex: English, Français..."
+                            />
+                          </div>
+
+                          <div className="space-y-3">
+                            <label className="block text-[11px] font-bold text-slate-300">Parties du script</label>
+                            {parts.map((part, idx) => (
+                              <div key={idx} className="border border-[#2b374d] rounded-lg p-3 space-y-2 bg-[#1b2230]">
+                                <div className="flex items-center gap-2">
+                                  <input
+                                    value={part.name || ''}
+                                    onChange={e => updatePart(idx, { name: e.target.value })}
+                                    className="flex-1 bg-[#0e1420] border border-[#2b374d] rounded-lg px-2.5 py-1.5 text-xs text-white focus:border-[#00c2ff] outline-none"
+                                    placeholder="Nom de la partie (interne)"
+                                  />
+                                  <input
+                                    type="number"
+                                    min="20"
+                                    value={part.word_count ?? 300}
+                                    onChange={e => updatePart(idx, { word_count: parseInt(e.target.value) || 0 })}
+                                    className="w-24 bg-[#0e1420] border border-[#2b374d] rounded-lg px-2.5 py-1.5 text-xs text-white focus:border-[#00c2ff] outline-none"
+                                    placeholder="Mots"
+                                  />
+                                  <button type="button" onClick={() => removePart(idx)} className="shrink-0 w-8 h-8 flex items-center justify-center rounded-lg text-red-400 hover:bg-red-500/10">
+                                    <span className="material-symbols-outlined text-lg">delete</span>
+                                  </button>
+                                </div>
+                                <textarea
+                                  value={part.guidance || ''}
+                                  onChange={e => updatePart(idx, { guidance: e.target.value })}
+                                  className="w-full bg-[#0e1420] border border-[#2b374d] rounded-lg px-2.5 py-1.5 text-xs text-white focus:border-[#00c2ff] outline-none min-h-[50px]"
+                                  placeholder="Ce que cette partie doit couvrir..."
+                                />
+                              </div>
+                            ))}
+                            <button type="button" onClick={addPart} className="text-xs font-bold text-[#00c2ff] hover:underline">
+                              + Ajouter une partie
+                            </button>
+                          </div>
+
+                          <div>
+                            <label className="block text-[11px] font-bold text-slate-300 mb-1">Règles de formatage (une par ligne)</label>
+                            <textarea
+                              value={rulesText}
+                              onChange={e => updateStructure({ formatting_rules: e.target.value.split('\n').map(r => r.trim()).filter(Boolean) })}
+                              className="w-full bg-[#1b2230] border border-[#2b374d] rounded-lg px-3 py-2 text-xs text-white focus:border-[#00c2ff] outline-none min-h-[80px]"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-[11px] font-bold text-slate-300 mb-1">Style d'appel à l'action</label>
+                            <textarea
+                              value={structure.cta_style || ''}
+                              onChange={e => updateStructure({ cta_style: e.target.value })}
+                              className="w-full bg-[#1b2230] border border-[#2b374d] rounded-lg px-3 py-2 text-xs text-white focus:border-[#00c2ff] outline-none min-h-[50px]"
+                            />
+                          </div>
+                        </div>
+                      );
+                    })()}
 
                   </div>
                 )}
