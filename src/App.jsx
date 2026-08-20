@@ -1811,8 +1811,8 @@ export default function App() {
   const [activeProduct, setActiveProduct] = useState('montage');
   const [productMenuOpen, setProductMenuOpen] = useState(false);
   const NICHECUT_PRODUCTS = [
-    { id: 'montage', label: 'KappGen Montage Simple', icon: 'movie_edit', available: true },
-    { id: 'avatar', label: 'KappGen Avatar', icon: 'face', available: false },
+    { id: 'montage', label: 'Montage Simple', icon: 'movie_edit', available: true },
+    { id: 'avatar', label: 'Vidéos Avatar', icon: 'face', available: false },
   ];
   const [channelsLoaded, setChannelsLoaded] = useState(false);
   const [videosLoaded, setVideosLoaded] = useState(false);
@@ -4775,7 +4775,7 @@ export default function App() {
             <div className="w-20 h-20 rounded-2xl bg-[#00c2ff]/10 flex items-center justify-center">
               <span className="material-symbols-outlined text-[40px] text-[#00c2ff]">face</span>
             </div>
-            <h2 className="text-2xl font-extrabold text-white">KappGen Avatar</h2>
+            <h2 className="text-2xl font-extrabold text-white">Vidéos Avatar</h2>
             <p className="text-sm text-slate-400 max-w-md">
               Bientôt disponible — des vidéos avec un avatar IA qui parle à la caméra, dans le même esprit de pilote automatique.
             </p>
@@ -4786,7 +4786,7 @@ export default function App() {
               onClick={() => setActiveProduct('montage')}
               className="mt-2 px-5 py-2.5 bg-[var(--bg-surface-alt)] text-white rounded-xl font-bold text-xs hover:bg-[var(--border-soft)] transition-colors border border-[var(--border)]"
             >
-              Retour à KappGen Montage Simple
+              Retour à Montage Simple
             </button>
           </div>
         )}
@@ -4913,11 +4913,10 @@ export default function App() {
               <>
                 <div className="pt-1">
                   <p className="text-[10px] font-bold uppercase tracking-[.18em] text-[#55d8ff] mb-2">Ton espace KappGen</p>
-                  <h2 className="text-2xl md:text-3xl font-extrabold text-white tracking-[-.025em]">Sors des écrans. KappGen reste au travail.</h2>
                 </div>
 
                 {/* A single quiet promise card, integrated into the existing dashboard language. */}
-                <section className="relative min-h-[300px] overflow-hidden rounded-2xl bg-[radial-gradient(circle_at_80%_50%,rgba(0,194,255,.08),transparent_46%),var(--bg-surface)]">
+                <section className="relative min-h-[420px] overflow-hidden rounded-2xl bg-[radial-gradient(circle_at_80%_50%,rgba(0,194,255,.08),transparent_46%),var(--bg-surface)]">
                   <img
                     src={freedomSunrise}
                     alt=""
@@ -4930,8 +4929,8 @@ export default function App() {
                   />
                   <div className="absolute inset-0 bg-gradient-to-r from-[var(--bg-surface)] via-[var(--bg-surface)]/55 to-transparent pointer-events-none" />
                   <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-[#0f141c]/65 to-transparent pointer-events-none" />
-                  <div className="relative z-10 min-h-[300px] flex flex-col justify-center p-6 md:p-8 max-w-xl">
-                    <h3 className="text-xl md:text-2xl font-extrabold text-white leading-tight">Tu vis. KappGen travaille.</h3>
+                  <div className="relative z-10 min-h-[420px] flex flex-col justify-center p-6 md:p-8 max-w-xl">
+                    <h3 className="text-3xl md:text-4xl font-extrabold text-white leading-tight">Tu vis. KappGen travaille.</h3>
                     <p className="text-sm text-slate-400 leading-6 mt-3 max-w-md">Ton Agent prépare tes vidéos et veille sur tes publications. Voyage, repose-toi ou profite simplement de ton temps.</p>
                     <div className="flex items-center gap-3 mt-6">
                       <button onClick={channels.length ? () => setView('channels') : openCreateWizard} className="px-5 py-2.5 bg-[#00c2ff] hover:bg-[#38d0ff] text-slate-950 font-bold text-xs rounded-xl transition-colors">
@@ -5055,7 +5054,7 @@ export default function App() {
                         <div
                           key={chan.id}
                           onClick={() => { setActiveChannel(chan); fetchChannelVideos(chan.id); setView('channel_detail'); }}
-                          className="bg-[var(--bg-surface)] hover:bg-[#1c232e] border border-[var(--border-soft)] hover:border-[#00c2ff]/40 rounded-2xl p-5 transition-all cursor-pointer group flex flex-col justify-between min-h-[220px] shadow-lg relative card-warm-hover channel-menu-container"
+                          className="bg-[var(--bg-surface)] hover:bg-[var(--bg-hover)] border border-[var(--border-soft)] hover:border-[#00c2ff]/40 rounded-2xl p-5 transition-all cursor-pointer group flex flex-col justify-between min-h-[220px] shadow-lg relative card-warm-hover channel-menu-container"
                         >
                           {/* Card Header & 3-Dots Action Button */}
                           <div className="flex items-start justify-between gap-3">
@@ -5269,7 +5268,7 @@ export default function App() {
                           <div
                             key={vid.id}
                             onClick={() => videoSelectionMode && toggleVideoSelected(vid.id)}
-                            className={`bg-[var(--bg-surface)] hover:bg-[#1c232e] border rounded-2xl p-4 transition-all group flex flex-col justify-between shadow-lg relative card-warm-hover video-menu-container ${
+                            className={`bg-[var(--bg-surface)] hover:bg-[var(--bg-hover)] border rounded-2xl p-4 transition-all group flex flex-col justify-between shadow-lg relative card-warm-hover video-menu-container ${
                               videoSelectionMode ? 'cursor-pointer ' + (isSelected ? 'border-[#00c2ff]' : 'border-[var(--border-soft)]') : 'border-[var(--border-soft)] hover:border-[#00c2ff]/40'
                             }`}
                           >
@@ -5738,7 +5737,7 @@ export default function App() {
                         <div
                           key={vid.id}
                           onClick={() => videoSelectionMode && toggleVideoSelected(vid.id)}
-                          className={`bg-[var(--bg-surface)] hover:bg-[#1c232e] border rounded-2xl p-4 transition-all group flex flex-col justify-between shadow-lg relative card-warm-hover video-menu-container ${
+                          className={`bg-[var(--bg-surface)] hover:bg-[var(--bg-hover)] border rounded-2xl p-4 transition-all group flex flex-col justify-between shadow-lg relative card-warm-hover video-menu-container ${
                             videoSelectionMode ? 'cursor-pointer ' + (isSelected ? 'border-[#00c2ff]' : 'border-[var(--border-soft)]') : 'border-[var(--border-soft)] hover:border-[#00c2ff]/40'
                           }`}
                         >
@@ -9329,17 +9328,17 @@ export default function App() {
 
       {/* FULL-PAGE AUTHENTICATION */}
       {(showAuthModal || isAuthRoute) && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-[var(--bg-page)] text-white">
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-[var(--bg-page)] text-[#fff]">
           <div className="absolute inset-0 bg-[url('/assets/backgrounds/nichecut-abstract-tech.webp')] bg-cover bg-center opacity-40" />
           <div className="absolute inset-0 bg-gradient-to-r from-[var(--bg-page)] via-[var(--bg-page)]/90 to-[var(--bg-page)]/70" />
           <div className="relative min-h-screen grid lg:grid-cols-[1.05fr_.95fr]">
-            <section className="hidden lg:flex min-h-screen flex-col justify-between px-12 xl:px-20 py-10 border-r border-white/10">
+            <section className="hidden lg:flex min-h-screen flex-col justify-between px-12 xl:px-20 py-10 border-r border-[rgba(255,255,255,.10)]">
               <div className="flex items-center justify-between">
-                <a href={MARKETING_ORIGIN} className="flex items-center gap-3 text-white no-underline">
+                <a href={MARKETING_ORIGIN} className="flex items-center gap-3 text-[#fff] no-underline">
                   <img src="/assets/logo/logo-kappgen.png" alt="KappGen" className="w-10 h-10 object-contain" />
                   <span className="text-xl font-extrabold tracking-tight">KappGen</span>
                 </a>
-                <a href={MARKETING_ORIGIN} className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-[10px] font-bold tracking-[.14em] text-slate-300 no-underline hover:border-[#00c2ff]/40 hover:text-white transition-all">
+                <a href={MARKETING_ORIGIN} className="inline-flex items-center gap-2 rounded-full border border-[rgba(255,255,255,.10)] bg-[rgba(255,255,255,.05)] px-4 py-2 text-[10px] font-bold tracking-[.14em] text-[#cbd5e1] no-underline hover:border-[#00c2ff]/40 hover:text-[#fff] transition-all">
                   <span className="material-symbols-outlined text-[15px]">arrow_back</span> RETOUR AU SITE
                 </a>
               </div>
@@ -9351,7 +9350,7 @@ export default function App() {
                 <h1 className="text-[clamp(3.2rem,5.6vw,6.2rem)] leading-[.96] tracking-[-.06em] font-extrabold m-0">
                   Tu dors.<br /><span className="text-transparent bg-clip-text bg-gradient-to-r from-[#67e1ff] via-[#22bfff] to-[#8484ff]">Ta chaîne avance.</span>
                 </h1>
-                <p className="mt-7 max-w-xl text-base xl:text-lg leading-8 text-slate-400">
+                <p className="mt-7 max-w-xl text-base xl:text-lg leading-8 text-[#94a3b8]">
                   Configure le style de ta chaîne une fois. Nous avons travaillé l’Agent à partir des réalités du terrain YouTube pour créer des vidéos originales, authentiques et pensées pour respecter les règles de la plateforme.
                 </p>
                 <div className="mt-9 grid sm:grid-cols-3 gap-3 max-w-2xl">
@@ -9360,14 +9359,14 @@ export default function App() {
                     ['movie_edit', 'Vidéos créées'],
                     ['publish', 'YouTube publié'],
                   ].map(([icon, label]) => (
-                    <div key={label} className="rounded-2xl border border-white/10 bg-white/[.035] px-4 py-4 text-xs font-bold text-slate-300 flex items-center gap-2.5">
+                    <div key={label} className="rounded-2xl border border-[rgba(255,255,255,.10)] bg-[rgba(255,255,255,.035)] px-4 py-4 text-xs font-bold text-[#cbd5e1] flex items-center gap-2.5">
                       <span className="material-symbols-outlined text-[18px] text-[#38d0ff]">{icon}</span>{label}
                     </div>
                   ))}
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 text-[10px] text-slate-500">
+              <div className="flex items-center gap-2 text-[10px] text-[#64748b]">
                 <span className="material-symbols-outlined text-[15px] text-emerald-400">verified_user</span>
                 © {new Date().getFullYear()} KappGen · Connexion sécurisée
               </div>
@@ -9376,13 +9375,13 @@ export default function App() {
             <section className="min-h-screen flex items-center justify-center px-5 py-10 sm:px-10">
               <div className="w-full max-w-[470px]">
                 <div className="lg:hidden flex items-center justify-between mb-8">
-                  <a href={MARKETING_ORIGIN} className="flex items-center gap-2 text-white no-underline font-extrabold">
+                  <a href={MARKETING_ORIGIN} className="flex items-center gap-2 text-[#fff] no-underline font-extrabold">
                     <img src="/assets/logo/logo-kappgen.png" alt="KappGen" className="w-9 h-9 object-contain" /> KappGen
                   </a>
-                  <a href={MARKETING_ORIGIN} className="text-xs text-slate-400 no-underline">Retour au site</a>
+                  <a href={MARKETING_ORIGIN} className="text-xs text-[#94a3b8] no-underline">Retour au site</a>
                 </div>
 
-                <div className="rounded-[28px] border border-white/10 bg-[#101722]/90 backdrop-blur-xl p-6 sm:p-9 shadow-[0_35px_100px_rgba(0,0,0,.48)]">
+                <div className="rounded-[28px] border border-[rgba(255,255,255,.10)] bg-[#101722]/90 backdrop-blur-xl p-6 sm:p-9 shadow-[0_35px_100px_rgba(0,0,0,.48)]">
                   <div className="mb-7">
                     <p className="text-[10px] font-bold tracking-[.16em] text-[#44d2ff] uppercase mb-3">
                       {authTab === 'register' ? 'Créer ton espace' : authTab === 'forgot' ? 'Récupérer ton accès' : 'Content de te revoir'}
@@ -9390,66 +9389,66 @@ export default function App() {
                     <h2 className="text-3xl sm:text-4xl font-extrabold tracking-[-.04em] m-0">
                       {authTab === 'register' ? 'Lance ton Agent.' : authTab === 'forgot' ? 'Nouveau mot de passe.' : 'Content de te revoir.'}
                     </h2>
-                    <p className="text-sm text-slate-400 mt-3 mb-0">
+                    <p className="text-sm text-[#94a3b8] mt-3 mb-0">
                       {authTab === 'register' ? 'Configure ta première chaîne, puis va vivre. KappGen reste au travail.' : authTab === 'forgot' ? 'Choisis un nouveau mot de passe pour ton compte.' : 'Ton Agent a continué pendant ton absence.'}
                     </p>
                   </div>
 
                   {authTab !== 'forgot' && (
-                    <div className="grid grid-cols-2 bg-[var(--bg-deep)] p-1 rounded-xl border border-white/10 mb-6">
-                      <button type="button" onClick={() => navigate('/login', { replace: true, state: location.state })} className={`py-2.5 text-xs font-bold rounded-lg transition-all ${authTab === 'login' ? 'bg-[#1d2a38] text-white shadow-sm' : 'text-slate-500 hover:text-white'}`}>Connexion</button>
-                      <button type="button" onClick={() => navigate('/signup', { replace: true, state: location.state })} className={`py-2.5 text-xs font-bold rounded-lg transition-all ${authTab === 'register' ? 'bg-[#1d2a38] text-white shadow-sm' : 'text-slate-500 hover:text-white'}`}>Inscription</button>
+                    <div className="grid grid-cols-2 bg-[var(--bg-deep)] p-1 rounded-xl border border-[rgba(255,255,255,.10)] mb-6">
+                      <button type="button" onClick={() => navigate('/login', { replace: true, state: location.state })} className={`py-2.5 text-xs font-bold rounded-lg transition-all ${authTab === 'login' ? 'bg-[#1d2a38] text-[#fff] shadow-sm' : 'text-[#64748b] hover:text-[#fff]'}`}>Connexion</button>
+                      <button type="button" onClick={() => navigate('/signup', { replace: true, state: location.state })} className={`py-2.5 text-xs font-bold rounded-lg transition-all ${authTab === 'register' ? 'bg-[#1d2a38] text-[#fff] shadow-sm' : 'text-[#64748b] hover:text-[#fff]'}`}>Inscription</button>
                     </div>
                   )}
 
                   {authTab === 'forgot' ? (
                     <form onSubmit={handleForgotPasswordSubmit} className="space-y-5">
                       <div>
-                        <label className="block text-[11px] font-bold text-slate-300 mb-2">Adresse email</label>
+                        <label className="block text-[11px] font-bold text-[#cbd5e1] mb-2">Adresse email</label>
                         <div className="relative">
-                          <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-[18px] text-slate-500">mail</span>
-                          <input type="email" required disabled={forgotStep === 'verify'} value={forgotForm.email} onChange={e => setForgotForm({ ...forgotForm, email: e.target.value })} className="w-full bg-[var(--bg-deep)] border border-white/10 rounded-xl pl-12 pr-4 py-3.5 text-sm text-white focus:border-[#00c2ff] outline-none disabled:text-slate-500" placeholder="nom@exemple.com" />
+                          <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-[18px] text-[#64748b]">mail</span>
+                          <input type="email" required disabled={forgotStep === 'verify'} value={forgotForm.email} onChange={e => setForgotForm({ ...forgotForm, email: e.target.value })} className="w-full bg-[var(--bg-deep)] border border-[rgba(255,255,255,.10)] rounded-xl pl-12 pr-4 py-3.5 text-sm text-[#fff] focus:border-[#00c2ff] outline-none disabled:text-[#64748b]" placeholder="nom@exemple.com" />
                         </div>
                       </div>
                       {forgotStep === 'verify' && <>
                         <div>
-                          <div className="flex items-center justify-between mb-2"><label className="block text-[11px] font-bold text-slate-300">Code reçu par email</label><button type="button" onClick={() => { setForgotStep('request'); setResetCode(''); }} className="text-[10px] text-[#42d2ff] hover:underline">Modifier l’email</button></div>
+                          <div className="flex items-center justify-between mb-2"><label className="block text-[11px] font-bold text-[#cbd5e1]">Code reçu par email</label><button type="button" onClick={() => { setForgotStep('request'); setResetCode(''); }} className="text-[10px] text-[#42d2ff] hover:underline">Modifier l’email</button></div>
                           <div className="relative">
-                            <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-[18px] text-slate-500">pin</span>
-                            <input inputMode="numeric" pattern="[0-9]{6}" maxLength={6} required value={resetCode} onChange={e => setResetCode(e.target.value.replace(/\D/g, '').slice(0, 6))} className="w-full bg-[var(--bg-deep)] border border-white/10 rounded-xl pl-12 pr-4 py-3.5 text-lg tracking-[.45em] font-bold text-white focus:border-[#00c2ff] outline-none" placeholder="000000" />
+                            <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-[18px] text-[#64748b]">pin</span>
+                            <input inputMode="numeric" pattern="[0-9]{6}" maxLength={6} required value={resetCode} onChange={e => setResetCode(e.target.value.replace(/\D/g, '').slice(0, 6))} className="w-full bg-[var(--bg-deep)] border border-[rgba(255,255,255,.10)] rounded-xl pl-12 pr-4 py-3.5 text-lg tracking-[.45em] font-bold text-[#fff] focus:border-[#00c2ff] outline-none" placeholder="000000" />
                           </div>
                         </div>
                         <div>
-                          <label className="block text-[11px] font-bold text-slate-300 mb-2">Nouveau mot de passe</label>
+                          <label className="block text-[11px] font-bold text-[#cbd5e1] mb-2">Nouveau mot de passe</label>
                           <div className="relative">
-                            <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-[18px] text-slate-500">lock</span>
-                            <input type={showAuthPassword ? 'text' : 'password'} required minLength={8} value={forgotForm.newPassword} onChange={e => setForgotForm({ ...forgotForm, newPassword: e.target.value })} className="w-full bg-[var(--bg-deep)] border border-white/10 rounded-xl pl-12 pr-12 py-3.5 text-sm text-white focus:border-[#00c2ff] outline-none" placeholder="8 caractères minimum" />
-                            <button type="button" onClick={() => setShowAuthPassword(!showAuthPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white" tabIndex={-1}><span className="material-symbols-outlined text-[18px]">{showAuthPassword ? 'visibility_off' : 'visibility'}</span></button>
+                            <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-[18px] text-[#64748b]">lock</span>
+                            <input type={showAuthPassword ? 'text' : 'password'} required minLength={8} value={forgotForm.newPassword} onChange={e => setForgotForm({ ...forgotForm, newPassword: e.target.value })} className="w-full bg-[var(--bg-deep)] border border-[rgba(255,255,255,.10)] rounded-xl pl-12 pr-12 py-3.5 text-sm text-[#fff] focus:border-[#00c2ff] outline-none" placeholder="8 caractères minimum" />
+                            <button type="button" onClick={() => setShowAuthPassword(!showAuthPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-[#64748b] hover:text-[#fff]" tabIndex={-1}><span className="material-symbols-outlined text-[18px]">{showAuthPassword ? 'visibility_off' : 'visibility'}</span></button>
                           </div>
                         </div>
                       </>}
                       <button type="submit" disabled={loading} className="w-full py-3.5 bg-gradient-to-r from-[#65e0ff] to-[#1a9cff] text-[var(--bg-deep)] font-extrabold text-xs rounded-xl hover:brightness-110 transition-all disabled:opacity-50">{loading ? 'Chargement...' : forgotStep === 'request' ? 'Recevoir mon code' : 'Réinitialiser le mot de passe'}</button>
-                      <button type="button" onClick={() => { setForgotStep('request'); setResetCode(''); setAuthTab('login'); }} className="w-full text-center text-xs text-slate-400 hover:text-white font-medium">← Retour à la connexion</button>
+                      <button type="button" onClick={() => { setForgotStep('request'); setResetCode(''); setAuthTab('login'); }} className="w-full text-center text-xs text-[#94a3b8] hover:text-[#fff] font-medium">← Retour à la connexion</button>
                     </form>
                   ) : (
                     <>
                       <form onSubmit={handleAuthSubmit} className="space-y-5">
                         <div>
-                          <label className="block text-[11px] font-bold text-slate-300 mb-2">Adresse email</label>
+                          <label className="block text-[11px] font-bold text-[#cbd5e1] mb-2">Adresse email</label>
                           <div className="relative">
-                            <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-[18px] text-slate-500">mail</span>
-                            <input type="email" required value={authForm.email} onChange={e => setAuthForm({ ...authForm, email: e.target.value })} className="w-full bg-[var(--bg-deep)] border border-white/10 rounded-xl pl-12 pr-4 py-3.5 text-sm text-white focus:border-[#00c2ff] outline-none placeholder-slate-600" placeholder="nom@exemple.com" />
+                            <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-[18px] text-[#64748b]">mail</span>
+                            <input type="email" required value={authForm.email} onChange={e => setAuthForm({ ...authForm, email: e.target.value })} className="w-full bg-[var(--bg-deep)] border border-[rgba(255,255,255,.10)] rounded-xl pl-12 pr-4 py-3.5 text-sm text-[#fff] focus:border-[#00c2ff] outline-none placeholder-[#475569]" placeholder="nom@exemple.com" />
                           </div>
                         </div>
                         <div>
                           <div className="flex items-center justify-between mb-2">
-                            <label className="block text-[11px] font-bold text-slate-300">Mot de passe</label>
+                            <label className="block text-[11px] font-bold text-[#cbd5e1]">Mot de passe</label>
                             {authTab === 'login' && <button type="button" onClick={() => { setForgotForm({ email: authForm.email, newPassword: '' }); setForgotStep('request'); setResetCode(''); setAuthTab('forgot'); }} className="text-[10px] text-[#42d2ff] hover:underline font-bold">Mot de passe oublié ?</button>}
                           </div>
                           <div className="relative">
-                            <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-[18px] text-slate-500">lock</span>
-                            <input type={showAuthPassword ? 'text' : 'password'} required minLength={authTab === 'register' ? 8 : undefined} value={authForm.password} onChange={e => setAuthForm({ ...authForm, password: e.target.value })} className="w-full bg-[var(--bg-deep)] border border-white/10 rounded-xl pl-12 pr-12 py-3.5 text-sm text-white focus:border-[#00c2ff] outline-none" placeholder="••••••••" />
-                            <button type="button" onClick={() => setShowAuthPassword(!showAuthPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white" tabIndex={-1}><span className="material-symbols-outlined text-[18px]">{showAuthPassword ? 'visibility_off' : 'visibility'}</span></button>
+                            <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-[18px] text-[#64748b]">lock</span>
+                            <input type={showAuthPassword ? 'text' : 'password'} required minLength={authTab === 'register' ? 8 : undefined} value={authForm.password} onChange={e => setAuthForm({ ...authForm, password: e.target.value })} className="w-full bg-[var(--bg-deep)] border border-[rgba(255,255,255,.10)] rounded-xl pl-12 pr-12 py-3.5 text-sm text-[#fff] focus:border-[#00c2ff] outline-none" placeholder="••••••••" />
+                            <button type="button" onClick={() => setShowAuthPassword(!showAuthPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-[#64748b] hover:text-[#fff]" tabIndex={-1}><span className="material-symbols-outlined text-[18px]">{showAuthPassword ? 'visibility_off' : 'visibility'}</span></button>
                           </div>
                         </div>
                         <button type="submit" disabled={loading} className="w-full py-3.5 bg-gradient-to-r from-[#65e0ff] to-[#1a9cff] text-[var(--bg-deep)] font-extrabold text-xs rounded-xl hover:brightness-110 transition-all shadow-lg shadow-[#00c2ff]/10 disabled:opacity-50 flex items-center justify-center gap-2">
@@ -9457,17 +9456,17 @@ export default function App() {
                         </button>
                       </form>
 
-                      <div className="flex items-center gap-3 my-6"><div className="h-px bg-white/10 flex-1" /><span className="text-[9px] text-slate-600 font-bold tracking-widest">OU CONTINUER AVEC</span><div className="h-px bg-white/10 flex-1" /></div>
-                      {GOOGLE_CLIENT_ID ? <div ref={googleButtonRef} className="w-full max-w-full flex justify-center items-center min-h-[44px] overflow-hidden rounded-xl" /> : <div className="w-full py-3 bg-[var(--bg-deep)] text-slate-600 font-bold text-xs rounded-xl flex items-center justify-center border border-white/10">Connexion Google indisponible</div>}
+                      <div className="flex items-center gap-3 my-6"><div className="h-px bg-[rgba(255,255,255,.10)] flex-1" /><span className="text-[9px] text-[#475569] font-bold tracking-widest">OU CONTINUER AVEC</span><div className="h-px bg-[rgba(255,255,255,.10)] flex-1" /></div>
+                      {GOOGLE_CLIENT_ID ? <div ref={googleButtonRef} className="w-full max-w-full flex justify-center items-center min-h-[44px] overflow-hidden rounded-xl" /> : <div className="w-full py-3 bg-[var(--bg-deep)] text-[#475569] font-bold text-xs rounded-xl flex items-center justify-center border border-[rgba(255,255,255,.10)]">Connexion Google indisponible</div>}
 
-                      <p className="text-center text-xs text-slate-500 mt-6 mb-0">
+                      <p className="text-center text-xs text-[#64748b] mt-6 mb-0">
                         {authTab === 'login' ? 'Pas encore de compte ?' : 'Tu as déjà un compte ?'}{' '}
                         <button type="button" onClick={() => navigate(authTab === 'login' ? '/signup' : '/login', { replace: true, state: location.state })} className="text-[#55d8ff] font-bold hover:underline">{authTab === 'login' ? 'Commencer à vivre autrement' : 'Se connecter'}</button>
                       </p>
                     </>
                   )}
                 </div>
-                <p className="text-center text-[9px] leading-5 text-slate-600 mt-5 px-6">En continuant, tu acceptes les conditions d’utilisation et la politique de confidentialité de KappGen.</p>
+                <p className="text-center text-[9px] leading-5 text-[#475569] mt-5 px-6">En continuant, tu acceptes les conditions d’utilisation et la politique de confidentialité de KappGen.</p>
               </div>
             </section>
           </div>
