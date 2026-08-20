@@ -603,7 +603,7 @@ function VoiceAvatar({ voice, size = 40, playable = false, playing = false, onTo
   );
 }
 
-function VoiceCard({ voice, active, saved, playingId, onSelect, onToggleSave, onPlayPreview }) {
+function VoiceCard({ voice, active, saved, mine, playingId, onSelect, onToggleSave, onPlayPreview }) {
   const playing = playingId === voice.id;
   return (
     <div
@@ -622,7 +622,7 @@ function VoiceCard({ voice, active, saved, playingId, onSelect, onToggleSave, on
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5">
           <span className="text-xs font-bold text-white truncate">{voice.name}</span>
-          {voice.cloned && (
+          {mine && (
             <span className="shrink-0 text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-[#00c2ff]/15 text-[#56d9ff]">Clonée</span>
           )}
         </div>
@@ -645,15 +645,54 @@ function VoiceCard({ voice, active, saved, playingId, onSelect, onToggleSave, on
 }
 
 function VoiceLibrarySelect({ label, value, onChange, options }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handleClickOutside = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [open]);
+
   return (
-    <select
-      value={value}
-      onChange={e => onChange(e.target.value)}
-      className="bg-[#1b2230] border border-[#2b374d] rounded-lg px-2.5 py-1.5 text-[11px] text-white focus:border-[#00c2ff] outline-none"
-    >
-      <option value="">{label}</option>
-      {options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-    </select>
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-bold border transition-colors ${
+          value ? 'bg-[#00c2ff]/10 border-[#00c2ff]/50 text-[#56d9ff]' : 'bg-[#1b2230] border-[#2b374d] text-slate-300 hover:border-slate-500'
+        }`}
+      >
+        {value || label}
+        <span className={`material-symbols-outlined text-[14px] transition-transform ${open ? 'rotate-180' : ''}`}>expand_more</span>
+      </button>
+      {open && (
+        <div className="absolute left-0 top-full mt-1.5 min-w-[160px] bg-[#1f2838] border border-[#2d3a52] rounded-xl shadow-2xl z-50 overflow-hidden py-1 max-h-64 overflow-y-auto">
+          <button
+            type="button"
+            onClick={() => { onChange(''); setOpen(false); }}
+            className={`w-full text-left px-3 py-1.5 text-[11px] hover:bg-[#2c394e] transition-colors flex items-center justify-between gap-2 ${!value ? 'text-[#00c2ff] font-bold' : 'text-slate-300'}`}
+          >
+            {label} (tous)
+            {!value && <span className="material-symbols-outlined text-[14px] shrink-0">check</span>}
+          </button>
+          {options.map(opt => (
+            <button
+              key={opt}
+              type="button"
+              onClick={() => { onChange(opt); setOpen(false); }}
+              className={`w-full text-left px-3 py-1.5 text-[11px] hover:bg-[#2c394e] transition-colors flex items-center justify-between gap-2 ${value === opt ? 'text-[#00c2ff] font-bold' : 'text-slate-300'}`}
+            >
+              <span className="truncate">{opt}</span>
+              {value === opt && <span className="material-symbols-outlined text-[14px] shrink-0">check</span>}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -669,6 +708,7 @@ function VoiceLibraryModal({
   const [filterGender, setFilterGender] = useState('');
   const [filterAccent, setFilterAccent] = useState('');
   const [sortBy, setSortBy] = useState('recommended');
+  const scrollRef = useRef(null);
 
   useEffect(() => {
     document.body.style.overflow = 'hidden';
@@ -677,6 +717,16 @@ function VoiceLibraryModal({
       stopVoicePreview();
     };
   }, []);
+
+  // Infinite scroll — the catalog has 11 000+ voices; loading the next page
+  // automatically as the list nears its bottom instead of behind a click
+  // matches the "load more" UX everywhere else voices are browsed.
+  const handleListScroll = () => {
+    if (tab !== 'library' || searchQuery.trim() || !hasMore || loadingMore) return;
+    const el = scrollRef.current;
+    if (!el) return;
+    if (el.scrollTop + el.clientHeight >= el.scrollHeight - 400) onLoadMore();
+  };
 
   const handlePlayPreview = (voice) => {
     if (!voice.preview_url) return;
@@ -804,7 +854,7 @@ function VoiceLibraryModal({
           </div>
         )}
 
-        <div className="flex-1 overflow-y-auto px-5 py-3 space-y-1.5">
+        <div ref={scrollRef} onScroll={handleListScroll} className="flex-1 overflow-y-auto px-5 py-3 space-y-1.5">
           {list.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-center gap-2 py-10">
               <span className="material-symbols-outlined text-[32px] text-slate-600">record_voice_over</span>
@@ -820,22 +870,18 @@ function VoiceLibraryModal({
                   voice={v}
                   active={selectedId === v.id}
                   saved={savedIds.includes(v.id)}
+                  mine={clonedIds.includes(v.id)}
                   playingId={playingId}
                   onSelect={(voice) => { onSelect(voice); onClose(); }}
                   onToggleSave={onToggleSave}
                   onPlayPreview={handlePlayPreview}
                 />
               ))}
-              {tab === 'library' && !searchQuery.trim() && hasMore && (
-                <button
-                  type="button"
-                  onClick={onLoadMore}
-                  disabled={loadingMore}
-                  className="w-full py-2.5 rounded-xl border border-[#2b374d] text-slate-300 text-[11px] font-bold hover:border-[#00c2ff] disabled:opacity-50 flex items-center justify-center gap-1.5"
-                >
-                  {loadingMore && <span className="material-symbols-outlined text-[14px] animate-spin">progress_activity</span>}
-                  {loadingMore ? 'Chargement…' : 'Charger plus de voix'}
-                </button>
+              {tab === 'library' && !searchQuery.trim() && hasMore && loadingMore && (
+                <div className="w-full py-3 flex items-center justify-center gap-1.5 text-slate-500 text-[11px]">
+                  <span className="material-symbols-outlined text-[14px] animate-spin">progress_activity</span>
+                  Chargement de plus de voix…
+                </div>
               )}
             </>
           )}
@@ -5593,107 +5639,26 @@ export default function App() {
                 {/* STEP 2: GÉNÉRATION DU SCRIPT */}
                 {wizardStep === 2 && (
                   <div className="space-y-6">
-                    <h3 className="text-base font-bold text-white">2. Génération du Script</h3>
-                    <div>
-                      <div className="flex items-center justify-between bg-[#11151c] border border-[#202938] rounded-xl px-4 py-3">
-                        <div>
-                          <div className="text-xs font-bold text-white">
-                            {(newChannel.automation_mode || 'manual') === 'auto' ? 'Automatique' : 'Manuel'}
-                          </div>
-                          <div className="text-[11px] text-slate-400 mt-0.5">
-                            {(newChannel.automation_mode || 'manual') === 'auto'
-                              ? "L'Agent choisit le sujet et écrit le script pour toi"
-                              : 'Tu écris ou colles le script toi-même à chaque vidéo'}
-                          </div>
-                        </div>
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-base font-bold text-white">2. Génération du Script</h3>
+                      <label className="inline-flex items-center gap-2 cursor-pointer select-none">
+                        <span className="text-[11px] font-bold text-slate-400">Manuel</span>
                         <button
                           type="button"
                           onClick={() => setNewChannel({ ...newChannel, automation_mode: (newChannel.automation_mode || 'manual') === 'auto' ? 'manual' : 'auto' })}
-                          className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${(newChannel.automation_mode || 'manual') === 'auto' ? 'bg-[#00c2ff]' : 'bg-[#2b374d]'}`}
+                          className={`relative w-9 h-5 rounded-full transition-colors ${(newChannel.automation_mode || 'manual') === 'auto' ? 'bg-[#00c2ff]' : 'bg-[#2b374d]'}`}
                         >
-                          <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform ${(newChannel.automation_mode || 'manual') === 'auto' ? 'translate-x-[22px]' : 'translate-x-0.5'}`} />
+                          <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${(newChannel.automation_mode || 'manual') === 'auto' ? 'translate-x-[18px]' : 'translate-x-0.5'}`} />
                         </button>
-                      </div>
-                      {newChannel.automation_mode === 'auto' && (
-                        <div className="mt-3 space-y-2">
-                          <div className="flex items-center gap-2 bg-[#11151c] border border-[#202938] rounded-xl px-3 py-2.5">
-                            <span className="material-symbols-outlined text-[16px] text-slate-500 shrink-0">calendar_today</span>
-                            <span className="text-[11px] text-slate-400 shrink-0">Vidéos par jour :</span>
-                            <div className="flex-1 flex items-center justify-end gap-2">
-                              <button
-                                type="button"
-                                onClick={() => setNewChannel({ ...newChannel, videos_per_day: Math.max(1, (newChannel.videos_per_day || 1) - 1) })}
-                                className="w-7 h-7 rounded-lg bg-[#1b2230] border border-[#2b374d] text-white hover:border-slate-500 flex items-center justify-center"
-                              >
-                                <span className="material-symbols-outlined text-[16px]">remove</span>
-                              </button>
-                              <input
-                                type="number"
-                                min={1}
-                                max={100}
-                                value={newChannel.videos_per_day || 1}
-                                onChange={e => {
-                                  const n = parseInt(e.target.value);
-                                  setNewChannel({ ...newChannel, videos_per_day: Number.isFinite(n) ? Math.min(100, Math.max(1, n)) : 1 });
-                                }}
-                                className="w-14 text-center bg-[#1b2230] border border-[#2b374d] rounded-lg py-1 text-xs font-bold text-white focus:border-[#00c2ff] outline-none"
-                              />
-                              <button
-                                type="button"
-                                onClick={() => setNewChannel({ ...newChannel, videos_per_day: Math.min(100, (newChannel.videos_per_day || 1) + 1) })}
-                                className="w-7 h-7 rounded-lg bg-[#1b2230] border border-[#2b374d] text-white hover:border-slate-500 flex items-center justify-center"
-                              >
-                                <span className="material-symbols-outlined text-[16px]">add</span>
-                              </button>
-                            </div>
-                          </div>
-                          <p className="text-[10px] text-slate-500 px-1">Le nombre de scripts à écrire chaque jour — sans contrainte d'heure : la plage horaire et les jours de publication se règlent à l'étape « Publication ».</p>
-                          <div className="flex items-center gap-2 bg-[#11151c] border border-[#202938] rounded-xl px-3 py-2.5 relative">
-                            <span className="material-symbols-outlined text-[16px] text-slate-500 shrink-0">public</span>
-                            <span className="text-[11px] text-slate-400 shrink-0">Fuseau horaire :</span>
-                            <button
-                              type="button"
-                              onClick={() => { setTimezoneMenuOpen(o => !o); setTimezoneSearch(''); }}
-                              className="flex-1 min-w-0 flex items-center justify-between gap-2 bg-[#1b2230] border border-[#2b374d] hover:border-slate-500 rounded-lg px-2.5 py-1.5 text-[11px] text-white text-left transition-colors"
-                            >
-                              <span className="truncate">{newChannel.timezone || 'Africa/Douala'}</span>
-                              <span className={`material-symbols-outlined text-[15px] text-slate-400 shrink-0 transition-transform ${timezoneMenuOpen ? 'rotate-180' : ''}`}>expand_more</span>
-                            </button>
-                            {timezoneMenuOpen && (
-                              <div className="absolute left-0 right-0 top-full mt-1.5 bg-[#1f2838] border border-[#2d3a52] rounded-xl shadow-2xl z-50 overflow-hidden">
-                                <div className="p-2 border-b border-[#2d3a52]">
-                                  <input
-                                    autoFocus
-                                    value={timezoneSearch}
-                                    onChange={e => setTimezoneSearch(e.target.value)}
-                                    placeholder="Rechercher (ex: Douala, Paris...)"
-                                    className="w-full bg-[#11151c] border border-[#2b374d] rounded-lg px-2.5 py-1.5 text-[11px] text-white focus:border-[#00c2ff] outline-none"
-                                  />
-                                </div>
-                                <div className="max-h-52 overflow-y-auto py-1">
-                                  {TIMEZONE_OPTIONS
-                                    .filter(tz => tz.toLowerCase().includes(timezoneSearch.toLowerCase()))
-                                    .slice(0, 200)
-                                    .map(tz => (
-                                      <button
-                                        key={tz}
-                                        type="button"
-                                        onClick={() => { setNewChannel({ ...newChannel, timezone: tz }); setTimezoneMenuOpen(false); }}
-                                        className={`w-full text-left px-3 py-1.5 text-[11px] hover:bg-[#2c394e] transition-colors flex items-center justify-between gap-2 ${
-                                          tz === (newChannel.timezone || 'Africa/Douala') ? 'text-[#00c2ff] font-bold' : 'text-slate-300'
-                                        }`}
-                                      >
-                                        <span className="truncate">{tz}</span>
-                                        {tz === (newChannel.timezone || 'Africa/Douala') && <span className="material-symbols-outlined text-[14px] shrink-0">check</span>}
-                                      </button>
-                                    ))}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      )}
+                        <span className="text-[11px] font-bold text-slate-400">Automatique</span>
+                      </label>
                     </div>
+                    <p className="text-xs text-slate-400 -mt-4">
+                      {(newChannel.automation_mode || 'manual') === 'auto'
+                        ? "L'Agent choisit le sujet et écrit le script pour toi."
+                        : 'Tu écris ou colles le script toi-même à chaque vidéo.'}
+                    </p>
+
                     {newChannel.automation_mode === 'auto' && (() => {
                       const structure = newChannel.script_structure || defaultChannelForm.script_structure;
                       const parts = structure.parts || [];
@@ -5719,6 +5684,43 @@ export default function App() {
                         </button>
                       );
                     })()}
+
+                    {newChannel.automation_mode === 'auto' && (
+                      <div>
+                        <div className="flex items-center gap-2 bg-[#11151c] border border-[#202938] rounded-xl px-3 py-2.5">
+                          <span className="material-symbols-outlined text-[16px] text-slate-500 shrink-0">calendar_today</span>
+                          <span className="text-[11px] text-slate-400 shrink-0">Scripts (vidéos) par jour :</span>
+                          <div className="flex-1 flex items-center justify-end gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setNewChannel({ ...newChannel, videos_per_day: Math.max(1, (newChannel.videos_per_day || 1) - 1) })}
+                              className="w-7 h-7 rounded-lg bg-[#1b2230] border border-[#2b374d] text-white hover:border-slate-500 flex items-center justify-center"
+                            >
+                              <span className="material-symbols-outlined text-[16px]">remove</span>
+                            </button>
+                            <input
+                              type="number"
+                              min={1}
+                              max={100}
+                              value={newChannel.videos_per_day || 1}
+                              onChange={e => {
+                                const n = parseInt(e.target.value);
+                                setNewChannel({ ...newChannel, videos_per_day: Number.isFinite(n) ? Math.min(100, Math.max(1, n)) : 1 });
+                              }}
+                              className="w-14 text-center bg-[#1b2230] border border-[#2b374d] rounded-lg py-1 text-xs font-bold text-white focus:border-[#00c2ff] outline-none"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setNewChannel({ ...newChannel, videos_per_day: Math.min(100, (newChannel.videos_per_day || 1) + 1) })}
+                              className="w-7 h-7 rounded-lg bg-[#1b2230] border border-[#2b374d] text-white hover:border-slate-500 flex items-center justify-center"
+                            >
+                              <span className="material-symbols-outlined text-[16px]">add</span>
+                            </button>
+                          </div>
+                        </div>
+                        <p className="text-[10px] text-slate-500 mt-1.5 px-1">Sans contrainte d'heure — la plage horaire, les jours et le fuseau de publication se règlent à l'étape « Publication ».</p>
+                      </div>
+                    )}
                   </div>
                 )}
 
