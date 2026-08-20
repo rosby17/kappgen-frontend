@@ -1052,20 +1052,41 @@ function PipelineStepper({ stage, percent, failed = false }) {
 
 function ChannelAvatar({ channel, logoUrl, sizeClass = "w-12 h-12", roundedClass = "rounded-xl", textClass = "text-lg" }) {
   const [failed, setFailed] = useState(false);
-  if (!logoUrl || failed) {
-    return (
-      <div className={`${sizeClass} ${roundedClass} bg-gradient-to-tr from-[#004c66] to-[#007f99] flex items-center justify-center flex-shrink-0 border border-[#00c2ff]/30 shadow-md p-2`}>
-        <img src="/assets/logo/logo-nichecut.png" alt="NicheCut" className="w-full h-full object-contain" />
-      </div>
-    );
-  }
-  return (
+  const percent = channel?.completion_percent;
+  const incomplete = percent != null && percent < 100;
+
+  const image = (!logoUrl || failed) ? (
+    <div className={`${sizeClass} ${roundedClass} bg-gradient-to-tr from-[#004c66] to-[#007f99] flex items-center justify-center flex-shrink-0 border border-[#00c2ff]/30 shadow-md p-2`}>
+      <img src="/assets/logo/logo-nichecut.png" alt="NicheCut" className="w-full h-full object-contain" />
+    </div>
+  ) : (
     <img
       src={logoUrl}
       alt={channel?.name}
       onError={() => setFailed(true)}
       className={`${sizeClass} ${roundedClass} object-cover border border-[#2b374d] flex-shrink-0 shadow-md`}
     />
+  );
+
+  if (!incomplete) return image;
+
+  // Pipeline not finished yet (missing voice and/or visuals) — a ring +
+  // percentage on the avatar itself, rather than blocking the channel from
+  // being saved at all. Generation stays blocked separately, elsewhere.
+  return (
+    <div className={`relative ${sizeClass} flex-shrink-0`} title={`Configuration à ${percent}% — termine la voix et les visuels pour pouvoir générer une vidéo`}>
+      <div
+        className={`absolute inset-0 ${roundedClass === 'rounded-full' ? 'rounded-full' : 'rounded-2xl'} p-[2.5px]`}
+        style={{ background: `conic-gradient(#00c2ff ${percent}%, #2b374d 0)` }}
+      >
+        <div className={`w-full h-full ${roundedClass === 'rounded-full' ? 'rounded-full' : 'rounded-[13px]'} overflow-hidden bg-[#0f1217]`}>
+          {image}
+        </div>
+      </div>
+      <span className="absolute -bottom-1 -right-1 bg-[#00c2ff] text-slate-950 text-[9px] font-black px-1.5 py-0.5 rounded-full leading-none shadow-md">
+        {percent}%
+      </span>
+    </div>
   );
 }
 
@@ -2315,44 +2336,41 @@ export default function App() {
     }
   };
 
-  const uploadLibraryWithProgress = (files, folderName) => {
-    if (libraryUploadXhrRef.current) libraryUploadXhrRef.current.abort();
-    setLibraryUploadStatus('analyzing');
-    setLibraryUploadProgress(2);
-    setLibraryUploadMessage(`Analyse de ${files.length} images…`);
-    setStagedLibraryToken(null);
+  // Cloudflare hard-caps a single proxied request body at 100MB — a real
+  // photo folder (100+ images) blows past that in one shot and gets killed
+  // with a 413 right as the browser finishes sending it. Split into batches
+  // safely under that ceiling and upload them one after another instead.
+  const LIBRARY_UPLOAD_BATCH_MAX_BYTES = 80 * 1024 * 1024;
+  const LIBRARY_UPLOAD_BATCH_MAX_FILES = 60;
 
+  const buildLibraryUploadBatches = (files) => {
+    const batches = [];
+    let current = [];
+    let currentBytes = 0;
+    for (const file of files) {
+      if (current.length > 0 && (currentBytes + file.size > LIBRARY_UPLOAD_BATCH_MAX_BYTES || current.length >= LIBRARY_UPLOAD_BATCH_MAX_FILES)) {
+        batches.push(current);
+        current = [];
+        currentBytes = 0;
+      }
+      current.push(file);
+      currentBytes += file.size;
+    }
+    if (current.length) batches.push(current);
+    return batches;
+  };
+
+  const uploadOneLibraryBatch = (batchFiles, { url, extraFields, onBatchProgress }) => {
     const formData = new FormData();
-    files.forEach(file => formData.append('files', file));
-    const isDirectUpload = wizardMode === 'edit' && editingChannelId;
-    const url = isDirectUpload
-      ? `${API_BASE}/channels/${editingChannelId}/library-images`
-      : `${API_BASE}/channels/library-images/staging`;
-
+    batchFiles.forEach(file => formData.append('files', file));
+    Object.entries(extraFields || {}).forEach(([k, v]) => { if (v != null) formData.append(k, v); });
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
       libraryUploadXhrRef.current = xhr;
       xhr.open('POST', url);
-      xhr.upload.onloadstart = () => {
-        setLibraryUploadStatus('uploading');
-        setLibraryUploadProgress(5);
-        setLibraryUploadMessage('Importation vers le serveur…');
-      };
       xhr.upload.onprogress = (event) => {
         if (!event.lengthComputable) return;
-        const ratio = event.loaded / event.total;
-        const percent = Math.min(92, Math.round(5 + ratio * 87));
-        // All files travel in a single multipart request, so there's no
-        // native "file N of M done" event — estimate it from the byte ratio,
-        // which tracks closely enough since images are a similar size.
-        const imagesDone = Math.min(files.length, Math.max(0, Math.round(ratio * files.length)));
-        setLibraryUploadProgress(percent);
-        setLibraryUploadMessage(`Importation : ${imagesDone.toLocaleString('fr-FR')} / ${files.length.toLocaleString('fr-FR')} images`);
-      };
-      xhr.upload.onload = () => {
-        setLibraryUploadStatus('validating');
-        setLibraryUploadProgress(95);
-        setLibraryUploadMessage('Validation des images sur le serveur…');
+        onBatchProgress(event.loaded / event.total);
       };
       xhr.onerror = () => reject(new Error('Erreur réseau pendant l’importation des images.'));
       xhr.onabort = () => reject(new Error('Importation annulée.'));
@@ -2363,22 +2381,73 @@ export default function App() {
           reject(new Error(data.detail || `Échec de l’importation (HTTP ${xhr.status}).`));
           return;
         }
-        if (isDirectUpload) {
-          setNewChannel(prev => ({ ...prev, image_style: { ...prev.image_style, ...(data.image_style || {}) } }));
-        } else {
-          setStagedLibraryToken(data.staging_token);
-          setNewChannel(prev => ({
-            ...prev,
-            image_style: { ...prev.image_style, library_image_count: data.library_image_count || files.length }
-          }));
-        }
-        setLibraryUploadStatus('success');
-        setLibraryUploadProgress(100);
-        setLibraryUploadMessage(`${data.library_image_count || files.length} images analysées, importées et prêtes.`);
-        showToast(`${data.library_image_count || files.length} images importées à 100 %.`, 'success');
         resolve(data);
       };
       xhr.send(formData);
+    });
+  };
+
+  const uploadLibraryWithProgress = (files, folderName) => {
+    if (libraryUploadXhrRef.current) libraryUploadXhrRef.current.abort();
+    setLibraryUploadStatus('analyzing');
+    setLibraryUploadProgress(2);
+    setLibraryUploadMessage(`Analyse de ${files.length} images…`);
+    setStagedLibraryToken(null);
+
+    const isDirectUpload = wizardMode === 'edit' && editingChannelId;
+    const batches = buildLibraryUploadBatches(files);
+    const totalBytes = files.reduce((sum, f) => sum + f.size, 0) || 1;
+    let bytesDoneBeforeCurrentBatch = 0;
+
+    const run = async () => {
+      setLibraryUploadStatus('uploading');
+      let stagingToken = null;
+      let lastData = null;
+      for (let i = 0; i < batches.length; i++) {
+        const batch = batches[i];
+        const url = isDirectUpload
+          ? `${API_BASE}/channels/${editingChannelId}/library-images`
+          : `${API_BASE}/channels/library-images/staging`;
+        const extraFields = isDirectUpload
+          ? { append: i > 0 ? 'true' : 'false' }
+          : (stagingToken ? { staging_token: stagingToken } : {});
+        const batchBytes = batch.reduce((sum, f) => sum + f.size, 0);
+        lastData = await uploadOneLibraryBatch(batch, {
+          url, extraFields,
+          onBatchProgress: (ratio) => {
+            const doneBytes = bytesDoneBeforeCurrentBatch + ratio * batchBytes;
+            const percent = Math.min(96, Math.round(5 + (doneBytes / totalBytes) * 91));
+            setLibraryUploadProgress(percent);
+            setLibraryUploadMessage(
+              batches.length > 1
+                ? `Importation (lot ${i + 1}/${batches.length}) : ${Math.round((doneBytes / totalBytes) * files.length).toLocaleString('fr-FR')} / ${files.length.toLocaleString('fr-FR')} images`
+                : `Importation : ${Math.round(ratio * files.length).toLocaleString('fr-FR')} / ${files.length.toLocaleString('fr-FR')} images`
+            );
+          },
+        });
+        bytesDoneBeforeCurrentBatch += batchBytes;
+        if (!isDirectUpload) stagingToken = lastData.staging_token;
+      }
+      return lastData;
+    };
+
+    return run().then((data) => {
+      setLibraryUploadStatus('validating');
+      setLibraryUploadProgress(97);
+      if (isDirectUpload) {
+        setNewChannel(prev => ({ ...prev, image_style: { ...prev.image_style, ...(data.image_style || {}) } }));
+      } else {
+        setStagedLibraryToken(data.staging_token);
+        setNewChannel(prev => ({
+          ...prev,
+          image_style: { ...prev.image_style, library_image_count: data.library_image_count || files.length }
+        }));
+      }
+      setLibraryUploadStatus('success');
+      setLibraryUploadProgress(100);
+      setLibraryUploadMessage(`${data.library_image_count || files.length} images analysées, importées et prêtes.`);
+      showToast(`${data.library_image_count || files.length} images importées à 100 %.`, 'success');
+      return data;
     }).catch(error => {
       if (error.message === 'Importation annulée.') return;
       setLibraryUploadStatus('error');
@@ -2544,14 +2613,15 @@ export default function App() {
     const uploadReady = libraryUploadStatus === 'success';
     const hasStoredLibrary = Number(newChannel.image_style.library_image_count || 0) > 0
       && String(newChannel.image_style.library_path || '').startsWith('channels/');
-    if (needsLibrary && !hasStoredLibrary && !(uploadReady && stagedLibraryToken)) {
-      setWizardStep(5);
-      return showToast("Importez un dossier d’images : aucune bibliothèque n’est enregistrée sur le serveur.", "error");
-    }
+    // A pipeline can be saved and finished later — it just won't be able to
+    // render a video yet (blocked separately, at generation time) until the
+    // voice and visuals are actually configured. Only an upload genuinely
+    // mid-flight blocks saving, since there's nothing consistent to attach.
     if (needsLibrary && ['analyzing', 'uploading', 'validating'].includes(libraryUploadStatus)) {
       setWizardStep(5);
-      return showToast("Attendez que l’importation des images atteigne 100 %.", "error");
+      return showToast("Attendez que l’importation des images atteigne 100 %, ou revenez plus tard pour terminer.", "error");
     }
+    const savingIncomplete = needsLibrary && !hasStoredLibrary && !(uploadReady && stagedLibraryToken);
     try {
       setLoading(true);
       let saved;
@@ -2609,6 +2679,11 @@ export default function App() {
       fetchChannelVideos(saved.id);
       clearDraft(wizardMode === 'edit' ? editingChannelId : null);
       resetWizardState();
+      if (savingIncomplete || !saved.is_render_ready) {
+        showToast(`Chaîne enregistrée (${saved.completion_percent ?? 50}% configurée) — termine la voix et les visuels avant de générer une vidéo.`, 'success');
+      } else {
+        showToast('Chaîne enregistrée.', 'success');
+      }
     } catch (e) {
       showToast("Erreur lors de l'enregistrement de la chaîne: " + e.message, "error");
     } finally {
@@ -5395,7 +5470,7 @@ export default function App() {
                         <span className="text-[11px] text-slate-300 truncate">
                           {izivoiceStatus?.connected
                             ? `Ta clé Izivoice personnelle est connectée (${izivoiceStatus.key_prefix}) — tes voix clonées et ton historique sont synchronisés ici.`
-                            : "Par défaut tu utilises le compte Izivoice de NicheCut. Connecte ta propre clé pour retrouver tes voix clonées et ton historique."}
+                            : "Connecte ta clé Izivoice pour plus de personnalisation : retrouve directement ici tes voix déjà clonées et tout ton historique."}
                         </span>
                       </div>
                       <button
