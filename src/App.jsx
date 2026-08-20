@@ -6938,8 +6938,8 @@ export default function App() {
       {/* NOUVELLE VIDÉO MAIN ACTION MODAL */}
       {showSubmitModal && activeChannel && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-6">
-          <div className="bg-[#161b22] border border-[#263042] rounded-3xl p-8 max-w-[620px] w-full shadow-2xl space-y-6">
-            <div className="flex justify-between items-center border-b border-[#263042] pb-4">
+          <div className={`bg-[#161b22] border border-[#263042] rounded-3xl w-full max-h-[90vh] shadow-2xl flex flex-col ${submitStep === 2 ? 'max-w-[980px]' : 'max-w-[620px]'}`}>
+            <div className="flex justify-between items-center border-b border-[#263042] px-8 pt-8 pb-4 shrink-0">
               <div>
                 <h3 className="text-lg font-extrabold text-white flex items-center gap-2">
                   <span className="material-symbols-outlined text-[#00c2ff]">movie_filter</span>
@@ -6954,6 +6954,7 @@ export default function App() {
               </button>
             </div>
 
+            <div className="overflow-y-auto px-8 py-6 space-y-6">
             {/* Active Channel (read-only — already chosen before opening this modal) */}
             <div className="bg-[#11151c] border border-[#202938] rounded-2xl p-3">
               <div className="text-sm font-bold text-white truncate">{activeChannel.name}</div>
@@ -7044,21 +7045,13 @@ export default function App() {
                   </div>
                 )}
 
-                {/* Go to preview step */}
-                <button
-                  onClick={() => {
-                    if (submitMode === 'text' && !singleScriptText.trim()) return showToast("Veuillez saisir le texte de votre script.", "error");
-                    if (submitMode === 'audio_upload' && audioFilesList.length === 0) return showToast("Veuillez ajouter au moins un fichier audio.", "error");
-                    setSubmitStep(2);
-                  }}
-                  className="w-full py-3.5 bg-gradient-to-r from-[#00c2ff] to-[#0088ff] text-slate-950 font-bold text-sm rounded-xl hover:opacity-90 transition-all flex items-center justify-center gap-2 shadow-lg shadow-[#00c2ff]/25"
-                >
-                  Voir l'aperçu <span className="material-symbols-outlined text-[20px]">arrow_forward</span>
-                </button>
               </>
             ) : (
               <>
-                {/* Confirmation / preview summary before launching the render */}
+                {/* Confirmation / preview summary before launching the render — two columns
+                    on this wider step so the settings recap and the visual/script preview
+                    sit side by side instead of stacking into one long scroll. */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div className="space-y-3">
                   {submitMode === 'text' && (
                     <div className="flex items-center justify-between bg-[#11151c] border border-[#202938] rounded-xl p-3">
@@ -7110,7 +7103,9 @@ export default function App() {
                       <span className="material-symbols-outlined text-[16px] shrink-0">{transcribeAudio ? 'check_box' : 'check_box_outline_blank'}</span>
                     </button>
                   )}
+                </div>
 
+                <div className="space-y-3">
                   {/* Real visual mockup of the final rendered frame: background style,
                       subtitle font/color/outline/position, and active effects — everything
                       exactly as configured on the channel, not just a text summary. */}
@@ -7204,7 +7199,24 @@ export default function App() {
                     <p className="text-[11px] text-slate-300">Le montage utilisera les réglages déjà configurés pour <strong className="text-white">{activeChannel.name}</strong> (sous-titres, musique, visuels). Vous pourrez suivre l'avancement dans "Mes Vidéos".</p>
                   </div>
                 </div>
+                </div>
+              </>
+            )}
+            </div>
 
+            <div className="shrink-0 border-t border-[#263042] px-8 py-5">
+              {submitStep === 1 ? (
+                <button
+                  onClick={() => {
+                    if (submitMode === 'text' && !singleScriptText.trim()) return showToast("Veuillez saisir le texte de votre script.", "error");
+                    if (submitMode === 'audio_upload' && audioFilesList.length === 0) return showToast("Veuillez ajouter au moins un fichier audio.", "error");
+                    setSubmitStep(2);
+                  }}
+                  className="w-full py-3.5 bg-gradient-to-r from-[#00c2ff] to-[#0088ff] text-slate-950 font-bold text-sm rounded-xl hover:opacity-90 transition-all flex items-center justify-center gap-2 shadow-lg shadow-[#00c2ff]/25"
+                >
+                  Voir l'aperçu <span className="material-symbols-outlined text-[20px]">arrow_forward</span>
+                </button>
+              ) : (
                 <div className="flex items-center gap-3">
                   <button
                     onClick={() => setSubmitStep(1)}
@@ -7222,8 +7234,8 @@ export default function App() {
                     {loading ? "Lancement..." : "Confirmer et Lancer"}
                   </button>
                 </div>
-              </>
-            )}
+              )}
+            </div>
           </div>
         </div>
       )}
