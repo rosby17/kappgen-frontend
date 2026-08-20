@@ -11,6 +11,31 @@ if (rawApiBase.startsWith("http://api-nichecut.tools-cl.com")) {
 const API_BASE = rawApiBase;
 const AUTH_PATHS = new Set(['/login', '/signup', '/signin']);
 
+// Broad coverage of the languages with established YouTube audiences. Values
+// are human-readable because they are passed directly to the script-writing
+// agent (Claude handles language names more reliably than locale codes).
+const SCRIPT_LANGUAGES = [
+  ['English', 'English', 'EN'], ['Français', 'French', 'FR'], ['Español', 'Spanish', 'ES'],
+  ['Português (Brasil)', 'Brazilian Portuguese', 'PT-BR'], ['Deutsch', 'German', 'DE'],
+  ['Italiano', 'Italian', 'IT'], ['العربية', 'Arabic', 'AR'], ['हिन्दी', 'Hindi', 'HI'],
+  ['বাংলা', 'Bengali', 'BN'], ['اردو', 'Urdu', 'UR'], ['Türkçe', 'Turkish', 'TR'],
+  ['Русский', 'Russian', 'RU'], ['Українська', 'Ukrainian', 'UK'], ['Polski', 'Polish', 'PL'],
+  ['Nederlands', 'Dutch', 'NL'], ['Bahasa Indonesia', 'Indonesian', 'ID'],
+  ['Bahasa Melayu', 'Malay', 'MS'], ['Tiếng Việt', 'Vietnamese', 'VI'], ['ไทย', 'Thai', 'TH'],
+  ['Filipino', 'Filipino', 'FIL'], ['日本語', 'Japanese', 'JA'], ['한국어', 'Korean', 'KO'],
+  ['中文（简体）', 'Simplified Chinese', 'ZH-CN'], ['中文（繁體）', 'Traditional Chinese', 'ZH-TW'],
+  ['தமிழ்', 'Tamil', 'TA'], ['తెలుగు', 'Telugu', 'TE'], ['मराठी', 'Marathi', 'MR'],
+  ['ગુજરાતી', 'Gujarati', 'GU'], ['ਪੰਜਾਬੀ', 'Punjabi', 'PA'], ['മലയാളം', 'Malayalam', 'ML'],
+  ['ಕನ್ನಡ', 'Kannada', 'KN'], ['नेपाली', 'Nepali', 'NE'], ['فارسی', 'Persian', 'FA'],
+  ['עברית', 'Hebrew', 'HE'], ['Kiswahili', 'Swahili', 'SW'], ['Hausa', 'Hausa', 'HA'],
+  ['Yorùbá', 'Yoruba', 'YO'], ['Igbo', 'Igbo', 'IG'], ['Afrikaans', 'Afrikaans', 'AF'],
+  ['Amharic', 'Amharic', 'AM'], ['Soomaali', 'Somali', 'SO'], ['Ελληνικά', 'Greek', 'EL'],
+  ['Română', 'Romanian', 'RO'], ['Čeština', 'Czech', 'CS'], ['Magyar', 'Hungarian', 'HU'],
+  ['Svenska', 'Swedish', 'SV'], ['Norsk', 'Norwegian', 'NO'], ['Dansk', 'Danish', 'DA'],
+  ['Suomi', 'Finnish', 'FI'], ['Български', 'Bulgarian', 'BG'], ['Српски', 'Serbian', 'SR'],
+  ['Hrvatski', 'Croatian', 'HR'], ['Slovenčina', 'Slovak', 'SK'], ['Català', 'Catalan', 'CA'],
+].map(([label, value, code]) => ({ label, value, code }));
+
 let rawStorageBase = import.meta.env.VITE_STORAGE_BASE || (isLocalhost ? `${getOrigin()}/storage` : "https://api-nichecut.tools-cl.com/storage");
 if (rawStorageBase.startsWith("http://api-nichecut.tools-cl.com")) {
   rawStorageBase = rawStorageBase.replace("http://", "https://");
@@ -921,14 +946,11 @@ function YouTubeIcon({ className = "" }) {
 // the raw progress_stage string from the backend into a visual "what's
 // happening right now" strip instead of just a percentage bar.
 const PIPELINE_STEPS = [
-  { match: /transcription|voix/i, floor: 0, label: 'Voix off', icon: 'record_voice_over' },
-  { match: /découpage|scènes en/i, floor: 25, label: 'Script & scènes', icon: 'auto_stories' },
+  { match: /transcription|voix|découpage|scènes en/i, floor: 0, label: 'Script', icon: 'auto_stories' },
   { match: /préparation des visuels/i, floor: 35, label: 'Visuels', icon: 'image' },
-  { match: /sous-titres/i, floor: 55, label: 'Sous-titres', icon: 'subtitles' },
-  { match: /animation/i, floor: 65, label: 'Montage', icon: 'movie' },
+  { match: /sous-titres|animation/i, floor: 55, label: 'Montage', icon: 'movie' },
   { match: /mixage/i, floor: 82, label: 'Audio', icon: 'graphic_eq' },
-  { match: /assemblage/i, floor: 90, label: 'Assemblage', icon: 'movie_edit' },
-  { match: /youtube|miniature/i, floor: 100, label: 'YouTube', icon: 'youtube' },
+  { match: /assemblage|youtube|miniature/i, floor: 90, label: 'Finalisation', icon: 'movie_edit' },
 ];
 
 function getActivePipelineStepIndex(stage, percent) {
@@ -944,16 +966,17 @@ function getActivePipelineStepIndex(stage, percent) {
 function PipelineStepper({ stage, percent, failed = false }) {
   const activeIndex = getActivePipelineStepIndex(stage, percent);
   return (
-    <div className="flex items-center justify-center gap-1">
+    <div className="grid grid-cols-5 items-start w-full">
       {PIPELINE_STEPS.map((step, i) => {
         const state = failed && i === activeIndex ? 'failed' : i < activeIndex ? 'done' : i === activeIndex ? 'active' : 'pending';
         return (
-          <div key={step.label} className="flex items-center" title={step.label}>
-            <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 transition-colors ${
-              state === 'done' ? 'bg-emerald-500/20 text-emerald-400' :
-              state === 'active' ? 'bg-[#00c2ff]/20 text-[#00c2ff] ring-2 ring-[#00c2ff]/40' :
+          <div key={step.label} className="relative flex flex-col items-center gap-1.5" title={step.label}>
+            {i > 0 && <div className={`absolute right-1/2 top-3 h-px w-full ${i <= activeIndex ? 'bg-[#00c2ff]/45' : 'bg-slate-800'}`} />}
+            <div className={`relative z-10 w-6 h-6 rounded-full flex items-center justify-center shrink-0 transition-all border ${
+              state === 'done' ? 'bg-[#0b2b2b] text-emerald-400 border-emerald-500/25' :
+              state === 'active' ? 'bg-[#062d40] text-[#4ed9ff] border-[#00c2ff]/70 shadow-[0_0_14px_rgba(0,194,255,.25)]' :
               state === 'failed' ? 'bg-rose-500/20 text-rose-400' :
-              'bg-slate-800 text-slate-600'
+              'bg-[#111a27] text-slate-600 border-slate-800'
             }`}>
               {state === 'done' ? (
                 <span className="material-symbols-outlined text-[12px]">check</span>
@@ -963,9 +986,7 @@ function PipelineStepper({ stage, percent, failed = false }) {
                 <span className={`material-symbols-outlined text-[12px] ${state === 'active' ? 'animate-pulse' : ''}`}>{step.icon}</span>
               )}
             </div>
-            {i < PIPELINE_STEPS.length - 1 && (
-              <div className={`w-2.5 h-0.5 ${i < activeIndex ? 'bg-emerald-500/40' : 'bg-slate-800'}`} />
-            )}
+            <span className={`text-[7px] font-bold truncate max-w-[45px] ${state === 'active' ? 'text-[#62dcff]' : state === 'done' ? 'text-slate-400' : 'text-slate-600'}`}>{step.label}</span>
           </div>
         );
       })}
@@ -1046,10 +1067,15 @@ export default function App() {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showChannelPickerModal, setShowChannelPickerModal] = useState(false);
+  const [showLanguageModal, setShowLanguageModal] = useState(false);
+  const [languageSearch, setLanguageSearch] = useState('');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [openChannelMenuId, setOpenChannelMenuId] = useState(null);
   const [openVideoMenuId, setOpenVideoMenuId] = useState(null);
   const [publishingVideoId, setPublishingVideoId] = useState(null);
+  const [publishReviewVideo, setPublishReviewVideo] = useState(null);
+  const [publishTitleDraft, setPublishTitleDraft] = useState('');
+  const [publishDescriptionDraft, setPublishDescriptionDraft] = useState('');
   const [videoSelectionMode, setVideoSelectionMode] = useState(false);
   const [selectedVideoIds, setSelectedVideoIds] = useState(new Set());
   const toggleVideoSelected = (id) => {
@@ -2514,16 +2540,35 @@ export default function App() {
     setDownloadModalVideo(vid);
   };
 
-  const handlePublishYouTube = async (vid, e) => {
+  const handlePublishYouTube = (vid, e) => {
     if (e) e.stopPropagation();
     setOpenVideoMenuId(null);
     if (vid.youtube_video_id) {
       window.open(`https://youtu.be/${vid.youtube_video_id}`, '_blank', 'noopener,noreferrer');
       return;
     }
+    // Review step: the AI already proposed a ready-to-publish title (100
+    // chars max, YouTube's limit) and description right after the render
+    // finished — let the creator see and tweak them before anything goes live.
+    setPublishTitleDraft((vid.title || '').slice(0, 100));
+    setPublishDescriptionDraft(vid.youtube_description || '');
+    setPublishReviewVideo(vid);
+  };
+
+  const confirmPublishYouTube = async () => {
+    const vid = publishReviewVideo;
+    if (!vid) return;
+    if (!publishTitleDraft.trim()) return showToast('Le titre ne peut pas être vide.', 'error');
     setPublishingVideoId(vid.id);
-    showToast("L’Agent prépare le titre, la description et la miniature…", 'success');
     try {
+      const metaRes = await fetch(`${API_BASE}/videos/${vid.id}/youtube-metadata`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: publishTitleDraft.trim(), description: publishDescriptionDraft }),
+      });
+      if (!metaRes.ok) throw new Error("Impossible d'enregistrer le titre/la description.");
+
+      showToast("Publication en cours (miniature, métadonnées)…", 'success');
       const res = await fetch(`${API_BASE}/videos/${vid.id}/youtube/publish`, { method: 'POST' });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -2538,6 +2583,7 @@ export default function App() {
       showToast('Vidéo publiée sur YouTube avec sa miniature et ses métadonnées.', 'success');
       fetchAllVideos();
       if (activeChannel) fetchChannelVideos(activeChannel.id);
+      setPublishReviewVideo(null);
       if (body.youtube_url) window.open(body.youtube_url, '_blank', 'noopener,noreferrer');
     } catch (err) {
       showToast(err.message || 'Publication YouTube impossible.', 'error');
@@ -2597,15 +2643,10 @@ export default function App() {
     }
   };
 
-  const closeStudio = async () => {
-    const vid = studioVideo;
+  const closeStudio = () => {
     setStudioVideo(null);
     setStudioScenes([]);
     setStudioSelectedIndex(null);
-    if (vid) {
-      try { await fetch(`${API_BASE}/videos/${vid.id}/close-edit`, { method: 'POST' }); }
-      catch (err) { console.error("Erreur fermeture éditeur:", err); }
-    }
   };
 
   // Re-fetches the scene list in place (after a text/audio edit finishes) so
@@ -2632,7 +2673,12 @@ export default function App() {
           fetchAllVideos();
           if (activeChannel) fetchChannelVideos(activeChannel.id);
           if (v.status === 'failed') alert("Le réassemblage a échoué : " + (v.error_message || 'Erreur inconnue'));
-          else { refreshStudioScenes(); if (onDone) onDone(); }
+          else {
+            setStudioVideo(v);
+            refreshStudioScenes();
+            showToast('La scène a été mise à jour et la vidéo réassemblée.', 'success');
+            if (onDone) onDone();
+          }
         }
       } catch (err) {
         console.error("Erreur polling réassemblage:", err);
@@ -3481,16 +3527,16 @@ export default function App() {
                                   )}
                                 </>
                               ) : vid.status === 'rendering' ? (
-                                <div className="p-4 text-center space-y-2.5 w-full max-w-[220px]">
+                                <div className="px-4 py-5 text-center w-full max-w-[245px]">
                                   <PipelineStepper stage={vid.progress_stage} percent={vid.progress_percent} />
-                                  <div className="text-[11px] font-bold text-blue-300">{vid.progress_stage || 'Rendu en cours…'}</div>
-                                  <div className="h-1.5 rounded-full bg-slate-800 overflow-hidden">
-                                    <div className="h-full bg-[#00c2ff] transition-all duration-700" style={{ width: `${vid.progress_percent || 2}%` }} />
+                                  <div className="mt-4 text-[11px] font-bold text-slate-100 truncate">{vid.progress_stage || 'Rendu en cours…'}</div>
+                                  <div className="mt-2.5 h-1 rounded-full bg-slate-800/90 overflow-hidden">
+                                    <div className="h-full bg-gradient-to-r from-[#20bff0] to-[#62dcff] transition-all duration-700 rounded-full" style={{ width: `${vid.progress_percent || 2}%` }} />
                                   </div>
-                                  <div className="text-[10px] font-mono text-blue-300">{vid.progress_percent || 2}%</div>
-                                  {vid.started_at && (
-                                    <div className="text-[10px] font-mono text-blue-400/80">{formatElapsed(vid.started_at)} écoulées</div>
-                                  )}
+                                  <div className="mt-2 flex items-center justify-between text-[9px] font-mono">
+                                    <span className="text-[#5ddaff] font-bold">{vid.progress_percent || 2}%</span>
+                                    {vid.started_at && <span className="text-slate-500">{formatElapsed(vid.started_at)}</span>}
+                                  </div>
                                 </div>
                               ) : vid.status === 'failed' ? (
                                 <div className="p-4 text-center space-y-2">
@@ -3515,7 +3561,7 @@ export default function App() {
                                   vid.status === 'failed' ? 'bg-rose-950/90 text-rose-300 border border-rose-700/80' :
                                   'bg-amber-950/90 text-amber-300 border border-amber-700/80'
                                 }`}>
-                                  {vid.status === 'done' ? 'Prête' : vid.status === 'rendering' ? 'Rendu...' : vid.status === 'failed' ? 'Échec' : 'En file'}
+                                  {vid.status === 'done' ? 'Prête' : vid.status === 'rendering' ? 'En cours' : vid.status === 'failed' ? 'Échec' : 'En file'}
                                 </span>
                               </div>
                             </div>
@@ -3875,16 +3921,16 @@ export default function App() {
                                 )}
                               </>
                             ) : vid.status === 'rendering' ? (
-                              <div className="p-4 text-center space-y-2.5 w-full max-w-[220px]">
+                              <div className="px-4 py-5 text-center w-full max-w-[245px]">
                                 <PipelineStepper stage={vid.progress_stage} percent={vid.progress_percent} />
-                                <div className="text-[11px] font-bold text-blue-300">{vid.progress_stage || 'Rendu en cours…'}</div>
-                                <div className="h-1.5 rounded-full bg-slate-800 overflow-hidden">
-                                  <div className="h-full bg-[#00c2ff] transition-all duration-700" style={{ width: `${vid.progress_percent || 2}%` }} />
+                                <div className="mt-4 text-[11px] font-bold text-slate-100 truncate">{vid.progress_stage || 'Rendu en cours…'}</div>
+                                <div className="mt-2.5 h-1 rounded-full bg-slate-800/90 overflow-hidden">
+                                  <div className="h-full bg-gradient-to-r from-[#20bff0] to-[#62dcff] transition-all duration-700 rounded-full" style={{ width: `${vid.progress_percent || 2}%` }} />
                                 </div>
-                                <div className="text-[10px] font-mono text-blue-300">{vid.progress_percent || 2}%</div>
-                                {vid.started_at && (
-                                  <div className="text-[10px] font-mono text-blue-400/80">{formatElapsed(vid.started_at)} écoulées</div>
-                                )}
+                                <div className="mt-2 flex items-center justify-between text-[9px] font-mono">
+                                  <span className="text-[#5ddaff] font-bold">{vid.progress_percent || 2}%</span>
+                                  {vid.started_at && <span className="text-slate-500">{formatElapsed(vid.started_at)}</span>}
+                                </div>
                               </div>
                             ) : vid.status === 'failed' ? (
                               <div className="p-4 text-center space-y-2">
@@ -3909,7 +3955,7 @@ export default function App() {
                                 vid.status === 'failed' ? 'bg-rose-950/90 text-rose-300 border border-rose-700/80' :
                                 'bg-amber-950/90 text-amber-300 border border-amber-700/80'
                               }`}>
-                                {vid.status === 'done' ? 'Prête' : vid.status === 'rendering' ? 'Rendu...' : vid.status === 'failed' ? 'Échec' : 'En file'}
+                                {vid.status === 'done' ? 'Prête' : vid.status === 'rendering' ? 'En cours' : vid.status === 'failed' ? 'Échec' : 'En file'}
                               </span>
                             </div>
                           </div>
@@ -4175,12 +4221,17 @@ export default function App() {
 
                           <div>
                             <label className="block text-[11px] font-bold text-slate-300 mb-1">Langue du script</label>
-                            <input
-                              value={structure.language || 'English'}
-                              onChange={e => updateStructure({ language: e.target.value })}
-                              className="w-full bg-[#1b2230] border border-[#2b374d] rounded-lg px-3 py-2 text-xs text-white focus:border-[#00c2ff] outline-none"
-                              placeholder="Ex: English, Français..."
-                            />
+                            <button
+                              type="button"
+                              onClick={() => { setLanguageSearch(''); setShowLanguageModal(true); }}
+                              className="w-full bg-[#1b2230] border border-[#2b374d] hover:border-[#00c2ff]/60 rounded-lg px-3 py-2.5 text-xs text-white transition-colors flex items-center justify-between gap-3"
+                            >
+                              <span className="flex items-center gap-2 min-w-0">
+                                <span className="material-symbols-outlined text-[17px] text-[#00c2ff]">language</span>
+                                <span className="truncate">{SCRIPT_LANGUAGES.find(lang => lang.value === (structure.language || 'English'))?.label || structure.language || 'English'}</span>
+                              </span>
+                              <span className="material-symbols-outlined text-[18px] text-slate-500">expand_more</span>
+                            </button>
                           </div>
 
                           <div className="space-y-3">
@@ -5906,7 +5957,7 @@ export default function App() {
                         if (!scene) return null;
                         return (
                           <div className="relative max-h-full max-w-full rounded-2xl overflow-hidden border border-[#2b374d] group">
-                            <img src={`${API_BASE}${scene.image_url}`} alt={`Scène ${scene.index + 1}`} className="max-h-[60vh] object-contain" />
+                            <img src={`${API_BASE}${scene.image_url}?v=${scene.image_version || 0}`} alt={`Scène ${scene.index + 1}`} className="max-h-[60vh] object-contain" />
                             <label className={`absolute inset-0 flex items-center justify-center bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer ${studioReplacingIndex === scene.index ? 'opacity-100' : ''}`}>
                               {studioReplacingIndex === scene.index ? (
                                 <span className="material-symbols-outlined text-white animate-spin text-[28px]">progress_activity</span>
@@ -5930,7 +5981,7 @@ export default function App() {
                     )}
                   </div>
 
-                  {/* RIGHT — selected scene's editable subtitle text + audio regeneration */}
+                  {/* RIGHT — precise script/image editing for the selected scene */}
                   {studioSelectedIndex !== null && (() => {
                     const scene = studioScenes.find(s => s.index === studioSelectedIndex);
                     if (!scene) return null;
@@ -5941,51 +5992,72 @@ export default function App() {
                           <div className="text-[11px] text-slate-400 mt-0.5">{scene.duration.toFixed(1)}s</div>
                         </div>
                         <div className="p-4 space-y-4 overflow-y-auto flex-1">
+                          <div>
+                            <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Image de la scène</label>
+                            <label className={`w-full py-2.5 rounded-xl font-bold text-xs border transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                              studioReplacingIndex === scene.index
+                                ? 'bg-[#00c2ff]/10 border-[#00c2ff]/30 text-[#55d8ff]'
+                                : 'bg-[#1f2838] hover:bg-[#2b384e] border-[#2b374d] text-white'
+                            }`}>
+                              <span className={`material-symbols-outlined text-[16px] ${studioReplacingIndex === scene.index ? 'animate-spin' : ''}`}>
+                                {studioReplacingIndex === scene.index ? 'progress_activity' : 'image'}
+                              </span>
+                              {studioReplacingIndex === scene.index ? 'Remplacement…' : `Changer l’image de la scène ${scene.index + 1}`}
+                              <input
+                                type="file"
+                                accept="image/png,image/jpeg,image/webp"
+                                className="hidden"
+                                disabled={studioReplacingIndex !== null || studioReassembling}
+                                onChange={(e) => e.target.files[0] && replaceSceneImage(scene.index, e.target.files[0])}
+                              />
+                            </label>
+                            <p className="text-[10px] text-slate-500 mt-1.5">Seule cette scène sera reconstruite avec la nouvelle image.</p>
+                          </div>
+
                           {!scene.editable_text ? (
                             <p className="text-[11px] text-slate-500">Cette scène n'a pas de sous-titres modifiables (vidéo antérieure à cette fonctionnalité) — seul le remplacement d'image est disponible.</p>
                           ) : (
                             <>
                               <div>
-                                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Sous-titre de la scène</label>
+                                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Script de la scène</label>
                                 <textarea
-                                  rows={4}
+                                  rows={6}
                                   value={studioSubtitleDraft}
                                   onChange={(e) => setStudioSubtitleDraft(e.target.value)}
                                   className="w-full bg-[#1b2230] border border-[#2b374d] rounded-xl p-3 text-xs text-white focus:border-[#00c2ff] outline-none resize-none"
                                 />
-                                <button
-                                  onClick={() => saveSceneSubtitle(scene.index)}
-                                  disabled={studioSavingSubtitle || !studioSubtitleDraft.trim() || studioSubtitleDraft.trim() === scene.text}
-                                  className="w-full mt-2 py-2 bg-[#1f2838] hover:bg-[#2b384e] text-white rounded-xl font-bold text-xs transition-all border border-[#2b374d] disabled:opacity-40 flex items-center justify-center gap-1.5"
-                                >
-                                  <span className="material-symbols-outlined text-[15px]">{studioSavingSubtitle ? 'progress_activity' : 'subtitles'}</span>
-                                  {studioSavingSubtitle ? 'Enregistrement...' : 'Corriger le texte affiché'}
-                                </button>
-                                <p className="text-[10px] text-slate-500 mt-1.5">Corrige uniquement le sous-titre affiché — la voix n'est pas modifiée.</p>
+                                <p className="text-[10px] text-slate-500 mt-1.5">Modifie uniquement cette section. Les autres scènes et leurs images ne sont pas régénérées.</p>
                               </div>
 
-                              <div className="pt-3 border-t border-[#202938]">
+                              <div className="space-y-2">
                                 {!studioConfirmRegen ? (
                                   <button
                                     onClick={() => setStudioConfirmRegen(true)}
-                                    disabled={studioRegeneratingAudio || !studioSubtitleDraft.trim()}
-                                    className="w-full py-2 bg-amber-950/40 hover:bg-amber-950/60 text-amber-300 rounded-xl font-bold text-xs transition-all border border-amber-800/60 disabled:opacity-40 flex items-center justify-center gap-1.5"
+                                    disabled={studioRegeneratingAudio || !studioSubtitleDraft.trim() || studioSubtitleDraft.trim() === scene.text}
+                                    className="w-full py-2.5 bg-[#00c2ff] hover:bg-[#38d0ff] text-slate-950 rounded-xl font-extrabold text-xs transition-all disabled:opacity-40 flex items-center justify-center gap-1.5"
                                   >
                                     <span className="material-symbols-outlined text-[15px]">record_voice_over</span>
-                                    Régénérer la voix de cette scène
+                                    Enregistrer le script et la voix
                                   </button>
                                 ) : (
-                                  <div className="bg-amber-950/30 border border-amber-800/60 rounded-xl p-3 space-y-2">
-                                    <p className="text-[11px] text-amber-200">Ça relance la voix de cette scène à partir du texte ci-dessus, et décale toutes les scènes suivantes pour rester synchronisées. Confirmer ?</p>
+                                  <div className="bg-[#00c2ff]/5 border border-[#00c2ff]/30 rounded-xl p-3 space-y-2">
+                                    <p className="text-[11px] text-slate-300">L’Agent régénérera uniquement la voix de la scène {scene.index + 1} et ajustera sa durée. Confirmer ?</p>
                                     <div className="flex gap-2">
                                       <button onClick={() => setStudioConfirmRegen(false)} className="flex-1 py-1.5 bg-[#1f2838] text-white rounded-lg text-[11px] font-bold">Annuler</button>
-                                      <button onClick={() => regenerateSceneAudio(scene.index)} disabled={studioRegeneratingAudio} className="flex-1 py-1.5 bg-amber-500 text-slate-950 rounded-lg text-[11px] font-bold disabled:opacity-50">
+                                      <button onClick={() => regenerateSceneAudio(scene.index)} disabled={studioRegeneratingAudio} className="flex-1 py-1.5 bg-[#00c2ff] text-slate-950 rounded-lg text-[11px] font-bold disabled:opacity-50">
                                         {studioRegeneratingAudio ? 'Régénération...' : 'Confirmer'}
                                       </button>
                                     </div>
                                   </div>
                                 )}
-                                <p className="text-[10px] text-slate-500 mt-1.5">Change la voix ET le texte — recalcule la durée de la scène et décale les suivantes.</p>
+                                <button
+                                  onClick={() => saveSceneSubtitle(scene.index)}
+                                  disabled={studioSavingSubtitle || !studioSubtitleDraft.trim() || studioSubtitleDraft.trim() === scene.text}
+                                  className="w-full py-2 bg-[#1f2838] hover:bg-[#2b384e] text-slate-300 rounded-xl font-bold text-[11px] transition-all border border-[#2b374d] disabled:opacity-40 flex items-center justify-center gap-1.5"
+                                >
+                                  <span className="material-symbols-outlined text-[14px]">subtitles</span>
+                                  {studioSavingSubtitle ? 'Enregistrement…' : 'Modifier seulement le sous-titre'}
+                                </button>
                               </div>
                             </>
                           )}
@@ -6006,7 +6078,7 @@ export default function App() {
                           studioSelectedIndex === scene.index ? 'border-[#00c2ff]' : 'border-transparent hover:border-[#2b374d]'
                         }`}
                       >
-                        <img src={`${API_BASE}${scene.image_url}`} alt={`Scène ${scene.index + 1}`} className="w-full h-full object-cover" />
+                        <img src={`${API_BASE}${scene.image_url}?v=${scene.image_version || 0}`} alt={`Scène ${scene.index + 1}`} className="w-full h-full object-cover" />
                         <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent px-1.5 py-1 text-[9px] text-slate-200 text-left">
                           {scene.index + 1} · {scene.duration.toFixed(1)}s
                         </div>
@@ -6050,6 +6122,72 @@ export default function App() {
       )}
 
       {/* DOWNLOAD QUALITY MODAL */}
+      {publishReviewVideo && (
+        <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-[60] flex items-center justify-center p-6">
+          <div className="bg-[#161b22] border border-[#263042] rounded-3xl p-6 max-w-[520px] w-full shadow-2xl space-y-5">
+            <div className="flex justify-between items-center">
+              <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                <YouTubeIcon className="w-5 h-3.5" /> Publier sur YouTube
+              </h3>
+              <button
+                onClick={() => { if (!publishingVideoId) setPublishReviewVideo(null); }}
+                className="text-slate-400 hover:text-white"
+              >
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+            <p className="text-xs text-slate-400">
+              L'IA a déjà préparé un titre et une description prêts à publier — relis-les et modifie-les si besoin avant de mettre la vidéo en ligne.
+            </p>
+
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-xs font-bold text-slate-300">Titre YouTube</label>
+                <span className={`text-[10px] font-mono ${publishTitleDraft.length > 100 ? 'text-rose-400' : 'text-slate-500'}`}>{publishTitleDraft.length}/100</span>
+              </div>
+              <input
+                value={publishTitleDraft}
+                onChange={e => setPublishTitleDraft(e.target.value.slice(0, 100))}
+                maxLength={100}
+                className="w-full bg-[#1b2230] border border-[#2b374d] rounded-xl px-3 py-2.5 text-sm text-white focus:border-[#00c2ff] outline-none"
+                placeholder="Titre de la vidéo (100 caractères max)"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-300 mb-1.5">Description</label>
+              <textarea
+                value={publishDescriptionDraft}
+                onChange={e => setPublishDescriptionDraft(e.target.value)}
+                className="w-full bg-[#1b2230] border border-[#2b374d] rounded-xl px-3 py-2.5 text-xs text-white focus:border-[#00c2ff] outline-none min-h-[140px]"
+                placeholder="Description de la vidéo..."
+              />
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setPublishReviewVideo(null)}
+                disabled={!!publishingVideoId}
+                className="flex-1 py-2.5 bg-[#1b2230] text-slate-300 rounded-xl font-bold text-xs hover:bg-[#252f42] transition-colors border border-[#2b374d] disabled:opacity-50"
+              >
+                Annuler
+              </button>
+              <button
+                onClick={confirmPublishYouTube}
+                disabled={!!publishingVideoId || !publishTitleDraft.trim()}
+                className="flex-1 py-2.5 bg-[#00c2ff] text-slate-950 rounded-xl font-bold text-xs hover:bg-[#38d0ff] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {publishingVideoId ? (
+                  <><span className="material-symbols-outlined text-[16px] animate-spin">progress_activity</span> Publication…</>
+                ) : (
+                  <><YouTubeIcon className="w-4 h-3" /> Publier</>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {downloadModalVideo && (
         <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-[60] flex items-center justify-center p-6">
           <div className="bg-[#161b22] border border-[#263042] rounded-3xl p-6 max-w-[420px] w-full shadow-2xl space-y-5">
@@ -6523,6 +6661,84 @@ export default function App() {
           </div>
         </div>
       )}
+
+      {/* SCRIPT LANGUAGE MODAL */}
+      {showLanguageModal && (() => {
+        const query = languageSearch.trim().toLocaleLowerCase();
+        const filteredLanguages = SCRIPT_LANGUAGES.filter(lang =>
+          !query || `${lang.label} ${lang.value} ${lang.code}`.toLocaleLowerCase().includes(query)
+        );
+        const selectedLanguage = newChannel.script_structure?.language || 'English';
+        return (
+          <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-[120] flex items-center justify-center p-4 sm:p-6" onClick={() => setShowLanguageModal(false)}>
+            <div className="bg-[#111822] border border-[#293548] rounded-3xl w-full max-w-2xl shadow-2xl flex flex-col max-h-[84vh]" onClick={e => e.stopPropagation()}>
+              <div className="p-5 sm:p-6 border-b border-[#263042] space-y-4 flex-shrink-0">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <div className="flex items-center gap-2 text-[#59d8ff] mb-1">
+                      <span className="material-symbols-outlined text-[20px]">language</span>
+                      <span className="text-[10px] font-bold uppercase tracking-[.16em]">Audience internationale</span>
+                    </div>
+                    <h3 className="text-lg font-extrabold text-white">Langue du script</h3>
+                    <p className="text-xs text-slate-400 mt-1">L’Agent écrira le titre, le script et la narration dans cette langue.</p>
+                  </div>
+                  <button onClick={() => setShowLanguageModal(false)} className="text-slate-400 hover:text-white p-1">
+                    <span className="material-symbols-outlined">close</span>
+                  </button>
+                </div>
+                <div className="relative">
+                  <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-[18px]">search</span>
+                  <input
+                    autoFocus
+                    value={languageSearch}
+                    onChange={e => setLanguageSearch(e.target.value)}
+                    placeholder="Rechercher : français, Hindi, العربية…"
+                    className="w-full bg-[#0b111a] border border-[#2b374d] rounded-xl pl-10 pr-4 py-3 text-sm text-white focus:border-[#00c2ff] outline-none"
+                  />
+                </div>
+              </div>
+              <div className="overflow-y-auto p-3 sm:p-4">
+                {filteredLanguages.length === 0 ? (
+                  <p className="text-sm text-slate-500 text-center py-10">Aucune langue trouvée.</p>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {filteredLanguages.map(lang => {
+                      const active = selectedLanguage === lang.value;
+                      return (
+                        <button
+                          key={lang.code}
+                          type="button"
+                          onClick={() => {
+                            setNewChannel(prev => ({
+                              ...prev,
+                              script_structure: { ...prev.script_structure, language: lang.value },
+                            }));
+                            setShowLanguageModal(false);
+                          }}
+                          className={`flex items-center gap-3 p-3 rounded-xl text-left border transition-all ${
+                            active ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-white' : 'bg-[#151d29] border-[#263042] hover:border-[#3a4a62] text-slate-200'
+                          }`}
+                        >
+                          <span className={`w-10 h-8 rounded-lg flex items-center justify-center text-[10px] font-black ${active ? 'bg-[#00c2ff] text-[#07111a]' : 'bg-[#202b3a] text-slate-400'}`}>{lang.code}</span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block text-sm font-bold truncate">{lang.label}</span>
+                            {lang.label !== lang.value && <span className="block text-[10px] text-slate-500 truncate mt-0.5">{lang.value}</span>}
+                          </span>
+                          {active && <span className="material-symbols-outlined text-[19px] text-[#00c2ff]">check_circle</span>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+              <div className="px-5 py-3 border-t border-[#263042] text-[10px] text-slate-500 flex items-center gap-2 flex-shrink-0">
+                <span className="material-symbols-outlined text-[15px]">auto_awesome</span>
+                Le ton et les expressions seront adaptés naturellement à la langue sélectionnée.
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* TOAST NOTIFICATION */}
       {toast && (
