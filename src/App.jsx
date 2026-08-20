@@ -1827,7 +1827,7 @@ export default function App() {
     const ok = await askConfirm(`Supprimer définitivement ${selectedVideoIds.size} vidéo(s) et leurs fichiers rendus ?`, { title: `Supprimer ${selectedVideoIds.size} vidéo(s) ?`, danger: true });
     if (!ok) return;
     try {
-      await Promise.all(Array.from(selectedVideoIds).map(id => fetch(`${API_BASE}/videos/${id}`, { method: 'DELETE' })));
+      await Promise.all(Array.from(selectedVideoIds).map(id => authFetch(`${API_BASE}/videos/${id}`, { method: 'DELETE' })));
       showToast(`${selectedVideoIds.size} vidéo(s) supprimée(s).`, 'success');
     } catch (err) {
       showToast('Certaines suppressions ont échoué.', 'error');
@@ -1957,7 +1957,7 @@ export default function App() {
         return;
       }
       try {
-        const res = await fetch(`${API_BASE}/channels/${returnedChannelId}`);
+        const res = await authFetch(`${API_BASE}/channels/${returnedChannelId}`);
         if (!res.ok) throw new Error();
         const chan = await res.json();
         let returnStep = null;
@@ -2014,6 +2014,28 @@ export default function App() {
     const saved = localStorage.getItem("nichecut_user");
     return saved ? JSON.parse(saved) : null;
   });
+  const [authToken, setAuthToken] = useState(() => localStorage.getItem("nichecut_token") || null);
+
+  // Every /api/* call goes through this instead of raw fetch() so the session
+  // token is always attached — the backend derives "who is calling" from
+  // this token now instead of trusting a client-supplied user_id param.
+  // Reads localStorage directly (not the authToken state) so it never runs
+  // on a stale closure inside this large component's many callbacks.
+  const authFetch = (url, options = {}) => {
+    const token = localStorage.getItem("nichecut_token");
+    const headers = { ...(options.headers || {}) };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    return fetch(url, { ...options, headers });
+  };
+
+  const storeAuthSession = (loggedUser, token) => {
+    setCurrentUser(loggedUser);
+    localStorage.setItem("nichecut_user", JSON.stringify(loggedUser));
+    if (token) {
+      setAuthToken(token);
+      localStorage.setItem("nichecut_token", token);
+    }
+  };
   const [authTab, setAuthTab] = useState(() => window.location.pathname.endsWith('/signup') || window.location.pathname.endsWith('/signin') ? 'register' : 'login'); // 'login' | 'register' | 'forgot'
   const [authForm, setAuthForm] = useState({ email: '', password: '' });
   const [showAuthPassword, setShowAuthPassword] = useState(false);
@@ -2094,7 +2116,7 @@ export default function App() {
       formData.append('niche', newChannel.niche || '');
       if (newChannel.music_preference.ai_prompt) formData.append('ai_prompt', newChannel.music_preference.ai_prompt);
       formData.append('duration', '20');
-      const res = await fetch(`${API_BASE}/channels/preview-ai-music`, { method: 'POST', body: formData });
+      const res = await authFetch(`${API_BASE}/channels/preview-ai-music`, { method: 'POST', body: formData });
       if (!res.ok) {
         const detail = await res.json().catch(() => ({}));
         throw new Error(detail.detail || "Génération impossible.");
@@ -2124,7 +2146,7 @@ export default function App() {
     if (!musicFiles.length) return;
     const formData = new FormData();
     musicFiles.forEach(f => formData.append('files', f));
-    const res = await fetch(`${API_BASE}/channels/${channelId}/music`, { method: 'POST', body: formData });
+    const res = await authFetch(`${API_BASE}/channels/${channelId}/music`, { method: 'POST', body: formData });
     if (!res.ok) {
       const detail = await res.json().catch(() => ({}));
       throw new Error(detail.detail || "Impossible d'importer les musiques.");
@@ -2135,7 +2157,7 @@ export default function App() {
   const handleDeleteMusicTrack = async (trackPath) => {
     if (!editingChannelId) return;
     try {
-      const res = await fetch(`${API_BASE}/channels/${editingChannelId}/music?track_path=${encodeURIComponent(trackPath)}`, { method: 'DELETE' });
+      const res = await authFetch(`${API_BASE}/channels/${editingChannelId}/music?track_path=${encodeURIComponent(trackPath)}`, { method: 'DELETE' });
       if (!res.ok) throw new Error("Suppression impossible.");
       const updated = await res.json();
       setNewChannel(prev => ({ ...prev, music_preference: { ...prev.music_preference, tracks: updated.music_preference?.tracks || [] } }));
@@ -2153,7 +2175,7 @@ export default function App() {
     try {
       const formData = new FormData();
       formData.append('file', file);
-      const res = await fetch(`${API_BASE}/channels/analyze-style-image`, { method: 'POST', body: formData });
+      const res = await authFetch(`${API_BASE}/channels/analyze-style-image`, { method: 'POST', body: formData });
       if (!res.ok) {
         const detail = await res.json().catch(() => ({}));
         throw new Error(detail.detail || "Analyse impossible.");
@@ -2182,7 +2204,7 @@ export default function App() {
     try {
       const formData = new FormData();
       files.forEach(file => formData.append('files', file));
-      const res = await fetch(`${API_BASE}/channels/${editingChannelId}/thumbnail-style`, { method: 'POST', body: formData });
+      const res = await authFetch(`${API_BASE}/channels/${editingChannelId}/thumbnail-style`, { method: 'POST', body: formData });
       if (!res.ok) {
         const detail = await res.json().catch(() => ({}));
         throw new Error(detail.detail || "Analyse impossible.");
@@ -2343,7 +2365,7 @@ export default function App() {
 
   const fetchNicheOptions = async () => {
     try {
-      const res = await fetch(`${API_BASE}/channels/niches`);
+      const res = await authFetch(`${API_BASE}/channels/niches`);
       if (!res.ok) return;
       const saved = await res.json();
       if (Array.isArray(saved)) {
@@ -2398,7 +2420,7 @@ export default function App() {
     if (!name) return;
     setCreatingFolder(true);
     try {
-      const res = await fetch(`${API_BASE}/folders`, {
+      const res = await authFetch(`${API_BASE}/folders`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, user_id: currentUser?.id || null }),
@@ -2419,7 +2441,7 @@ export default function App() {
     setMovingVideoId(null);
     setOpenVideoMenuId(null);
     try {
-      const res = await fetch(`${API_BASE}/videos/${videoId}`, {
+      const res = await authFetch(`${API_BASE}/videos/${videoId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(folderId ? { folder_id: folderId } : { clear_folder: true }),
@@ -2435,7 +2457,7 @@ export default function App() {
 
   const fetchChannelVideos = async (channelId) => {
     try {
-      const res = await fetch(`${API_BASE}/videos/channel/${channelId}`);
+      const res = await authFetch(`${API_BASE}/videos/channel/${channelId}`);
       if (res.ok) {
         const data = await res.json();
         setChannelVideos(data);
@@ -2610,9 +2632,7 @@ export default function App() {
       });
       if (res.ok) {
         const data = await res.json();
-        const loggedUser = data.user || data;
-        setCurrentUser(loggedUser);
-        localStorage.setItem("nichecut_user", JSON.stringify(loggedUser));
+        storeAuthSession(data.user, data.token);
         setShowAuthModal(false);
       } else {
         const err = await res.json();
@@ -2630,7 +2650,7 @@ export default function App() {
     try {
       setLoading(true);
       const requestingCode = forgotStep === 'request';
-      const res = await fetch(`${API_BASE}/auth/${requestingCode ? 'forgot-password' : 'reset-password'}`, {
+      const res = await authFetch(`${API_BASE}/auth/${requestingCode ? 'forgot-password' : 'reset-password'}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(requestingCode
@@ -2663,17 +2683,16 @@ export default function App() {
   const handleGoogleCredential = async (response) => {
     try {
       setLoading(true);
-      const res = await fetch(`${API_BASE}/auth/google`, {
+      const res = await authFetch(`${API_BASE}/auth/google`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ credential: response.credential })
       });
       if (res.ok) {
-        const loggedUser = await res.json();
-        setCurrentUser(loggedUser);
-        localStorage.setItem("nichecut_user", JSON.stringify(loggedUser));
+        const data = await res.json();
+        storeAuthSession(data.user, data.token);
         setShowAuthModal(false);
-        showToast(`Bienvenue, ${loggedUser.name} !`, "success");
+        showToast(`Bienvenue, ${data.user.name} !`, "success");
       } else {
         const err = await res.json();
         showToast(err.detail || "Erreur de connexion Google.", "error");
@@ -2755,7 +2774,9 @@ export default function App() {
 
   const handleLogout = () => {
     setCurrentUser(null);
+    setAuthToken(null);
     localStorage.removeItem("nichecut_user");
+    localStorage.removeItem("nichecut_token");
     sessionStorage.removeItem('nichecut_view');
     sessionStorage.removeItem('nichecut_active_channel_id');
     setActiveChannel(null);
@@ -2779,7 +2800,7 @@ export default function App() {
   const fetchApiKeys = async () => {
     if (!currentUser) return;
     try {
-      const res = await fetch(`${API_BASE}/api-keys?user_id=${currentUser.id}`);
+      const res = await authFetch(`${API_BASE}/api-keys?user_id=${currentUser.id}`);
       if (res.ok) setApiKeys(await res.json());
     } catch (e) {
       console.error("Erreur chargement clés API:", e);
@@ -2789,7 +2810,7 @@ export default function App() {
   const fetchIzivoiceConnection = async () => {
     if (!currentUser) return;
     try {
-      const res = await fetch(`${API_BASE}/channels/izivoice/status?user_id=${encodeURIComponent(currentUser.id)}`);
+      const res = await authFetch(`${API_BASE}/channels/izivoice/status?user_id=${encodeURIComponent(currentUser.id)}`);
       if (res.ok) setIzivoiceConnection(await res.json());
     } catch (e) {
       console.error('Erreur statut Izivoice:', e);
@@ -2801,7 +2822,7 @@ export default function App() {
     if (!izivoiceApiKey.trim()) return;
     setIzivoiceConnecting(true);
     try {
-      const res = await fetch(`${API_BASE}/channels/izivoice/connect`, {
+      const res = await authFetch(`${API_BASE}/channels/izivoice/connect`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ user_id: currentUser.id, api_key: izivoiceApiKey.trim() })
       });
@@ -2817,7 +2838,7 @@ export default function App() {
   const handleDisconnectIzivoice = async () => {
     const ok = await askConfirm("NicheCut repassera sur son moteur vocal par défaut. Tes vidéos et tes chaînes restent intactes.", { title: 'Déconnecter Izivoice ?' });
     if (!ok) return;
-    const res = await fetch(`${API_BASE}/channels/izivoice/connect?user_id=${encodeURIComponent(currentUser.id)}`, { method: 'DELETE' });
+    const res = await authFetch(`${API_BASE}/channels/izivoice/connect?user_id=${encodeURIComponent(currentUser.id)}`, { method: 'DELETE' });
     if (res.ok) {
       setIzivoiceConnection(await res.json());
       setAvailableVoices(VOICE_MODELS);
@@ -2829,7 +2850,7 @@ export default function App() {
     e.preventDefault();
     try {
       setLoading(true);
-      const res = await fetch(`${API_BASE}/auth/me/${currentUser.id}`, {
+      const res = await authFetch(`${API_BASE}/auth/me/${currentUser.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: profileForm.name, phone: profileForm.phone })
@@ -2854,7 +2875,7 @@ export default function App() {
     e.preventDefault();
     try {
       setLoading(true);
-      const res = await fetch(`${API_BASE}/auth/change-password`, {
+      const res = await authFetch(`${API_BASE}/auth/change-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -2879,7 +2900,7 @@ export default function App() {
 
   const handleCreateApiKey = async () => {
     try {
-      const res = await fetch(`${API_BASE}/api-keys`, {
+      const res = await authFetch(`${API_BASE}/api-keys`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ user_id: currentUser.id, name: newApiKeyName.trim() || 'Clé API' })
@@ -2902,7 +2923,7 @@ export default function App() {
     const ok = await askConfirm("Toute application qui l'utilise perdra l'accès immédiatement.", { title: "Révoquer cette clé API ?", danger: true });
     if (!ok) return;
     try {
-      await fetch(`${API_BASE}/api-keys/${keyId}`, { method: 'DELETE' });
+      await authFetch(`${API_BASE}/api-keys/${keyId}`, { method: 'DELETE' });
       fetchApiKeys();
       showToast("Clé API révoquée.", "success");
     } catch (err) {
@@ -2983,7 +3004,7 @@ export default function App() {
     setActiveChannel(channel);
     setGeneratingAutoVideo(true);
     try {
-      const res = await fetch(`${API_BASE}/channels/${channel.id}/generate-now`, { method: 'POST' });
+      const res = await authFetch(`${API_BASE}/channels/${channel.id}/generate-now`, { method: 'POST' });
       if (res.ok) {
         fetchChannelVideos(channel.id);
         fetchChannels();
@@ -3326,7 +3347,7 @@ export default function App() {
     if (!logoFile) return;
     const formData = new FormData();
     formData.append("file", logoFile);
-    await fetch(`${API_BASE}/channels/${channelId}/logo`, { method: 'POST', body: formData });
+    await authFetch(`${API_BASE}/channels/${channelId}/logo`, { method: 'POST', body: formData });
   };
 
   // Toggles a real, saved channel setting (used by the "Aperçu avant lancement"
@@ -3338,7 +3359,7 @@ export default function App() {
     const updatedGroup = { ...activeChannel[group], [field]: !activeChannel[group]?.[field] };
     setActiveChannel({ ...activeChannel, [group]: updatedGroup });
     try {
-      const res = await fetch(`${API_BASE}/channels/${activeChannel.id}`, {
+      const res = await authFetch(`${API_BASE}/channels/${activeChannel.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ [group]: updatedGroup })
@@ -3375,7 +3396,7 @@ export default function App() {
         setEditingChannelId(channelId);
         await fetchChannels();
       }
-      const authRes = await fetch(`${API_BASE}/channels/${channelId}/youtube/auth-url`);
+      const authRes = await authFetch(`${API_BASE}/channels/${channelId}/youtube/auth-url`);
       if (!authRes.ok) {
         const detail = await authRes.json().catch(() => ({}));
         throw new Error(detail.detail || "Connexion YouTube indisponible.");
@@ -3419,7 +3440,7 @@ export default function App() {
       setLoading(true);
       let saved;
       if (wizardMode === 'edit' && editingChannelId) {
-        const res = await fetch(`${API_BASE}/channels/${editingChannelId}`, {
+        const res = await authFetch(`${API_BASE}/channels/${editingChannelId}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(newChannel)
@@ -3457,7 +3478,7 @@ export default function App() {
       if (stagedLibraryToken && needsLibrary) {
         const attachForm = new FormData();
         attachForm.append('staging_token', stagedLibraryToken);
-        const attachRes = await fetch(`${API_BASE}/channels/${saved.id}/library-images/staging`, { method: 'POST', body: attachForm });
+        const attachRes = await authFetch(`${API_BASE}/channels/${saved.id}/library-images/staging`, { method: 'POST', body: attachForm });
         if (!attachRes.ok) {
           const detail = await attachRes.json().catch(() => ({}));
           throw new Error(detail.detail || "Impossible de rattacher les images importées à la chaîne.");
@@ -3553,7 +3574,7 @@ export default function App() {
 
     try {
       setLoading(true);
-      const res = await fetch(`${API_BASE}/videos`, {
+      const res = await authFetch(`${API_BASE}/videos`, {
         method: 'POST',
         body: formData
       });
@@ -3587,7 +3608,7 @@ export default function App() {
     const inWizard = view === 'wizard';
     if ((!showSubmitModal || submitMode !== 'text') && !inWizard && !studioVideo) return;
     const ownerQuery = currentUser ? `?user_id=${encodeURIComponent(currentUser.id)}` : '';
-    fetch(`${API_BASE}/channels/voice/catalog${ownerQuery}`)
+    authFetch(`${API_BASE}/channels/voice/catalog${ownerQuery}`)
       .then(res => res.ok ? res.json() : Promise.reject())
       .then(data => {
         const voices = (data.voices || []).map(mapCatalogVoice);
@@ -3609,7 +3630,7 @@ export default function App() {
     setLoadingMoreVoices(true);
     try {
       const ownerQuery = currentUser ? `&user_id=${encodeURIComponent(currentUser.id)}` : '';
-      const res = await fetch(`${API_BASE}/channels/voice/catalog?page=${catalogNextPage}&${ownerQuery.slice(1)}`);
+      const res = await authFetch(`${API_BASE}/channels/voice/catalog?page=${catalogNextPage}&${ownerQuery.slice(1)}`);
       const data = await res.json().catch(() => ({}));
       const newVoices = (data.voices || []).map(mapCatalogVoice);
       if (newVoices.length) {
@@ -3641,7 +3662,7 @@ export default function App() {
     const ownerQuery = currentUser ? `&user_id=${encodeURIComponent(currentUser.id)}` : '';
     setVoiceSearching(true);
     const handle = setTimeout(() => {
-      fetch(`${API_BASE}/channels/voice/catalog?search=${encodeURIComponent(query)}${ownerQuery}`)
+      authFetch(`${API_BASE}/channels/voice/catalog?search=${encodeURIComponent(query)}${ownerQuery}`)
         .then(res => res.ok ? res.json() : Promise.reject())
         .then(data => {
           const voices = (data.voices || []).map(mapCatalogVoice);
@@ -3655,7 +3676,7 @@ export default function App() {
 
   useEffect(() => {
     if (view !== 'wizard' || !currentUser) return;
-    fetch(`${API_BASE}/channels/izivoice/status?user_id=${encodeURIComponent(currentUser.id)}`)
+    authFetch(`${API_BASE}/channels/izivoice/status?user_id=${encodeURIComponent(currentUser.id)}`)
       .then(res => res.ok ? res.json() : Promise.reject())
       .then(setIzivoiceStatus)
       .catch(() => {});
@@ -3665,7 +3686,7 @@ export default function App() {
     if (!izivoiceKeyDraft.trim() || !currentUser) return;
     setSavingIzivoiceKey(true);
     try {
-      const res = await fetch(`${API_BASE}/channels/izivoice/connect`, {
+      const res = await authFetch(`${API_BASE}/channels/izivoice/connect`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ user_id: currentUser.id, api_key: izivoiceKeyDraft.trim() }),
@@ -3686,7 +3707,7 @@ export default function App() {
   const handleDisconnectIzivoiceKey = async () => {
     if (!currentUser) return;
     try {
-      const res = await fetch(`${API_BASE}/channels/izivoice/connect?user_id=${encodeURIComponent(currentUser.id)}`, { method: 'DELETE' });
+      const res = await authFetch(`${API_BASE}/channels/izivoice/connect?user_id=${encodeURIComponent(currentUser.id)}`, { method: 'DELETE' });
       if (!res.ok) throw new Error();
       setIzivoiceStatus({ connected: false, key_prefix: null, mode: 'nichecut' });
       setShowIzivoiceKeyModal(false);
@@ -3719,7 +3740,7 @@ export default function App() {
       form.append('consent_confirmed', 'true');
       if (currentUser) form.append('user_id', currentUser.id);
       form.append('audio', file);
-      const res = await fetch(`${API_BASE}/channels/${targetChannelId}/voice/clone`, { method: 'POST', body: form });
+      const res = await authFetch(`${API_BASE}/channels/${targetChannelId}/voice/clone`, { method: 'POST', body: form });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.detail || 'Clonage impossible.');
       const voice = { id: body.voice_id, name: body.name, desc: 'Voix personnelle clonée', cloned: true };
@@ -3751,7 +3772,7 @@ export default function App() {
       voice_settings: settings || { speed: 0.845, stability: 0.8, similarity_boost: 0.9, style: 0 }
     };
     try {
-      const res = await fetch(`${API_BASE}/channels/${activeChannel.id}`, {
+      const res = await authFetch(`${API_BASE}/channels/${activeChannel.id}`, {
         method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
       });
       if (!res.ok) throw new Error();
@@ -3765,7 +3786,7 @@ export default function App() {
 
   const handleRetryVideo = async (videoId) => {
     try {
-      await fetch(`${API_BASE}/videos/${videoId}/retry`, { method: 'POST' });
+      await authFetch(`${API_BASE}/videos/${videoId}/retry`, { method: 'POST' });
       if (activeChannel) fetchChannelVideos(activeChannel.id);
       fetchAllVideos();
     } catch (e) {
@@ -3779,7 +3800,7 @@ export default function App() {
     const ok = await askConfirm("Cette action est définitive et supprimera le fichier rendu.", { title: "Supprimer cette vidéo ?", danger: true });
     if (!ok) return;
     try {
-      await fetch(`${API_BASE}/videos/${videoId}`, { method: 'DELETE' });
+      await authFetch(`${API_BASE}/videos/${videoId}`, { method: 'DELETE' });
       fetchAllVideos();
       if (activeChannel) fetchChannelVideos(activeChannel.id);
     } catch (err) {
@@ -3803,7 +3824,7 @@ export default function App() {
     setOpenVideoMenuId(null);
     setApprovingVideoId(vid.id);
     try {
-      const res = await fetch(`${API_BASE}/videos/${vid.id}`, {
+      const res = await authFetch(`${API_BASE}/videos/${vid.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ approved_for_publish: !vid.approved_for_publish }),
@@ -3840,7 +3861,7 @@ export default function App() {
     if (!publishTitleDraft.trim()) return showToast('Le titre ne peut pas être vide.', 'error');
     setPublishingVideoId(vid.id);
     try {
-      const metaRes = await fetch(`${API_BASE}/videos/${vid.id}/youtube-metadata`, {
+      const metaRes = await authFetch(`${API_BASE}/videos/${vid.id}/youtube-metadata`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title: publishTitleDraft.trim(), description: publishDescriptionDraft }),
@@ -3848,7 +3869,7 @@ export default function App() {
       if (!metaRes.ok) throw new Error("Impossible d'enregistrer le titre/la description.");
 
       showToast("Publication en cours (miniature, métadonnées)…", 'success');
-      const res = await fetch(`${API_BASE}/videos/${vid.id}/youtube/publish`, { method: 'POST' });
+      const res = await authFetch(`${API_BASE}/videos/${vid.id}/youtube/publish`, { method: 'POST' });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) {
         const detail = body.detail;
@@ -3931,7 +3952,7 @@ export default function App() {
     setStudioVoiceMenuOpen(false);
     setStudioVoiceDraft(vid.voice_id || null);
     try {
-      const res = await fetch(`${API_BASE}/videos/${vid.id}/scenes`);
+      const res = await authFetch(`${API_BASE}/videos/${vid.id}/scenes`);
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || 'Scènes indisponibles');
       const scenes = await res.json();
       setStudioScenes(scenes);
@@ -3956,7 +3977,7 @@ export default function App() {
     if (!studioVideo || !studioTitleDraft.trim()) return;
     setStudioSavingTitle(true);
     try {
-      const res = await fetch(`${API_BASE}/videos/${studioVideo.id}`, {
+      const res = await authFetch(`${API_BASE}/videos/${studioVideo.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title: studioTitleDraft.trim() }),
@@ -3992,7 +4013,7 @@ export default function App() {
       const changed = studioScenes.filter((scene, i) => paragraphs[i] !== (scene.text || '').trim());
       for (const scene of changed) {
         const idx = studioScenes.indexOf(scene);
-        const res = await fetch(`${API_BASE}/videos/${studioVideo.id}/scenes/${scene.index}/subtitle`, {
+        const res = await authFetch(`${API_BASE}/videos/${studioVideo.id}/scenes/${scene.index}/subtitle`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ text: paragraphs[idx] }),
@@ -4027,7 +4048,7 @@ export default function App() {
       form.append('input_type', 'text');
       form.append('script_text', fullText);
       form.append('voice_id', studioVoiceDraft);
-      const res = await fetch(`${API_BASE}/videos`, { method: 'POST', body: form });
+      const res = await authFetch(`${API_BASE}/videos`, { method: 'POST', body: form });
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || 'Échec de la régénération');
       fetchAllVideos();
       if (activeChannel) fetchChannelVideos(activeChannel.id);
@@ -4045,7 +4066,7 @@ export default function App() {
   const refreshStudioScenes = async () => {
     if (!studioVideo) return;
     try {
-      const res = await fetch(`${API_BASE}/videos/${studioVideo.id}/scenes`);
+      const res = await authFetch(`${API_BASE}/videos/${studioVideo.id}/scenes`);
       if (res.ok) setStudioScenes(await res.json());
     } catch (err) {
       console.error("Erreur rafraîchissement des scènes:", err);
@@ -4055,7 +4076,7 @@ export default function App() {
   const pollReassembly = (videoId, { onDone } = {}) => {
     const interval = setInterval(async () => {
       try {
-        const res = await fetch(`${API_BASE}/videos/${videoId}`);
+        const res = await authFetch(`${API_BASE}/videos/${videoId}`);
         if (!res.ok) return;
         const v = await res.json();
         if (v.status === 'done' || v.status === 'failed') {
@@ -4083,7 +4104,7 @@ export default function App() {
     try {
       const form = new FormData();
       form.append('image', file);
-      const res = await fetch(`${API_BASE}/videos/${studioVideo.id}/scenes/${sceneIndex}/image`, {
+      const res = await authFetch(`${API_BASE}/videos/${studioVideo.id}/scenes/${sceneIndex}/image`, {
         method: 'POST',
         body: form,
       });
@@ -4105,7 +4126,7 @@ export default function App() {
     if (!studioVideo || !studioSubtitleDraft.trim()) return;
     setStudioSavingSubtitle(true);
     try {
-      const res = await fetch(`${API_BASE}/videos/${studioVideo.id}/scenes/${sceneIndex}/subtitle`, {
+      const res = await authFetch(`${API_BASE}/videos/${studioVideo.id}/scenes/${sceneIndex}/subtitle`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: studioSubtitleDraft.trim() }),
@@ -4127,7 +4148,7 @@ export default function App() {
     setStudioConfirmRegen(false);
     setStudioRegeneratingAudio(true);
     try {
-      const res = await fetch(`${API_BASE}/videos/${studioVideo.id}/scenes/${sceneIndex}/regenerate-audio`, {
+      const res = await authFetch(`${API_BASE}/videos/${studioVideo.id}/scenes/${sceneIndex}/regenerate-audio`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: studioSubtitleDraft.trim() }),
@@ -4164,7 +4185,7 @@ export default function App() {
     setOpenVideoMenuId(null);
     setRegeneratingTitleId(vid.id);
     try {
-      const res = await fetch(`${API_BASE}/videos/${vid.id}/youtube-metadata/regenerate`, { method: 'POST' });
+      const res = await authFetch(`${API_BASE}/videos/${vid.id}/youtube-metadata/regenerate`, { method: 'POST' });
       if (!res.ok) throw new Error();
       fetchAllVideos();
       if (activeChannel) fetchChannelVideos(activeChannel.id);
@@ -4182,7 +4203,7 @@ export default function App() {
     setOpenVideoMenuId(null);
     setResyncingThumbnailId(vid.id);
     try {
-      const res = await fetch(`${API_BASE}/videos/${vid.id}/youtube-thumbnail/resync`, { method: 'POST' });
+      const res = await authFetch(`${API_BASE}/videos/${vid.id}/youtube-thumbnail/resync`, { method: 'POST' });
       if (!res.ok) {
         const detail = await res.json().catch(() => ({}));
         throw new Error(detail.detail || "Échec de la mise à jour de la miniature.");
@@ -4202,7 +4223,7 @@ export default function App() {
     setOpenVideoMenuId(null);
     setRegeneratingCardThumbnailId(vid.id);
     try {
-      const res = await fetch(`${API_BASE}/videos/${vid.id}/thumbnail/regenerate`, { method: 'POST' });
+      const res = await authFetch(`${API_BASE}/videos/${vid.id}/thumbnail/regenerate`, { method: 'POST' });
       if (!res.ok) {
         const detail = await res.json().catch(() => ({}));
         throw new Error(detail.detail || "Échec de la régénération de la vignette.");
@@ -4224,7 +4245,7 @@ export default function App() {
     if (!vid.output_path) return;
     setReusingAudioId(vid.id);
     try {
-      const res = await fetch(`${API_BASE}/videos/${vid.id}/audio`);
+      const res = await authFetch(`${API_BASE}/videos/${vid.id}/audio`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const blob = await res.blob();
       const fileName = `${(vid.script_text || 'audio').slice(0, 40).replace(/[^a-z0-9]+/gi, '-')}.m4a`;
@@ -4256,7 +4277,7 @@ export default function App() {
     setEditingTitleId(null);
     if (!trimmed || trimmed === vid.script_text) return;
     try {
-      const res = await fetch(`${API_BASE}/videos/${vid.id}`, {
+      const res = await authFetch(`${API_BASE}/videos/${vid.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title: trimmed })
@@ -4281,7 +4302,7 @@ export default function App() {
     const ok = await askConfirm("Toutes les vidéos et paramètres associés seront supprimés définitivement.", { title: "Supprimer cette chaîne ?", danger: true });
     if (!ok) return;
     try {
-      await fetch(`${API_BASE}/channels/${channelId}`, { method: 'DELETE' });
+      await authFetch(`${API_BASE}/channels/${channelId}`, { method: 'DELETE' });
       fetchChannels();
       if (activeChannel && activeChannel.id === channelId) {
         setActiveChannel(null);
@@ -5253,7 +5274,7 @@ export default function App() {
                               const ok = await askConfirm(`Déconnecter la chaîne YouTube "${activeChannel.youtube_channel_title || ''}" ? La publication automatique s'arrêtera.`, { title: 'Déconnecter YouTube', danger: true });
                               if (!ok) return;
                               try {
-                                const res = await fetch(`${API_BASE}/channels/${activeChannel.id}/youtube/disconnect`, { method: 'POST' });
+                                const res = await authFetch(`${API_BASE}/channels/${activeChannel.id}/youtube/disconnect`, { method: 'POST' });
                                 if (!res.ok) throw new Error();
                                 const updated = await res.json();
                                 setActiveChannel(updated);
@@ -5274,7 +5295,7 @@ export default function App() {
                           onClick={async (e) => {
                             e.stopPropagation();
                             try {
-                              const res = await fetch(`${API_BASE}/channels/${activeChannel.id}/youtube/auth-url`);
+                              const res = await authFetch(`${API_BASE}/channels/${activeChannel.id}/youtube/auth-url`);
                               if (!res.ok) {
                                 const detail = await res.json().catch(() => ({}));
                                 throw new Error(detail.detail || "Connexion YouTube indisponible.");
