@@ -113,7 +113,7 @@ export default function LandingPage() {
         <section className="hero" id="accueil">
           <div className="hero-grid" /><div className="hero-orb orb-one" /><div className="hero-orb orb-two" />
           <div className="hero-copy">
-            <h1>Sors des écrans.<br /><span>NicheCut reste au travail.</span></h1>
+            <h1>Tu dors.<br /><span>NicheCut travaille pour toi sur YouTube.</span></h1>
             <p>Tu vis, tu voyages, tu dors. L’Agent imagine, crée et publie des vidéos originales dans le style de ta chaîne, avec les réalités du terrain YouTube intégrées à chaque étape.</p>
             <div className="hero-actions">
               <a className="button button-primary" href={appUrl('/signup')}>Sors des écrans <ArrowRight size={18} /></a>
