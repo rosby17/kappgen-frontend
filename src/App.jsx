@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Navigate, useNavigate, useLocation, useParams } from 'react-router-dom';
 import freedomSunrise from './assets/dashboard/freedom-sunrise.png';
 
