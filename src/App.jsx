@@ -1136,6 +1136,10 @@ function ChannelAvatar({ channel, logoUrl, sizeClass = "w-12 h-12", textClass = 
   // Pipeline not finished yet (missing voice and/or visuals) — a ring +
   // percentage on the avatar itself, rather than blocking the channel from
   // being saved at all. Generation stays blocked separately, elsewhere.
+  // The badge sits top-left (not bottom-right) so it never collides with the
+  // green/red status dot some callers overlay on the opposite corner — it's
+  // also a fixed-size true circle (not a stretched pill) to actually match
+  // the avatar's own roundness instead of reading as a rounded square.
   return (
     <div className={`relative ${sizeClass} flex-shrink-0`} title={`Configuration à ${percent}% — termine la voix et les visuels pour pouvoir générer une vidéo`}>
       <div
@@ -1146,7 +1150,7 @@ function ChannelAvatar({ channel, logoUrl, sizeClass = "w-12 h-12", textClass = 
           {image}
         </div>
       </div>
-      <span className="absolute -bottom-1 -right-1 bg-[#00c2ff] text-slate-950 text-[9px] font-black px-1.5 py-0.5 rounded-full leading-none shadow-md">
+      <span className="absolute -top-1 -left-1 w-[20px] h-[20px] bg-[#00c2ff] text-slate-950 text-[7px] font-black rounded-full leading-none shadow-md flex items-center justify-center">
         {percent}%
       </span>
     </div>
@@ -4050,7 +4054,7 @@ export default function App() {
                               <div className="relative shrink-0">
                                 <ChannelAvatar channel={chan} logoUrl={logoUrl} sizeClass="w-12 h-12" textClass="text-lg" />
                                 <span
-                                  className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full ${getChannelStatusDotColor(chan)} ring-2 ring-[#161b22]`}
+                                  className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full ${getChannelStatusDotColor(chan)} ring-2 ring-[#161b22]`}
                                   title={chan.is_render_ready ? (chan.failed_count > 0 ? 'Échec de rendu à corriger' : 'Chaîne active') : 'Configuration incomplète'}
                                 />
                               </div>
@@ -4512,7 +4516,7 @@ export default function App() {
                           return (
                             <span
                               title={s.label}
-                              className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full ${getChannelStatusDotColor(activeChannel)} ring-2 ring-[#171d27]`}
+                              className={`absolute -bottom-1 -right-1 w-3 h-3 rounded-full ${getChannelStatusDotColor(activeChannel)} ring-2 ring-[#171d27]`}
                             />
                           );
                         })()}
