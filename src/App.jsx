@@ -1360,6 +1360,11 @@ export default function App() {
   const [selectedVoice, setSelectedVoice] = useState('fr-FR-Thomas');
   const [availableVoices, setAvailableVoices] = useState(VOICE_MODELS);
   const [cloningVoice, setCloningVoice] = useState(false);
+  const [voiceSearchQuery, setVoiceSearchQuery] = useState('');
+  const [izivoiceStatus, setIzivoiceStatus] = useState(null);
+  const [showIzivoiceKeyModal, setShowIzivoiceKeyModal] = useState(false);
+  const [izivoiceKeyDraft, setIzivoiceKeyDraft] = useState('');
+  const [savingIzivoiceKey, setSavingIzivoiceKey] = useState(false);
   const cloneVoiceInputRef = useRef(null);
   const [audioFilesList, setAudioFilesList] = useState([]);
   // Izivoice STT transcription (for accurate audio-upload subtitles) is billable —
@@ -1548,6 +1553,8 @@ export default function App() {
     // region imposed on every creator.
     timezone: (typeof Intl !== 'undefined' && Intl.DateTimeFormat().resolvedOptions().timeZone) || 'Africa/Douala',
     videos_per_day: 1,
+    automation_window_start_hour: 7,
+    automation_window_end_hour: 11,
     active_days: null,
     publish_mode: 'manual',
     publish_schedule_hour: 8,
@@ -2235,6 +2242,8 @@ export default function App() {
       automation_mode: channel.automation_mode || 'manual',
       automation_style_prompt: channel.automation_style_prompt || '',
       videos_per_day: channel.videos_per_day ?? 1,
+      automation_window_start_hour: channel.automation_window_start_hour ?? 7,
+      automation_window_end_hour: channel.automation_window_end_hour ?? 11,
       active_days: channel.active_days || null,
       timezone: channel.timezone || defaultChannelForm.timezone,
       publish_mode: channel.publish_mode || 'manual',
@@ -2536,11 +2545,11 @@ export default function App() {
     const hasStoredLibrary = Number(newChannel.image_style.library_image_count || 0) > 0
       && String(newChannel.image_style.library_path || '').startsWith('channels/');
     if (needsLibrary && !hasStoredLibrary && !(uploadReady && stagedLibraryToken)) {
-      setWizardStep(4);
+      setWizardStep(5);
       return showToast("Importez un dossier d’images : aucune bibliothèque n’est enregistrée sur le serveur.", "error");
     }
     if (needsLibrary && ['analyzing', 'uploading', 'validating'].includes(libraryUploadStatus)) {
-      setWizardStep(4);
+      setWizardStep(5);
       return showToast("Attendez que l’importation des images atteigne 100 %.", "error");
     }
     try {
@@ -2727,6 +2736,49 @@ export default function App() {
       })
       .catch(() => {});
   }, [showSubmitModal, submitMode, view, currentUser?.id, activeChannel?.voice_id]);
+
+  useEffect(() => {
+    if (view !== 'wizard' || !currentUser) return;
+    fetch(`${API_BASE}/channels/izivoice/status?user_id=${encodeURIComponent(currentUser.id)}`)
+      .then(res => res.ok ? res.json() : Promise.reject())
+      .then(setIzivoiceStatus)
+      .catch(() => {});
+  }, [view, currentUser?.id]);
+
+  const handleConnectIzivoiceKey = async () => {
+    if (!izivoiceKeyDraft.trim() || !currentUser) return;
+    setSavingIzivoiceKey(true);
+    try {
+      const res = await fetch(`${API_BASE}/channels/izivoice/connect`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: currentUser.id, api_key: izivoiceKeyDraft.trim() }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.detail || 'Clé invalide.');
+      setIzivoiceStatus(body);
+      setShowIzivoiceKeyModal(false);
+      setIzivoiceKeyDraft('');
+      showToast('Clé Izivoice connectée — tes voix clonées et ton historique sont maintenant synchronisés.', 'success');
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setSavingIzivoiceKey(false);
+    }
+  };
+
+  const handleDisconnectIzivoiceKey = async () => {
+    if (!currentUser) return;
+    try {
+      const res = await fetch(`${API_BASE}/channels/izivoice/connect?user_id=${encodeURIComponent(currentUser.id)}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error();
+      setIzivoiceStatus({ connected: false, key_prefix: null, mode: 'nichecut' });
+      setShowIzivoiceKeyModal(false);
+      showToast('Clé Izivoice déconnectée — retour au compte NicheCut par défaut.', 'success');
+    } catch {
+      showToast('Impossible de déconnecter la clé.', 'error');
+    }
+  };
 
   const handleCloneVoice = async (file) => {
     // Voice is a channel-level setting: cloned either from the "Nouvelle
@@ -4466,7 +4518,7 @@ export default function App() {
                     <h2 className="text-xl font-extrabold text-white">
                       {wizardMode === 'edit' ? 'Modifier le Pipeline de la Chaîne' : 'Configuration du Template de Montage de sa Chaîne'}
                     </h2>
-                    <p className="text-xs text-slate-400 mt-1">Étape {wizardStep} sur 6</p>
+                    <p className="text-xs text-slate-400 mt-1">Étape {wizardStep} sur 7</p>
                   </div>
                   <button
                     onClick={() => setView(wizardMode === 'edit' && editingChannelId ? 'channel_detail' : 'channels')}
@@ -4477,8 +4529,8 @@ export default function App() {
                 </div>
 
                 {/* Steps Timeline Indicator */}
-                <div className="grid grid-cols-6 gap-2">
-                  {['Identité', 'Sous-titres', 'Musique', 'Visuels', 'Effets', 'Aperçu Final'].map((label, idx) => {
+                <div className="grid grid-cols-7 gap-2">
+                  {['Identité', 'Sous-titres', 'Voix Off', 'Musique', 'Visuels', 'Effets', 'Aperçu Final'].map((label, idx) => {
                     const stepNum = idx + 1;
                     const isActive = wizardStep === stepNum;
                     const isPassed = wizardStep > stepNum;
@@ -4589,61 +4641,12 @@ export default function App() {
                       />
                     </div>
 
-                    {/* Voix off : réglage de chaîne, configuré une seule fois ici —
-                        plus jamais redemandé à chaque vidéo générée. */}
                     <div>
-                      <label className="block text-xs font-bold text-slate-300 mb-2">Voix off</label>
-                      <select
-                        value={newChannel.voice_id || selectedVoice}
-                        onChange={e => {
-                          const voice = availableVoices.find(v => v.id === e.target.value);
-                          setNewChannel({ ...newChannel, voice_id: e.target.value, voice_name: voice?.name || e.target.value });
-                        }}
-                        className="w-full bg-[#1b2230] border border-[#2b374d] rounded-xl px-4 py-2.5 text-xs text-white focus:border-[#00c2ff] outline-none"
-                      >
-                        {availableVoices.map(v => (
-                          <option key={v.id} value={v.id}>{v.name} — {v.desc}</option>
-                        ))}
-                      </select>
-                      <div className="mt-2 flex items-center justify-between gap-3">
-                        <p className="text-[10px] text-slate-500">Utilisée automatiquement pour chaque vidéo de cette chaîne.</p>
-                        {wizardMode === 'edit' && editingChannelId ? (
-                          <>
-                            <button type="button" disabled={cloningVoice} onClick={() => cloneVoiceInputRef.current?.click()} className="shrink-0 px-3 py-2 rounded-lg border border-[#00c2ff]/35 bg-[#00c2ff]/10 text-[#56d9ff] text-[11px] font-bold flex items-center gap-1.5 disabled:opacity-50">
-                              <span className="material-symbols-outlined text-[15px]">fingerprint</span>
-                              {cloningVoice ? 'Clonage…' : 'Cloner ma voix'}
-                            </button>
-                            <input ref={cloneVoiceInputRef} type="file" accept="audio/*" className="hidden" onChange={e => handleCloneVoice(e.target.files?.[0])} />
-                          </>
-                        ) : (
-                          <span className="shrink-0 text-[10px] text-slate-600">Clonage disponible après la création</span>
-                        )}
-                      </div>
-                      <div className="grid grid-cols-2 gap-3 mt-4">
-                        {[
-                          ['speed', 'Vitesse', 0.5, 1.5, 0.05],
-                          ['stability', 'Stabilité', 0, 1, 0.05],
-                          ['similarity_boost', 'Fidélité', 0, 1, 0.05],
-                          ['style', 'Expression', 0, 1, 0.05]
-                        ].map(([field, label, min, max, step]) => {
-                          const settings = newChannel.voice_settings || { speed: 0.845, stability: 0.8, similarity_boost: 0.9, style: 0 };
-                          const value = Number(settings[field] ?? (field === 'speed' ? 0.845 : 0));
-                          return <label key={field} className="bg-[#11151c] border border-[#202938] rounded-xl p-3">
-                            <span className="flex justify-between text-[10px] font-bold text-slate-300 mb-2"><span>{label}</span><span className="text-[#55d8ff]">{value.toFixed(2)}</span></span>
-                            <input type="range" min={min} max={max} step={step} value={value} onChange={e => {
-                              setNewChannel({ ...newChannel, voice_settings: { ...settings, [field]: Number(e.target.value) } });
-                            }} className="w-full accent-[#00c2ff]" />
-                          </label>;
-                        })}
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-bold text-slate-300 mb-2">Génération de contenu</label>
+                      <label className="block text-xs font-bold text-slate-300 mb-2">Génération du script</label>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                         {[
                           { value: 'manual', icon: 'edit_note', label: 'Manuel', bullets: ['Tu écris ou colles le script toi-même', 'Aucune génération automatique'] },
-                          { value: 'auto', icon: 'auto_awesome', label: 'Automatique', bullets: ["L'Agent choisit le sujet et écrit le script", 'Chaque jour, entre 7h et 11h, selon ton fuseau horaire', 'Zéro intervention de ta part'] },
+                          { value: 'auto', icon: 'auto_awesome', label: 'Automatique', bullets: ["L'Agent choisit le sujet et écrit le script", `Chaque jour, entre ${String(newChannel.automation_window_start_hour ?? 7).padStart(2, '0')}h et ${String(newChannel.automation_window_end_hour ?? 11).padStart(2, '0')}h (réglable)`, 'Zéro intervention de ta part'] },
                         ].map(opt => {
                           const active = (newChannel.automation_mode || 'manual') === opt.value;
                           return (
@@ -4692,6 +4695,25 @@ export default function App() {
                                 </button>
                               ))}
                             </div>
+                          </div>
+                          <div className="flex items-center gap-2 bg-[#11151c] border border-[#202938] rounded-xl px-3 py-2.5">
+                            <span className="material-symbols-outlined text-[16px] text-slate-500 shrink-0">schedule</span>
+                            <span className="text-[11px] text-slate-400 shrink-0">Plage horaire :</span>
+                            <select
+                              value={newChannel.automation_window_start_hour ?? 7}
+                              onChange={e => setNewChannel({ ...newChannel, automation_window_start_hour: parseInt(e.target.value) })}
+                              className="bg-[#1b2230] border border-[#2b374d] rounded-lg px-2 py-1.5 text-[11px] text-white focus:border-[#00c2ff] outline-none"
+                            >
+                              {Array.from({ length: 24 }, (_, h) => <option key={h} value={h}>{String(h).padStart(2, '0')}h00</option>)}
+                            </select>
+                            <span className="text-[11px] text-slate-500">à</span>
+                            <select
+                              value={newChannel.automation_window_end_hour ?? 11}
+                              onChange={e => setNewChannel({ ...newChannel, automation_window_end_hour: parseInt(e.target.value) })}
+                              className="bg-[#1b2230] border border-[#2b374d] rounded-lg px-2 py-1.5 text-[11px] text-white focus:border-[#00c2ff] outline-none"
+                            >
+                              {Array.from({ length: 24 }, (_, h) => <option key={h} value={h}>{String(h).padStart(2, '0')}h00</option>)}
+                            </select>
                           </div>
                           <div className="bg-[#11151c] border border-[#202938] rounded-xl px-3 py-2.5">
                             <div className="flex items-center gap-2 mb-2">
@@ -5361,10 +5383,117 @@ export default function App() {
                   </div>
                 )}
 
-                {/* STEP 3: MUSIQUE DE FOND & AUDIO */}
+                {/* STEP 3: VOIX OFF */}
                 {wizardStep === 3 && (
                   <div className="space-y-6">
-                    <h3 className="text-base font-bold text-white">3. Musique de Fond Ambiante & Auto-Ducking</h3>
+                    <h3 className="text-base font-bold text-white">3. Voix Off</h3>
+                    <p className="text-xs text-slate-400 -mt-4">Choisie une seule fois ici — utilisée automatiquement pour chaque vidéo de cette chaîne.</p>
+
+                    <div className="flex items-center justify-between gap-3 bg-[#11151c] border border-[#202938] rounded-xl px-3.5 py-2.5">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="material-symbols-outlined text-[16px] text-[#00c2ff] shrink-0">vpn_key</span>
+                        <span className="text-[11px] text-slate-300 truncate">
+                          {izivoiceStatus?.connected
+                            ? `Ta clé Izivoice personnelle est connectée (${izivoiceStatus.key_prefix}) — tes voix clonées et ton historique sont synchronisés ici.`
+                            : "Par défaut tu utilises le compte Izivoice de NicheCut. Connecte ta propre clé pour retrouver tes voix clonées et ton historique."}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setShowIzivoiceKeyModal(true)}
+                        className="shrink-0 px-3 py-1.5 rounded-lg border border-[#2b374d] bg-[#1b2230] text-white text-[11px] font-bold hover:border-[#00c2ff] transition-colors"
+                      >
+                        {izivoiceStatus?.connected ? 'Gérer' : 'Connecter ma clé Izivoice'}
+                      </button>
+                    </div>
+
+                    <div>
+                      <div className="flex items-center justify-between gap-3 mb-2">
+                        <label className="text-xs font-bold text-slate-300">Bibliothèque de voix ({availableVoices.length})</label>
+                        <input
+                          value={voiceSearchQuery}
+                          onChange={e => setVoiceSearchQuery(e.target.value)}
+                          placeholder="Rechercher (langue, accent, nom...)"
+                          className="bg-[#1b2230] border border-[#2b374d] rounded-lg px-3 py-1.5 text-[11px] text-white focus:border-[#00c2ff] outline-none w-56"
+                        />
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-72 overflow-y-auto pr-1">
+                        {availableVoices
+                          .filter(v => !voiceSearchQuery || `${v.name} ${v.desc}`.toLowerCase().includes(voiceSearchQuery.toLowerCase()))
+                          .map(v => {
+                            const active = (newChannel.voice_id || selectedVoice) === v.id;
+                            return (
+                              <button
+                                key={v.id}
+                                type="button"
+                                onClick={() => setNewChannel({ ...newChannel, voice_id: v.id, voice_name: v.name })}
+                                className={`text-left px-3.5 py-2.5 rounded-xl border transition-colors flex items-center justify-between gap-2 ${
+                                  active ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-white' : 'bg-[#1b2230] border-[#2b374d] text-slate-300 hover:border-slate-500'
+                                }`}
+                              >
+                                <span className="min-w-0">
+                                  <span className="block text-xs font-bold truncate">{v.name}</span>
+                                  <span className="block text-[10px] text-slate-500 truncate">{v.desc}</span>
+                                </span>
+                                {v.preview_url && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => { e.stopPropagation(); const a = new Audio(v.preview_url); a.play().catch(() => {}); }}
+                                    className="shrink-0 w-7 h-7 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center"
+                                    title="Écouter un extrait"
+                                  >
+                                    <span className="material-symbols-outlined text-[15px]">play_arrow</span>
+                                  </button>
+                                )}
+                                {active && <span className="material-symbols-outlined text-[15px] text-[#00c2ff] shrink-0">check_circle</span>}
+                              </button>
+                            );
+                          })}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-[11px] text-slate-500">Importe un échantillon audio pour cloner ta propre voix.</p>
+                      {wizardMode === 'edit' && editingChannelId ? (
+                        <>
+                          <button type="button" disabled={cloningVoice} onClick={() => cloneVoiceInputRef.current?.click()} className="shrink-0 px-3 py-2 rounded-lg border border-[#00c2ff]/35 bg-[#00c2ff]/10 text-[#56d9ff] text-[11px] font-bold flex items-center gap-1.5 disabled:opacity-50">
+                            <span className="material-symbols-outlined text-[15px]">fingerprint</span>
+                            {cloningVoice ? 'Clonage…' : 'Cloner ma voix'}
+                          </button>
+                          <input ref={cloneVoiceInputRef} type="file" accept="audio/*" className="hidden" onChange={e => handleCloneVoice(e.target.files?.[0])} />
+                        </>
+                      ) : (
+                        <span className="shrink-0 text-[10px] text-slate-600">Clonage disponible après la création</span>
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-300 mb-2">Réglages de la voix</label>
+                      <div className="grid grid-cols-2 gap-3">
+                        {[
+                          ['speed', 'Vitesse', 0.5, 1.5, 0.05],
+                          ['stability', 'Stabilité', 0, 1, 0.05],
+                          ['similarity_boost', 'Fidélité', 0, 1, 0.05],
+                          ['style', 'Expression', 0, 1, 0.05]
+                        ].map(([field, label, min, max, step]) => {
+                          const settings = newChannel.voice_settings || { speed: 0.845, stability: 0.8, similarity_boost: 0.9, style: 0 };
+                          const value = Number(settings[field] ?? (field === 'speed' ? 0.845 : 0));
+                          return <label key={field} className="bg-[#11151c] border border-[#202938] rounded-xl p-3">
+                            <span className="flex justify-between text-[10px] font-bold text-slate-300 mb-2"><span>{label}</span><span className="text-[#55d8ff]">{value.toFixed(2)}</span></span>
+                            <input type="range" min={min} max={max} step={step} value={value} onChange={e => {
+                              setNewChannel({ ...newChannel, voice_settings: { ...settings, [field]: Number(e.target.value) } });
+                            }} className="w-full accent-[#00c2ff]" />
+                          </label>;
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* STEP 4: MUSIQUE DE FOND & AUDIO */}
+                {wizardStep === 4 && (
+                  <div className="space-y-6">
+                    <h3 className="text-base font-bold text-white">4. Musique de Fond Ambiante & Auto-Ducking</h3>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       {/* OPTION A: MES PROPRES MUSIQUES */}
@@ -5495,8 +5624,8 @@ export default function App() {
                   </div>
                 )}
 
-                {/* STEP 4: VISUELS & SOURCES D'IMAGES (OPTION A & OPTION B COCHABLES) */}
-                {wizardStep === 4 && (() => {
+                {/* STEP 5: VISUELS & SOURCES D'IMAGES (OPTION A & OPTION B COCHABLES) */}
+                {wizardStep === 5 && (() => {
                   const isOptionAChecked = newChannel.image_style.source === 'library' || newChannel.image_style.source === 'hybrid';
                   const isOptionBChecked = newChannel.image_style.source === 'ai_generated' || newChannel.image_style.source === 'hybrid';
 
@@ -5522,7 +5651,7 @@ export default function App() {
                   return (
                     <div className="space-y-6">
                       <div>
-                        <h3 className="text-base font-bold text-white">4. Source d'Images Visuelles & Mode de Génération</h3>
+                        <h3 className="text-base font-bold text-white">5. Source d'Images Visuelles & Mode de Génération</h3>
                         <p className="text-xs text-slate-400 mt-1">Sélectionnez la ou les sources visuelles souhaitées (Vous pouvez cocher l'Option A, l'Option B, ou les deux !).</p>
                       </div>
 
@@ -5729,10 +5858,10 @@ export default function App() {
                   );
                 })()}
 
-                {/* STEP 5: EFFETS VISUELS — réglages + un aperçu dédié aux effets seuls
+                {/* STEP 6: EFFETS VISUELS — réglages + un aperçu dédié aux effets seuls
                     (couleur/texture sur une vraie image), distinct de l'Aperçu Final complet
-                    de l'étape 6 qui montre tous les réglages ensemble (sous-titres, logo...). */}
-                {wizardStep === 5 && (() => {
+                    de l'étape 7 qui montre tous les réglages ensemble (sous-titres, logo...). */}
+                {wizardStep === 6 && (() => {
                   const colorGrade = newChannel.effects_config.color_grade || 'warm';
                   const overlayEffects = newChannel.effects_config.overlay_effects || ['grain'];
                   const toggleOverlayEffect = (id) => {
@@ -5758,7 +5887,7 @@ export default function App() {
                   return (
                     <div className="space-y-6">
                       <div>
-                        <h3 className="text-base font-bold text-white">5. Effets Visuels</h3>
+                        <h3 className="text-base font-bold text-white">6. Effets Visuels</h3>
                         <p className="text-xs text-slate-400 mt-1">Appliqués sur l'ensemble de la vidéo, en plus des transitions et du zoom automatiques déjà actifs.</p>
                       </div>
 
@@ -5900,8 +6029,8 @@ export default function App() {
                   );
                 })()}
 
-                {/* STEP 6: APERÇU FINAL DU DESIGN VIDÉO (LIVE 16:9 LANDSCAPE PREVIEW) */}
-                {wizardStep === 6 && (() => {
+                {/* STEP 7: APERÇU FINAL DU DESIGN VIDÉO (LIVE 16:9 LANDSCAPE PREVIEW) */}
+                {wizardStep === 7 && (() => {
                   const userImagePreview = localImageFiles.length > 0 ? URL.createObjectURL(localImageFiles[0]) : null;
                   const stepOverlayEffects = newChannel.effects_config.overlay_effects || ['grain'];
                   const stepHasGrain = stepOverlayEffects.includes('grain') || stepOverlayEffects.includes('white_noise');
@@ -5941,7 +6070,7 @@ export default function App() {
                     <div className="space-y-6">
                       <div className="flex justify-between items-center">
                         <div>
-                          <h3 className="text-base font-bold text-white">6. Aperçu Final du Layout & Design Vidéo</h3>
+                          <h3 className="text-base font-bold text-white">7. Aperçu Final du Layout & Design Vidéo</h3>
                           <p className="text-xs text-slate-400 mt-0.5">Voici le rendu final simulé, au format vidéo longue durée YouTube (16:9).</p>
                         </div>
                       </div>
@@ -6091,7 +6220,7 @@ export default function App() {
                     {/* In edit mode the pipeline already exists — no need to click through
                         every step just to save a change made on this one. Create mode keeps
                         the guided step-by-step flow since nothing's configured yet. */}
-                    {wizardMode === 'edit' && wizardStep < 6 && (
+                    {wizardMode === 'edit' && wizardStep < 7 && (
                       <button
                         onClick={handleSaveChannel}
                         disabled={loading}
@@ -6102,14 +6231,14 @@ export default function App() {
                       </button>
                     )}
 
-                    {wizardStep < 6 ? (
+                    {wizardStep < 7 ? (
                     <button
                       onClick={() => {
                         const needsLibrary = newChannel.image_style.source === 'library' || newChannel.image_style.source === 'hybrid';
                         const stored = Number(newChannel.image_style.library_image_count || 0) > 0
                           && String(newChannel.image_style.library_path || '').startsWith('channels/');
                         const ready = libraryUploadStatus === 'success' && (stagedLibraryToken || wizardMode === 'edit');
-                        if (wizardStep === 4 && needsLibrary && !stored && !ready) {
+                        if (wizardStep === 5 && needsLibrary && !stored && !ready) {
                           showToast(
                             ['analyzing', 'uploading', 'validating'].includes(libraryUploadStatus)
                               ? "L’importation est en cours. Attendez 100 % avant de continuer."
@@ -6120,10 +6249,10 @@ export default function App() {
                         }
                         setWizardStep(wizardStep + 1);
                       }}
-                      disabled={wizardStep === 4 && ['analyzing', 'uploading', 'validating'].includes(libraryUploadStatus)}
+                      disabled={wizardStep === 5 && ['analyzing', 'uploading', 'validating'].includes(libraryUploadStatus)}
                       className="px-6 py-2.5 rounded-xl bg-[#00c2ff] text-slate-950 font-bold text-xs hover:bg-[#38d0ff] transition-all flex items-center gap-2 shadow-md disabled:opacity-40 disabled:cursor-not-allowed"
                     >
-                      {wizardStep === 4 && ['analyzing', 'uploading', 'validating'].includes(libraryUploadStatus)
+                      {wizardStep === 5 && ['analyzing', 'uploading', 'validating'].includes(libraryUploadStatus)
                         ? `Importation ${libraryUploadProgress}%`
                         : 'Suivant'}
                       <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
@@ -6717,6 +6846,48 @@ export default function App() {
       )}
 
       {/* DOWNLOAD QUALITY MODAL */}
+      {showIzivoiceKeyModal && (
+        <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-[60] flex items-center justify-center p-6">
+          <div className="bg-[#161b22] border border-[#263042] rounded-3xl p-6 max-w-[440px] w-full shadow-2xl space-y-4">
+            <div className="flex justify-between items-center">
+              <h3 className="text-sm font-bold text-white">Connecter ta clé Izivoice</h3>
+              <button onClick={() => setShowIzivoiceKeyModal(false)} className="text-slate-400 hover:text-white">
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+            <p className="text-xs text-slate-400">
+              Colle ta clé API Izivoice personnelle pour retrouver ici tes voix clonées et ton historique de doublage — au lieu d'utiliser le compte partagé NicheCut.
+            </p>
+            {izivoiceStatus?.connected && (
+              <div className="bg-emerald-950/40 border border-emerald-800 rounded-xl px-3 py-2 text-[11px] text-emerald-300">
+                Clé actuellement connectée : {izivoiceStatus.key_prefix}
+              </div>
+            )}
+            <input
+              type="password"
+              value={izivoiceKeyDraft}
+              onChange={e => setIzivoiceKeyDraft(e.target.value)}
+              placeholder="Clé API Izivoice"
+              className="w-full bg-[#1b2230] border border-[#2b374d] rounded-xl px-3 py-2.5 text-sm text-white focus:border-[#00c2ff] outline-none"
+            />
+            <div className="flex gap-3">
+              {izivoiceStatus?.connected && (
+                <button onClick={handleDisconnectIzivoiceKey} className="flex-1 py-2.5 bg-rose-500/10 text-rose-400 rounded-xl font-bold text-xs hover:bg-rose-500/20 border border-rose-500/30">
+                  Déconnecter
+                </button>
+              )}
+              <button
+                onClick={handleConnectIzivoiceKey}
+                disabled={savingIzivoiceKey || !izivoiceKeyDraft.trim()}
+                className="flex-1 py-2.5 bg-[#00c2ff] text-slate-950 rounded-xl font-bold text-xs hover:bg-[#38d0ff] disabled:opacity-50"
+              >
+                {savingIzivoiceKey ? 'Connexion…' : 'Connecter'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {publishReviewVideo && (
         <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-[60] flex items-center justify-center p-6">
           <div className="bg-[#161b22] border border-[#263042] rounded-3xl p-6 max-w-[520px] w-full shadow-2xl space-y-5">
