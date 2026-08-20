@@ -992,6 +992,7 @@ export default function App() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [openChannelMenuId, setOpenChannelMenuId] = useState(null);
   const [openVideoMenuId, setOpenVideoMenuId] = useState(null);
+  const [publishingVideoId, setPublishingVideoId] = useState(null);
   const [videoSelectionMode, setVideoSelectionMode] = useState(false);
   const [selectedVideoIds, setSelectedVideoIds] = useState(new Set());
   const toggleVideoSelected = (id) => {
@@ -2456,6 +2457,38 @@ export default function App() {
     setDownloadModalVideo(vid);
   };
 
+  const handlePublishYouTube = async (vid, e) => {
+    if (e) e.stopPropagation();
+    setOpenVideoMenuId(null);
+    if (vid.youtube_video_id) {
+      window.open(`https://youtu.be/${vid.youtube_video_id}`, '_blank', 'noopener,noreferrer');
+      return;
+    }
+    setPublishingVideoId(vid.id);
+    showToast("L’Agent prépare le titre, la description et la miniature…", 'success');
+    try {
+      const res = await fetch(`${API_BASE}/videos/${vid.id}/youtube/publish`, { method: 'POST' });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const detail = body.detail;
+        if (detail?.code === 'youtube_auth_required') {
+          showToast('Authentification YouTube requise. Connecte la chaîne pour continuer.', 'error');
+          if (detail.auth_url) window.location.assign(detail.auth_url);
+          return;
+        }
+        throw new Error(typeof detail === 'string' ? detail : detail?.message || 'Publication impossible.');
+      }
+      showToast('Vidéo publiée sur YouTube avec sa miniature et ses métadonnées.', 'success');
+      fetchAllVideos();
+      if (activeChannel) fetchChannelVideos(activeChannel.id);
+      if (body.youtube_url) window.open(body.youtube_url, '_blank', 'noopener,noreferrer');
+    } catch (err) {
+      showToast(err.message || 'Publication YouTube impossible.', 'error');
+    } finally {
+      setPublishingVideoId(null);
+    }
+  };
+
   const runDownload = (vid, quality) => {
     // Deliberately not fetch()+blob(): that buffers the entire file (hundreds
     // of MB for a real video) in JS memory with no progress feedback before
@@ -3445,6 +3478,12 @@ export default function App() {
                                     </button>
                                   )}
                                   {vid.status === 'done' && (
+                                    <button disabled={publishingVideoId === vid.id} onClick={(e) => handlePublishYouTube(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[#2c394e] hover:text-white flex items-center gap-2 font-medium disabled:opacity-50">
+                                      <span className="material-symbols-outlined text-[16px] text-red-400">{vid.youtube_video_id ? 'open_in_new' : 'smart_display'}</span>
+                                      {vid.youtube_video_id ? 'Voir sur YouTube' : publishingVideoId === vid.id ? 'Publication…' : 'Publier sur YouTube'}
+                                    </button>
+                                  )}
+                                  {vid.status === 'done' && (
                                     <button disabled={reusingAudioId === vid.id} onClick={(e) => handleReuseAudio(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[#2c394e] hover:text-white flex items-center gap-2 font-medium disabled:opacity-50">
                                       <span className="material-symbols-outlined text-[16px] text-[#00c2ff]">graphic_eq</span> {reusingAudioId === vid.id ? 'Récupération…' : "Réutiliser l'audio"}
                                     </button>
@@ -3566,13 +3605,10 @@ export default function App() {
                       </div>
                     </div>
                     <div className="min-w-0">
-                      <div className="text-[9px] font-bold tracking-[.16em] text-[#50d6ff] uppercase mb-1.5">Pipeline de chaîne</div>
-                      <div className="flex items-baseline gap-2 flex-wrap">
-                        <h1 className="text-xl sm:text-2xl font-extrabold text-white truncate tracking-[-.025em]">{activeChannel.name}</h1>
-                        {activeChannel.youtube_channel_handle && (
-                          <span className="text-slate-400 text-[11px] font-medium">{activeChannel.youtube_channel_handle}</span>
-                        )}
-                      </div>
+                      <h1 className="text-xl sm:text-2xl font-extrabold text-white truncate tracking-[-.025em]">{activeChannel.name}</h1>
+                      {activeChannel.youtube_channel_handle && (
+                        <div className="text-slate-400 text-[11px] font-medium mt-0.5">{activeChannel.youtube_channel_handle}</div>
+                      )}
                       {activeChannel.youtube_connected ? (
                         <button
                           onClick={async () => {
@@ -3834,6 +3870,12 @@ export default function App() {
                                 {vid.status === 'done' && (
                                   <button onClick={(e) => handleDownloadVideo(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[#2c394e] hover:text-white flex items-center gap-2 font-medium">
                                     <span className="material-symbols-outlined text-[16px] text-emerald-400">download</span> Télécharger
+                                  </button>
+                                )}
+                                {vid.status === 'done' && (
+                                  <button disabled={publishingVideoId === vid.id} onClick={(e) => handlePublishYouTube(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[#2c394e] hover:text-white flex items-center gap-2 font-medium disabled:opacity-50">
+                                    <span className="material-symbols-outlined text-[16px] text-red-400">{vid.youtube_video_id ? 'open_in_new' : 'smart_display'}</span>
+                                    {vid.youtube_video_id ? 'Voir sur YouTube' : publishingVideoId === vid.id ? 'Publication…' : 'Publier sur YouTube'}
                                   </button>
                                 )}
                                 {vid.status === 'done' && (
