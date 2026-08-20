@@ -997,6 +997,54 @@ function YouTubeIcon({ className = "" }) {
   );
 }
 
+// A YouTube-Studio-style dropdown for a small set of named modes (icon +
+// label + one-line description each) — closed state shows just the current
+// choice, open state lists every option. Used for "Génération du script" and
+// "Publication YouTube" instead of a row of always-expanded cards.
+function ModeDropdown({ value, options, onChange }) {
+  const [open, setOpen] = useState(false);
+  const current = options.find(o => o.value === value) || options[0];
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center gap-3 px-3.5 py-3 rounded-xl bg-[#1b2230] border border-[#2b374d] hover:border-slate-500 transition-colors text-left"
+      >
+        <span className="w-8 h-8 rounded-lg bg-[#00c2ff]/10 text-[#00c2ff] flex items-center justify-center shrink-0">
+          <span className="material-symbols-outlined text-[17px]">{current.icon}</span>
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-xs font-bold text-white">{current.label}</span>
+          <span className="block text-[10px] text-slate-400 truncate">{current.desc}</span>
+        </span>
+        <span className={`material-symbols-outlined text-[18px] text-slate-400 transition-transform ${open ? 'rotate-180' : ''}`}>expand_more</span>
+      </button>
+      {open && (
+        <div className="absolute left-0 right-0 top-full mt-1.5 bg-[#1f2838] border border-[#2d3a52] rounded-xl shadow-2xl z-30 py-1.5 overflow-hidden">
+          {options.map(opt => (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => { onChange(opt.value); setOpen(false); }}
+              className="w-full flex items-center gap-3 px-3.5 py-2.5 text-left hover:bg-[#2c394e] transition-colors"
+            >
+              <span className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${opt.value === value ? 'bg-[#00c2ff]/15 text-[#00c2ff]' : 'bg-white/5 text-slate-400'}`}>
+                <span className="material-symbols-outlined text-[15px]">{opt.icon}</span>
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className={`block text-xs font-bold ${opt.value === value ? 'text-[#00c2ff]' : 'text-white'}`}>{opt.label}</span>
+                <span className="block text-[10px] text-slate-400">{opt.desc}</span>
+              </span>
+              {opt.value === value && <span className="material-symbols-outlined text-[15px] text-[#00c2ff] shrink-0">check</span>}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // Ordered pipeline steps shown to the creator while a video renders (and, for
 // auto-published channels, while it's uploaded to YouTube afterwards) — turns
 // the raw progress_stage string from the backend into a visual "what's
@@ -4691,37 +4739,14 @@ export default function App() {
 
                     <div>
                       <label className="block text-xs font-bold text-slate-300 mb-2">Génération du script</label>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        {[
-                          { value: 'manual', icon: 'edit_note', label: 'Manuel', bullets: ['Tu écris ou colles le script toi-même', 'Aucune génération automatique'] },
-                          { value: 'auto', icon: 'auto_awesome', label: 'Automatique', bullets: ["L'Agent choisit le sujet et écrit le script", `Chaque jour, entre ${String(newChannel.automation_window_start_hour ?? 7).padStart(2, '0')}h et ${String(newChannel.automation_window_end_hour ?? 11).padStart(2, '0')}h (réglable)`, 'Zéro intervention de ta part'] },
-                        ].map(opt => {
-                          const active = (newChannel.automation_mode || 'manual') === opt.value;
-                          return (
-                            <button
-                              key={opt.value}
-                              type="button"
-                              onClick={() => setNewChannel({ ...newChannel, automation_mode: opt.value })}
-                              className={`p-3.5 rounded-xl text-left border transition-colors ${
-                                active ? 'bg-[#00c2ff]/10 border-[#00c2ff]' : 'bg-[#1b2230] border-[#2b374d] hover:border-slate-500'
-                              }`}
-                            >
-                              <span className={`flex items-center gap-2 text-xs font-bold ${active ? 'text-[#00c2ff]' : 'text-white'}`}>
-                                <span className="material-symbols-outlined text-[16px]">{opt.icon}</span>
-                                {opt.label}
-                              </span>
-                              <ul className="mt-2 space-y-1">
-                                {opt.bullets.map((b, i) => (
-                                  <li key={i} className="flex items-start gap-1.5 text-[11px] text-slate-400">
-                                    <span className="material-symbols-outlined text-[13px] mt-[1px] text-slate-500 shrink-0">check</span>
-                                    {b}
-                                  </li>
-                                ))}
-                              </ul>
-                            </button>
-                          );
-                        })}
-                      </div>
+                      <ModeDropdown
+                        value={newChannel.automation_mode || 'manual'}
+                        onChange={v => setNewChannel({ ...newChannel, automation_mode: v })}
+                        options={[
+                          { value: 'manual', icon: 'edit_note', label: 'Manuel', desc: 'Tu écris ou colles le script toi-même' },
+                          { value: 'auto', icon: 'auto_awesome', label: 'Automatique', desc: `L'Agent choisit le sujet, écrit le script, entre ${String(newChannel.automation_window_start_hour ?? 7).padStart(2, '0')}h et ${String(newChannel.automation_window_end_hour ?? 11).padStart(2, '0')}h` },
+                        ]}
+                      />
                       {newChannel.automation_mode === 'auto' && (
                         <div className="mt-3 space-y-2">
                           <div className="flex items-center gap-2 bg-[#11151c] border border-[#202938] rounded-xl px-3 py-2.5">
@@ -4844,38 +4869,15 @@ export default function App() {
                     <div>
                       <label className="block text-xs font-bold text-slate-300 mb-2">Publication YouTube</label>
                       <p className="text-[11px] text-slate-500 mb-2">Indépendant du mode ci-dessus — décide ce qui arrive à une vidéo une fois qu'elle est prête.</p>
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                        {[
-                          { value: 'manual', icon: 'download', label: 'Manuelle', bullets: ['Tu télécharges la vidéo toi-même', 'Ou tu cliques « Publier » quand tu veux'] },
-                          { value: 'scheduled', icon: 'schedule', label: 'Programmée', bullets: ['Publiée à une heure fixe que tu choisis', 'Nombre de jours après le rendu réglable'] },
-                          { value: 'auto', icon: 'bolt', label: 'Automatique', bullets: ['Publiée dès la fin du rendu', 'Aucun délai'] },
-                        ].map(opt => {
-                          const active = (newChannel.publish_mode || 'manual') === opt.value;
-                          return (
-                            <button
-                              key={opt.value}
-                              type="button"
-                              onClick={() => setNewChannel({ ...newChannel, publish_mode: opt.value })}
-                              className={`p-3 rounded-xl text-left border transition-colors ${
-                                active ? 'bg-[#00c2ff]/10 border-[#00c2ff]' : 'bg-[#1b2230] border-[#2b374d] hover:border-slate-500'
-                              }`}
-                            >
-                              <span className={`flex items-center gap-2 text-xs font-bold ${active ? 'text-[#00c2ff]' : 'text-white'}`}>
-                                <span className="material-symbols-outlined text-[15px]">{opt.icon}</span>
-                                {opt.label}
-                              </span>
-                              <ul className="mt-2 space-y-1">
-                                {opt.bullets.map((b, i) => (
-                                  <li key={i} className="flex items-start gap-1.5 text-[10px] text-slate-400">
-                                    <span className="material-symbols-outlined text-[12px] mt-[1px] text-slate-500 shrink-0">check</span>
-                                    {b}
-                                  </li>
-                                ))}
-                              </ul>
-                            </button>
-                          );
-                        })}
-                      </div>
+                      <ModeDropdown
+                        value={newChannel.publish_mode || 'manual'}
+                        onChange={v => setNewChannel({ ...newChannel, publish_mode: v })}
+                        options={[
+                          { value: 'manual', icon: 'download', label: 'Manuelle', desc: 'Tu télécharges la vidéo, ou tu cliques « Publier » quand tu veux' },
+                          { value: 'scheduled', icon: 'schedule', label: 'Programmée', desc: 'Publiée à une heure fixe que tu choisis' },
+                          { value: 'auto', icon: 'bolt', label: 'Automatique', desc: 'Publiée dès la fin du rendu, sans délai' },
+                        ]}
+                      />
                       {newChannel.publish_mode === 'scheduled' && (
                         <div className="mt-3 flex items-center gap-3">
                           <div>
