@@ -5837,7 +5837,7 @@ export default function App() {
                   Tu dors.<br /><span className="text-transparent bg-clip-text bg-gradient-to-r from-[#67e1ff] via-[#22bfff] to-[#8484ff]">NicheCut travaille.</span>
                 </h1>
                 <p className="mt-7 max-w-xl text-base xl:text-lg leading-8 text-slate-400">
-                  Configure le style de ta chaîne une fois. L’Agent trouve les idées, écrit, monte et publie sur YouTube sans que tu lèves le petit doigt.
+                  Configure le style de ta chaîne une fois. L’Agent crée et publie des vidéos originales, authentiques et pensées pour respecter les règles de la communauté YouTube.
                 </p>
                 <div className="mt-9 grid sm:grid-cols-3 gap-3 max-w-2xl">
                   {[
