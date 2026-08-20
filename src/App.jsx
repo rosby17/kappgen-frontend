@@ -540,20 +540,77 @@ function writeVoiceIdList(key, ids) {
   try { localStorage.setItem(key, JSON.stringify(ids)); } catch { /* ignore quota/private mode */ }
 }
 
-function VoiceAvatar({ voice, size = 40 }) {
+// Raw Izivoice catalog items are passed through as-is by the backend, so
+// their exact schema isn't fixed — this keeps the fields the picker actually
+// filters/sorts on (language, gender, accent, usage) alongside the flattened
+// `desc` line, and best-effort tags entries the account itself cloned.
+function mapCatalogVoice(v) {
+  return {
+    id: v.voice_id,
+    name: v.name || v.voice_id,
+    language: v.language || null,
+    gender: v.gender || null,
+    accent: v.accent || null,
+    usage: v.usage_character_count_1y || v.usage_count || 0,
+    desc: [v.language, v.gender, v.accent].filter(Boolean).join(' · ') || 'Voix Izivoice',
+    preview_url: v.preview_url || v.languages?.find(item => item.preview_url)?.preview_url || null,
+    cloned: v.category === 'cloned' || v.type === 'cloned' || v.source === 'clone' || v.is_cloned === true || v.cloned === true || undefined,
+  };
+}
+
+// A single, module-level "now playing" preview — starting a new preview
+// anywhere in the app (library modal, studio picker, ...) stops whichever
+// one was already playing, à la claimGlobalAudioPlayback() in Easy Voice.
+let __voicePreviewAudio = null;
+let __voicePreviewOnStop = null;
+function playVoicePreviewExclusive(url, onStop) {
+  if (__voicePreviewAudio) {
+    __voicePreviewAudio.pause();
+    __voicePreviewOnStop?.();
+  }
+  const audio = new Audio(url);
+  __voicePreviewAudio = audio;
+  __voicePreviewOnStop = onStop;
+  audio.onended = () => {
+    onStop();
+    if (__voicePreviewAudio === audio) { __voicePreviewAudio = null; __voicePreviewOnStop = null; }
+  };
+  audio.play().catch(() => {});
+  return audio;
+}
+function stopVoicePreview() {
+  __voicePreviewAudio?.pause();
+  __voicePreviewOnStop?.();
+  __voicePreviewAudio = null;
+  __voicePreviewOnStop = null;
+}
+
+function VoiceAvatar({ voice, size = 40, playable = false, playing = false, onTogglePlay }) {
   const seed = voice?.id || voice?.name || 'voice';
   return (
-    <img
-      src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(seed)}&backgroundColor=1b2230,11151c`}
-      alt=""
-      className="rounded-full object-cover bg-[#1b2230] shrink-0"
+    <div
+      className={`group relative shrink-0 rounded-full overflow-hidden bg-[#1b2230] ${playable ? 'cursor-pointer' : ''}`}
       style={{ width: size, height: size }}
-      loading="lazy"
-    />
+      onClick={playable ? (e) => { e.stopPropagation(); onTogglePlay(); } : undefined}
+      title={playable ? (playing ? 'Mettre en pause' : 'Écouter un extrait') : undefined}
+    >
+      <img
+        src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(seed)}&backgroundColor=1b2230,11151c`}
+        alt=""
+        className="w-full h-full object-cover"
+        loading="lazy"
+      />
+      {playable && (
+        <div className={`absolute inset-0 flex items-center justify-center bg-black/55 transition-opacity ${playing ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
+          <span className="material-symbols-outlined text-white" style={{ fontSize: Math.max(14, size * 0.4) }}>{playing ? 'pause' : 'play_arrow'}</span>
+        </div>
+      )}
+    </div>
   );
 }
 
 function VoiceCard({ voice, active, saved, playingId, onSelect, onToggleSave, onPlayPreview }) {
+  const playing = playingId === voice.id;
   return (
     <div
       onClick={() => onSelect(voice)}
@@ -561,7 +618,13 @@ function VoiceCard({ voice, active, saved, playingId, onSelect, onToggleSave, on
         active ? 'bg-[#00c2ff]/10 border-[#00c2ff]' : 'bg-[#1b2230] border-[#2b374d] hover:border-slate-500'
       }`}
     >
-      <VoiceAvatar voice={voice} size={40} />
+      <VoiceAvatar
+        voice={voice}
+        size={44}
+        playable={!!voice.preview_url}
+        playing={playing}
+        onTogglePlay={() => onPlayPreview(voice)}
+      />
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5">
           <span className="text-xs font-bold text-white truncate">{voice.name}</span>
@@ -571,58 +634,64 @@ function VoiceCard({ voice, active, saved, playingId, onSelect, onToggleSave, on
         </div>
         <p className="text-[10px] text-slate-500 truncate">{voice.desc || 'Voix'}</p>
       </div>
-      {voice.preview_url && (
-        <button
-          type="button"
-          onClick={(e) => { e.stopPropagation(); onPlayPreview(voice); }}
-          className="shrink-0 w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center"
-          title="Écouter un extrait"
-        >
-          <span className="material-symbols-outlined text-[16px]">{playingId === voice.id ? 'pause' : 'play_arrow'}</span>
-        </button>
-      )}
       <button
         type="button"
         onClick={(e) => { e.stopPropagation(); onToggleSave(voice); }}
         className="shrink-0 w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center"
         title={saved ? 'Retirer des enregistrées' : 'Enregistrer cette voix'}
       >
-        <span className={`material-symbols-outlined text-[16px] ${saved ? 'text-[#00c2ff]' : 'text-slate-400'}`}>{saved ? 'bookmark' : 'bookmark_border'}</span>
+        <span
+          className={`material-symbols-outlined text-[16px] ${saved ? 'text-[#00c2ff]' : 'text-slate-400'}`}
+          style={{ fontVariationSettings: saved ? "'FILL' 1" : "'FILL' 0" }}
+        >bookmark</span>
       </button>
       {active && <span className="material-symbols-outlined text-[16px] text-[#00c2ff] shrink-0">check_circle</span>}
     </div>
   );
 }
 
+function VoiceLibrarySelect({ label, value, onChange, options }) {
+  return (
+    <select
+      value={value}
+      onChange={e => onChange(e.target.value)}
+      className="bg-[#1b2230] border border-[#2b374d] rounded-lg px-2.5 py-1.5 text-[11px] text-white focus:border-[#00c2ff] outline-none"
+    >
+      <option value="">{label}</option>
+      {options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+    </select>
+  );
+}
+
 function VoiceLibraryModal({
-  voices, defaultVoices, selectedId, savedIds, clonedIds,
+  voices, selectedId, savedIds, clonedIds,
   searchQuery, onSearchChange, searching,
-  onSelect, onToggleSave, onClose, onOpenCloner, cloningEnabled
+  onSelect, onToggleSave, onClose, onOpenCloner, cloningEnabled,
+  onLoadMore, loadingMore, hasMore
 }) {
   const [tab, setTab] = useState('library');
   const [playingId, setPlayingId] = useState(null);
-  const audioRef = useRef(null);
+  const [filterLanguage, setFilterLanguage] = useState('');
+  const [filterGender, setFilterGender] = useState('');
+  const [filterAccent, setFilterAccent] = useState('');
+  const [sortBy, setSortBy] = useState('recommended');
 
   useEffect(() => {
     document.body.style.overflow = 'hidden';
     return () => {
       document.body.style.overflow = '';
-      audioRef.current?.pause();
+      stopVoicePreview();
     };
   }, []);
 
   const handlePlayPreview = (voice) => {
     if (!voice.preview_url) return;
     if (playingId === voice.id) {
-      audioRef.current?.pause();
+      stopVoicePreview();
       setPlayingId(null);
       return;
     }
-    audioRef.current?.pause();
-    const a = new Audio(voice.preview_url);
-    audioRef.current = a;
-    a.onended = () => setPlayingId(null);
-    a.play().catch(() => {});
+    playVoicePreviewExclusive(voice.preview_url, () => setPlayingId(null));
     setPlayingId(voice.id);
   };
 
@@ -630,12 +699,32 @@ function VoiceLibraryModal({
     { id: 'library', label: 'Bibliothèque' },
     { id: 'cloned', label: 'Mes voix clonées' },
     { id: 'saved', label: 'Enregistrées' },
-    { id: 'default', label: 'Voix par défaut' },
   ];
-  const list = tab === 'library' ? voices
-    : tab === 'cloned' ? voices.filter(v => clonedIds.includes(v.id))
-    : tab === 'saved' ? voices.filter(v => savedIds.includes(v.id))
-    : defaultVoices;
+  const baseList = tab === 'library' ? voices
+    : tab === 'cloned' ? voices.filter(v => clonedIds.includes(v.id) || v.cloned)
+    : voices.filter(v => savedIds.includes(v.id));
+
+  const { languages, genders, accents } = useMemo(() => {
+    const langs = new Set(), gens = new Set(), accs = new Set();
+    voices.forEach(v => {
+      if (v.language) langs.add(v.language);
+      if (v.gender) gens.add(v.gender);
+      if (v.accent) accs.add(v.accent);
+    });
+    return { languages: [...langs].sort(), genders: [...gens].sort(), accents: [...accs].sort() };
+  }, [voices]);
+
+  const list = useMemo(() => {
+    let arr = baseList;
+    if (tab === 'library') {
+      if (filterLanguage) arr = arr.filter(v => v.language === filterLanguage);
+      if (filterGender) arr = arr.filter(v => v.gender === filterGender);
+      if (filterAccent) arr = arr.filter(v => v.accent === filterAccent);
+      if (sortBy === 'name_asc') arr = [...arr].sort((a, b) => a.name.localeCompare(b.name));
+      else if (sortBy === 'popular') arr = [...arr].sort((a, b) => (b.usage || 0) - (a.usage || 0));
+    }
+    return arr;
+  }, [baseList, tab, filterLanguage, filterGender, filterAccent, sortBy]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm" onClick={onClose}>
@@ -683,7 +772,7 @@ function VoiceLibraryModal({
         </div>
 
         {tab === 'library' && (
-          <div className="px-5 pt-3">
+          <div className="px-5 pt-3 space-y-2">
             <div className="relative">
               <span className="material-symbols-outlined text-[16px] text-slate-500 absolute left-3 top-1/2 -translate-y-1/2">search</span>
               <input
@@ -693,6 +782,30 @@ function VoiceLibraryModal({
                 className="w-full bg-[#1b2230] border border-[#2b374d] rounded-lg pl-9 pr-9 py-2 text-xs text-white focus:border-[#00c2ff] outline-none"
               />
               {searching && <span className="material-symbols-outlined text-[14px] text-slate-500 absolute right-3 top-1/2 -translate-y-1/2 animate-spin">progress_activity</span>}
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <VoiceLibrarySelect label="Langue" value={filterLanguage} onChange={setFilterLanguage} options={languages} />
+              <VoiceLibrarySelect label="Genre" value={filterGender} onChange={setFilterGender} options={genders} />
+              <VoiceLibrarySelect label="Accent" value={filterAccent} onChange={setFilterAccent} options={accents} />
+              <select
+                value={sortBy}
+                onChange={e => setSortBy(e.target.value)}
+                className="bg-[#1b2230] border border-[#2b374d] rounded-lg px-2.5 py-1.5 text-[11px] text-white focus:border-[#00c2ff] outline-none ml-auto"
+              >
+                <option value="recommended">Tri : Recommandé</option>
+                <option value="popular">Tri : Popularité</option>
+                <option value="name_asc">Tri : Nom (A-Z)</option>
+              </select>
+              {(filterLanguage || filterGender || filterAccent) && (
+                <button
+                  type="button"
+                  onClick={() => { setFilterLanguage(''); setFilterGender(''); setFilterAccent(''); }}
+                  className="text-[10px] font-bold text-slate-500 hover:text-white"
+                >
+                  Réinitialiser
+                </button>
+              )}
+              <span className="text-[10px] text-slate-500 shrink-0">{list.length} voix</span>
             </div>
           </div>
         )}
@@ -706,18 +819,31 @@ function VoiceLibraryModal({
               </p>
             </div>
           ) : (
-            list.map(v => (
-              <VoiceCard
-                key={v.id}
-                voice={v}
-                active={selectedId === v.id}
-                saved={savedIds.includes(v.id)}
-                playingId={playingId}
-                onSelect={(voice) => { onSelect(voice); onClose(); }}
-                onToggleSave={onToggleSave}
-                onPlayPreview={handlePlayPreview}
-              />
-            ))
+            <>
+              {list.map(v => (
+                <VoiceCard
+                  key={v.id}
+                  voice={v}
+                  active={selectedId === v.id}
+                  saved={savedIds.includes(v.id)}
+                  playingId={playingId}
+                  onSelect={(voice) => { onSelect(voice); onClose(); }}
+                  onToggleSave={onToggleSave}
+                  onPlayPreview={handlePlayPreview}
+                />
+              ))}
+              {tab === 'library' && !searchQuery.trim() && hasMore && (
+                <button
+                  type="button"
+                  onClick={onLoadMore}
+                  disabled={loadingMore}
+                  className="w-full py-2.5 rounded-xl border border-[#2b374d] text-slate-300 text-[11px] font-bold hover:border-[#00c2ff] disabled:opacity-50 flex items-center justify-center gap-1.5"
+                >
+                  {loadingMore && <span className="material-symbols-outlined text-[14px] animate-spin">progress_activity</span>}
+                  {loadingMore ? 'Chargement…' : 'Charger plus de voix'}
+                </button>
+              )}
+            </>
           )}
         </div>
       </div>
@@ -1874,6 +2000,30 @@ export default function App() {
       showToast(err.message, "error");
     }
   };
+  const [detectingNiche, setDetectingNiche] = useState(false);
+  const handleDetectNiche = async () => {
+    setDetectingNiche(true);
+    try {
+      const res = await fetch(`${API_BASE}/channels/suggest-niche`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newChannel.name, description: newChannel.description }),
+      });
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      if (data.niche) {
+        setNewChannel(prev => ({ ...prev, niche: data.niche }));
+        showToast(`Niche détectée : ${data.niche}`, 'success');
+      } else {
+        showToast("Pas assez d'informations pour détecter une niche — précise la description.", 'error');
+      }
+    } catch {
+      showToast('Détection de niche impossible.', 'error');
+    } finally {
+      setDetectingNiche(false);
+    }
+  };
+
   const styleReferenceInputRef = useRef(null);
 
   const handleAnalyzeStyleImage = async (e) => {
@@ -1968,6 +2118,7 @@ export default function App() {
 
   const defaultChannelForm = {
     name: '',
+    description: '',
     niche: 'Philosophie & Stoïcisme',
     subtitle_style: {
       enabled: true,
@@ -2724,6 +2875,7 @@ export default function App() {
       // but fall back here too so a channel that predates that sync doesn't
       // make the creator re-type a name YouTube already gave us.
       name: channel.name || channel.youtube_channel_title || '',
+      description: channel.description || '',
       niche: channel.niche || 'Philosophie & Stoïcisme',
       subtitle_style: { ...defaultChannelForm.subtitle_style, ...(channel.subtitle_style || {}) },
       branding: { ...defaultChannelForm.branding, ...(channel.branding || {}) },
@@ -3277,15 +3429,12 @@ export default function App() {
     fetch(`${API_BASE}/channels/voice/catalog${ownerQuery}`)
       .then(res => res.ok ? res.json() : Promise.reject())
       .then(data => {
-        const voices = (data.voices || []).map(v => ({
-          id: v.voice_id,
-          name: v.name || v.voice_id,
-          desc: [v.language, v.gender, v.accent].filter(Boolean).join(' · ') || 'Voix Izivoice',
-          preview_url: v.preview_url || v.languages?.find(item => item.preview_url)?.preview_url || null,
-        }));
+        const voices = (data.voices || []).map(mapCatalogVoice);
         if (voices.length) {
           defaultVoicesRef.current = voices;
           setAvailableVoices(voices);
+          setCatalogHasMore(Boolean(data.has_more));
+          setCatalogNextPage(data.next_page ?? 10);
           const preferred = inWizard ? newChannel.voice_id : activeChannel?.voice_id;
           if (preferred && voices.some(v => v.id === preferred)) setSelectedVoice(preferred);
           else if (!voices.some(v => v.id === selectedVoice)) setSelectedVoice(voices[0].id);
@@ -3293,6 +3442,30 @@ export default function App() {
       })
       .catch(() => {});
   }, [showSubmitModal, submitMode, view, currentUser?.id, activeChannel?.voice_id, studioVideo?.id]);
+
+  const loadMoreVoices = async () => {
+    if (loadingMoreVoices || !catalogHasMore) return;
+    setLoadingMoreVoices(true);
+    try {
+      const ownerQuery = currentUser ? `&user_id=${encodeURIComponent(currentUser.id)}` : '';
+      const res = await fetch(`${API_BASE}/channels/voice/catalog?page=${catalogNextPage}&${ownerQuery.slice(1)}`);
+      const data = await res.json().catch(() => ({}));
+      const newVoices = (data.voices || []).map(mapCatalogVoice);
+      if (newVoices.length) {
+        setAvailableVoices(prev => {
+          const merged = [...prev, ...newVoices.filter(v => !prev.some(p => p.id === v.id))];
+          defaultVoicesRef.current = merged;
+          return merged;
+        });
+      }
+      setCatalogHasMore(Boolean(data.has_more));
+      setCatalogNextPage(catalogNextPage + 1);
+    } catch {
+      showToast('Impossible de charger plus de voix.', 'error');
+    } finally {
+      setLoadingMoreVoices(false);
+    }
+  };
 
   // Izivoice's catalog holds 11 000+ voices — the default fetch above only
   // covers the first ~1000, so a name/accent/language typed here that isn't
@@ -5370,6 +5543,29 @@ export default function App() {
                           placeholder="Ex: Stoic Mind Daily"
                         />
                       </div>
+                    </div>
+
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <label className="text-xs font-bold text-slate-300">Description de la chaîne</label>
+                        <button
+                          type="button"
+                          disabled={detectingNiche || (!newChannel.name.trim() && !newChannel.description.trim())}
+                          onClick={handleDetectNiche}
+                          className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold bg-[#00c2ff]/10 text-[#00c2ff] hover:bg-[#00c2ff]/20 transition-colors disabled:opacity-50"
+                        >
+                          <span className="material-symbols-outlined text-[13px]">{detectingNiche ? 'hourglass_top' : 'travel_explore'}</span>
+                          {detectingNiche ? 'Détection...' : 'Détecter la niche'}
+                        </button>
+                      </div>
+                      <textarea
+                        rows="2"
+                        value={newChannel.description}
+                        onChange={e => setNewChannel({ ...newChannel, description: e.target.value })}
+                        className="w-full bg-[#1b2230] border border-[#2b374d] rounded-xl px-4 py-3 text-xs text-white focus:border-[#00c2ff] outline-none placeholder-slate-500"
+                        placeholder="De quoi parle ta chaîne ? (sujets, ton, public visé...) — aide à détecter la niche et donne du contexte à l'Agent pour l'écriture automatique."
+                      />
+                      <p className="text-[10px] text-slate-500 mt-1.5">Se remplit automatiquement depuis la description YouTube si tu connectes la chaîne, tant que tu n'as pas déjà écrit la tienne.</p>
                     </div>
 
                     <div>
@@ -8013,7 +8209,6 @@ export default function App() {
       {showVoiceLibrary && (
         <VoiceLibraryModal
           voices={availableVoices}
-          defaultVoices={VOICE_MODELS}
           selectedId={newChannel.voice_id || selectedVoice}
           savedIds={savedVoiceIds}
           clonedIds={clonedVoiceIds}
