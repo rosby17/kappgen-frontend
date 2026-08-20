@@ -127,6 +127,14 @@ const getVideoUrl = (path) => {
   return `${STORAGE_BASE}/${cleanPath}`;
 };
 
+// The AI-generated thumbnail (thumbnail.jpg) always sits next to output.mp4
+// in the same render folder — used as the video card's poster so what the
+// creator sees here matches exactly what gets uploaded to YouTube.
+const getVideoThumbnailUrl = (vid) => {
+  if (!vid?.output_path) return null;
+  return getVideoUrl(vid.output_path.replace(/[^/]+$/, 'thumbnail.jpg')) + `?v=${vid.finished_at || ''}`;
+};
+
 // Preset Subtitle Styles
 const SUBTITLE_PRESETS = [
   {
@@ -3537,10 +3545,10 @@ export default function App() {
                               )}
                             </div>
                             <div className="flex items-center justify-between text-xs pt-2 border-t border-[#202938]">
-                              <span className={`px-2.5 py-1 rounded-lg font-bold text-[11px] uppercase ${statusInfo.className}`}>
+                              <span className={`px-2.5 py-1 rounded-lg font-bold text-[11px] ${statusInfo.className}`}>
                                 {statusInfo.label}
                               </span>
-                              <span className="text-slate-400 font-mono">{chan.done_count || 0} vidéos prêtes</span>
+                              <span className="text-slate-400">{chan.done_count || 0} vidéos prêtes</span>
                             </div>
                           </div>
                         );
@@ -3645,7 +3653,7 @@ export default function App() {
 
                           {/* Status Tag */}
                           <div className="mt-4">
-                            <span className={`inline-block px-3 py-1 rounded-lg text-[11px] font-mono font-bold uppercase tracking-wider ${statusInfo.className}`}>
+                            <span className={`inline-block px-3 py-1 rounded-lg text-[11px] font-bold ${statusInfo.className}`}>
                               {statusInfo.label}
                             </span>
                           </div>
@@ -3832,6 +3840,7 @@ export default function App() {
                                 <>
                                   <video
                                     src={getVideoUrl(vid.output_path)}
+                                    poster={getVideoThumbnailUrl(vid)}
                                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                                     preload="metadata"
                                   />
@@ -4039,7 +4048,11 @@ export default function App() {
                 <section className="relative overflow-hidden bg-gradient-to-br from-[#171d27] via-[#141a23] to-[#10151d] border border-[#293446] rounded-3xl p-5 sm:p-6 shadow-[0_24px_70px_rgba(0,0,0,.22)]">
                   <div className="absolute -top-24 -left-16 w-72 h-72 rounded-full bg-[#00c2ff]/[.055] blur-3xl pointer-events-none" />
                   <div className="relative flex flex-col xl:flex-row xl:items-center justify-between gap-6">
-                  <div className="flex items-center gap-4 sm:gap-5 min-w-0">
+                  <div
+                    onClick={(e) => openEditWizard(activeChannel, e)}
+                    title="Modifier la configuration de la chaîne"
+                    className="flex items-center gap-4 sm:gap-5 min-w-0 cursor-pointer -m-2 p-2 rounded-2xl hover:bg-white/[.03] transition-colors"
+                  >
                     <div className="relative flex-shrink-0">
                       <div className="absolute -inset-1 rounded-[22px] bg-gradient-to-br from-[#36d5ff]/35 to-[#6b7dff]/10 blur-sm" />
                       <div className="relative">
@@ -4063,7 +4076,8 @@ export default function App() {
                       {activeChannel.youtube_connected ? (
                         <div className="inline-flex items-center gap-1.5 mt-2.5">
                           <button
-                            onClick={async () => {
+                            onClick={async (e) => {
+                              e.stopPropagation();
                               const ok = await askConfirm(`Déconnecter la chaîne YouTube "${activeChannel.youtube_channel_title || ''}" ? La publication automatique s'arrêtera.`, { title: 'Déconnecter YouTube', danger: true });
                               if (!ok) return;
                               try {
@@ -4112,7 +4126,8 @@ export default function App() {
                         </div>
                       ) : (
                         <button
-                          onClick={async () => {
+                          onClick={async (e) => {
+                            e.stopPropagation();
                             try {
                               const res = await fetch(`${API_BASE}/channels/${activeChannel.id}/youtube/auth-url`);
                               if (!res.ok) {
@@ -4278,6 +4293,7 @@ export default function App() {
                               <>
                                 <video
                                   src={getVideoUrl(vid.output_path)}
+                                  poster={getVideoThumbnailUrl(vid)}
                                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                                   preload="metadata"
                                 />
