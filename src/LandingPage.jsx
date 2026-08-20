@@ -5,6 +5,7 @@ import {
   WandSparkles, X, Zap
 } from 'lucide-react';
 import './landing.css';
+import freedomSunrise from './assets/dashboard/freedom-sunrise.png';
 
 const APP_ORIGIN = import.meta.env.VITE_APP_ORIGIN || 'https://appnichecut.tools-cl.com';
 const isLocal = typeof window !== 'undefined' && ['localhost', '127.0.0.1'].includes(window.location.hostname);
@@ -61,35 +62,23 @@ function ProductPreview() {
         </div>
         <div className="preview-body">
           <aside className="preview-sidebar">
-            <img src="/assets/logo/logo-nichecut.png" alt="" />
-            <div className="preview-nav active"><Layers3 size={15} /> Vue d’ensemble</div>
+            <div className="preview-brand"><img src="/assets/logo/logo-nichecut.png" alt="" /><span><b>NicheCut</b><small>Video Automation</small></span></div>
+            <div className="preview-nav active"><Layers3 size={15} /> Home</div>
             <div className="preview-nav"><CirclePlay size={15} /> Mes chaînes</div>
             <div className="preview-nav"><Clapperboard size={15} /> Mes vidéos</div>
           </aside>
           <div className="preview-content">
-            <div className="preview-heading">
-              <div><small>AGENT NICHECUT</small><strong>Ton pilote automatique est actif</strong></div>
-              <button><Sparkles size={13} /> Agent en ligne</button>
+            <div className="preview-current-heading">
+              <small>TON ESPACE NICHECUT</small>
+              <strong>Sors des écrans. NicheCut reste au travail.</strong>
             </div>
-            <div className="metric-grid">
-              <div><span>Chaînes automatisées</span><b>03</b><em>Toutes actives</em></div>
-              <div><span>Vidéos publiées</span><b>28</b><em>100 % autonomes</em></div>
-              <div><span>Temps récupéré</span><b>46h</b><em>Ce mois-ci</em></div>
+            <div className="preview-freedom-card">
+              <img src={freedomSunrise} alt="" />
+              <div><strong>Tu vis. NicheCut travaille.</strong><span>Ta chaîne continue pendant que tu profites de ton temps.</span><button>Voir mes chaînes</button></div>
             </div>
-            <div className="preview-panel">
-              <div className="panel-title"><strong>Activité autonome de l’Agent</strong><span>Voir tout <ChevronRight size={13} /></span></div>
-              {[
-                ['Rivière de Grâce', 'Le secret des bâtisseurs...', 'Publiée', '100%'],
-                ['Sagesse Stoïcienne', '7 règles pour rester calme', 'Montage', '68%'],
-                ['Histoires du Monde', 'La cité oubliée du désert', 'Script', '24%'],
-              ].map(([channel, title, status, progress]) => (
-                <div className="preview-row" key={title}>
-                  <div className="thumb"><Play size={13} fill="currentColor" /></div>
-                  <div className="row-copy"><b>{title}</b><span>{channel}</span></div>
-                  <div className="row-progress"><i style={{ width: progress }} /></div>
-                  <span className={`status ${status === 'Publiée' ? 'ready' : ''}`}>{status}</span>
-                </div>
-              ))}
+            <div className="preview-channels-current">
+              <strong>Aperçu des chaînes</strong>
+              <div className="preview-channel-card"><i>R</i><span><b>Rivière de Grâce</b><small>Prière</small></span><em>PRÊTE</em><small>2 vidéos prêtes</small></div>
             </div>
           </div>
         </div>
@@ -127,8 +116,8 @@ export default function LandingPage() {
             <h1>Sors des écrans.<br /><span>NicheCut reste au travail.</span></h1>
             <p>Tu vis, tu voyages, tu dors. L’Agent imagine, crée et publie des vidéos originales dans le style de ta chaîne, avec les réalités du terrain YouTube intégrées à chaque étape.</p>
             <div className="hero-actions">
-              <a className="button button-primary" href={appUrl('/signup')}>Automatiser ma chaîne <ArrowRight size={18} /></a>
-              <a className="button button-ghost" href="#fonctionnement"><Play size={17} fill="currentColor" /> Découvrir l’Agent</a>
+              <a className="button button-primary" href={appUrl('/signup')}>Sors des écrans <ArrowRight size={18} /></a>
+              <a className="button button-ghost" href="#fonctionnement"><Play size={17} fill="currentColor" /> Voir comment gagner du temps</a>
             </div>
             <div className="hero-trust"><span><Check size={15} /> De l’idée à la publication</span><span><Check size={15} /> Zéro montage manuel</span><span><Check size={15} /> Agent actif 24 h/24</span></div>
           </div>
@@ -179,7 +168,7 @@ export default function LandingPage() {
           ['Où se trouve l’application ?', `L’espace de production est séparé de ce site et accessible sur ${APP_ORIGIN.replace('https://', '')}.`],
         ].map(([q, a]) => <details key={q}><summary>{q}<span>+</span></summary><p>{a}</p></details>)}</div></section>
 
-        <section className="final-cta"><div className="cta-icon"><WandSparkles /></div><h2>Tu vis. NicheCut travaille.</h2><p>Configure ton univers une fois, puis récupère le temps que la création te prenait.</p><a className="button button-primary" href={appUrl('/signup')}>Je reprends mon temps <ArrowRight size={18} /></a></section>
+        <section className="final-cta"><div className="cta-icon"><WandSparkles /></div><h2>Tu vis. NicheCut travaille.</h2><p>La création de contenu t’absorbe, t’enferme un peu plus chaque jour. Reprends le contrôle de ton temps — sans sacrifier un centime des revenus que tu as bâtis.</p><a className="button button-primary" href={appUrl('/signup')}>Je reprends mon temps <ArrowRight size={18} /></a></section>
       </main>
 
       <footer className="landing-footer"><a className="brand" href="#accueil"><img src="/assets/logo/logo-nichecut.png" alt="" /><span>NicheCut</span></a><p>L’Agent autonome qui gère ta chaîne YouTube de l’idée à la publication.</p><div><a href="#fonctionnalites">Fonctionnalités</a><a href="#faq">FAQ</a><a href={appUrl('/login')}>Connexion</a></div><span>© {new Date().getFullYear()} NicheCut. Tous droits réservés.</span></footer>
