@@ -4815,6 +4815,35 @@ export default function App() {
               />
             </div>
 
+            {/* Quick theme toggle — flips light/dark directly; 'auto' (follow OS)
+                stays a Paramètres-only choice since a two-state icon button can't
+                represent three states cleanly. */}
+            <button
+              onClick={() => setThemePreference(resolveEffectiveTheme(themePreference) === 'dark' ? 'light' : 'dark')}
+              title={resolveEffectiveTheme(themePreference) === 'dark' ? 'Passer en thème clair' : 'Passer en thème sombre'}
+              className="w-9 h-9 rounded-full flex items-center justify-center text-slate-400 hover:text-white bg-[var(--bg-surface-alt)] border border-[var(--border)] hover:border-[#00c2ff]/50 transition-colors flex-shrink-0"
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>
+                {resolveEffectiveTheme(themePreference) === 'dark' ? 'light_mode' : 'dark_mode'}
+              </span>
+            </button>
+
+            {/* Admin shortcut — only ever visible to admins; the route itself is
+                already gated server-side regardless. */}
+            {currentUser?.is_admin && (
+              <button
+                onClick={() => setView('admin')}
+                title="Administration"
+                className={`w-9 h-9 rounded-full flex items-center justify-center transition-colors flex-shrink-0 border ${
+                  view === 'admin'
+                    ? 'bg-[#00c2ff]/10 text-[#00c2ff] border-[#00c2ff]/50'
+                    : 'text-slate-400 hover:text-white bg-[var(--bg-surface-alt)] border-[var(--border)] hover:border-[#00c2ff]/50'
+                }`}
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>shield_person</span>
+              </button>
+            )}
+
             {/* Profile widget — top right */}
             {currentUser ? (
               <div ref={profileMenuRef} className="relative flex-shrink-0">
