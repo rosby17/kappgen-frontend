@@ -2025,7 +2025,16 @@ export default function App() {
     const token = localStorage.getItem("nichecut_token");
     const headers = { ...(options.headers || {}) };
     if (token) headers['Authorization'] = `Bearer ${token}`;
-    return fetch(url, { ...options, headers });
+    return fetch(url, { ...options, headers }).then(res => {
+      // A missing/expired/invalid token (session token lifetime is 30 days)
+      // means every authenticated call fails the same way forever until the
+      // person re-logs-in — bounce them to the login screen automatically
+      // instead of leaving every screen stuck on a generic loading error.
+      if (res.status === 401 && localStorage.getItem("nichecut_user")) {
+        handleLogout();
+      }
+      return res;
+    });
   };
 
   const storeAuthSession = (loggedUser, token) => {
@@ -2482,6 +2491,7 @@ export default function App() {
       case 'channel_detail': return activeChannel ? `/channels/${slugifyChannelName(activeChannel.name)}` : '/channels';
       case 'wizard': return wizardMode === 'edit' && editingChannel ? `/channels/${slugifyChannelName(editingChannel.name)}/edit` : '/channels/new';
       case 'settings': return '/settings';
+      case 'admin': return '/admin';
       case 'home':
       default: return '/dashboard';
     }
@@ -2515,6 +2525,7 @@ export default function App() {
     if (path === '/channels') { setView('channels'); return; }
     if (path === '/videos') { setView('videos'); return; }
     if (path === '/settings') { setView('settings'); return; }
+    if (path === '/admin') { setView('admin'); return; }
     if (path === '/channels/new') {
       // Guard against re-running on every `channels` refetch — only (re)reset the
       // form the first time we land here, not on every poll while the user is
@@ -2786,6 +2797,18 @@ export default function App() {
     setAuthTab('login');
     setShowAuthModal(true);
   };
+
+  // Sessions saved before the backend started requiring a bearer token have
+  // a currentUser but no nichecut_token — every authFetch call for them now
+  // gets a silent 401, which just looked like "Chargement impossible"
+  // forever with no way out. Force those sessions back to the login screen
+  // once, so re-authenticating (which does issue a token) is the obvious
+  // next step instead of a dead end.
+  useEffect(() => {
+    if (currentUser && !authToken) {
+      handleLogout();
+    }
+  }, []);
 
   useEffect(() => {
     if (view === 'settings' && currentUser) {
