@@ -528,7 +528,7 @@ const VOICE_MODELS = [
 ];
 
 // Custom video player styled to match the app's dark/cyan design, replacing native browser controls.
-function VideoPlayer({ src, autoPlay, className }) {
+function VideoPlayer({ src, autoPlay, className, onTimeUpdate, seekTo, onPlayingChange }) {
   const videoRef = useRef(null);
   // Always starts false, even with autoPlay — the browser can silently block
   // autoplay, and onPlay (below) is what actually confirms playback started.
@@ -587,6 +587,19 @@ function VideoPlayer({ src, autoPlay, className }) {
     return `${m}:${s.toString().padStart(2, '0')}`;
   };
 
+  // External seek requests (e.g. clicking a scene in a timeline) — only acts
+  // when seekTo actually changes, so it doesn't fight the user's own scrubbing.
+  useEffect(() => {
+    if (seekTo == null) return;
+    const v = videoRef.current;
+    if (!v) return;
+    v.currentTime = Math.max(0, Number(seekTo) || 0);
+    setCurrentTime(v.currentTime);
+    if (duration) setProgress((v.currentTime / duration) * 100);
+  }, [seekTo]);
+
+  useEffect(() => { onPlayingChange?.(isPlaying); }, [isPlaying]);
+
   return (
     <div className={`relative bg-black ${className || ''}`} onClick={(e) => e.stopPropagation()}>
       <video
@@ -594,7 +607,7 @@ function VideoPlayer({ src, autoPlay, className }) {
         src={src}
         autoPlay={autoPlay}
         onClick={togglePlay}
-        onTimeUpdate={(e) => { setCurrentTime(e.target.currentTime); setProgress(e.target.duration ? (e.target.currentTime / e.target.duration) * 100 : 0); }}
+        onTimeUpdate={(e) => { setCurrentTime(e.target.currentTime); setProgress(e.target.duration ? (e.target.currentTime / e.target.duration) * 100 : 0); onTimeUpdate?.(e.target.currentTime); }}
         onLoadedMetadata={(e) => setDuration(e.target.duration)}
         onPlay={() => setIsPlaying(true)}
         onPause={() => setIsPlaying(false)}
@@ -1537,6 +1550,52 @@ export default function App() {
       setStyleAnalyzing(false);
     }
   };
+  const thumbnailStyleInputRef = useRef(null);
+  const [thumbnailStyleAnalyzing, setThumbnailStyleAnalyzing] = useState(false);
+
+  const handleUploadThumbnailStyle = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    if (!editingChannelId) {
+      showToast("Enregistre d'abord la chaîne avant d'ajouter une image de référence de miniature.", "error");
+      return;
+    }
+    setThumbnailStyleAnalyzing(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await fetch(`${API_BASE}/channels/${editingChannelId}/thumbnail-style`, { method: 'POST', body: formData });
+      if (!res.ok) {
+        const detail = await res.json().catch(() => ({}));
+        throw new Error(detail.detail || "Analyse impossible.");
+      }
+      const data = await res.json();
+      setNewChannel(prev => ({ ...prev, thumbnail_style: data.thumbnail_style }));
+      setChannels(prev => prev.map(c => c.id === data.id ? data : c));
+      showToast("Style de miniature analysé et enregistré.", "success");
+    } catch (err) {
+      showToast(err.message || "Erreur lors de l'analyse de l'image.", "error");
+    } finally {
+      setThumbnailStyleAnalyzing(false);
+    }
+  };
+
+  const handleRemoveThumbnailStyle = async () => {
+    if (!editingChannelId) return;
+    setThumbnailStyleAnalyzing(true);
+    try {
+      const res = await fetch(`${API_BASE}/channels/${editingChannelId}/thumbnail-style`, { method: 'DELETE' });
+      if (!res.ok) throw new Error("Suppression impossible.");
+      const data = await res.json();
+      setNewChannel(prev => ({ ...prev, thumbnail_style: null }));
+      setChannels(prev => prev.map(c => c.id === data.id ? data : c));
+    } catch (err) {
+      showToast(err.message, "error");
+    } finally {
+      setThumbnailStyleAnalyzing(false);
+    }
+  };
   const [editingChannelId, setEditingChannelId] = useState(null);
   const [logoFile, setLogoFile] = useState(null);
   const [logoPreviewUrl, setLogoPreviewUrl] = useState(null);
@@ -1602,6 +1661,7 @@ export default function App() {
       library_path: '',
       library_image_count: 0
     },
+    thumbnail_style: null,
     effects_config: {
       enabled: true,
       grain: true,
@@ -2297,6 +2357,7 @@ export default function App() {
       branding: { ...defaultChannelForm.branding, ...(channel.branding || {}) },
       music_preference: { ...defaultChannelForm.music_preference, ...(channel.music_preference || {}) },
       image_style: { ...defaultChannelForm.image_style, ...(channel.image_style || {}) },
+      thumbnail_style: channel.thumbnail_style || null,
       effects_config: {
         ...defaultChannelForm.effects_config,
         ...(channel.effects_config || {}),
@@ -2833,12 +2894,16 @@ export default function App() {
     }
   };
 
+  // Declared early — the voice-catalog effect just below needs it in its
+  // guard condition, before the rest of the Studio state block further down.
+  const [studioVideo, setStudioVideo] = useState(null);
+
   useEffect(() => {
     // Voice is a channel-level setting now — fetch the catalog whenever it's
     // actually needed: the submit modal (read-only reminder) or the wizard's
     // own voice section (where it's actually configured).
     const inWizard = view === 'wizard';
-    if ((!showSubmitModal || submitMode !== 'text') && !inWizard) return;
+    if ((!showSubmitModal || submitMode !== 'text') && !inWizard && !studioVideo) return;
     const ownerQuery = currentUser ? `?user_id=${encodeURIComponent(currentUser.id)}` : '';
     fetch(`${API_BASE}/channels/voice/catalog${ownerQuery}`)
       .then(res => res.ok ? res.json() : Promise.reject())
@@ -2857,7 +2922,7 @@ export default function App() {
         }
       })
       .catch(() => {});
-  }, [showSubmitModal, submitMode, view, currentUser?.id, activeChannel?.voice_id]);
+  }, [showSubmitModal, submitMode, view, currentUser?.id, activeChannel?.voice_id, studioVideo?.id]);
 
   useEffect(() => {
     if (view !== 'wizard' || !currentUser) return;
@@ -3089,7 +3154,6 @@ export default function App() {
 
   // NicheCut Studio — post-render editor: swap a bad scene image without
   // redoing TTS/pacing/image-gen for the whole video.
-  const [studioVideo, setStudioVideo] = useState(null);
   const [studioScenes, setStudioScenes] = useState([]);
   const [studioLoading, setStudioLoading] = useState(false);
   const [studioReplacingIndex, setStudioReplacingIndex] = useState(null);
@@ -3099,6 +3163,18 @@ export default function App() {
   const [studioSavingSubtitle, setStudioSavingSubtitle] = useState(false);
   const [studioRegeneratingAudio, setStudioRegeneratingAudio] = useState(false);
   const [studioConfirmRegen, setStudioConfirmRegen] = useState(false);
+  const [studioTitleDraft, setStudioTitleDraft] = useState('');
+  const [studioEditingTitle, setStudioEditingTitle] = useState(false);
+  const [studioSavingTitle, setStudioSavingTitle] = useState(false);
+  const [studioEditingFullScript, setStudioEditingFullScript] = useState(false);
+  const [studioFullScriptDraft, setStudioFullScriptDraft] = useState('');
+  const [studioSavingFullScript, setStudioSavingFullScript] = useState(false);
+  const [studioPlaybackTime, setStudioPlaybackTime] = useState(0);
+  const [studioIsPlaying, setStudioIsPlaying] = useState(false);
+  const [studioSeekTo, setStudioSeekTo] = useState(null);
+  const [studioVoiceMenuOpen, setStudioVoiceMenuOpen] = useState(false);
+  const [studioVoiceDraft, setStudioVoiceDraft] = useState(null);
+  const [studioRegeneratingVoice, setStudioRegeneratingVoice] = useState(false);
 
   const openStudio = async (vid) => {
     setStudioVideo(vid);
@@ -3106,10 +3182,20 @@ export default function App() {
     setStudioLoading(true);
     setStudioScenes([]);
     setStudioSelectedIndex(null);
+    setStudioTitleDraft(vid.title || '');
+    setStudioEditingTitle(false);
+    setStudioEditingFullScript(false);
+    setStudioPlaybackTime(0);
+    setStudioIsPlaying(false);
+    setStudioSeekTo(null);
+    setStudioVoiceMenuOpen(false);
+    setStudioVoiceDraft(vid.voice_id || null);
     try {
       const res = await fetch(`${API_BASE}/videos/${vid.id}/scenes`);
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || 'Scènes indisponibles');
-      setStudioScenes(await res.json());
+      const scenes = await res.json();
+      setStudioScenes(scenes);
+      if (Array.isArray(scenes)) setStudioFullScriptDraft(scenes.map(s => s.text || '').join('\n\n'));
     } catch (err) {
       console.error("Erreur chargement des scènes:", err);
       setStudioScenes(null); // null = "not editable", distinct from [] = "loaded, no scenes"
@@ -3122,6 +3208,96 @@ export default function App() {
     setStudioVideo(null);
     setStudioScenes([]);
     setStudioSelectedIndex(null);
+    setStudioEditingTitle(false);
+    setStudioEditingFullScript(false);
+  };
+
+  const saveStudioTitle = async () => {
+    if (!studioVideo || !studioTitleDraft.trim()) return;
+    setStudioSavingTitle(true);
+    try {
+      const res = await fetch(`${API_BASE}/videos/${studioVideo.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: studioTitleDraft.trim() }),
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || 'Échec de l’enregistrement du titre');
+      const updated = await res.json();
+      setStudioVideo(updated);
+      fetchAllVideos();
+      if (activeChannel) fetchChannelVideos(activeChannel.id);
+      showToast('Titre mis à jour.', 'success');
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setStudioSavingTitle(false);
+      setStudioEditingTitle(false);
+    }
+  };
+
+  // Splits the freely-edited full script back into per-scene paragraphs and
+  // patches only the scenes whose text actually changed — reuses the existing
+  // per-scene subtitle endpoint rather than needing a new bulk one. Requires
+  // the paragraph count to stay the same as the scene count since each
+  // paragraph maps 1:1 to a scene's timing.
+  const saveStudioFullScript = async () => {
+    if (!studioVideo || !studioScenes || !studioScenes.length) return;
+    const paragraphs = studioFullScriptDraft.split(/\n\s*\n/).map(p => p.replace(/\s+/g, ' ').trim()).filter(Boolean);
+    if (paragraphs.length !== studioScenes.length) {
+      showToast(`Le script doit garder ${studioScenes.length} paragraphes (un par scène) — actuellement ${paragraphs.length}. Sépare chaque scène par une ligne vide, sans en ajouter ni en retirer.`, 'error');
+      return;
+    }
+    setStudioSavingFullScript(true);
+    try {
+      const changed = studioScenes.filter((scene, i) => paragraphs[i] !== (scene.text || '').trim());
+      for (const scene of changed) {
+        const idx = studioScenes.indexOf(scene);
+        const res = await fetch(`${API_BASE}/videos/${studioVideo.id}/scenes/${scene.index}/subtitle`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: paragraphs[idx] }),
+        });
+        if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || `Échec sur la scène ${scene.index + 1}`);
+      }
+      if (changed.length) {
+        setStudioReassembling(true);
+        pollReassembly(studioVideo.id);
+        showToast(`${changed.length} scène(s) mise(s) à jour, réassemblage en cours…`, 'success');
+      }
+      setStudioEditingFullScript(false);
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setStudioSavingFullScript(false);
+    }
+  };
+
+  // Full re-render with a different voice — there's no incremental per-video
+  // voice swap, so this resubmits the whole script as a fresh video for the
+  // same channel via the existing submit pipeline.
+  const regenerateStudioWithVoice = async () => {
+    if (!studioVideo || !studioVoiceDraft || !studioScenes?.length) return;
+    const fullText = studioScenes.map(s => s.text || '').join('\n\n');
+    const ok = await askConfirm("NicheCut va relancer un rendu complet de cette vidéo avec la nouvelle voix. Cela crée une nouvelle vidéo distincte — l'actuelle reste inchangée.", { title: 'Régénérer avec cette voix ?' });
+    if (!ok) return;
+    setStudioRegeneratingVoice(true);
+    try {
+      const form = new FormData();
+      form.append('channel_id', studioVideo.channel_id);
+      form.append('input_type', 'text');
+      form.append('script_text', fullText);
+      form.append('voice_id', studioVoiceDraft);
+      const res = await fetch(`${API_BASE}/videos`, { method: 'POST', body: form });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || 'Échec de la régénération');
+      fetchAllVideos();
+      if (activeChannel) fetchChannelVideos(activeChannel.id);
+      showToast('Nouvelle vidéo lancée avec la voix choisie.', 'success');
+      closeStudio();
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setStudioRegeneratingVoice(false);
+    }
   };
 
   // Re-fetches the scene list in place (after a text/audio edit finishes) so
@@ -3228,10 +3404,11 @@ export default function App() {
     }
   };
 
-  const selectStudioScene = (scene) => {
+  const selectStudioScene = (scene, { seek = false } = {}) => {
     setStudioSelectedIndex(scene.index);
     setStudioSubtitleDraft(scene.text || '');
     setStudioConfirmRegen(false);
+    if (seek) setStudioSeekTo(scene.start);
   };
 
   useEffect(() => {
@@ -5904,6 +6081,60 @@ export default function App() {
                           <span><strong>Mode Hybride activé !</strong> Le système utilisera vos images locales prioritaires et l'IA pour compléter les scènes manquantes.</span>
                         </div>
                       )}
+
+                      <div className="bg-[#171b23] border border-[#2b374d] rounded-xl p-3.5 space-y-2.5">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2.5">
+                            <span className="material-symbols-outlined text-[#00c2ff] text-[24px]">photo_camera</span>
+                            <h4 className="font-bold text-white text-xs">Style de la miniature YouTube</h4>
+                          </div>
+                          <div onClick={(e) => e.stopPropagation()}>
+                            <input
+                              ref={thumbnailStyleInputRef}
+                              type="file"
+                              accept="image/png,image/jpeg,image/webp"
+                              onChange={handleUploadThumbnailStyle}
+                              className="hidden"
+                            />
+                            <button
+                              type="button"
+                              disabled={thumbnailStyleAnalyzing}
+                              onClick={() => thumbnailStyleInputRef.current && thumbnailStyleInputRef.current.click()}
+                              className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold bg-[#00c2ff]/10 text-[#00c2ff] hover:bg-[#00c2ff]/20 transition-colors disabled:opacity-50"
+                            >
+                              <span className="material-symbols-outlined text-[13px]">{thumbnailStyleAnalyzing ? 'hourglass_top' : 'image_search'}</span>
+                              {thumbnailStyleAnalyzing ? 'Analyse...' : (newChannel.thumbnail_style?.style_prompt ? "Changer l'image de référence" : "Ajouter une image de référence")}
+                            </button>
+                          </div>
+                        </div>
+                        <p className="text-[11px] text-slate-400">
+                          Optionnel — donne un exemple de la miniature que tu veux (personnage, cadrage, ambiance). L'IA analyse cette image une fois et réutilise ce style pour toutes les miniatures générées sur cette chaîne, à la place du style visuel des vidéos ci-dessus.
+                        </p>
+                        {newChannel.thumbnail_style?.style_prompt ? (
+                          <div className="flex items-start gap-2.5 bg-[#0f1217] border border-[#2b374d] rounded-lg p-2.5">
+                            {newChannel.thumbnail_style.reference_image_path && (
+                              <img
+                                src={`${STORAGE_BASE}/${newChannel.thumbnail_style.reference_image_path}`}
+                                alt="Référence miniature"
+                                className="w-14 h-14 rounded-lg object-cover border border-[#2b374d] shrink-0"
+                              />
+                            )}
+                            <div className="flex-1 min-w-0">
+                              <p className="text-[10px] text-slate-300 line-clamp-3">{newChannel.thumbnail_style.style_prompt}</p>
+                              <button
+                                type="button"
+                                onClick={handleRemoveThumbnailStyle}
+                                disabled={thumbnailStyleAnalyzing}
+                                className="mt-1 text-[10px] font-semibold text-red-400 hover:text-red-300 disabled:opacity-50"
+                              >
+                                Retirer
+                              </button>
+                            </div>
+                          </div>
+                        ) : !editingChannelId ? (
+                          <p className="text-[10px] text-amber-400/80">Enregistre d'abord la chaîne pour pouvoir ajouter une image de référence de miniature.</p>
+                        ) : null}
+                      </div>
                     </div>
                   );
                 })()}
@@ -6657,59 +6888,148 @@ export default function App() {
 
       {/* NICHECUT STUDIO — full scene-based editor (script/audio, scene timeline, per-scene edits) */}
       {studioVideo && (
-        <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="bg-[#161b22] border border-[#263042] rounded-3xl w-full max-w-[1500px] h-[92vh] shadow-2xl flex flex-col overflow-hidden">
-            {/* Header */}
-            <div className="flex justify-between items-center px-5 py-3.5 border-b border-[#202938] shrink-0">
-              <div>
-                <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                  <span className="material-symbols-outlined text-[18px] text-[#00c2ff]">auto_fix_high</span>
-                  NicheCut Studio
-                </h3>
-                {/* Une ligne, tronquée — le script complet reste digeste dans le
-                    panneau "Script" scène par scène ci-dessous, pas ici. */}
-                <p className="text-[11px] text-slate-500 mt-0.5 max-w-md truncate">
+        <div className="fixed inset-0 bg-slate-950 z-50 flex flex-col">
+          {/* Header */}
+          <div className="flex justify-between items-center px-5 py-3 border-b border-[#202938] shrink-0">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="material-symbols-outlined text-[18px] text-[#00c2ff] shrink-0">auto_fix_high</span>
+              {studioEditingTitle ? (
+                <div className="flex items-center gap-2">
+                  <input
+                    autoFocus
+                    value={studioTitleDraft}
+                    onChange={(e) => setStudioTitleDraft(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') saveStudioTitle(); if (e.key === 'Escape') setStudioEditingTitle(false); }}
+                    className="bg-[#1b2230] border border-[#00c2ff] rounded-lg px-2.5 py-1 text-sm font-bold text-white outline-none w-[420px] max-w-[40vw]"
+                  />
+                  <button onClick={saveStudioTitle} disabled={studioSavingTitle} className="text-[#00c2ff] hover:text-[#38d0ff]">
+                    <span className="material-symbols-outlined text-[20px]">{studioSavingTitle ? 'progress_activity' : 'check'}</span>
+                  </button>
+                  <button onClick={() => setStudioEditingTitle(false)} className="text-slate-500 hover:text-white">
+                    <span className="material-symbols-outlined text-[20px]">close</span>
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => { setStudioTitleDraft(studioVideo.title || ''); setStudioEditingTitle(true); }}
+                  className="text-sm font-bold text-white truncate max-w-[50vw] hover:text-[#38d0ff] flex items-center gap-1.5 group"
+                  title="Cliquer pour modifier le titre"
+                >
                   {studioVideo.title || (studioVideo.script_text || '').slice(0, 80) || 'Sans titre'}
-                </p>
-              </div>
-              <div className="flex items-center gap-3">
-                {studioReassembling && (
-                  <span className="px-3 py-1.5 bg-[#00c2ff]/10 border border-[#00c2ff]/30 rounded-lg text-[11px] text-[#38d0ff] flex items-center gap-1.5">
-                    <span className="material-symbols-outlined text-[14px] animate-spin">progress_activity</span>
-                    Réassemblage en cours...
-                  </span>
-                )}
-                <button onClick={closeStudio} className="text-slate-400 hover:text-white">
-                  <span className="material-symbols-outlined">close</span>
+                  <span className="material-symbols-outlined text-[14px] text-slate-600 group-hover:text-[#38d0ff]">edit</span>
                 </button>
-              </div>
+              )}
             </div>
+            <div className="flex items-center gap-3">
+              {studioReassembling && (
+                <span className="px-3 py-1.5 bg-[#00c2ff]/10 border border-[#00c2ff]/30 rounded-lg text-[11px] text-[#38d0ff] flex items-center gap-1.5">
+                  <span className="material-symbols-outlined text-[14px] animate-spin">progress_activity</span>
+                  Réassemblage en cours...
+                </span>
+              )}
+              <button onClick={closeStudio} className="text-slate-400 hover:text-white">
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+          </div>
 
-            {studioLoading ? (
-              <div className="flex-1 flex items-center justify-center text-xs text-slate-500">Chargement des scènes...</div>
-            ) : studioScenes === null ? (
-              <div className="flex-1 flex items-center justify-center text-xs text-slate-500 px-10 text-center">
-                Cette vidéo n'est plus éditable (fichiers sources purgés après 7 jours, ou vidéo antérieure à cette fonctionnalité).
-              </div>
-            ) : studioScenes.length === 0 ? (
-              <div className="flex-1 flex items-center justify-center text-xs text-slate-500">Aucune scène trouvée.</div>
-            ) : (
-              <>
-                {/* Body: script/audio (left) · selected scene preview (main) · scene editor (right) */}
-                <div className="flex-1 flex min-h-0">
-                  {/* LEFT — script & audio, like HeyGen's script pane */}
-                  <div className="w-64 shrink-0 border-r border-[#202938] flex flex-col min-h-0">
-                    <div className="px-4 py-3 border-b border-[#202938] shrink-0">
+          {studioLoading ? (
+            <div className="flex-1 flex items-center justify-center text-xs text-slate-500">Chargement des scènes...</div>
+          ) : studioScenes === null ? (
+            <div className="flex-1 flex items-center justify-center text-xs text-slate-500 px-10 text-center">
+              Cette vidéo n'est plus éditable (fichiers sources purgés après 7 jours, ou vidéo antérieure à cette fonctionnalité).
+            </div>
+          ) : studioScenes.length === 0 ? (
+            <div className="flex-1 flex items-center justify-center text-xs text-slate-500">Aucune scène trouvée.</div>
+          ) : (
+            <>
+              {/* Body: voice-off/script (left) · video player (main) · scene editor (right) */}
+              <div className="flex-1 flex min-h-0">
+                {/* LEFT — voice-off picker + audio player + full-script editor */}
+                <div className="w-72 shrink-0 border-r border-[#202938] flex flex-col min-h-0">
+                  <div className="px-4 py-3 border-b border-[#202938] shrink-0 space-y-3">
+                    <div>
+                      <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Voix off</div>
+                      <button
+                        onClick={() => setStudioVoiceMenuOpen(o => !o)}
+                        className="w-full flex items-center justify-between gap-2 bg-[#1b2230] border border-[#2b374d] hover:border-[#00c2ff]/50 rounded-xl px-3 py-2 text-left"
+                      >
+                        <span className="text-xs font-bold text-white truncate">
+                          {availableVoices.find(v => v.id === studioVoiceDraft)?.name || studioVoiceDraft || 'Non définie'}
+                        </span>
+                        <span className={`material-symbols-outlined text-[16px] text-slate-400 transition-transform ${studioVoiceMenuOpen ? 'rotate-180' : ''}`}>expand_more</span>
+                      </button>
+                      {studioVoiceMenuOpen && (
+                        <div className="mt-1.5 bg-[#1b2230] border border-[#2b374d] rounded-xl max-h-56 overflow-y-auto">
+                          {availableVoices.map(v => (
+                            <button
+                              key={v.id}
+                              onClick={() => { setStudioVoiceDraft(v.id); setStudioVoiceMenuOpen(false); }}
+                              className={`w-full text-left px-3 py-2 text-xs hover:bg-[#2b384e] flex items-center justify-between gap-2 ${studioVoiceDraft === v.id ? 'text-[#38d0ff] font-bold' : 'text-slate-300'}`}
+                            >
+                              <span className="truncate">{v.name}</span>
+                              {v.preview_url && (
+                                <span
+                                  className="material-symbols-outlined text-[14px] text-slate-500 hover:text-[#00c2ff] shrink-0"
+                                  onClick={(e) => { e.stopPropagation(); new Audio(v.preview_url).play().catch(() => {}); }}
+                                >play_circle</span>
+                              )}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      {studioVoiceDraft && studioVoiceDraft !== studioVideo.voice_id && (
+                        <button
+                          onClick={regenerateStudioWithVoice}
+                          disabled={studioRegeneratingVoice}
+                          className="mt-2 w-full py-2 bg-[#00c2ff] hover:bg-[#38d0ff] text-slate-950 rounded-lg font-bold text-[11px] disabled:opacity-50 flex items-center justify-center gap-1.5"
+                        >
+                          <span className="material-symbols-outlined text-[14px]">{studioRegeneratingVoice ? 'progress_activity' : 'record_voice_over'}</span>
+                          {studioRegeneratingVoice ? 'Lancement…' : 'Régénérer avec cette voix'}
+                        </button>
+                      )}
+                    </div>
+                    <div>
                       <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Audio</div>
                       <audio controls src={`${API_BASE}/videos/${studioVideo.id}/audio`} className="w-full h-8" style={{ filter: 'invert(0.85)' }} />
                     </div>
-                    <div className="px-4 py-3 overflow-y-auto flex-1">
-                      <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Script</div>
+                  </div>
+                  <div className="px-4 py-3 overflow-y-auto flex-1 min-h-0">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Script</div>
+                      {!studioEditingFullScript ? (
+                        <button
+                          onClick={() => { setStudioFullScriptDraft(studioScenes.map(s => s.text || '').join('\n\n')); setStudioEditingFullScript(true); }}
+                          className="text-[10px] font-bold text-[#00c2ff] hover:text-[#38d0ff] flex items-center gap-1"
+                        >
+                          <span className="material-symbols-outlined text-[13px]">edit_note</span>
+                          Modifier tout
+                        </button>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <button onClick={() => setStudioEditingFullScript(false)} className="text-[10px] font-bold text-slate-500 hover:text-white">Annuler</button>
+                          <button onClick={saveStudioFullScript} disabled={studioSavingFullScript} className="text-[10px] font-bold text-[#00c2ff] hover:text-[#38d0ff] disabled:opacity-50">
+                            {studioSavingFullScript ? 'Enregistrement…' : 'Enregistrer'}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                    {studioEditingFullScript ? (
+                      <>
+                        <textarea
+                          value={studioFullScriptDraft}
+                          onChange={(e) => setStudioFullScriptDraft(e.target.value)}
+                          rows={20}
+                          className="w-full bg-[#1b2230] border border-[#2b374d] rounded-xl p-3 text-[11px] leading-relaxed text-white focus:border-[#00c2ff] outline-none resize-none"
+                        />
+                        <p className="text-[10px] text-slate-500 mt-1.5">Garde une ligne vide entre chaque scène ({studioScenes.length} au total) — n'en ajoute ni n'en retire.</p>
+                      </>
+                    ) : (
                       <div className="space-y-2.5">
                         {studioScenes.map(scene => (
                           <p
                             key={scene.index}
-                            onClick={() => selectStudioScene(scene)}
+                            onClick={() => selectStudioScene(scene, { seek: true })}
                             className={`text-[11px] leading-snug cursor-pointer rounded-lg px-2 py-1.5 -mx-2 transition-colors ${
                               studioSelectedIndex === scene.index ? 'bg-[#00c2ff]/15 text-white' : 'text-slate-400 hover:text-slate-200 hover:bg-[#1b2230]'
                             }`}
@@ -6718,44 +7038,22 @@ export default function App() {
                           </p>
                         ))}
                       </div>
-                    </div>
-                  </div>
-
-                  {/* MAIN — large preview of the selected scene */}
-                  <div className="flex-1 flex items-center justify-center bg-black/40 p-6 min-w-0">
-                    {studioSelectedIndex === null ? (
-                      <p className="text-xs text-slate-500">Sélectionnez une scène pour l'éditer.</p>
-                    ) : (
-                      (() => {
-                        const scene = studioScenes.find(s => s.index === studioSelectedIndex);
-                        if (!scene) return null;
-                        return (
-                          <div className="relative max-h-full max-w-full rounded-2xl overflow-hidden border border-[#2b374d] group">
-                            <img src={`${API_BASE}${scene.image_url}?v=${scene.image_version || 0}`} alt={`Scène ${scene.index + 1}`} className="max-h-[60vh] object-contain" />
-                            <label className={`absolute inset-0 flex items-center justify-center bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer ${studioReplacingIndex === scene.index ? 'opacity-100' : ''}`}>
-                              {studioReplacingIndex === scene.index ? (
-                                <span className="material-symbols-outlined text-white animate-spin text-[28px]">progress_activity</span>
-                              ) : (
-                                <span className="flex flex-col items-center gap-1.5 text-white text-xs font-bold">
-                                  <span className="material-symbols-outlined text-[28px]">image</span>
-                                  Remplacer l'image
-                                </span>
-                              )}
-                              <input
-                                type="file"
-                                accept="image/png,image/jpeg,image/webp"
-                                className="hidden"
-                                disabled={studioReplacingIndex !== null}
-                                onChange={(e) => e.target.files[0] && replaceSceneImage(scene.index, e.target.files[0])}
-                              />
-                            </label>
-                          </div>
-                        );
-                      })()
                     )}
                   </div>
+                </div>
 
-                  {/* RIGHT — precise script/image editing for the selected scene */}
+                {/* MAIN — real video playback, synced with the bottom timeline */}
+                <div className="flex-1 flex items-center justify-center bg-black min-w-0">
+                  <VideoPlayer
+                    src={getVideoUrl(studioVideo.output_path)}
+                    className="w-full h-full"
+                    onTimeUpdate={setStudioPlaybackTime}
+                    seekTo={studioSeekTo}
+                    onPlayingChange={setStudioIsPlaying}
+                  />
+                </div>
+
+                {/* RIGHT — precise script/image editing for the selected scene */}
                   {studioSelectedIndex !== null && (() => {
                     const scene = studioScenes.find(s => s.index === studioSelectedIndex);
                     if (!scene) return null;
@@ -6841,28 +7139,35 @@ export default function App() {
                   })()}
                 </div>
 
-                {/* BOTTOM — scene timeline strip, like a montage tool */}
+                {/* BOTTOM — scene timeline strip, playhead-synced with the video above */}
                 <div className="h-28 shrink-0 border-t border-[#202938] px-4 py-2.5 overflow-x-auto">
                   <div className="flex gap-2 h-full">
-                    {studioScenes.map(scene => (
-                      <button
-                        key={scene.index}
-                        onClick={() => selectStudioScene(scene)}
-                        className={`relative h-full aspect-video shrink-0 rounded-lg overflow-hidden border-2 transition-all ${
-                          studioSelectedIndex === scene.index ? 'border-[#00c2ff]' : 'border-transparent hover:border-[#2b374d]'
-                        }`}
-                      >
-                        <img src={`${API_BASE}${scene.image_url}?v=${scene.image_version || 0}`} alt={`Scène ${scene.index + 1}`} className="w-full h-full object-cover" />
-                        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent px-1.5 py-1 text-[9px] text-slate-200 text-left">
-                          {scene.index + 1} · {scene.duration.toFixed(1)}s
-                        </div>
-                      </button>
-                    ))}
+                    {studioScenes.map(scene => {
+                      const isPlayingHere = studioPlaybackTime >= scene.start && studioPlaybackTime < scene.end;
+                      const isActive = studioSelectedIndex === scene.index || (studioIsPlaying && isPlayingHere);
+                      return (
+                        <button
+                          key={scene.index}
+                          onClick={() => selectStudioScene(scene, { seek: true })}
+                          className={`relative h-full aspect-video shrink-0 rounded-lg overflow-hidden border-2 transition-all ${
+                            isActive ? 'border-[#00c2ff]' : 'border-transparent hover:border-[#2b374d]'
+                          }`}
+                          title={studioIsPlaying ? 'Mets la vidéo en pause pour éditer cette image' : `Éditer l'image de la scène ${scene.index + 1}`}
+                        >
+                          <img src={`${API_BASE}${scene.image_url}?v=${scene.image_version || 0}`} alt={`Scène ${scene.index + 1}`} className="w-full h-full object-cover" />
+                          {isPlayingHere && studioIsPlaying && (
+                            <div className="absolute inset-x-0 top-0 h-0.5 bg-[#00c2ff]" style={{ width: `${((studioPlaybackTime - scene.start) / (scene.end - scene.start)) * 100}%` }} />
+                          )}
+                          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent px-1.5 py-1 text-[9px] text-slate-200 text-left">
+                            {scene.index + 1} · {scene.duration.toFixed(1)}s
+                          </div>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               </>
             )}
-          </div>
         </div>
       )}
 

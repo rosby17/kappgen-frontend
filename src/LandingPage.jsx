@@ -40,12 +40,12 @@ const pricingPlans = [
   },
   {
     name: 'Automatique', price: '69 $', localPrice: '≈ 42 000 FCFA / mois', description: 'L’expérience NicheCut complète : tu configures, l’Agent exécute.',
-    features: ['1 chaîne YouTube', '12 vidéos autonomes / mois', 'Programmation automatique', 'Publication automatique YouTube'],
+    features: ['1 chaîne YouTube', '12 vidéos autonomes / mois', 'Jusqu’à 1h par vidéo', 'Programmation automatique', 'Publication automatique YouTube'],
     cta: 'Dormir l’esprit tranquille', featured: true,
   },
   {
     name: 'Scale', price: '149 $', localPrice: '≈ 90 000 FCFA / mois', description: 'Pour piloter plusieurs chaînes avec un volume de production élevé.',
-    features: ['Jusqu’à 10 chaînes', 'Jusqu’à 300 vidéos / mois', 'Rendu prioritaire', 'Gestion multi-chaînes'],
+    features: ['Jusqu’à 10 chaînes', 'Jusqu’à 300 vidéos / mois', 'Jusqu’à 10h par vidéo', 'Rendu prioritaire', 'Gestion multi-chaînes'],
     cta: 'Libérer toute mon équipe', featured: false,
   },
 ];
