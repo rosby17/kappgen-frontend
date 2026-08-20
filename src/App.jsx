@@ -527,6 +527,336 @@ const VOICE_MODELS = [
   { id: 'fr-FR-Claire', name: 'Claire — Douce & Inspirante', lang: 'fr-FR', desc: 'Idéal pour développement personnel' }
 ];
 
+// localStorage-backed "saved" / "cloned" voice bookmarks — the shared voice
+// catalog and the clone endpoint don't tag these server-side, so the voice
+// library modal tracks them client-side per browser, à la bibliothèque
+// Easy Voice (onglets Bibliothèque / Clonées / Enregistrées / Par défaut).
+const SAVED_VOICE_IDS_KEY = 'nichecut_saved_voice_ids';
+const CLONED_VOICE_IDS_KEY = 'nichecut_cloned_voice_ids';
+function readVoiceIdList(key) {
+  try { return JSON.parse(localStorage.getItem(key) || '[]'); } catch { return []; }
+}
+function writeVoiceIdList(key, ids) {
+  try { localStorage.setItem(key, JSON.stringify(ids)); } catch { /* ignore quota/private mode */ }
+}
+
+function VoiceAvatar({ voice, size = 40 }) {
+  const seed = voice?.id || voice?.name || 'voice';
+  return (
+    <img
+      src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(seed)}&backgroundColor=1b2230,11151c`}
+      alt=""
+      className="rounded-full object-cover bg-[#1b2230] shrink-0"
+      style={{ width: size, height: size }}
+      loading="lazy"
+    />
+  );
+}
+
+function VoiceCard({ voice, active, saved, playingId, onSelect, onToggleSave, onPlayPreview }) {
+  return (
+    <div
+      onClick={() => onSelect(voice)}
+      className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl border cursor-pointer transition-colors ${
+        active ? 'bg-[#00c2ff]/10 border-[#00c2ff]' : 'bg-[#1b2230] border-[#2b374d] hover:border-slate-500'
+      }`}
+    >
+      <VoiceAvatar voice={voice} size={40} />
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs font-bold text-white truncate">{voice.name}</span>
+          {voice.cloned && (
+            <span className="shrink-0 text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-[#00c2ff]/15 text-[#56d9ff]">Clonée</span>
+          )}
+        </div>
+        <p className="text-[10px] text-slate-500 truncate">{voice.desc || 'Voix'}</p>
+      </div>
+      {voice.preview_url && (
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onPlayPreview(voice); }}
+          className="shrink-0 w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center"
+          title="Écouter un extrait"
+        >
+          <span className="material-symbols-outlined text-[16px]">{playingId === voice.id ? 'pause' : 'play_arrow'}</span>
+        </button>
+      )}
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); onToggleSave(voice); }}
+        className="shrink-0 w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center"
+        title={saved ? 'Retirer des enregistrées' : 'Enregistrer cette voix'}
+      >
+        <span className={`material-symbols-outlined text-[16px] ${saved ? 'text-[#00c2ff]' : 'text-slate-400'}`}>{saved ? 'bookmark' : 'bookmark_border'}</span>
+      </button>
+      {active && <span className="material-symbols-outlined text-[16px] text-[#00c2ff] shrink-0">check_circle</span>}
+    </div>
+  );
+}
+
+function VoiceLibraryModal({
+  voices, defaultVoices, selectedId, savedIds, clonedIds,
+  searchQuery, onSearchChange, searching,
+  onSelect, onToggleSave, onClose, onOpenCloner, cloningEnabled
+}) {
+  const [tab, setTab] = useState('library');
+  const [playingId, setPlayingId] = useState(null);
+  const audioRef = useRef(null);
+
+  useEffect(() => {
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = '';
+      audioRef.current?.pause();
+    };
+  }, []);
+
+  const handlePlayPreview = (voice) => {
+    if (!voice.preview_url) return;
+    if (playingId === voice.id) {
+      audioRef.current?.pause();
+      setPlayingId(null);
+      return;
+    }
+    audioRef.current?.pause();
+    const a = new Audio(voice.preview_url);
+    audioRef.current = a;
+    a.onended = () => setPlayingId(null);
+    a.play().catch(() => {});
+    setPlayingId(voice.id);
+  };
+
+  const TABS = [
+    { id: 'library', label: 'Bibliothèque' },
+    { id: 'cloned', label: 'Mes voix clonées' },
+    { id: 'saved', label: 'Enregistrées' },
+    { id: 'default', label: 'Voix par défaut' },
+  ];
+  const list = tab === 'library' ? voices
+    : tab === 'cloned' ? voices.filter(v => clonedIds.includes(v.id))
+    : tab === 'saved' ? voices.filter(v => savedIds.includes(v.id))
+    : defaultVoices;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm" onClick={onClose}>
+      <div
+        onClick={e => e.stopPropagation()}
+        className="w-full max-w-4xl h-[85vh] bg-[#11151c] border border-[#263042] rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200"
+      >
+        <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-[#202938]">
+          <div>
+            <h3 className="text-sm font-extrabold text-white">Sélectionner une voix</h3>
+            <p className="text-[11px] text-slate-500">Choisis une voix dans la bibliothèque, tes voix clonées, ou tes favoris.</p>
+          </div>
+          <button onClick={onClose} className="text-slate-400 hover:text-white">
+            <span className="material-symbols-outlined">close</span>
+          </button>
+        </div>
+
+        <div className="flex items-center justify-between gap-3 px-5 pt-3 flex-wrap">
+          <div className="flex items-center gap-1 bg-[#0b0f16] border border-[#202938] rounded-xl p-1">
+            {TABS.map(t => (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => setTab(t.id)}
+                className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-colors ${
+                  tab === t.id ? 'bg-[#00c2ff]/15 text-[#56d9ff]' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+          {cloningEnabled ? (
+            <button
+              type="button"
+              onClick={onOpenCloner}
+              className="shrink-0 px-3 py-2 rounded-lg border border-[#00c2ff]/35 bg-[#00c2ff]/10 text-[#56d9ff] text-[11px] font-bold flex items-center gap-1.5"
+            >
+              <span className="material-symbols-outlined text-[15px]">fingerprint</span>
+              Cloner une voix
+            </button>
+          ) : (
+            <span className="shrink-0 text-[10px] text-slate-600">Clonage disponible après la création</span>
+          )}
+        </div>
+
+        {tab === 'library' && (
+          <div className="px-5 pt-3">
+            <div className="relative">
+              <span className="material-symbols-outlined text-[16px] text-slate-500 absolute left-3 top-1/2 -translate-y-1/2">search</span>
+              <input
+                value={searchQuery}
+                onChange={e => onSearchChange(e.target.value)}
+                placeholder="Rechercher dans les 11 000+ voix (langue, accent, nom...)"
+                className="w-full bg-[#1b2230] border border-[#2b374d] rounded-lg pl-9 pr-9 py-2 text-xs text-white focus:border-[#00c2ff] outline-none"
+              />
+              {searching && <span className="material-symbols-outlined text-[14px] text-slate-500 absolute right-3 top-1/2 -translate-y-1/2 animate-spin">progress_activity</span>}
+            </div>
+          </div>
+        )}
+
+        <div className="flex-1 overflow-y-auto px-5 py-3 space-y-2">
+          {list.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full text-center gap-2 py-10">
+              <span className="material-symbols-outlined text-[32px] text-slate-600">record_voice_over</span>
+              <p className="text-xs text-slate-500">
+                {tab === 'cloned' ? "Aucune voix clonée pour l'instant." : tab === 'saved' ? 'Aucune voix enregistrée.' : 'Aucune voix trouvée.'}
+              </p>
+            </div>
+          ) : (
+            list.map(v => (
+              <VoiceCard
+                key={v.id}
+                voice={v}
+                active={selectedId === v.id}
+                saved={savedIds.includes(v.id)}
+                playingId={playingId}
+                onSelect={(voice) => { onSelect(voice); onClose(); }}
+                onToggleSave={onToggleSave}
+                onPlayPreview={handlePlayPreview}
+              />
+            ))
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function VoiceCloneModal({ onClose, onSubmit, submitting }) {
+  const [name, setName] = useState('Ma voix');
+  const [file, setFile] = useState(null);
+  const [consent, setConsent] = useState(false);
+  const [recording, setRecording] = useState(false);
+  const [recordSeconds, setRecordSeconds] = useState(0);
+  const mediaRecorderRef = useRef(null);
+  const chunksRef = useRef([]);
+  const timerRef = useRef(null);
+  const fileInputRef = useRef(null);
+
+  useEffect(() => {
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = ''; clearInterval(timerRef.current); };
+  }, []);
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      chunksRef.current = [];
+      recorder.ondataavailable = e => { if (e.data.size > 0) chunksRef.current.push(e.data); };
+      recorder.onstop = () => {
+        const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
+        setFile(new File([blob], 'enregistrement.webm', { type: 'audio/webm' }));
+        stream.getTracks().forEach(t => t.stop());
+      };
+      recorder.start();
+      mediaRecorderRef.current = recorder;
+      setRecording(true);
+      setRecordSeconds(0);
+      timerRef.current = setInterval(() => setRecordSeconds(s => s + 1), 1000);
+    } catch {
+      alert("Impossible d'accéder au micro.");
+    }
+  };
+
+  const stopRecording = () => {
+    mediaRecorderRef.current?.stop();
+    setRecording(false);
+    clearInterval(timerRef.current);
+  };
+
+  const canSubmit = file && name.trim() && consent && !submitting;
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm" onClick={onClose}>
+      <div onClick={e => e.stopPropagation()} className="w-full max-w-lg bg-[#11151c] border border-[#263042] rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+        <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-[#202938]">
+          <h3 className="text-sm font-extrabold text-white flex items-center gap-2">
+            <span className="material-symbols-outlined text-[#00c2ff] text-[18px]">fingerprint</span>
+            Cloner une voix
+          </h3>
+          <button onClick={onClose} className="text-slate-400 hover:text-white">
+            <span className="material-symbols-outlined">close</span>
+          </button>
+        </div>
+
+        <div className="p-5 space-y-4">
+          <div>
+            <label className="block text-xs font-bold text-slate-300 mb-2">Échantillon audio</label>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className={`flex flex-col items-center justify-center gap-1.5 rounded-xl border-2 border-dashed p-4 text-center transition-colors ${
+                  file && !recording ? 'border-[#00c2ff] bg-[#00c2ff]/5' : 'border-[#2b374d] hover:border-slate-500'
+                }`}
+              >
+                <span className="material-symbols-outlined text-[22px] text-[#56d9ff]">upload_file</span>
+                <span className="text-[11px] font-bold text-white">Importer un fichier</span>
+                <span className="text-[10px] text-slate-500">MP3, WAV, M4A...</span>
+              </button>
+              <input ref={fileInputRef} type="file" accept="audio/*" className="hidden" onChange={e => e.target.files?.[0] && setFile(e.target.files[0])} />
+
+              <button
+                type="button"
+                onClick={recording ? stopRecording : startRecording}
+                className={`flex flex-col items-center justify-center gap-1.5 rounded-xl border-2 p-4 text-center transition-colors ${
+                  recording ? 'border-rose-500 bg-rose-500/10' : 'border-dashed border-[#2b374d] hover:border-slate-500'
+                }`}
+              >
+                <span className={`material-symbols-outlined text-[22px] ${recording ? 'text-rose-400 animate-pulse' : 'text-[#56d9ff]'}`}>mic</span>
+                <span className="text-[11px] font-bold text-white">{recording ? `Enregistrement… ${recordSeconds}s` : 'Enregistrer'}</span>
+                <span className="text-[10px] text-slate-500">{recording ? 'Cliquer pour arrêter' : 'Depuis ton micro'}</span>
+              </button>
+            </div>
+            {file && (
+              <div className="mt-2 flex items-center gap-2 text-[11px] text-slate-400 bg-[#0b0f16] border border-[#202938] rounded-lg px-3 py-2">
+                <span className="material-symbols-outlined text-[14px] text-[#00c2ff]">graphic_eq</span>
+                <span className="truncate flex-1">{file.name}</span>
+                <button type="button" onClick={() => setFile(null)} className="text-slate-500 hover:text-rose-400">
+                  <span className="material-symbols-outlined text-[14px]">close</span>
+                </button>
+              </div>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-300 mb-1.5">Nom de cette voix</label>
+            <input
+              value={name}
+              onChange={e => setName(e.target.value)}
+              placeholder="Ex : Ma voix"
+              className="w-full bg-[#1b2230] border border-[#2b374d] rounded-lg px-3 py-2 text-xs text-white focus:border-[#00c2ff] outline-none"
+            />
+          </div>
+
+          <label className="flex items-start gap-2.5 cursor-pointer">
+            <input type="checkbox" checked={consent} onChange={e => setConsent(e.target.checked)} className="mt-0.5 accent-[#00c2ff]" />
+            <span className="text-[11px] text-slate-400">Je confirme être propriétaire de cette voix ou disposer du consentement explicite de son propriétaire.</span>
+          </label>
+        </div>
+
+        <div className="flex items-center gap-3 px-5 py-4 border-t border-[#202938]">
+          <button type="button" onClick={onClose} className="flex-1 py-2.5 rounded-xl border border-[#2b374d] text-slate-300 text-xs font-bold hover:border-slate-500">
+            Annuler
+          </button>
+          <button
+            type="button"
+            disabled={!canSubmit}
+            onClick={() => onSubmit(file, name.trim())}
+            className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-[#65e0ff] to-[#1a9cff] text-[#031019] font-extrabold text-xs disabled:opacity-40"
+          >
+            {submitting ? 'Clonage…' : 'Cloner la voix'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // Custom video player styled to match the app's dark/cyan design, replacing native browser controls.
 function VideoPlayer({ src, autoPlay, className, onTimeUpdate, seekTo, onPlayingChange }) {
   const videoRef = useRef(null);
@@ -1458,6 +1788,10 @@ export default function App() {
   const [izivoiceKeyDraft, setIzivoiceKeyDraft] = useState('');
   const [savingIzivoiceKey, setSavingIzivoiceKey] = useState(false);
   const cloneVoiceInputRef = useRef(null);
+  const [showVoiceLibrary, setShowVoiceLibrary] = useState(false);
+  const [showVoiceCloner, setShowVoiceCloner] = useState(false);
+  const [savedVoiceIds, setSavedVoiceIds] = useState(() => readVoiceIdList(SAVED_VOICE_IDS_KEY));
+  const [clonedVoiceIds, setClonedVoiceIds] = useState(() => readVoiceIdList(CLONED_VOICE_IDS_KEY));
   const [audioFilesList, setAudioFilesList] = useState([]);
   // Izivoice STT transcription (for accurate audio-upload subtitles) is billable —
   // default on, but the user can opt out in the final preview to avoid credit cost.
@@ -2382,7 +2716,11 @@ export default function App() {
     setWizardMode('edit');
     setEditingChannelId(channel.id);
     setNewChannel({
-      name: channel.name || '',
+      // A connected channel's real identity lives on youtube_channel_title —
+      // channel.name should already mirror it (set on connect / periodic sync),
+      // but fall back here too so a channel that predates that sync doesn't
+      // make the creator re-type a name YouTube already gave us.
+      name: channel.name || channel.youtube_channel_title || '',
       niche: channel.niche || 'Philosophie & Stoïcisme',
       subtitle_style: { ...defaultChannelForm.subtitle_style, ...(channel.subtitle_style || {}) },
       branding: { ...defaultChannelForm.branding, ...(channel.branding || {}) },
@@ -3026,18 +3364,22 @@ export default function App() {
     }
   };
 
-  const handleCloneVoice = async (file) => {
+  const toggleSavedVoice = (voice) => {
+    setSavedVoiceIds(prev => {
+      const next = prev.includes(voice.id) ? prev.filter(id => id !== voice.id) : [voice.id, ...prev];
+      writeVoiceIdList(SAVED_VOICE_IDS_KEY, next);
+      return next;
+    });
+  };
+
+  const handleCloneVoice = async (file, name) => {
     // Voice is a channel-level setting: cloned either from the "Nouvelle
     // vidéo" modal (activeChannel already saved) or from the wizard's voice
     // section while editing an existing channel (editingChannelId) — cloning
     // needs a real channel id to attach to, so it's unavailable while still
     // creating a brand-new, unsaved channel.
     const targetChannelId = view === 'wizard' ? editingChannelId : activeChannel?.id;
-    if (!file || !targetChannelId) return;
-    const consent = await askConfirm("Je confirme être propriétaire de cette voix ou disposer du consentement explicite de son propriétaire.", { title: 'Consentement vocal obligatoire' });
-    if (!consent) return;
-    const name = window.prompt('Nom de cette voix :', 'Ma voix');
-    if (!name?.trim()) return;
+    if (!file || !targetChannelId || !name?.trim()) return;
     setCloningVoice(true);
     try {
       const form = new FormData();
@@ -3048,11 +3390,17 @@ export default function App() {
       const res = await fetch(`${API_BASE}/channels/${targetChannelId}/voice/clone`, { method: 'POST', body: form });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.detail || 'Clonage impossible.');
-      const voice = { id: body.voice_id, name: body.name, desc: 'Voix personnelle clonée' };
+      const voice = { id: body.voice_id, name: body.name, desc: 'Voix personnelle clonée', cloned: true };
       setAvailableVoices(prev => [voice, ...prev.filter(v => v.id !== voice.id)]);
       setSelectedVoice(voice.id);
+      setClonedVoiceIds(prev => {
+        const next = [voice.id, ...prev.filter(id => id !== voice.id)];
+        writeVoiceIdList(CLONED_VOICE_IDS_KEY, next);
+        return next;
+      });
       if (view === 'wizard') setNewChannel(prev => ({ ...prev, voice_id: voice.id, voice_name: voice.name }));
       showToast('Ta voix a été clonée et sélectionnée.', 'success');
+      setShowVoiceCloner(false);
     } catch (err) {
       showToast(err.message, 'error');
     } finally {
@@ -4523,7 +4871,7 @@ export default function App() {
                     className="flex items-center gap-4 sm:gap-5 min-w-0 cursor-pointer -m-2 p-2 rounded-2xl hover:bg-white/[.03] transition-colors"
                   >
                     <div className="relative flex-shrink-0">
-                      <div className="absolute -inset-1 rounded-[22px] bg-gradient-to-br from-[#36d5ff]/35 to-[#6b7dff]/10 blur-sm" />
+                      <div className="absolute -inset-1 rounded-full bg-gradient-to-br from-[#36d5ff]/35 to-[#6b7dff]/10 blur-sm" />
                       <div className="relative">
                         <ChannelAvatar channel={activeChannel} logoUrl={getChannelLogoUrl(activeChannel)} sizeClass="w-16 h-16 sm:w-20 sm:h-20" roundedClass="rounded-2xl" textClass="text-2xl" />
                         {(() => {
@@ -5772,65 +6120,36 @@ export default function App() {
                     </div>
 
                     <div>
-                      <div className="flex items-center justify-between gap-3 mb-2">
-                        <label className="text-xs font-bold text-slate-300">Bibliothèque de voix ({availableVoices.length}{voiceSearchQuery.trim().length < 2 ? ' / 11 000+' : ''})</label>
-                        <div className="relative">
-                          <input
-                            value={voiceSearchQuery}
-                            onChange={e => setVoiceSearchQuery(e.target.value)}
-                            placeholder="Rechercher dans les 11 000+ voix (langue, accent, nom...)"
-                            className="bg-[#1b2230] border border-[#2b374d] rounded-lg px-3 py-1.5 text-[11px] text-white focus:border-[#00c2ff] outline-none w-72"
-                          />
-                          {voiceSearching && <span className="material-symbols-outlined text-[14px] text-slate-500 absolute right-2.5 top-1/2 -translate-y-1/2 animate-spin">progress_activity</span>}
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-72 overflow-y-auto pr-1">
-                        {availableVoices
-                          .map(v => {
-                            const active = (newChannel.voice_id || selectedVoice) === v.id;
-                            return (
-                              <button
-                                key={v.id}
-                                type="button"
-                                onClick={() => setNewChannel({ ...newChannel, voice_id: v.id, voice_name: v.name })}
-                                className={`text-left px-3.5 py-2.5 rounded-xl border transition-colors flex items-center justify-between gap-2 ${
-                                  active ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-white' : 'bg-[#1b2230] border-[#2b374d] text-slate-300 hover:border-slate-500'
-                                }`}
-                              >
-                                <span className="min-w-0">
-                                  <span className="block text-xs font-bold truncate">{v.name}</span>
-                                  <span className="block text-[10px] text-slate-500 truncate">{v.desc}</span>
-                                </span>
-                                {v.preview_url && (
-                                  <button
-                                    type="button"
-                                    onClick={(e) => { e.stopPropagation(); const a = new Audio(v.preview_url); a.play().catch(() => {}); }}
-                                    className="shrink-0 w-7 h-7 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center"
-                                    title="Écouter un extrait"
-                                  >
-                                    <span className="material-symbols-outlined text-[15px]">play_arrow</span>
-                                  </button>
-                                )}
-                                {active && <span className="material-symbols-outlined text-[15px] text-[#00c2ff] shrink-0">check_circle</span>}
-                              </button>
-                            );
-                          })}
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-between gap-3">
-                      <p className="text-[11px] text-slate-500">Importe un échantillon audio pour cloner ta propre voix.</p>
-                      {wizardMode === 'edit' && editingChannelId ? (
-                        <>
-                          <button type="button" disabled={cloningVoice} onClick={() => cloneVoiceInputRef.current?.click()} className="shrink-0 px-3 py-2 rounded-lg border border-[#00c2ff]/35 bg-[#00c2ff]/10 text-[#56d9ff] text-[11px] font-bold flex items-center gap-1.5 disabled:opacity-50">
-                            <span className="material-symbols-outlined text-[15px]">fingerprint</span>
-                            {cloningVoice ? 'Clonage…' : 'Cloner ma voix'}
-                          </button>
-                          <input ref={cloneVoiceInputRef} type="file" accept="audio/*" className="hidden" onChange={e => handleCloneVoice(e.target.files?.[0])} />
-                        </>
-                      ) : (
-                        <span className="shrink-0 text-[10px] text-slate-600">Clonage disponible après la création</span>
-                      )}
+                      <label className="block text-xs font-bold text-slate-300 mb-2">Bibliothèque de voix</label>
+                      {(() => {
+                        const activeId = newChannel.voice_id || selectedVoice;
+                        const activeVoice = availableVoices.find(v => v.id === activeId) || (activeId ? { id: activeId, name: newChannel.voice_name || activeId, desc: 'Voix' } : null);
+                        return (
+                          <div className="flex items-center gap-3 bg-[#1b2230] border border-[#2b374d] rounded-xl px-3.5 py-3">
+                            {activeVoice ? (
+                              <>
+                                <VoiceAvatar voice={activeVoice} size={44} />
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-xs font-bold text-white truncate">{activeVoice.name}</p>
+                                  <p className="text-[10px] text-slate-500 truncate">{activeVoice.desc}</p>
+                                </div>
+                              </>
+                            ) : (
+                              <div className="min-w-0 flex-1">
+                                <p className="text-xs font-bold text-slate-400">Aucune voix sélectionnée</p>
+                              </div>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => setShowVoiceLibrary(true)}
+                              className="shrink-0 px-3.5 py-2 rounded-lg bg-gradient-to-r from-[#65e0ff] to-[#1a9cff] text-[#031019] text-[11px] font-extrabold flex items-center gap-1.5"
+                            >
+                              <span className="material-symbols-outlined text-[15px]">record_voice_over</span>
+                              Sélectionner une voix
+                            </button>
+                          </div>
+                        );
+                      })()}
                     </div>
 
                     <div>
@@ -6309,7 +6628,7 @@ export default function App() {
 
                   const previewImgSrc = localImageFiles.length > 0
                     ? URL.createObjectURL(localImageFiles[0])
-                    : (wizardMode === 'edit' && activeChannel ? `${API_BASE}/channels/${activeChannel.id}/library-preview` : null);
+                    : (wizardMode === 'edit' && editingChannelId ? `${API_BASE}/channels/${editingChannelId}/library-preview` : null);
 
                   const colorGradeFilter = ({
                     warm: 'saturate(1.25) sepia(0.12) brightness(1.05)',
@@ -6471,7 +6790,12 @@ export default function App() {
                   const stepHasVignette = stepOverlayEffects.includes('vignette');
                   const stepGrainIntensity = (newChannel.effects_config.grain_intensity ?? 50) / 100;
                   const stepVignetteIntensity = (newChannel.effects_config.vignette_intensity ?? 50) / 100;
-                  const resolvedLogoUrl = logoPreviewUrl || (wizardMode === 'edit' && activeChannel && getChannelLogoUrl(activeChannel) !== "/assets/logo/logo-nichecut.png" ? getChannelLogoUrl(activeChannel) : null);
+                  // editingChannel (freshly derived from the `channels` list on every
+                  // render) rather than activeChannel — the latter is only set once a
+                  // channel's own detail page has been opened, so editing straight from
+                  // the channel grid left this avatar stuck on the placeholder even
+                  // though the channel's real YouTube photo was already known.
+                  const resolvedLogoUrl = logoPreviewUrl || (wizardMode === 'edit' && editingChannel && getChannelLogoUrl(editingChannel) !== "/assets/logo/logo-nichecut.png" ? getChannelLogoUrl(editingChannel) : null);
                   const musicLabel = musicFiles[0]?.name
                     || newChannel.music_preference?.tracks?.[0]?.split('/').pop()?.replace(/^[0-9a-f]{8}_/, '')
                     || (newChannel.music_preference?.mode === 'ai_generate' ? 'Musique générée par IA' : null);
@@ -7663,6 +7987,32 @@ export default function App() {
       )}
 
       {/* DOWNLOAD QUALITY MODAL */}
+      {showVoiceLibrary && (
+        <VoiceLibraryModal
+          voices={availableVoices}
+          defaultVoices={VOICE_MODELS}
+          selectedId={newChannel.voice_id || selectedVoice}
+          savedIds={savedVoiceIds}
+          clonedIds={clonedVoiceIds}
+          searchQuery={voiceSearchQuery}
+          onSearchChange={setVoiceSearchQuery}
+          searching={voiceSearching}
+          onSelect={(voice) => setNewChannel(prev => ({ ...prev, voice_id: voice.id, voice_name: voice.name }))}
+          onToggleSave={toggleSavedVoice}
+          onClose={() => setShowVoiceLibrary(false)}
+          onOpenCloner={() => setShowVoiceCloner(true)}
+          cloningEnabled={wizardMode === 'edit' && !!editingChannelId}
+        />
+      )}
+
+      {showVoiceCloner && (
+        <VoiceCloneModal
+          onClose={() => setShowVoiceCloner(false)}
+          onSubmit={handleCloneVoice}
+          submitting={cloningVoice}
+        />
+      )}
+
       {showIzivoiceKeyModal && (
         <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-[60] flex items-center justify-center p-6">
           <div className="bg-[#161b22] border border-[#263042] rounded-3xl p-6 max-w-[440px] w-full shadow-2xl space-y-4">
