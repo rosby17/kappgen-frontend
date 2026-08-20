@@ -1591,6 +1591,49 @@ function ModeDropdown({ value, options, onChange }) {
   );
 }
 
+// Compact hour-of-day picker ("07h00") — replaces the native <select> whose
+// unstyled browser popup (system font, no rounding, overflowing the card)
+// broke the rest of the app's design language.
+function HourDropdown({ value, onChange }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  useEffect(() => {
+    if (!open) return;
+    const onClickOutside = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', onClickOutside);
+    return () => document.removeEventListener('mousedown', onClickOutside);
+  }, [open]);
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        className="flex items-center gap-1 bg-[#1b2230] border border-[#2b374d] hover:border-slate-500 rounded-lg px-2.5 py-1.5 text-[11px] font-bold text-white transition-colors"
+      >
+        {String(value).padStart(2, '0')}h00
+        <span className={`material-symbols-outlined text-[14px] text-slate-400 transition-transform ${open ? 'rotate-180' : ''}`}>expand_more</span>
+      </button>
+      {open && (
+        <div className="absolute left-0 top-full mt-1.5 w-24 max-h-56 overflow-y-auto bg-[#1f2838] border border-[#2d3a52] rounded-xl shadow-2xl z-50 py-1">
+          {Array.from({ length: 24 }, (_, h) => (
+            <button
+              key={h}
+              type="button"
+              onClick={() => { onChange(h); setOpen(false); }}
+              className={`w-full text-left px-3 py-1.5 text-[11px] transition-colors flex items-center justify-between gap-2 ${
+                h === value ? 'text-[#00c2ff] font-bold bg-[#00c2ff]/10' : 'text-slate-300 hover:bg-[#2c394e]'
+              }`}
+            >
+              {String(h).padStart(2, '0')}h00
+              {h === value && <span className="material-symbols-outlined text-[13px] shrink-0">check</span>}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // Ordered pipeline steps shown to the creator while a video renders (and, for
 // auto-published channels, while it's uploaded to YouTube afterwards) — turns
 // the raw progress_stage string from the backend into a visual "what's
@@ -6142,8 +6185,11 @@ export default function App() {
                       </p>
                     )}
 
-                    <div className={`grid grid-cols-1 md:grid-cols-2 gap-6 transition-opacity ${(newChannel.music_preference.enabled ?? true) ? '' : 'opacity-40 pointer-events-none'}`}>
-                      {/* OPTION A: MES PROPRES MUSIQUES */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {/* OPTION A: MES PROPRES MUSIQUES — stays selectable even while the
+                          toggle above is off, so a creator can stage tracks first and have
+                          the toggle auto-flip on (see handleMusicFileSelect) rather than
+                          needing to turn music on before they're allowed to pick any. */}
                       <div
                         onClick={() => setNewChannel({ ...newChannel, music_preference: { ...newChannel.music_preference, mode: 'library' } })}
                         className={`p-5 rounded-2xl border-2 transition-all cursor-pointer space-y-4 flex flex-col ${
@@ -6206,10 +6252,12 @@ export default function App() {
                         )}
                       </div>
 
-                      {/* OPTION B: GÉNÉRER AVEC L'IA */}
+                      {/* OPTION B: GÉNÉRER AVEC L'IA — gated behind the toggle, unlike
+                          Option A: there's nothing useful to do here (no file staged
+                          yet, no auto-enable trigger) until music is actually on. */}
                       <div
                         onClick={() => setNewChannel({ ...newChannel, music_preference: { ...newChannel.music_preference, mode: 'ai_generate' } })}
-                        className={`p-5 rounded-2xl border-2 transition-all cursor-pointer space-y-4 flex flex-col ${
+                        className={`p-5 rounded-2xl border-2 transition-all cursor-pointer space-y-4 flex flex-col ${(newChannel.music_preference.enabled ?? true) ? '' : 'opacity-40 pointer-events-none'} ${
                           newChannel.music_preference.mode === 'ai_generate'
                             ? 'bg-[#1b2230] border-[#00c2ff] shadow-lg shadow-[#00c2ff]/10'
                             : 'bg-[#141923] border-[#263042] hover:border-slate-500 opacity-60'
@@ -6785,6 +6833,20 @@ export default function App() {
                   const hasFlicker = overlayEffects.includes('flicker');
                   const hasSoftFocus = overlayEffects.includes('soft_focus');
                   const hasSharpen = overlayEffects.includes('sharpen');
+
+                  const colorGradeFilter = ({
+                    warm: 'saturate(1.25) sepia(0.12) brightness(1.05)',
+                    vintage: 'saturate(0.75) sepia(0.2) contrast(1.05)',
+                    dramatic: 'contrast(1.3) saturate(0.85)',
+                    cool: 'saturate(1.1) hue-rotate(-8deg) brightness(0.98)',
+                    noir: 'grayscale(1) contrast(1.25)',
+                    sepia: 'sepia(0.75) contrast(1.05)',
+                    vibrant: 'saturate(1.6) contrast(1.1)',
+                    faded: 'contrast(0.82) brightness(1.08) saturate(0.85)',
+                    cinematic: 'saturate(1.1) contrast(1.12) hue-rotate(-4deg)',
+                    none: 'none',
+                  })[colorGrade] || 'none';
+
                   const previewImgFilter = [
                     colorGradeFilter !== 'none' ? colorGradeFilter : '',
                     hasSoftFocus ? 'blur(1.2px)' : '',
@@ -6800,19 +6862,6 @@ export default function App() {
                       ? `${API_BASE}/channels/${editingChannelId}/library-preview`
                       : STABLE_EFFECT_PREVIEW_IMAGES[0]);
                   const isStablePreview = localImageFiles.length === 0 && !(wizardMode === 'edit' && editingChannelId);
-
-                  const colorGradeFilter = ({
-                    warm: 'saturate(1.25) sepia(0.12) brightness(1.05)',
-                    vintage: 'saturate(0.75) sepia(0.2) contrast(1.05)',
-                    dramatic: 'contrast(1.3) saturate(0.85)',
-                    cool: 'saturate(1.1) hue-rotate(-8deg) brightness(0.98)',
-                    noir: 'grayscale(1) contrast(1.25)',
-                    sepia: 'sepia(0.75) contrast(1.05)',
-                    vibrant: 'saturate(1.6) contrast(1.1)',
-                    faded: 'contrast(0.82) brightness(1.08) saturate(0.85)',
-                    cinematic: 'saturate(1.1) contrast(1.12) hue-rotate(-4deg)',
-                    none: 'none',
-                  })[colorGrade] || 'none';
 
                   return (
                     <div className="space-y-6">
