@@ -5802,9 +5802,9 @@ export default function App() {
                         <button
                           type="button"
                           onClick={() => setNewChannel({ ...newChannel, music_preference: { ...newChannel.music_preference, enabled: !(newChannel.music_preference.enabled ?? true) } })}
-                          className={`relative w-9 h-5 rounded-full transition-colors ${(newChannel.music_preference.enabled ?? true) ? 'bg-[#00c2ff]' : 'bg-[#2b374d]'}`}
+                          className={`relative w-9 h-5 rounded-full overflow-hidden transition-colors ${(newChannel.music_preference.enabled ?? true) ? 'bg-[#00c2ff]' : 'bg-[#2b374d]'}`}
                         >
-                          <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${(newChannel.music_preference.enabled ?? true) ? 'translate-x-[18px]' : 'translate-x-0.5'}`} />
+                          <span className={`absolute left-0.5 top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${(newChannel.music_preference.enabled ?? true) ? 'translate-x-4' : 'translate-x-0'}`} />
                         </button>
                         <span className="text-[11px] font-bold text-slate-400">Musique activée</span>
                       </label>
@@ -6874,9 +6874,9 @@ export default function App() {
                               <button
                                 type="button"
                                 onClick={() => setNewChannel({ ...newChannel, effects_config: { ...newChannel.effects_config, watermark_enabled: !(newChannel.effects_config.watermark_enabled ?? true) } })}
-                                className={`w-11 h-6 rounded-full relative transition-colors ${(newChannel.effects_config.watermark_enabled ?? true) ? 'bg-[#00c2ff]' : 'bg-[#2b374d]'}`}
+                                className={`w-11 h-6 rounded-full relative overflow-hidden transition-colors ${(newChannel.effects_config.watermark_enabled ?? true) ? 'bg-[#00c2ff]' : 'bg-[#2b374d]'}`}
                               >
-                                <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform ${(newChannel.effects_config.watermark_enabled ?? true) ? 'translate-x-[22px]' : 'translate-x-0.5'}`} />
+                                <span className={`absolute left-0.5 top-0.5 w-5 h-5 rounded-full bg-white transition-transform ${(newChannel.effects_config.watermark_enabled ?? true) ? 'translate-x-5' : 'translate-x-0'}`} />
                               </button>
                             </div>
                           </div>
