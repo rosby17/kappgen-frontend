@@ -456,7 +456,6 @@ const VOICE_MODELS = [
 // Custom video player styled to match the app's dark/cyan design, replacing native browser controls.
 function VideoPlayer({ src, autoPlay, className }) {
   const videoRef = useRef(null);
-  const seekBarRef = useRef(null);
   // Always starts false, even with autoPlay — the browser can silently block
   // autoplay, and onPlay (below) is what actually confirms playback started.
   // Assuming success here left the icon stuck on "pause" while nothing played.
@@ -465,7 +464,6 @@ function VideoPlayer({ src, autoPlay, className }) {
   const [duration, setDuration] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
-  const [isScrubbing, setIsScrubbing] = useState(false);
 
   const togglePlay = (e) => {
     e.stopPropagation();
@@ -479,39 +477,14 @@ function VideoPlayer({ src, autoPlay, className }) {
     if (v.paused) v.play().catch(() => {}); else v.pause();
   };
 
-  const seekToClientX = (clientX) => {
+  const seekToTime = (nextTime) => {
     const v = videoRef.current;
-    const bar = seekBarRef.current;
-    if (!v || !bar || !duration) return;
-    const rect = bar.getBoundingClientRect();
-    const pct = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
-    const t = pct * duration;
-    v.currentTime = t;
-    setCurrentTime(t);
-    setProgress(pct * 100);
+    if (!v || !duration) return;
+    const bounded = Math.min(duration, Math.max(0, Number(nextTime) || 0));
+    v.currentTime = bounded;
+    setCurrentTime(bounded);
+    setProgress((bounded / duration) * 100);
   };
-
-  // Native onClick only fires on mouse-up-without-move, so dragging the
-  // thumb previously did nothing until release — felt "stuck". Track the
-  // drag on window so it keeps following the cursor outside the bar too.
-  const startScrub = (e) => {
-    e.stopPropagation();
-    setIsScrubbing(true);
-    seekToClientX(e.clientX);
-  };
-
-  useEffect(() => {
-    if (!isScrubbing) return;
-    const onMove = (e) => seekToClientX(e.clientX);
-    const onUp = () => setIsScrubbing(false);
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup', onUp);
-    return () => {
-      window.removeEventListener('mousemove', onMove);
-      window.removeEventListener('mouseup', onUp);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isScrubbing, duration]);
 
   const skip = (seconds) => (e) => {
     e.stopPropagation();
@@ -558,14 +531,23 @@ function VideoPlayer({ src, autoPlay, className }) {
       {/* Custom controls bar */}
       <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent px-3 pt-8 pb-2 pointer-events-none">
         <div className="pointer-events-auto">
-          <div
-            ref={seekBarRef}
-            onMouseDown={startScrub}
-            className="w-full h-1.5 bg-white/20 rounded-full cursor-pointer mb-2 group/seek select-none"
-          >
-            <div className={`h-full bg-[#00c2ff] rounded-full relative ${isScrubbing ? '' : 'transition-[width]'}`} style={{ width: `${progress}%` }}>
-              <div className={`absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-[#00c2ff] rounded-full shadow-md transition-opacity ${isScrubbing ? 'opacity-100' : 'opacity-0 group-hover/seek:opacity-100'}`}></div>
+          <div className="relative w-full h-5 mb-1 group/seek flex items-center">
+            <div className="absolute inset-x-0 h-1.5 bg-white/20 rounded-full overflow-hidden pointer-events-none">
+              <div className="h-full bg-[#00c2ff] rounded-full" style={{ width: `${progress}%` }} />
             </div>
+            <div className="absolute w-3 h-3 rounded-full bg-[#00c2ff] shadow-[0_0_8px_rgba(0,194,255,.65)] pointer-events-none opacity-0 group-hover/seek:opacity-100 transition-opacity" style={{ left: `calc(${progress}% - 6px)` }} />
+            <input
+              type="range"
+              min="0"
+              max={duration || 0}
+              step="0.1"
+              value={Math.min(currentTime, duration || 0)}
+              onClick={(e) => e.stopPropagation()}
+              onInput={(e) => seekToTime(e.currentTarget.value)}
+              onChange={(e) => seekToTime(e.currentTarget.value)}
+              aria-label="Position dans la vidéo"
+              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+            />
           </div>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
@@ -2766,6 +2748,23 @@ export default function App() {
   }, [studioScenes]);
 
   const [reusingAudioId, setReusingAudioId] = useState(null);
+  const [regeneratingTitleId, setRegeneratingTitleId] = useState(null);
+  const handleRegenerateTitle = async (vid, e) => {
+    if (e) e.stopPropagation();
+    setOpenVideoMenuId(null);
+    setRegeneratingTitleId(vid.id);
+    try {
+      const res = await fetch(`${API_BASE}/videos/${vid.id}/youtube-metadata/regenerate`, { method: 'POST' });
+      if (!res.ok) throw new Error();
+      fetchAllVideos();
+      if (activeChannel) fetchChannelVideos(activeChannel.id);
+      showToast('Titre régénéré.', 'success');
+    } catch {
+      showToast('Impossible de régénérer le titre.', 'error');
+    } finally {
+      setRegeneratingTitleId(null);
+    }
+  };
 
   const handleReuseAudio = async (vid, e) => {
     if (e) e.stopPropagation();
@@ -3554,16 +3553,15 @@ export default function App() {
                               )}
 
                               {/* Status Badge Top Left */}
-                              <div className="absolute top-2 left-2 z-10">
+                              {vid.status !== 'rendering' && <div className="absolute top-2 left-2 z-10">
                                 <span className={`px-2.5 py-0.5 rounded-lg text-[10px] font-mono font-bold uppercase tracking-wider ${
                                   vid.status === 'done' ? 'bg-emerald-950/90 text-emerald-300 border border-emerald-700/80' :
-                                  vid.status === 'rendering' ? 'bg-blue-950/90 text-blue-300 border border-blue-700/80 animate-pulse' :
                                   vid.status === 'failed' ? 'bg-rose-950/90 text-rose-300 border border-rose-700/80' :
                                   'bg-amber-950/90 text-amber-300 border border-amber-700/80'
                                 }`}>
-                                  {vid.status === 'done' ? 'Prête' : vid.status === 'rendering' ? 'En cours' : vid.status === 'failed' ? 'Échec' : 'En file'}
+                                  {vid.status === 'done' ? 'Prête' : vid.status === 'failed' ? 'Échec' : 'En file'}
                                 </span>
-                              </div>
+                              </div>}
                             </div>
 
                             {/* Kebab Menu Top Right — rendered outside the poster frame so the
@@ -3578,9 +3576,16 @@ export default function App() {
                               </button>
                               {openVideoMenuId === vid.id && (
                                 <div className="absolute right-0 top-9 w-44 bg-[#1f2838] border border-[#2d3a52] rounded-xl shadow-2xl z-50 py-1.5">
-                                  <button onClick={(e) => startEditingTitle(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[#2c394e] hover:text-white flex items-center gap-2 font-medium">
-                                    <span className="material-symbols-outlined text-[16px] text-[#00c2ff]">edit</span> Renommer
-                                  </button>
+                                  {vid.status === 'done' && (
+                                    <button disabled={regeneratingTitleId === vid.id} onClick={(e) => handleRegenerateTitle(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[#2c394e] hover:text-white flex items-center gap-2 font-medium disabled:opacity-50">
+                                      <span className={`material-symbols-outlined text-[16px] text-[#00c2ff] ${regeneratingTitleId === vid.id ? 'animate-spin' : ''}`}>{regeneratingTitleId === vid.id ? 'progress_activity' : 'auto_awesome'}</span> {regeneratingTitleId === vid.id ? 'Régénération…' : 'Régénérer le titre'}
+                                    </button>
+                                  )}
+                                  {vid.status === 'done' && vid.editable && (
+                                    <button onClick={(e) => { e.stopPropagation(); setOpenVideoMenuId(null); openStudio(vid); }} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[#2c394e] hover:text-white flex items-center gap-2 font-medium">
+                                      <span className="material-symbols-outlined text-[16px] text-[#00c2ff]">movie_edit</span> Éditer la vidéo
+                                    </button>
+                                  )}
                                   {vid.status === 'done' && (
                                     <button onClick={(e) => handleDownloadVideo(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[#2c394e] hover:text-white flex items-center gap-2 font-medium">
                                       <span className="material-symbols-outlined text-[16px] text-[#00c2ff]">download</span> Télécharger
@@ -3948,16 +3953,15 @@ export default function App() {
                             )}
 
                             {/* Status Badge */}
-                            <div className="absolute top-2 left-2 z-10">
+                            {vid.status !== 'rendering' && <div className="absolute top-2 left-2 z-10">
                               <span className={`px-2 py-0.5 rounded-lg text-[10px] font-mono font-bold uppercase tracking-wider ${
                                 vid.status === 'done' ? 'bg-emerald-950/90 text-emerald-300 border border-emerald-700/80' :
-                                vid.status === 'rendering' ? 'bg-blue-950/90 text-blue-300 border border-blue-700/80 animate-pulse' :
                                 vid.status === 'failed' ? 'bg-rose-950/90 text-rose-300 border border-rose-700/80' :
                                 'bg-amber-950/90 text-amber-300 border border-amber-700/80'
                               }`}>
-                                {vid.status === 'done' ? 'Prête' : vid.status === 'rendering' ? 'En cours' : vid.status === 'failed' ? 'Échec' : 'En file'}
+                                {vid.status === 'done' ? 'Prête' : vid.status === 'failed' ? 'Échec' : 'En file'}
                               </span>
-                            </div>
+                            </div>}
                           </div>
 
                           {/* Kebab Menu — outside the poster's overflow-hidden so "Supprimer" is never clipped */}
@@ -3971,9 +3975,16 @@ export default function App() {
                             </button>
                             {openVideoMenuId === vid.id && (
                               <div className="absolute right-0 top-9 w-44 bg-[#1f2838] border border-[#2d3a52] rounded-xl shadow-2xl z-50 py-1.5">
-                                <button onClick={(e) => startEditingTitle(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[#2c394e] hover:text-white flex items-center gap-2 font-medium">
-                                  <span className="material-symbols-outlined text-[16px] text-[#00c2ff]">edit</span> Renommer
-                                </button>
+                                {vid.status === 'done' && (
+                                  <button disabled={regeneratingTitleId === vid.id} onClick={(e) => handleRegenerateTitle(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[#2c394e] hover:text-white flex items-center gap-2 font-medium disabled:opacity-50">
+                                    <span className={`material-symbols-outlined text-[16px] text-[#00c2ff] ${regeneratingTitleId === vid.id ? 'animate-spin' : ''}`}>{regeneratingTitleId === vid.id ? 'progress_activity' : 'auto_awesome'}</span> {regeneratingTitleId === vid.id ? 'Régénération…' : 'Régénérer le titre'}
+                                  </button>
+                                )}
+                                {vid.status === 'done' && vid.editable && (
+                                  <button onClick={(e) => { e.stopPropagation(); setOpenVideoMenuId(null); openStudio(vid); }} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[#2c394e] hover:text-white flex items-center gap-2 font-medium">
+                                    <span className="material-symbols-outlined text-[16px] text-[#00c2ff]">movie_edit</span> Éditer la vidéo
+                                  </button>
+                                )}
                                 {vid.status === 'done' && (
                                   <button onClick={(e) => handleDownloadVideo(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[#2c394e] hover:text-white flex items-center gap-2 font-medium">
                                     <span className="material-symbols-outlined text-[16px] text-[#00c2ff]">download</span> Télécharger
