@@ -7181,6 +7181,49 @@ export default function App() {
                               })}
                             </div>
                           </div>
+                          <div className="flex items-center gap-2 bg-[#11151c] border border-[#202938] rounded-xl px-3 py-2.5 relative">
+                            <span className="material-symbols-outlined text-[16px] text-slate-500 shrink-0">public</span>
+                            <span className="text-[11px] text-slate-400 shrink-0">Fuseau horaire :</span>
+                            <button
+                              type="button"
+                              onClick={() => { setTimezoneMenuOpen(o => !o); setTimezoneSearch(''); }}
+                              className="flex-1 min-w-0 flex items-center justify-between gap-2 bg-[#1b2230] border border-[#2b374d] hover:border-slate-500 rounded-lg px-2.5 py-1.5 text-[11px] text-white text-left transition-colors"
+                            >
+                              <span className="truncate">{newChannel.timezone || 'Africa/Douala'}</span>
+                              <span className={`material-symbols-outlined text-[15px] text-slate-400 shrink-0 transition-transform ${timezoneMenuOpen ? 'rotate-180' : ''}`}>expand_more</span>
+                            </button>
+                            {timezoneMenuOpen && (
+                              <div className="absolute left-0 right-0 top-full mt-1.5 bg-[#1f2838] border border-[#2d3a52] rounded-xl shadow-2xl z-50 overflow-hidden">
+                                <div className="p-2 border-b border-[#2d3a52]">
+                                  <input
+                                    autoFocus
+                                    value={timezoneSearch}
+                                    onChange={e => setTimezoneSearch(e.target.value)}
+                                    placeholder="Rechercher (ex: Douala, Paris...)"
+                                    className="w-full bg-[#11151c] border border-[#2b374d] rounded-lg px-2.5 py-1.5 text-[11px] text-white focus:border-[#00c2ff] outline-none"
+                                  />
+                                </div>
+                                <div className="max-h-52 overflow-y-auto py-1">
+                                  {TIMEZONE_OPTIONS
+                                    .filter(tz => tz.toLowerCase().includes(timezoneSearch.toLowerCase()))
+                                    .slice(0, 200)
+                                    .map(tz => (
+                                      <button
+                                        key={tz}
+                                        type="button"
+                                        onClick={() => { setNewChannel({ ...newChannel, timezone: tz }); setTimezoneMenuOpen(false); }}
+                                        className={`w-full text-left px-3 py-1.5 text-[11px] hover:bg-[#2c394e] transition-colors flex items-center justify-between gap-2 ${
+                                          tz === (newChannel.timezone || 'Africa/Douala') ? 'text-[#00c2ff] font-bold' : 'text-slate-300'
+                                        }`}
+                                      >
+                                        <span className="truncate">{tz}</span>
+                                        {tz === (newChannel.timezone || 'Africa/Douala') && <span className="material-symbols-outlined text-[14px] shrink-0">check</span>}
+                                      </button>
+                                    ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
                         </div>
                       )}
                     </div>
