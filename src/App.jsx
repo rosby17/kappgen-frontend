@@ -907,6 +907,15 @@ async function readImagesFromDirHandle(dirHandle) {
   return files;
 }
 
+function YouTubeIcon({ className = "" }) {
+  return (
+    <svg viewBox="0 0 28 20" className={className} fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M27.4 3.12A3.45 3.45 0 0 0 25 .71C22.82 0 14 0 14 0S5.18 0 3 .71A3.45 3.45 0 0 0 .6 3.12 36.1 36.1 0 0 0 0 10a36.1 36.1 0 0 0 .6 6.88 3.45 3.45 0 0 0 2.4 2.41C5.18 20 14 20 14 20s8.82 0 11-.71a3.45 3.45 0 0 0 2.4-2.41A36.1 36.1 0 0 0 28 10a36.1 36.1 0 0 0-.6-6.88Z" fill="#FF0000"/>
+      <path d="M11.2 14.29 18.48 10 11.2 5.71v8.58Z" fill="#fff"/>
+    </svg>
+  );
+}
+
 function ChannelAvatar({ channel, logoUrl, sizeClass = "w-12 h-12", roundedClass = "rounded-xl", textClass = "text-lg" }) {
   const [failed, setFailed] = useState(false);
   if (!logoUrl || failed) {
@@ -3485,11 +3494,10 @@ export default function App() {
                     </div>
                     <div className="min-w-0">
                       <div className="text-[9px] font-bold tracking-[.16em] text-[#50d6ff] uppercase mb-1.5">Pipeline de chaîne</div>
-                      <h1 className="text-xl sm:text-2xl font-extrabold text-white truncate tracking-[-.025em]">{activeChannel.name}</h1>
-                      <div className="flex items-center flex-wrap gap-x-3 gap-y-1 text-slate-400 text-[11px] font-medium mt-1.5">
-                        <span>{activeChannel.niche}</span>
+                      <div className="flex items-baseline gap-2 flex-wrap">
+                        <h1 className="text-xl sm:text-2xl font-extrabold text-white truncate tracking-[-.025em]">{activeChannel.name}</h1>
                         {activeChannel.youtube_channel_handle && (
-                          <><span className="w-1 h-1 rounded-full bg-slate-600" /><span className="text-slate-300">{activeChannel.youtube_channel_handle}</span></>
+                          <span className="text-slate-400 text-[11px] font-medium">{activeChannel.youtube_channel_handle}</span>
                         )}
                       </div>
                       {activeChannel.youtube_connected ? (
@@ -3511,7 +3519,7 @@ export default function App() {
                           title="YouTube connecté — cliquer pour déconnecter"
                           className="inline-flex items-center gap-1.5 mt-2.5 px-2.5 py-1 rounded-full text-[9px] font-bold uppercase tracking-[.1em] bg-emerald-950/80 text-emerald-300 border border-emerald-700/60 hover:bg-emerald-900/80 transition-colors"
                         >
-                          <span className="material-symbols-outlined text-[12px]">check_circle</span>
+                          <YouTubeIcon className="w-3.5 h-2.5" />
                           Chaîne YouTube connectée
                         </button>
                       ) : (
@@ -3532,7 +3540,7 @@ export default function App() {
                           title="Connecter YouTube"
                           className="inline-flex items-center gap-1.5 mt-2.5 px-2.5 py-1 rounded-full text-[9px] font-bold uppercase tracking-[.1em] bg-slate-800/80 text-slate-300 border border-slate-700/60 hover:bg-slate-700/80 hover:text-white transition-colors"
                         >
-                          <span className="material-symbols-outlined text-[12px]">smart_display</span>
+                          <YouTubeIcon className="w-3.5 h-2.5" />
                           Connecter YouTube
                         </button>
                       )}
