@@ -620,7 +620,7 @@ function VoiceAvatar({ voice, size = 40, playable = false, playing = false, onTo
   const seed = voice?.id || voice?.name || 'voice';
   return (
     <div
-      className={`group relative shrink-0 rounded-full overflow-hidden bg-[#1b2230] ${playable ? 'cursor-pointer' : ''}`}
+      className={`group relative shrink-0 rounded-full overflow-hidden bg-[var(--bg-surface-alt)] ${playable ? 'cursor-pointer' : ''}`}
       style={{ width: size, height: size }}
       onClick={playable ? (e) => { e.stopPropagation(); onTogglePlay(); } : undefined}
       title={playable ? (playing ? 'Mettre en pause' : 'Écouter un extrait') : undefined}
@@ -646,7 +646,7 @@ function VoiceCard({ voice, active, saved, mine, playingId, onSelect, onToggleSa
     <div
       onClick={() => onSelect(voice)}
       className={`flex items-center gap-2.5 px-3 py-1.5 rounded-lg border cursor-pointer transition-colors ${
-        active ? 'bg-[#00c2ff]/10 border-[#00c2ff]' : 'bg-[#1b2230] border-[#2b374d] hover:border-slate-500'
+        active ? 'bg-[#00c2ff]/10 border-[#00c2ff]' : 'bg-[var(--bg-surface-alt)] border-[var(--border)] hover:border-slate-500'
       }`}
     >
       <VoiceAvatar
@@ -700,18 +700,18 @@ function VoiceLibrarySelect({ label, value, onChange, options }) {
         type="button"
         onClick={() => setOpen(o => !o)}
         className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-bold border transition-colors ${
-          value ? 'bg-[#00c2ff]/10 border-[#00c2ff]/50 text-[#56d9ff]' : 'bg-[#1b2230] border-[#2b374d] text-slate-300 hover:border-slate-500'
+          value ? 'bg-[#00c2ff]/10 border-[#00c2ff]/50 text-[#56d9ff]' : 'bg-[var(--bg-surface-alt)] border-[var(--border)] text-slate-300 hover:border-slate-500'
         }`}
       >
         {value || label}
         <span className={`material-symbols-outlined text-[14px] transition-transform ${open ? 'rotate-180' : ''}`}>expand_more</span>
       </button>
       {open && (
-        <div className="absolute left-0 top-full mt-1.5 min-w-[160px] bg-[#1f2838] border border-[#2d3a52] rounded-xl shadow-2xl z-50 overflow-hidden py-1 max-h-64 overflow-y-auto">
+        <div className="absolute left-0 top-full mt-1.5 min-w-[160px] bg-[var(--bg-dropdown)] border border-[var(--border-dropdown)] rounded-xl shadow-2xl z-50 overflow-hidden py-1 max-h-64 overflow-y-auto">
           <button
             type="button"
             onClick={() => { onChange(''); setOpen(false); }}
-            className={`w-full text-left px-3 py-1.5 text-[11px] hover:bg-[#2c394e] transition-colors flex items-center justify-between gap-2 ${!value ? 'text-[#00c2ff] font-bold' : 'text-slate-300'}`}
+            className={`w-full text-left px-3 py-1.5 text-[11px] hover:bg-[var(--bg-hover)] transition-colors flex items-center justify-between gap-2 ${!value ? 'text-[#00c2ff] font-bold' : 'text-slate-300'}`}
           >
             {label} (tous)
             {!value && <span className="material-symbols-outlined text-[14px] shrink-0">check</span>}
@@ -721,7 +721,7 @@ function VoiceLibrarySelect({ label, value, onChange, options }) {
               key={opt}
               type="button"
               onClick={() => { onChange(opt); setOpen(false); }}
-              className={`w-full text-left px-3 py-1.5 text-[11px] hover:bg-[#2c394e] transition-colors flex items-center justify-between gap-2 ${value === opt ? 'text-[#00c2ff] font-bold' : 'text-slate-300'}`}
+              className={`w-full text-left px-3 py-1.5 text-[11px] hover:bg-[var(--bg-hover)] transition-colors flex items-center justify-between gap-2 ${value === opt ? 'text-[#00c2ff] font-bold' : 'text-slate-300'}`}
             >
               <span className="truncate">{opt}</span>
               {value === opt && <span className="material-symbols-outlined text-[14px] shrink-0">check</span>}
@@ -811,9 +811,9 @@ function VoiceLibraryModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm" onClick={onClose}>
       <div
         onClick={e => e.stopPropagation()}
-        className="w-full max-w-4xl h-[85vh] bg-[#11151c] border border-[#263042] rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200"
+        className="w-full max-w-4xl h-[85vh] bg-[var(--bg-input)] border border-[var(--border-soft)] rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200"
       >
-        <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-[#202938]">
+        <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-[var(--border-subtle)]">
           <div>
             <h3 className="text-sm font-extrabold text-white">Sélectionner une voix</h3>
             <p className="text-[11px] text-slate-500">Choisis une voix dans la bibliothèque, tes voix clonées, ou tes favoris.</p>
@@ -824,7 +824,7 @@ function VoiceLibraryModal({
         </div>
 
         <div className="flex items-center justify-between gap-3 px-5 pt-3 flex-wrap">
-          <div className="flex items-center gap-1 bg-[#0b0f16] border border-[#202938] rounded-xl p-1">
+          <div className="flex items-center gap-1 bg-[#0b0f16] border border-[var(--border-subtle)] rounded-xl p-1">
             {TABS.map(t => (
               <button
                 key={t.id}
@@ -842,7 +842,7 @@ function VoiceLibraryModal({
             <button
               type="button"
               onClick={onOpenCloner}
-              className="shrink-0 px-4 py-2 rounded-lg bg-gradient-to-r from-[#65e0ff] to-[#1a9cff] text-[#031019] text-[11px] font-extrabold flex items-center gap-1.5 shadow-md shadow-[#00c2ff]/20 hover:brightness-110 transition-all"
+              className="shrink-0 px-4 py-2 rounded-lg bg-gradient-to-r from-[#65e0ff] to-[#1a9cff] text-[var(--bg-deep)] text-[11px] font-extrabold flex items-center gap-1.5 shadow-md shadow-[#00c2ff]/20 hover:brightness-110 transition-all"
             >
               <span className="material-symbols-outlined text-[16px]">fingerprint</span>
               Cloner ma voix
@@ -860,7 +860,7 @@ function VoiceLibraryModal({
                 value={searchQuery}
                 onChange={e => onSearchChange(e.target.value)}
                 placeholder="Rechercher dans les 11 000+ voix (langue, accent, nom...)"
-                className="w-full bg-[#1b2230] border border-[#2b374d] rounded-lg pl-9 pr-9 py-2 text-xs text-white focus:border-[#00c2ff] outline-none"
+                className="w-full bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-lg pl-9 pr-9 py-2 text-xs text-white focus:border-[#00c2ff] outline-none"
               />
               {searching && <span className="material-symbols-outlined text-[14px] text-slate-500 absolute right-3 top-1/2 -translate-y-1/2 animate-spin">progress_activity</span>}
             </div>
@@ -871,7 +871,7 @@ function VoiceLibraryModal({
               <select
                 value={sortBy}
                 onChange={e => setSortBy(e.target.value)}
-                className="bg-[#1b2230] border border-[#2b374d] rounded-lg px-2.5 py-1.5 text-[11px] text-white focus:border-[#00c2ff] outline-none ml-auto"
+                className="bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-lg px-2.5 py-1.5 text-[11px] text-white focus:border-[#00c2ff] outline-none ml-auto"
               >
                 <option value="recommended">Tri : Recommandé</option>
                 <option value="popular">Tri : Popularité</option>
@@ -975,8 +975,8 @@ function VoiceCloneModal({ onClose, onSubmit, submitting }) {
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm" onClick={onClose}>
-      <div onClick={e => e.stopPropagation()} className="w-full max-w-lg bg-[#11151c] border border-[#263042] rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
-        <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-[#202938]">
+      <div onClick={e => e.stopPropagation()} className="w-full max-w-lg bg-[var(--bg-input)] border border-[var(--border-soft)] rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+        <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-[var(--border-subtle)]">
           <h3 className="text-sm font-extrabold text-white flex items-center gap-2">
             <span className="material-symbols-outlined text-[#00c2ff] text-[18px]">fingerprint</span>
             Cloner une voix
@@ -994,7 +994,7 @@ function VoiceCloneModal({ onClose, onSubmit, submitting }) {
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 className={`flex flex-col items-center justify-center gap-1.5 rounded-xl border-2 border-dashed p-4 text-center transition-colors ${
-                  file && !recording ? 'border-[#00c2ff] bg-[#00c2ff]/5' : 'border-[#2b374d] hover:border-slate-500'
+                  file && !recording ? 'border-[#00c2ff] bg-[#00c2ff]/5' : 'border-[var(--border)] hover:border-slate-500'
                 }`}
               >
                 <span className="material-symbols-outlined text-[22px] text-[#56d9ff]">upload_file</span>
@@ -1007,7 +1007,7 @@ function VoiceCloneModal({ onClose, onSubmit, submitting }) {
                 type="button"
                 onClick={recording ? stopRecording : startRecording}
                 className={`flex flex-col items-center justify-center gap-1.5 rounded-xl border-2 p-4 text-center transition-colors ${
-                  recording ? 'border-rose-500 bg-rose-500/10' : 'border-dashed border-[#2b374d] hover:border-slate-500'
+                  recording ? 'border-rose-500 bg-rose-500/10' : 'border-dashed border-[var(--border)] hover:border-slate-500'
                 }`}
               >
                 <span className={`material-symbols-outlined text-[22px] ${recording ? 'text-rose-400 animate-pulse' : 'text-[#56d9ff]'}`}>mic</span>
@@ -1016,7 +1016,7 @@ function VoiceCloneModal({ onClose, onSubmit, submitting }) {
               </button>
             </div>
             {file && (
-              <div className="mt-2 flex items-center gap-2 text-[11px] text-slate-400 bg-[#0b0f16] border border-[#202938] rounded-lg px-3 py-2">
+              <div className="mt-2 flex items-center gap-2 text-[11px] text-slate-400 bg-[#0b0f16] border border-[var(--border-subtle)] rounded-lg px-3 py-2">
                 <span className="material-symbols-outlined text-[14px] text-[#00c2ff]">graphic_eq</span>
                 <span className="truncate flex-1">{file.name}</span>
                 <button type="button" onClick={() => setFile(null)} className="text-slate-500 hover:text-rose-400">
@@ -1032,7 +1032,7 @@ function VoiceCloneModal({ onClose, onSubmit, submitting }) {
               value={name}
               onChange={e => setName(e.target.value)}
               placeholder="Ex : Ma voix"
-              className="w-full bg-[#1b2230] border border-[#2b374d] rounded-lg px-3 py-2 text-xs text-white focus:border-[#00c2ff] outline-none"
+              className="w-full bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-lg px-3 py-2 text-xs text-white focus:border-[#00c2ff] outline-none"
             />
           </div>
 
@@ -1042,15 +1042,15 @@ function VoiceCloneModal({ onClose, onSubmit, submitting }) {
           </label>
         </div>
 
-        <div className="flex items-center gap-3 px-5 py-4 border-t border-[#202938]">
-          <button type="button" onClick={onClose} className="flex-1 py-2.5 rounded-xl border border-[#2b374d] text-slate-300 text-xs font-bold hover:border-slate-500">
+        <div className="flex items-center gap-3 px-5 py-4 border-t border-[var(--border-subtle)]">
+          <button type="button" onClick={onClose} className="flex-1 py-2.5 rounded-xl border border-[var(--border)] text-slate-300 text-xs font-bold hover:border-slate-500">
             Annuler
           </button>
           <button
             type="button"
             disabled={!canSubmit}
             onClick={() => onSubmit(file, name.trim())}
-            className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-[#65e0ff] to-[#1a9cff] text-[#031019] font-extrabold text-xs disabled:opacity-40"
+            className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-[#65e0ff] to-[#1a9cff] text-[var(--bg-deep)] font-extrabold text-xs disabled:opacity-40"
           >
             {submitting ? 'Clonage…' : 'Cloner la voix'}
           </button>
@@ -1257,7 +1257,7 @@ function ColorPickerButton({ value, onChange, label, allowNone = false }) {
       <button
         type="button"
         onClick={() => setOpen(o => !o)}
-        className="flex items-center gap-2 bg-[#1b2230] border border-[#2b374d] hover:border-[#00c2ff] rounded-xl px-2.5 py-2 transition-colors"
+        className="flex items-center gap-2 bg-[var(--bg-surface-alt)] border border-[var(--border)] hover:border-[#00c2ff] rounded-xl px-2.5 py-2 transition-colors"
       >
         <span
           className="w-6 h-6 rounded-lg border border-white/20 flex-shrink-0"
@@ -1267,7 +1267,7 @@ function ColorPickerButton({ value, onChange, label, allowNone = false }) {
       </button>
 
       {open && (
-        <div className="absolute z-30 top-full left-0 mt-2 w-56 bg-[#1f2838] border border-[#2d3a52] rounded-xl shadow-2xl p-3 space-y-3">
+        <div className="absolute z-30 top-full left-0 mt-2 w-56 bg-[var(--bg-dropdown)] border border-[var(--border-dropdown)] rounded-xl shadow-2xl p-3 space-y-3">
           {label && <div className="text-[11px] font-bold text-slate-300">{label}</div>}
           <div className="grid grid-cols-6 gap-2">
             {COLOR_PICKER_PRESETS.map(c => (
@@ -1287,7 +1287,7 @@ function ColorPickerButton({ value, onChange, label, allowNone = false }) {
               value={hexDraft}
               onChange={e => commitHex(e.target.value)}
               placeholder="#RRGGBB"
-              className="flex-1 min-w-0 bg-[#1b2230] border border-[#2b374d] rounded-lg px-2 py-1.5 text-xs font-mono text-white focus:border-[#00c2ff] outline-none"
+              className="flex-1 min-w-0 bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-lg px-2 py-1.5 text-xs font-mono text-white focus:border-[#00c2ff] outline-none"
             />
           </div>
           {allowNone && (
@@ -1345,7 +1345,7 @@ function AudioFilePreview({ file, onRemove, volume }) {
   };
 
   return (
-    <div className="rounded-xl border border-[#2b374d] bg-[#11151c] p-3" onClick={(event) => event.stopPropagation()}>
+    <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-input)] p-3" onClick={(event) => event.stopPropagation()}>
       {src && (
         <audio
           ref={audioRef}
@@ -1374,7 +1374,7 @@ function AudioFilePreview({ file, onRemove, volume }) {
             type="button"
             onClick={(event) => { event.stopPropagation(); onRemove(); }}
             title="Retirer ce fichier"
-            className="shrink-0 w-7 h-7 rounded-full bg-[#1b2230] hover:bg-rose-950 text-slate-400 hover:text-rose-300 flex items-center justify-center transition-colors"
+            className="shrink-0 w-7 h-7 rounded-full bg-[var(--bg-surface-alt)] hover:bg-rose-950 text-slate-400 hover:text-rose-300 flex items-center justify-center transition-colors"
           >
             <span className="material-symbols-outlined text-[16px]">close</span>
           </button>
@@ -1420,7 +1420,7 @@ function ServerAudioPreview({ src, name, volume, onRemove }) {
   };
 
   return (
-    <div className="rounded-xl border border-[#2b374d] bg-[#11151c] p-3" onClick={(event) => event.stopPropagation()}>
+    <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-input)] p-3" onClick={(event) => event.stopPropagation()}>
       {src && (
         <audio
           ref={audioRef}
@@ -1449,7 +1449,7 @@ function ServerAudioPreview({ src, name, volume, onRemove }) {
             type="button"
             onClick={(event) => { event.stopPropagation(); onRemove(); }}
             title="Retirer ce fichier"
-            className="shrink-0 w-7 h-7 rounded-full bg-[#1b2230] hover:bg-rose-950 text-slate-400 hover:text-rose-300 flex items-center justify-center transition-colors"
+            className="shrink-0 w-7 h-7 rounded-full bg-[var(--bg-surface-alt)] hover:bg-rose-950 text-slate-400 hover:text-rose-300 flex items-center justify-center transition-colors"
           >
             <span className="material-symbols-outlined text-[16px]">close</span>
           </button>
@@ -1555,7 +1555,7 @@ function ModeDropdown({ value, options, onChange }) {
       <button
         type="button"
         onClick={() => setOpen(o => !o)}
-        className="w-full flex items-center gap-3 px-3.5 py-3 rounded-xl bg-[#1b2230] border border-[#2b374d] hover:border-slate-500 transition-colors text-left"
+        className="w-full flex items-center gap-3 px-3.5 py-3 rounded-xl bg-[var(--bg-surface-alt)] border border-[var(--border)] hover:border-slate-500 transition-colors text-left"
       >
         <span className="w-8 h-8 rounded-lg bg-[#00c2ff]/10 text-[#00c2ff] flex items-center justify-center shrink-0">
           <span className="material-symbols-outlined text-[17px]">{current.icon}</span>
@@ -1567,13 +1567,13 @@ function ModeDropdown({ value, options, onChange }) {
         <span className={`material-symbols-outlined text-[18px] text-slate-400 transition-transform ${open ? 'rotate-180' : ''}`}>expand_more</span>
       </button>
       {open && (
-        <div className="absolute left-0 right-0 top-full mt-1.5 bg-[#1f2838] border border-[#2d3a52] rounded-xl shadow-2xl z-30 py-1.5 overflow-hidden">
+        <div className="absolute left-0 right-0 top-full mt-1.5 bg-[var(--bg-dropdown)] border border-[var(--border-dropdown)] rounded-xl shadow-2xl z-30 py-1.5 overflow-hidden">
           {options.map(opt => (
             <button
               key={opt.value}
               type="button"
               onClick={() => { onChange(opt.value); setOpen(false); }}
-              className="w-full flex items-center gap-3 px-3.5 py-2.5 text-left hover:bg-[#2c394e] transition-colors"
+              className="w-full flex items-center gap-3 px-3.5 py-2.5 text-left hover:bg-[var(--bg-hover)] transition-colors"
             >
               <span className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${opt.value === value ? 'bg-[#00c2ff]/15 text-[#00c2ff]' : 'bg-white/5 text-slate-400'}`}>
                 <span className="material-symbols-outlined text-[15px]">{opt.icon}</span>
@@ -1608,20 +1608,20 @@ function HourDropdown({ value, onChange }) {
       <button
         type="button"
         onClick={() => setOpen(o => !o)}
-        className="flex items-center gap-1 bg-[#1b2230] border border-[#2b374d] hover:border-slate-500 rounded-lg px-2.5 py-1.5 text-[11px] font-bold text-white transition-colors"
+        className="flex items-center gap-1 bg-[var(--bg-surface-alt)] border border-[var(--border)] hover:border-slate-500 rounded-lg px-2.5 py-1.5 text-[11px] font-bold text-white transition-colors"
       >
         {String(value).padStart(2, '0')}h00
         <span className={`material-symbols-outlined text-[14px] text-slate-400 transition-transform ${open ? 'rotate-180' : ''}`}>expand_more</span>
       </button>
       {open && (
-        <div className="absolute left-0 top-full mt-1.5 w-24 max-h-56 overflow-y-auto bg-[#1f2838] border border-[#2d3a52] rounded-xl shadow-2xl z-50 py-1">
+        <div className="absolute left-0 top-full mt-1.5 w-24 max-h-56 overflow-y-auto bg-[var(--bg-dropdown)] border border-[var(--border-dropdown)] rounded-xl shadow-2xl z-50 py-1">
           {Array.from({ length: 24 }, (_, h) => (
             <button
               key={h}
               type="button"
               onClick={() => { onChange(h); setOpen(false); }}
               className={`w-full text-left px-3 py-1.5 text-[11px] transition-colors flex items-center justify-between gap-2 ${
-                h === value ? 'text-[#00c2ff] font-bold bg-[#00c2ff]/10' : 'text-slate-300 hover:bg-[#2c394e]'
+                h === value ? 'text-[#00c2ff] font-bold bg-[#00c2ff]/10' : 'text-slate-300 hover:bg-[var(--bg-hover)]'
               }`}
             >
               {String(h).padStart(2, '0')}h00
@@ -1703,7 +1703,7 @@ function ChannelAvatar({ channel, logoUrl, sizeClass = "w-12 h-12", textClass = 
       src={logoUrl}
       alt={channel?.name}
       onError={() => setFailed(true)}
-      className={`${sizeClass} rounded-full object-cover border border-[#2b374d] flex-shrink-0 shadow-md`}
+      className={`${sizeClass} rounded-full object-cover border border-[var(--border)] flex-shrink-0 shadow-md`}
     />
   );
 
@@ -1721,9 +1721,9 @@ function ChannelAvatar({ channel, logoUrl, sizeClass = "w-12 h-12", textClass = 
     <div className={`relative ${sizeClass} flex-shrink-0`} title={percent < 100 ? `Configuration à ${percent}% — configure une source visuelle (Option A ou B) pour pouvoir générer une vidéo` : 'Pipeline configuré — prêt à générer des vidéos'}>
       <div
         className="absolute inset-0 rounded-full p-[2.5px]"
-        style={{ background: `conic-gradient(#00c2ff ${percent}%, #2b374d 0)` }}
+        style={{ background: `conic-gradient(#00c2ff ${percent}%, var(--border) 0)` }}
       >
-        <div className="w-full h-full rounded-full overflow-hidden bg-[#0f1217]">
+        <div className="w-full h-full rounded-full overflow-hidden bg-[var(--bg-input-alt)]">
           {image}
         </div>
       </div>
@@ -1738,17 +1738,17 @@ function SkeletonGrid({ count = 6, cardClassName = "min-h-[220px]" }) {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
       {Array.from({ length: count }).map((_, i) => (
-        <div key={i} className={`bg-[#161b22] border border-[#263042] rounded-2xl p-5 animate-pulse ${cardClassName}`}>
+        <div key={i} className={`bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-2xl p-5 animate-pulse ${cardClassName}`}>
           <div className="flex items-center gap-3.5 mb-4">
-            <div className="w-12 h-12 rounded-xl bg-[#232c3a]" />
+            <div className="w-12 h-12 rounded-xl bg-[var(--border-soft)]" />
             <div className="flex-1 space-y-2">
-              <div className="h-3 w-2/3 bg-[#232c3a] rounded" />
-              <div className="h-2.5 w-1/3 bg-[#232c3a] rounded" />
+              <div className="h-3 w-2/3 bg-[var(--border-soft)] rounded" />
+              <div className="h-2.5 w-1/3 bg-[var(--border-soft)] rounded" />
             </div>
           </div>
-          <div className="h-2.5 w-full bg-[#232c3a] rounded mb-2" />
-          <div className="h-2.5 w-5/6 bg-[#232c3a] rounded mb-4" />
-          <div className="h-8 w-full bg-[#232c3a] rounded-xl" />
+          <div className="h-2.5 w-full bg-[var(--border-soft)] rounded mb-2" />
+          <div className="h-2.5 w-5/6 bg-[var(--border-soft)] rounded mb-4" />
+          <div className="h-8 w-full bg-[var(--border-soft)] rounded-xl" />
         </div>
       ))}
     </div>
@@ -1767,12 +1767,39 @@ function viewFromPath(path) {
   return 'home';
 }
 
+const THEME_STORAGE_KEY = 'nichecut_theme'; // 'light' | 'dark' | 'auto'
+
+// Resolves the effective light/dark value for a given preference — 'auto'
+// follows the OS-level prefers-color-scheme instead of a fixed choice.
+const resolveEffectiveTheme = (pref) => {
+  if (pref === 'light' || pref === 'dark') return pref;
+  return (typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) ? 'light' : 'dark';
+};
+
 export default function App() {
   const navigate = useNavigate();
   const location = useLocation();
   useEffect(() => {
     document.title = 'NicheCut Studio — Espace de production';
   }, []);
+
+  const [themePreference, setThemePreference] = useState(() => {
+    try { return localStorage.getItem(THEME_STORAGE_KEY) || 'dark'; } catch { return 'dark'; }
+  });
+
+  // Applies the resolved theme to <html data-theme="…"> (index.css keys all
+  // light-mode overrides off that attribute) and keeps it in sync with the
+  // OS setting live while on 'auto', without needing a page reload.
+  useEffect(() => {
+    const apply = () => { document.documentElement.dataset.theme = resolveEffectiveTheme(themePreference); };
+    apply();
+    try { localStorage.setItem(THEME_STORAGE_KEY, themePreference); } catch {}
+    if (themePreference !== 'auto' || !window.matchMedia) return;
+    const mql = window.matchMedia('(prefers-color-scheme: light)');
+    mql.addEventListener('change', apply);
+    return () => mql.removeEventListener('change', apply);
+  }, [themePreference]);
+
   const [channels, setChannels] = useState([]);
   const [nicheOptions, setNicheOptions] = useState(NICHE_OPTIONS);
   const [activeChannel, setActiveChannel] = useState(null);
@@ -4561,16 +4588,16 @@ export default function App() {
   }
 
   return (
-    <div className="font-body-md antialiased overflow-hidden flex h-screen bg-[#0f1217] text-[#e5e8f0]">
+    <div className="font-body-md antialiased overflow-hidden flex h-screen bg-[var(--bg-input-alt)] text-[#e5e8f0]">
       {!isAuthRoute && (<>
 
       {/* MOBILE TOP BAR — the desktop sidenav + header below are both `hidden`
           under md, so mobile needs its own always-visible bar with a hamburger
           to reach navigation at all. */}
-      <div className="flex md:hidden items-center justify-between px-4 h-14 fixed top-0 left-0 right-0 z-40 bg-[#141923] border-b border-[#263042]">
+      <div className="flex md:hidden items-center justify-between px-4 h-14 fixed top-0 left-0 right-0 z-40 bg-[var(--bg-surface-soft)] border-b border-[var(--border-soft)]">
         <button
           onClick={() => setMobileMenuOpen(true)}
-          className="w-9 h-9 flex items-center justify-center rounded-lg text-slate-300 hover:bg-[#1f2838] hover:text-white -ml-1.5"
+          className="w-9 h-9 flex items-center justify-center rounded-lg text-slate-300 hover:bg-[var(--bg-dropdown)] hover:text-white -ml-1.5"
           aria-label="Ouvrir le menu"
         >
           <span className="material-symbols-outlined text-[24px]">menu</span>
@@ -4580,7 +4607,7 @@ export default function App() {
           <span className="font-title-sm text-sm font-black text-white tracking-wide">NicheCut</span>
         </div>
         {currentUser ? (
-          <button onClick={() => setView('settings')} className="w-8 h-8 rounded-full overflow-hidden border border-[#2b374d] flex-shrink-0">
+          <button onClick={() => setView('settings')} className="w-8 h-8 rounded-full overflow-hidden border border-[var(--border)] flex-shrink-0">
             {currentUser.picture_url ? (
               <img src={currentUser.picture_url} alt={currentUser.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
             ) : (
@@ -4598,7 +4625,7 @@ export default function App() {
       {mobileMenuOpen && (
         <div className="md:hidden fixed inset-0 z-50 flex">
           <div className="absolute inset-0 bg-slate-950/70 backdrop-blur-sm" onClick={() => setMobileMenuOpen(false)} />
-          <nav className="relative w-[260px] max-w-[80vw] h-full bg-[#141923] border-r border-[#263042] py-6 flex flex-col justify-between overflow-y-auto">
+          <nav className="relative w-[260px] max-w-[80vw] h-full bg-[var(--bg-surface-soft)] border-r border-[var(--border-soft)] py-6 flex flex-col justify-between overflow-y-auto">
             <div>
               <div className="px-6 mb-8 flex items-center justify-between">
                 <div className="flex items-center gap-3">
@@ -4624,7 +4651,7 @@ export default function App() {
                     className={`w-full flex items-center gap-3.5 px-4 py-3 cursor-pointer rounded-xl transition-all font-medium text-sm ${
                       active
                         ? 'bg-gradient-to-r from-[#00c2ff] to-[#0099ff] text-slate-950 font-bold shadow-md shadow-[#00c2ff]/20'
-                        : 'text-slate-300 hover:bg-[#1f2838] hover:text-white'
+                        : 'text-slate-300 hover:bg-[var(--bg-dropdown)] hover:text-white'
                     }`}
                   >
                     <span className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: active ? "'FILL' 1" : "'FILL' 0" }}>{icon}</span>
@@ -4637,7 +4664,7 @@ export default function App() {
               {currentUser ? (
                 <button
                   onClick={() => { handleLogout(); setMobileMenuOpen(false); }}
-                  className="w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-medium text-slate-300 hover:bg-[#1f2838] hover:text-white"
+                  className="w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-medium text-slate-300 hover:bg-[var(--bg-dropdown)] hover:text-white"
                 >
                   <span className="material-symbols-outlined text-[20px]">logout</span>
                   Déconnexion
@@ -4656,7 +4683,7 @@ export default function App() {
       )}
 
       {/* SIDE NAVBAR */}
-      <nav className="hidden md:flex flex-col bg-[#141923] text-primary font-label-bold text-label-bold fixed left-0 top-0 h-screen w-[240px] z-40 border-r border-[#263042] py-6 justify-between">
+      <nav className="hidden md:flex flex-col bg-[var(--bg-surface-soft)] text-primary font-label-bold text-label-bold fixed left-0 top-0 h-screen w-[240px] z-40 border-r border-[var(--border-soft)] py-6 justify-between">
 
         <div>
           {/* Brand Logo Header */}
@@ -4672,7 +4699,7 @@ export default function App() {
           <div className="px-3 mb-8 relative">
             <button
               onClick={() => setProductMenuOpen(o => !o)}
-              className="w-full px-3 py-2 flex items-center gap-2 rounded-xl bg-[#1b2230] hover:bg-[#1f2838] border border-[#2b374d] transition-colors text-left"
+              className="w-full px-3 py-2 flex items-center gap-2 rounded-xl bg-[var(--bg-surface-alt)] hover:bg-[var(--bg-dropdown)] border border-[var(--border)] transition-colors text-left"
             >
               <span className="material-symbols-outlined text-[16px] text-[#00c2ff] flex-shrink-0">{NICHECUT_PRODUCTS.find(p => p.id === activeProduct)?.icon}</span>
               <span className="min-w-0 flex-1 text-xs font-bold text-white truncate">
@@ -4682,12 +4709,12 @@ export default function App() {
             </button>
 
             {productMenuOpen && (
-              <div className="absolute left-3 right-3 top-full mt-1.5 bg-[#1f2838] border border-[#2d3a52] rounded-xl shadow-2xl z-50 py-1.5 overflow-hidden">
+              <div className="absolute left-3 right-3 top-full mt-1.5 bg-[var(--bg-dropdown)] border border-[var(--border-dropdown)] rounded-xl shadow-2xl z-50 py-1.5 overflow-hidden">
                 {NICHECUT_PRODUCTS.map(p => (
                   <button
                     key={p.id}
                     onClick={() => { setActiveProduct(p.id); setProductMenuOpen(false); setView('home'); }}
-                    className="w-full text-left px-3.5 py-2.5 text-xs font-medium flex items-center gap-2.5 hover:bg-[#2c394e] transition-colors"
+                    className="w-full text-left px-3.5 py-2.5 text-xs font-medium flex items-center gap-2.5 hover:bg-[var(--bg-hover)] transition-colors"
                   >
                     <span className={`material-symbols-outlined text-[18px] ${p.id === activeProduct ? 'text-[#00c2ff]' : 'text-slate-400'}`}>{p.icon}</span>
                     <span className={`flex-1 ${p.id === activeProduct ? 'text-white font-bold' : 'text-slate-300'}`}>{p.label}</span>
@@ -4708,7 +4735,7 @@ export default function App() {
               className={`w-full flex items-center gap-3.5 px-4 py-3 cursor-pointer rounded-xl transition-all font-medium text-sm ${
                 (view === 'home' || view === 'dashboard') 
                   ? 'bg-gradient-to-r from-[#00c2ff] to-[#0099ff] text-slate-950 font-bold shadow-md shadow-[#00c2ff]/20' 
-                  : 'text-slate-300 hover:bg-[#1f2838] hover:text-white'
+                  : 'text-slate-300 hover:bg-[var(--bg-dropdown)] hover:text-white'
               }`}
             >
               <span className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: (view === 'home' || view === 'dashboard') ? "'FILL' 1" : "'FILL' 0" }}>home</span>
@@ -4720,7 +4747,7 @@ export default function App() {
               className={`w-full flex items-center gap-3.5 px-4 py-3 cursor-pointer rounded-xl transition-all font-medium text-sm ${
                 (view === 'channels' || view === 'channel_detail') 
                   ? 'bg-gradient-to-r from-[#00c2ff] to-[#0099ff] text-slate-950 font-bold shadow-md shadow-[#00c2ff]/20' 
-                  : 'text-slate-300 hover:bg-[#1f2838] hover:text-white'
+                  : 'text-slate-300 hover:bg-[var(--bg-dropdown)] hover:text-white'
               }`}
             >
               <span className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: (view === 'channels' || view === 'channel_detail') ? "'FILL' 1" : "'FILL' 0" }}>subscriptions</span>
@@ -4732,7 +4759,7 @@ export default function App() {
               className={`w-full flex items-center gap-3.5 px-4 py-3 cursor-pointer rounded-xl transition-all font-medium text-sm ${
                 view === 'videos' 
                   ? 'bg-gradient-to-r from-[#00c2ff] to-[#0099ff] text-slate-950 font-bold shadow-md shadow-[#00c2ff]/20' 
-                  : 'text-slate-300 hover:bg-[#1f2838] hover:text-white'
+                  : 'text-slate-300 hover:bg-[var(--bg-dropdown)] hover:text-white'
               }`}
             >
               <span className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: view === 'videos' ? "'FILL' 1" : "'FILL' 0" }}>movie</span>
@@ -4744,9 +4771,9 @@ export default function App() {
       </nav>
 
       {/* MAIN CONTENT AREA */}
-      <main className="relative flex-1 flex flex-col pt-14 md:pt-0 md:ml-[240px] h-screen overflow-hidden bg-[#0f1217]">
+      <main className="relative flex-1 flex flex-col pt-14 md:pt-0 md:ml-[240px] h-screen overflow-hidden bg-[var(--bg-input-alt)]">
         {activeProduct === 'avatar' && (
-          <div className="absolute inset-0 z-30 bg-[#0f1217] flex flex-col items-center justify-center gap-4 text-center p-8">
+          <div className="absolute inset-0 z-30 bg-[var(--bg-input-alt)] flex flex-col items-center justify-center gap-4 text-center p-8">
             <div className="w-20 h-20 rounded-2xl bg-[#00c2ff]/10 flex items-center justify-center">
               <span className="material-symbols-outlined text-[40px] text-[#00c2ff]">face</span>
             </div>
@@ -4759,7 +4786,7 @@ export default function App() {
             </span>
             <button
               onClick={() => setActiveProduct('montage')}
-              className="mt-2 px-5 py-2.5 bg-[#1b2230] text-white rounded-xl font-bold text-xs hover:bg-[#252f42] transition-colors border border-[#2b374d]"
+              className="mt-2 px-5 py-2.5 bg-[var(--bg-surface-alt)] text-white rounded-xl font-bold text-xs hover:bg-[var(--border-soft)] transition-colors border border-[var(--border)]"
             >
               Retour à NicheCut Montage Simple
             </button>
@@ -4767,7 +4794,7 @@ export default function App() {
         )}
         
         {/* Top Header Bar */}
-        <div className="relative z-30 hidden md:flex justify-between items-center px-8 py-5 border-b border-[#202938] bg-[#141923]/60 backdrop-blur-md">
+        <div className="relative z-30 hidden md:flex justify-between items-center px-8 py-5 border-b border-[var(--border-subtle)] bg-[var(--bg-surface-soft)]/60 backdrop-blur-md">
           <h1 className="text-xl font-extrabold text-white tracking-tight flex items-center gap-3">
             {view === 'home' && 'Tableau de Bord'}
             {view === 'channels' && 'Vos Pipelines de Chaînes'}
@@ -4784,7 +4811,7 @@ export default function App() {
               <input 
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                className="bg-[#1b2230] border border-[#2b374d] rounded-xl pl-9 pr-4 py-2 text-xs text-white placeholder-slate-400 focus:outline-none w-60 transition-all" 
+                className="bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl pl-9 pr-4 py-2 text-xs text-white placeholder-slate-400 focus:outline-none w-60 transition-all" 
                 placeholder="Rechercher une chaîne..." 
                 type="text"
               />
@@ -4807,14 +4834,14 @@ export default function App() {
                   )}
                 </div>
                 {profileMenuOpen && (
-                  <div className="absolute right-0 top-full mt-2 w-56 bg-[#161b22] border border-[#263042] rounded-2xl shadow-2xl z-[70] overflow-hidden py-1.5">
-                    <div className="px-3.5 py-2.5 border-b border-[#263042]">
+                  <div className="absolute right-0 top-full mt-2 w-56 bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-2xl shadow-2xl z-[70] overflow-hidden py-1.5">
+                    <div className="px-3.5 py-2.5 border-b border-[var(--border-soft)]">
                       <p className="text-xs font-bold text-white truncate">{currentUser.name}</p>
                       <p className="text-[11px] text-slate-400 truncate">{currentUser.email}</p>
                     </div>
                     <button
                       onClick={() => { setView('settings'); setProfileMenuOpen(false); }}
-                      className="w-full text-left px-3.5 py-2.5 text-xs font-bold flex items-center gap-2 text-slate-300 hover:bg-[#1b2230] hover:text-white transition-all"
+                      className="w-full text-left px-3.5 py-2.5 text-xs font-bold flex items-center gap-2 text-slate-300 hover:bg-[var(--bg-surface-alt)] hover:text-white transition-all"
                     >
                       <span className="material-symbols-outlined text-[16px]">settings</span>
                       Paramètres
@@ -4822,7 +4849,7 @@ export default function App() {
                     {currentUser.is_admin && (
                       <button
                         onClick={() => { setView('admin'); setProfileMenuOpen(false); }}
-                        className="w-full text-left px-3.5 py-2.5 text-xs font-bold flex items-center gap-2 text-slate-300 hover:bg-[#1b2230] hover:text-white transition-all"
+                        className="w-full text-left px-3.5 py-2.5 text-xs font-bold flex items-center gap-2 text-slate-300 hover:bg-[var(--bg-surface-alt)] hover:text-white transition-all"
                       >
                         <span className="material-symbols-outlined text-[16px]">shield_person</span>
                         Administration
@@ -4863,7 +4890,7 @@ export default function App() {
                 </div>
 
                 {/* A single quiet promise card, integrated into the existing dashboard language. */}
-                <section className="relative min-h-[300px] overflow-hidden rounded-2xl bg-[radial-gradient(circle_at_80%_50%,rgba(0,194,255,.08),transparent_46%),#161b22]">
+                <section className="relative min-h-[300px] overflow-hidden rounded-2xl bg-[radial-gradient(circle_at_80%_50%,rgba(0,194,255,.08),transparent_46%),var(--bg-surface)]">
                   <img
                     src={freedomSunrise}
                     alt=""
@@ -4874,7 +4901,7 @@ export default function App() {
                       maskImage: 'radial-gradient(ellipse 68% 125% at 65% 50%, #000 28%, rgba(0,0,0,.92) 48%, transparent 82%)'
                     }}
                   />
-                  <div className="absolute inset-0 bg-gradient-to-r from-[#161b22] via-[#161b22]/55 to-transparent pointer-events-none" />
+                  <div className="absolute inset-0 bg-gradient-to-r from-[var(--bg-surface)] via-[var(--bg-surface)]/55 to-transparent pointer-events-none" />
                   <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-[#0f141c]/65 to-transparent pointer-events-none" />
                   <div className="relative z-10 min-h-[300px] flex flex-col justify-center p-6 md:p-8 max-w-xl">
                     <h3 className="text-xl md:text-2xl font-extrabold text-white leading-tight">Tu vis. NicheCut travaille.</h3>
@@ -4895,7 +4922,7 @@ export default function App() {
                   </div>
 
                   {channels.length === 0 ? (
-                    <div className="bg-[#161b22] border border-[#263042] rounded-2xl p-10 text-center">
+                    <div className="bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-2xl p-10 text-center">
                       <span className="material-symbols-outlined text-[48px] text-slate-500 mb-3">subscriptions</span>
                       <h4 className="text-base font-bold text-white mb-1">Aucune chaîne configurée</h4>
                       <p className="text-xs text-slate-400 mb-5">Configure ton univers une fois. NicheCut s’occupera de la suite.</p>
@@ -4911,7 +4938,7 @@ export default function App() {
                           <div 
                             key={chan.id} 
                             onClick={() => { setActiveChannel(chan); fetchChannelVideos(chan.id); setView('channel_detail'); }}
-                            className="bg-[#161b22] border border-[#263042] hover:border-[#00c2ff]/40 rounded-2xl p-5 cursor-pointer transition-all hover:-translate-y-1 shadow-md space-y-4"
+                            className="bg-[var(--bg-surface)] border border-[var(--border-soft)] hover:border-[#00c2ff]/40 rounded-2xl p-5 cursor-pointer transition-all hover:-translate-y-1 shadow-md space-y-4"
                           >
                             <div className="flex items-center gap-3">
                               <ChannelAvatar channel={chan} logoUrl={getChannelLogoUrl(chan)} sizeClass="w-12 h-12" roundedClass="rounded-xl" textClass="text-lg" />
@@ -4929,7 +4956,7 @@ export default function App() {
                                 </span>
                               )}
                             </div>
-                            <div className="flex items-center justify-between text-xs pt-2 border-t border-[#202938]">
+                            <div className="flex items-center justify-between text-xs pt-2 border-t border-[var(--border-subtle)]">
                               <span className={`px-2.5 py-1 rounded-lg font-bold text-[11px] ${statusInfo.className}`}>
                                 {statusInfo.label}
                               </span>
@@ -4964,7 +4991,7 @@ export default function App() {
                     </button>
                   </div>
                 ) : filteredChannels.length === 0 ? (
-                  <div className="bg-[#161b22] border border-[#263042] rounded-2xl p-12 text-center">
+                  <div className="bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-2xl p-12 text-center">
                     <span className="material-symbols-outlined text-[54px] text-slate-500 mb-4">video_settings</span>
                     <h3 className="text-lg font-bold text-white mb-2">Aucune chaîne trouvée</h3>
                     <p className="text-sm text-slate-400 mb-6 max-w-md mx-auto">
@@ -4984,9 +5011,9 @@ export default function App() {
                         every time a new channel is added. */}
                     <button
                       onClick={openCreateWizard}
-                      className="rounded-2xl p-5 border-2 border-dashed border-[#2b374d] hover:border-[#00c2ff] hover:bg-[#161b22] transition-all flex flex-col items-center justify-center gap-3 min-h-[220px] text-slate-400 hover:text-[#00c2ff] group"
+                      className="rounded-2xl p-5 border-2 border-dashed border-[var(--border)] hover:border-[#00c2ff] hover:bg-[var(--bg-surface)] transition-all flex flex-col items-center justify-center gap-3 min-h-[220px] text-slate-400 hover:text-[#00c2ff] group"
                     >
-                      <div className="w-14 h-14 rounded-full bg-[#1b2230] group-hover:bg-[#00c2ff]/10 flex items-center justify-center transition-colors">
+                      <div className="w-14 h-14 rounded-full bg-[var(--bg-surface-alt)] group-hover:bg-[#00c2ff]/10 flex items-center justify-center transition-colors">
                         <span className="material-symbols-outlined text-[28px]">add</span>
                       </div>
                       <span className="font-bold text-sm">Ajouter une Chaîne</span>
@@ -5001,7 +5028,7 @@ export default function App() {
                         <div
                           key={chan.id}
                           onClick={() => { setActiveChannel(chan); fetchChannelVideos(chan.id); setView('channel_detail'); }}
-                          className="bg-[#161b22] hover:bg-[#1c232e] border border-[#263042] hover:border-[#00c2ff]/40 rounded-2xl p-5 transition-all cursor-pointer group flex flex-col justify-between min-h-[220px] shadow-lg relative card-warm-hover channel-menu-container"
+                          className="bg-[var(--bg-surface)] hover:bg-[#1c232e] border border-[var(--border-soft)] hover:border-[#00c2ff]/40 rounded-2xl p-5 transition-all cursor-pointer group flex flex-col justify-between min-h-[220px] shadow-lg relative card-warm-hover channel-menu-container"
                         >
                           {/* Card Header & 3-Dots Action Button */}
                           <div className="flex items-start justify-between gap-3">
@@ -5009,7 +5036,7 @@ export default function App() {
                               <div className="relative shrink-0">
                                 <ChannelAvatar channel={chan} logoUrl={logoUrl} sizeClass="w-12 h-12" textClass="text-lg" />
                                 <span
-                                  className={`absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full ${getChannelStatusDotColor(chan)} ring-2 ring-[#161b22]`}
+                                  className={`absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full ${getChannelStatusDotColor(chan)} ring-2 ring-[var(--bg-surface)]`}
                                   title={chan.is_render_ready ? (chan.failed_count > 0 ? 'Échec de rendu à corriger' : 'Chaîne active') : 'Configuration incomplète'}
                                 />
                               </div>
@@ -5034,15 +5061,15 @@ export default function App() {
 
                               {/* Dropdown Popup Menu */}
                               {isMenuOpen && (
-                                <div className="absolute right-0 top-10 w-48 bg-[#1f2838] border border-[#2d3a52] rounded-xl shadow-2xl z-50 py-1.5 animate-in fade-in duration-150">
+                                <div className="absolute right-0 top-10 w-48 bg-[var(--bg-dropdown)] border border-[var(--border-dropdown)] rounded-xl shadow-2xl z-50 py-1.5 animate-in fade-in duration-150">
                                   <button
                                     onClick={(e) => openEditWizard(chan, e)}
-                                    className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[#2c394e] hover:text-white flex items-center gap-2 font-medium"
+                                    className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium"
                                   >
                                     <span className="material-symbols-outlined text-[16px] text-[#00c2ff]">edit</span>
                                     Modifier la chaîne
                                   </button>
-                                  <div className="h-[1px] bg-[#2d3a52] my-1"></div>
+                                  <div className="h-[1px] bg-[var(--border-dropdown)] my-1"></div>
                                   <button
                                     onClick={(e) => handleDeleteChannel(chan.id, e)}
                                     className="w-full text-left px-4 py-2.5 text-xs text-rose-400 hover:bg-rose-950/50 flex items-center gap-2 font-medium"
@@ -5064,11 +5091,11 @@ export default function App() {
 
                           {/* Counters Grid */}
                           <div className="grid grid-cols-2 gap-2 mt-4">
-                            <div className="bg-[#11151c] p-2.5 rounded-xl border border-[#202938]">
+                            <div className="bg-[var(--bg-input)] p-2.5 rounded-xl border border-[var(--border-subtle)]">
                               <div className="text-[10px] font-bold uppercase text-slate-400 tracking-wider">En File</div>
                               <div className="text-base text-[#00c2ff] font-extrabold mt-0.5">{(chan.queued_count || 0) + (chan.rendering_count || 0)}</div>
                             </div>
-                            <div className="bg-[#11151c] p-2.5 rounded-xl border border-[#202938]">
+                            <div className="bg-[var(--bg-input)] p-2.5 rounded-xl border border-[var(--border-subtle)]">
                               <div className="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Vidéos Prêtes</div>
                               <div className="text-base text-white font-extrabold mt-0.5">{chan.done_count || 0}</div>
                             </div>
@@ -5096,7 +5123,7 @@ export default function App() {
                     <select
                       value={videoFilterChannelId}
                       onChange={e => setVideoFilterChannelId(e.target.value)}
-                      className="bg-[#1b2230] border border-[#2b374d] rounded-xl px-4 py-2 text-xs text-white focus:outline-none"
+                      className="bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-4 py-2 text-xs text-white focus:outline-none"
                     >
                       <option value="all">Toutes les chaînes ({channels.length})</option>
                       {channels.map(c => (
@@ -5107,7 +5134,7 @@ export default function App() {
                     <button
                       onClick={() => videoSelectionMode ? exitVideoSelectionMode() : setVideoSelectionMode(true)}
                       className={`px-4 py-2 font-bold text-xs rounded-xl transition-all flex items-center gap-2 flex-shrink-0 border ${
-                        videoSelectionMode ? 'bg-[#00c2ff]/10 text-[#00c2ff] border-[#00c2ff]' : 'bg-[#1b2230] text-slate-300 hover:text-white border-[#2b374d]'
+                        videoSelectionMode ? 'bg-[#00c2ff]/10 text-[#00c2ff] border-[#00c2ff]' : 'bg-[var(--bg-surface-alt)] text-slate-300 hover:text-white border-[var(--border)]'
                       }`}
                     >
                       <span className="material-symbols-outlined text-[18px]">{videoSelectionMode ? 'close' : 'checklist'}</span>
@@ -5155,7 +5182,7 @@ export default function App() {
                   <button
                     onClick={() => setVideoFilterFolderId('all')}
                     className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
-                      videoFilterFolderId === 'all' ? 'bg-[#00c2ff] text-slate-950' : 'bg-[#1b2230] text-slate-300 hover:text-white border border-[#2b374d]'
+                      videoFilterFolderId === 'all' ? 'bg-[#00c2ff] text-slate-950' : 'bg-[var(--bg-surface-alt)] text-slate-300 hover:text-white border border-[var(--border)]'
                     }`}
                   >
                     <span className="material-symbols-outlined text-[15px]">apps</span> Toutes ({allVideos.length})
@@ -5165,7 +5192,7 @@ export default function App() {
                       key={f.id}
                       onClick={() => setVideoFilterFolderId(f.id)}
                       className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
-                        videoFilterFolderId === f.id ? 'bg-[#00c2ff] text-slate-950' : 'bg-[#1b2230] text-slate-300 hover:text-white border border-[#2b374d]'
+                        videoFilterFolderId === f.id ? 'bg-[#00c2ff] text-slate-950' : 'bg-[var(--bg-surface-alt)] text-slate-300 hover:text-white border border-[var(--border)]'
                       }`}
                     >
                       <span className="material-symbols-outlined text-[15px]">folder</span> {f.name} ({f.video_count})
@@ -5192,7 +5219,7 @@ export default function App() {
                     </button>
                   </div>
                 ) : allVideos.length === 0 ? (
-                  <div className="bg-[#161b22] border border-[#263042] rounded-2xl p-12 text-center">
+                  <div className="bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-2xl p-12 text-center">
                     <span className="material-symbols-outlined text-[54px] text-slate-500 mb-3">movie</span>
                     <h3 className="text-base font-bold text-white mb-1">Aucune vidéo dans l'historique</h3>
                     <p className="text-xs text-slate-400 mb-5">Lancez votre première génération de vidéo.</p>
@@ -5215,8 +5242,8 @@ export default function App() {
                           <div
                             key={vid.id}
                             onClick={() => videoSelectionMode && toggleVideoSelected(vid.id)}
-                            className={`bg-[#161b22] hover:bg-[#1c232e] border rounded-2xl p-4 transition-all group flex flex-col justify-between shadow-lg relative card-warm-hover video-menu-container ${
-                              videoSelectionMode ? 'cursor-pointer ' + (isSelected ? 'border-[#00c2ff]' : 'border-[#263042]') : 'border-[#263042] hover:border-[#00c2ff]/40'
+                            className={`bg-[var(--bg-surface)] hover:bg-[#1c232e] border rounded-2xl p-4 transition-all group flex flex-col justify-between shadow-lg relative card-warm-hover video-menu-container ${
+                              videoSelectionMode ? 'cursor-pointer ' + (isSelected ? 'border-[#00c2ff]' : 'border-[var(--border-soft)]') : 'border-[var(--border-soft)] hover:border-[#00c2ff]/40'
                             }`}
                           >
                             {videoSelectionMode && (
@@ -5227,7 +5254,7 @@ export default function App() {
                             {/* Video Poster Frame — click opens the big preview player directly */}
                             <div
                               onClick={(e) => { if (videoSelectionMode) { e.stopPropagation(); toggleVideoSelected(vid.id); return; } vid.status === 'done' && setSelectedVideo(vid); }}
-                              className={`aspect-[16/9] bg-slate-950 rounded-xl relative overflow-hidden border border-[#2b374d] flex items-center justify-center ${vid.status === 'done' ? 'cursor-pointer group' : ''}`}
+                              className={`aspect-[16/9] bg-slate-950 rounded-xl relative overflow-hidden border border-[var(--border)] flex items-center justify-center ${vid.status === 'done' ? 'cursor-pointer group' : ''}`}
                             >
                               {vid.status === 'done' && vid.output_path ? (
                                 <>
@@ -5302,63 +5329,63 @@ export default function App() {
                                 <span className="material-symbols-outlined text-[16px]">more_vert</span>
                               </button>
                               {openVideoMenuId === vid.id && (
-                                <div className="absolute right-0 top-9 w-44 bg-[#1f2838] border border-[#2d3a52] rounded-xl shadow-2xl z-50 py-1.5">
+                                <div className="absolute right-0 top-9 w-44 bg-[var(--bg-dropdown)] border border-[var(--border-dropdown)] rounded-xl shadow-2xl z-50 py-1.5">
                                   {vid.status === 'done' && (
-                                    <button disabled={regeneratingTitleId === vid.id} onClick={(e) => handleRegenerateTitle(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[#2c394e] hover:text-white flex items-center gap-2 font-medium disabled:opacity-50">
+                                    <button disabled={regeneratingTitleId === vid.id} onClick={(e) => handleRegenerateTitle(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium disabled:opacity-50">
                                       <span className={`material-symbols-outlined text-[16px] text-[#00c2ff] ${regeneratingTitleId === vid.id ? 'animate-spin' : ''}`}>{regeneratingTitleId === vid.id ? 'progress_activity' : 'auto_awesome'}</span> {regeneratingTitleId === vid.id ? 'Régénération…' : 'Régénérer le titre'}
                                     </button>
                                   )}
                                   {vid.status === 'done' && (
-                                    <button disabled={regeneratingCardThumbnailId === vid.id} onClick={(e) => handleRegenerateCardThumbnail(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[#2c394e] hover:text-white flex items-center gap-2 font-medium disabled:opacity-50">
+                                    <button disabled={regeneratingCardThumbnailId === vid.id} onClick={(e) => handleRegenerateCardThumbnail(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium disabled:opacity-50">
                                       <span className={`material-symbols-outlined text-[16px] text-[#00c2ff] ${regeneratingCardThumbnailId === vid.id ? 'animate-spin' : ''}`}>{regeneratingCardThumbnailId === vid.id ? 'progress_activity' : 'photo_camera'}</span> {regeneratingCardThumbnailId === vid.id ? 'Régénération…' : 'Régénérer la vignette'}
                                     </button>
                                   )}
                                   {vid.status === 'done' && vid.editable && (
-                                    <button onClick={(e) => { e.stopPropagation(); setOpenVideoMenuId(null); openStudio(vid); }} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[#2c394e] hover:text-white flex items-center gap-2 font-medium">
+                                    <button onClick={(e) => { e.stopPropagation(); setOpenVideoMenuId(null); openStudio(vid); }} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium">
                                       <span className="material-symbols-outlined text-[16px] text-[#00c2ff]">movie_edit</span> Éditer la vidéo
                                     </button>
                                   )}
                                   {vid.status === 'done' && (
-                                    <button onClick={(e) => handleDownloadVideo(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[#2c394e] hover:text-white flex items-center gap-2 font-medium">
+                                    <button onClick={(e) => handleDownloadVideo(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium">
                                       <span className="material-symbols-outlined text-[16px] text-[#00c2ff]">download</span> Télécharger
                                     </button>
                                   )}
                                   {vid.status === 'done' && vid.scheduled_publish_at && !vid.youtube_video_id && (
-                                    <button disabled={approvingVideoId === vid.id} onClick={(e) => handleToggleApproval(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[#2c394e] hover:text-white flex items-center gap-2 font-medium disabled:opacity-50">
+                                    <button disabled={approvingVideoId === vid.id} onClick={(e) => handleToggleApproval(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium disabled:opacity-50">
                                       <span className={`material-symbols-outlined text-[16px] ${vid.approved_for_publish ? 'text-emerald-400' : 'text-[#00c2ff]'}`}>{vid.approved_for_publish ? 'check_circle' : 'pending'}</span>
                                       {vid.approved_for_publish ? 'Approuvée — annuler' : 'Approuver la publication'}
                                     </button>
                                   )}
                                   {vid.status === 'done' && (
-                                    <button disabled={publishingVideoId === vid.id} onClick={(e) => handlePublishYouTube(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[#2c394e] hover:text-white flex items-center gap-2 font-medium disabled:opacity-50">
+                                    <button disabled={publishingVideoId === vid.id} onClick={(e) => handlePublishYouTube(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium disabled:opacity-50">
                                       <span className="material-symbols-outlined text-[16px] text-[#00c2ff]">{vid.youtube_video_id ? 'open_in_new' : 'smart_display'}</span>
                                       {vid.youtube_video_id ? 'Voir sur YouTube' : publishingVideoId === vid.id ? 'Publication…' : 'Publier sur YouTube'}
                                     </button>
                                   )}
                                   {vid.status === 'done' && vid.youtube_video_id && (
-                                    <button disabled={resyncingThumbnailId === vid.id} onClick={(e) => handleResyncThumbnail(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[#2c394e] hover:text-white flex items-center gap-2 font-medium disabled:opacity-50">
+                                    <button disabled={resyncingThumbnailId === vid.id} onClick={(e) => handleResyncThumbnail(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium disabled:opacity-50">
                                       <span className={`material-symbols-outlined text-[16px] text-[#00c2ff] ${resyncingThumbnailId === vid.id ? 'animate-spin' : ''}`}>{resyncingThumbnailId === vid.id ? 'progress_activity' : 'image'}</span>
                                       {resyncingThumbnailId === vid.id ? 'Mise à jour…' : 'Mettre à jour la miniature'}
                                     </button>
                                   )}
                                   {vid.status === 'done' && (
-                                    <button disabled={reusingAudioId === vid.id} onClick={(e) => handleReuseAudio(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[#2c394e] hover:text-white flex items-center gap-2 font-medium disabled:opacity-50">
+                                    <button disabled={reusingAudioId === vid.id} onClick={(e) => handleReuseAudio(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium disabled:opacity-50">
                                       <span className="material-symbols-outlined text-[16px] text-[#00c2ff]">graphic_eq</span> {reusingAudioId === vid.id ? 'Récupération…' : "Réutiliser l'audio"}
                                     </button>
                                   )}
                                   {vid.status === 'done' && vid.editable && (
-                                    <button onClick={(e) => { e.stopPropagation(); setOpenVideoMenuId(null); openStudio(vid); }} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[#2c394e] hover:text-white flex items-center gap-2 font-medium">
+                                    <button onClick={(e) => { e.stopPropagation(); setOpenVideoMenuId(null); openStudio(vid); }} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium">
                                       <span className="material-symbols-outlined text-[16px] text-[#00c2ff]">auto_fix_high</span> Éditer
                                     </button>
                                   )}
-                                  <div className="h-[1px] bg-[#2d3a52] my-1"></div>
-                                  <button onClick={(e) => { e.stopPropagation(); setMovingVideoId(movingVideoId === vid.id ? null : vid.id); }} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[#2c394e] hover:text-white flex items-center gap-2 font-medium">
+                                  <div className="h-[1px] bg-[var(--border-dropdown)] my-1"></div>
+                                  <button onClick={(e) => { e.stopPropagation(); setMovingVideoId(movingVideoId === vid.id ? null : vid.id); }} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium">
                                     <span className="material-symbols-outlined text-[16px] text-[#00c2ff]">drive_file_move</span> Déplacer vers…
                                   </button>
                                   {movingVideoId === vid.id && (
-                                    <div className="border-t border-[#2d3a52] mt-1 pt-1 max-h-40 overflow-y-auto">
+                                    <div className="border-t border-[var(--border-dropdown)] mt-1 pt-1 max-h-40 overflow-y-auto">
                                       {vid.folder_id && (
-                                        <button onClick={(e) => { e.stopPropagation(); moveVideoToFolder(vid.id, null); }} className="w-full text-left px-4 py-2 text-[11px] text-slate-400 hover:bg-[#2c394e] hover:text-white flex items-center gap-2">
+                                        <button onClick={(e) => { e.stopPropagation(); moveVideoToFolder(vid.id, null); }} className="w-full text-left px-4 py-2 text-[11px] text-slate-400 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2">
                                           <span className="material-symbols-outlined text-[14px]">folder_off</span> Retirer du dossier
                                         </button>
                                       )}
@@ -5368,14 +5395,14 @@ export default function App() {
                                         <button
                                           key={f.id}
                                           onClick={(e) => { e.stopPropagation(); moveVideoToFolder(vid.id, f.id); }}
-                                          className="w-full text-left px-4 py-2 text-[11px] text-slate-300 hover:bg-[#2c394e] hover:text-white flex items-center gap-2 truncate"
+                                          className="w-full text-left px-4 py-2 text-[11px] text-slate-300 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 truncate"
                                         >
                                           <span className="material-symbols-outlined text-[14px] text-[#00c2ff]">folder</span> {f.name}
                                         </button>
                                       ))}
                                     </div>
                                   )}
-                                  <div className="h-[1px] bg-[#2d3a52] my-1"></div>
+                                  <div className="h-[1px] bg-[var(--border-dropdown)] my-1"></div>
                                   <button onClick={(e) => handleDeleteVideo(vid.id, e)} className="w-full text-left px-4 py-2.5 text-xs text-rose-400 hover:bg-rose-950/50 flex items-center gap-2 font-medium">
                                     <span className="material-symbols-outlined text-[16px]">delete</span> Supprimer
                                   </button>
@@ -5404,7 +5431,7 @@ export default function App() {
                                       if (e.key === 'Enter') { e.currentTarget.blur(); }
                                       if (e.key === 'Escape') { setEditingTitleId(null); }
                                     }}
-                                    className="w-full bg-[#1b2230] border border-[#00c2ff] rounded-lg px-2 py-1 text-white text-xs font-semibold outline-none"
+                                    className="w-full bg-[var(--bg-surface-alt)] border border-[#00c2ff] rounded-lg px-2 py-1 text-white text-xs font-semibold outline-none"
                                   />
                                 ) : (
                                   <p
@@ -5422,10 +5449,10 @@ export default function App() {
 
                               {/* Card Action Buttons */}
                               {vid.status === 'failed' && (
-                                <div className="pt-2 border-t border-[#202938] flex items-center gap-2">
+                                <div className="pt-2 border-t border-[var(--border-subtle)] flex items-center gap-2">
                                   <button
                                     onClick={() => handleRetryVideo(vid.id)}
-                                    className="flex-1 py-1.5 bg-[#1f2838] text-white rounded-xl font-bold text-xs hover:bg-[#2b384e] transition-all flex items-center justify-center gap-1 border border-[#2b374d]"
+                                    className="flex-1 py-1.5 bg-[var(--bg-dropdown)] text-white rounded-xl font-bold text-xs hover:bg-[var(--border)] transition-all flex items-center justify-center gap-1 border border-[var(--border)]"
                                   >
                                     <span className="material-symbols-outlined text-[16px]">refresh</span> Relancer
                                   </button>
@@ -5600,7 +5627,7 @@ export default function App() {
                               }}
                               disabled={librarySyncing}
                               title="Mettre à jour la bibliothèque"
-                              className="min-h-11 px-3.5 py-2 bg-[#18212d] text-white rounded-xl hover:bg-[#202c3b] transition-colors flex items-center justify-center gap-2.5 border border-[#2b374d] disabled:opacity-60 text-left"
+                              className="min-h-11 px-3.5 py-2 bg-[#18212d] text-white rounded-xl hover:bg-[#202c3b] transition-colors flex items-center justify-center gap-2.5 border border-[var(--border)] disabled:opacity-60 text-left"
                             >
                               <span className={`material-symbols-outlined text-[18px] text-[#52d5ff] ${librarySyncing ? 'animate-spin' : ''}`}>{librarySyncing ? 'progress_activity' : 'sync'}</span>
                               <span className="hidden sm:grid leading-tight"><strong className="text-[10px]">{librarySyncing ? 'Synchronisation…' : 'Bibliothèque visuelle'}</strong><small className="text-[8px] font-medium text-slate-500 mt-1">Synchronisée {formatSyncAgo(activeChannel.id, nowTick)}</small></span>
@@ -5633,7 +5660,7 @@ export default function App() {
                       <button
                         onClick={() => videoSelectionMode ? exitVideoSelectionMode() : setVideoSelectionMode(true)}
                         className={`px-3.5 py-1.5 font-bold text-xs rounded-xl transition-all flex items-center gap-1.5 flex-shrink-0 border ${
-                          videoSelectionMode ? 'bg-[#00c2ff]/10 text-[#00c2ff] border-[#00c2ff]' : 'bg-[#1b2230] text-slate-300 hover:text-white border-[#2b374d]'
+                          videoSelectionMode ? 'bg-[#00c2ff]/10 text-[#00c2ff] border-[#00c2ff]' : 'bg-[var(--bg-surface-alt)] text-slate-300 hover:text-white border-[var(--border)]'
                         }`}
                       >
                         <span className="material-symbols-outlined text-[16px]">{videoSelectionMode ? 'close' : 'checklist'}</span>
@@ -5660,7 +5687,7 @@ export default function App() {
                     </div>
                   )}
                   {channelVideos.length === 0 ? (
-                    <div className="bg-[#161b22] border border-[#263042] rounded-2xl p-10 text-center">
+                    <div className="bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-2xl p-10 text-center">
                       <span className="material-symbols-outlined text-[40px] text-slate-500 mb-2">description</span>
                       <h4 className="text-base font-bold text-white mb-1">Aucune vidéo soumise</h4>
                       <p className="text-xs text-slate-400 mb-5">
@@ -5684,8 +5711,8 @@ export default function App() {
                         <div
                           key={vid.id}
                           onClick={() => videoSelectionMode && toggleVideoSelected(vid.id)}
-                          className={`bg-[#161b22] hover:bg-[#1c232e] border rounded-2xl p-4 transition-all group flex flex-col justify-between shadow-lg relative card-warm-hover video-menu-container ${
-                            videoSelectionMode ? 'cursor-pointer ' + (isSelected ? 'border-[#00c2ff]' : 'border-[#263042]') : 'border-[#263042] hover:border-[#00c2ff]/40'
+                          className={`bg-[var(--bg-surface)] hover:bg-[#1c232e] border rounded-2xl p-4 transition-all group flex flex-col justify-between shadow-lg relative card-warm-hover video-menu-container ${
+                            videoSelectionMode ? 'cursor-pointer ' + (isSelected ? 'border-[#00c2ff]' : 'border-[var(--border-soft)]') : 'border-[var(--border-soft)] hover:border-[#00c2ff]/40'
                           }`}
                         >
                           {videoSelectionMode && (
@@ -5696,7 +5723,7 @@ export default function App() {
                           {/* Thumbnail Poster — click opens the big preview player directly */}
                           <div
                             onClick={(e) => { if (videoSelectionMode) { e.stopPropagation(); toggleVideoSelected(vid.id); return; } vid.status === 'done' && setSelectedVideo(vid); }}
-                            className={`aspect-[16/9] bg-slate-950 rounded-xl relative overflow-hidden border border-[#2b374d] flex items-center justify-center ${vid.status === 'done' ? 'cursor-pointer group' : ''}`}
+                            className={`aspect-[16/9] bg-slate-950 rounded-xl relative overflow-hidden border border-[var(--border)] flex items-center justify-center ${vid.status === 'done' ? 'cursor-pointer group' : ''}`}
                           >
                             {vid.status === 'done' && vid.output_path ? (
                               <>
@@ -5770,51 +5797,51 @@ export default function App() {
                               <span className="material-symbols-outlined text-[16px]">more_vert</span>
                             </button>
                             {openVideoMenuId === vid.id && (
-                              <div className="absolute right-0 top-9 w-44 bg-[#1f2838] border border-[#2d3a52] rounded-xl shadow-2xl z-50 py-1.5">
+                              <div className="absolute right-0 top-9 w-44 bg-[var(--bg-dropdown)] border border-[var(--border-dropdown)] rounded-xl shadow-2xl z-50 py-1.5">
                                 {vid.status === 'done' && (
-                                  <button disabled={regeneratingTitleId === vid.id} onClick={(e) => handleRegenerateTitle(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[#2c394e] hover:text-white flex items-center gap-2 font-medium disabled:opacity-50">
+                                  <button disabled={regeneratingTitleId === vid.id} onClick={(e) => handleRegenerateTitle(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium disabled:opacity-50">
                                     <span className={`material-symbols-outlined text-[16px] text-[#00c2ff] ${regeneratingTitleId === vid.id ? 'animate-spin' : ''}`}>{regeneratingTitleId === vid.id ? 'progress_activity' : 'auto_awesome'}</span> {regeneratingTitleId === vid.id ? 'Régénération…' : 'Régénérer le titre'}
                                   </button>
                                 )}
                                 {vid.status === 'done' && (
-                                  <button disabled={regeneratingCardThumbnailId === vid.id} onClick={(e) => handleRegenerateCardThumbnail(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[#2c394e] hover:text-white flex items-center gap-2 font-medium disabled:opacity-50">
+                                  <button disabled={regeneratingCardThumbnailId === vid.id} onClick={(e) => handleRegenerateCardThumbnail(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium disabled:opacity-50">
                                     <span className={`material-symbols-outlined text-[16px] text-[#00c2ff] ${regeneratingCardThumbnailId === vid.id ? 'animate-spin' : ''}`}>{regeneratingCardThumbnailId === vid.id ? 'progress_activity' : 'photo_camera'}</span> {regeneratingCardThumbnailId === vid.id ? 'Régénération…' : 'Régénérer la vignette'}
                                   </button>
                                 )}
                                 {vid.status === 'done' && vid.editable && (
-                                  <button onClick={(e) => { e.stopPropagation(); setOpenVideoMenuId(null); openStudio(vid); }} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[#2c394e] hover:text-white flex items-center gap-2 font-medium">
+                                  <button onClick={(e) => { e.stopPropagation(); setOpenVideoMenuId(null); openStudio(vid); }} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium">
                                     <span className="material-symbols-outlined text-[16px] text-[#00c2ff]">movie_edit</span> Éditer la vidéo
                                   </button>
                                 )}
                                 {vid.status === 'done' && (
-                                  <button onClick={(e) => handleDownloadVideo(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[#2c394e] hover:text-white flex items-center gap-2 font-medium">
+                                  <button onClick={(e) => handleDownloadVideo(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium">
                                     <span className="material-symbols-outlined text-[16px] text-[#00c2ff]">download</span> Télécharger
                                   </button>
                                 )}
                                 {vid.status === 'done' && vid.scheduled_publish_at && !vid.youtube_video_id && (
-                                  <button disabled={approvingVideoId === vid.id} onClick={(e) => handleToggleApproval(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[#2c394e] hover:text-white flex items-center gap-2 font-medium disabled:opacity-50">
+                                  <button disabled={approvingVideoId === vid.id} onClick={(e) => handleToggleApproval(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium disabled:opacity-50">
                                     <span className={`material-symbols-outlined text-[16px] ${vid.approved_for_publish ? 'text-emerald-400' : 'text-[#00c2ff]'}`}>{vid.approved_for_publish ? 'check_circle' : 'pending'}</span>
                                     {vid.approved_for_publish ? 'Approuvée — annuler' : 'Approuver la publication'}
                                   </button>
                                 )}
                                 {vid.status === 'done' && (
-                                  <button disabled={publishingVideoId === vid.id} onClick={(e) => handlePublishYouTube(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[#2c394e] hover:text-white flex items-center gap-2 font-medium disabled:opacity-50">
+                                  <button disabled={publishingVideoId === vid.id} onClick={(e) => handlePublishYouTube(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium disabled:opacity-50">
                                     <span className="material-symbols-outlined text-[16px] text-[#00c2ff]">{vid.youtube_video_id ? 'open_in_new' : 'smart_display'}</span>
                                     {vid.youtube_video_id ? 'Voir sur YouTube' : publishingVideoId === vid.id ? 'Publication…' : 'Publier sur YouTube'}
                                   </button>
                                 )}
                                 {vid.status === 'done' && vid.youtube_video_id && (
-                                  <button disabled={resyncingThumbnailId === vid.id} onClick={(e) => handleResyncThumbnail(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[#2c394e] hover:text-white flex items-center gap-2 font-medium disabled:opacity-50">
+                                  <button disabled={resyncingThumbnailId === vid.id} onClick={(e) => handleResyncThumbnail(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium disabled:opacity-50">
                                     <span className={`material-symbols-outlined text-[16px] text-[#00c2ff] ${resyncingThumbnailId === vid.id ? 'animate-spin' : ''}`}>{resyncingThumbnailId === vid.id ? 'progress_activity' : 'image'}</span>
                                     {resyncingThumbnailId === vid.id ? 'Mise à jour…' : 'Mettre à jour la miniature'}
                                   </button>
                                 )}
                                 {vid.status === 'done' && (
-                                  <button disabled={reusingAudioId === vid.id} onClick={(e) => handleReuseAudio(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[#2c394e] hover:text-white flex items-center gap-2 font-medium disabled:opacity-50">
+                                  <button disabled={reusingAudioId === vid.id} onClick={(e) => handleReuseAudio(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium disabled:opacity-50">
                                     <span className="material-symbols-outlined text-[16px] text-[#00c2ff]">graphic_eq</span> {reusingAudioId === vid.id ? 'Récupération…' : "Réutiliser l'audio"}
                                   </button>
                                 )}
-                                <div className="h-[1px] bg-[#2d3a52] my-1"></div>
+                                <div className="h-[1px] bg-[var(--border-dropdown)] my-1"></div>
                                 <button onClick={(e) => handleDeleteVideo(vid.id, e)} className="w-full text-left px-4 py-2.5 text-xs text-rose-400 hover:bg-rose-950/50 flex items-center gap-2 font-medium">
                                   <span className="material-symbols-outlined text-[16px]">delete</span> Supprimer
                                 </button>
@@ -5836,7 +5863,7 @@ export default function App() {
                                     if (e.key === 'Enter') { e.currentTarget.blur(); }
                                     if (e.key === 'Escape') { setEditingTitleId(null); }
                                   }}
-                                  className="w-full bg-[#1b2230] border border-[#00c2ff] rounded-lg px-2 py-1 text-white text-xs font-semibold outline-none"
+                                  className="w-full bg-[var(--bg-surface-alt)] border border-[#00c2ff] rounded-lg px-2 py-1 text-white text-xs font-semibold outline-none"
                                 />
                               ) : (
                                 <p
@@ -5853,10 +5880,10 @@ export default function App() {
                             </div>
 
                             {vid.status === 'failed' && (
-                              <div className="pt-2 border-t border-[#202938] flex items-center gap-2">
+                              <div className="pt-2 border-t border-[var(--border-subtle)] flex items-center gap-2">
                                 <button
                                   onClick={() => handleRetryVideo(vid.id)}
-                                  className="flex-1 py-1.5 bg-[#1f2838] text-white rounded-xl font-bold text-xs hover:bg-[#2b384e] transition-all flex items-center justify-center gap-1 border border-[#2b374d]"
+                                  className="flex-1 py-1.5 bg-[var(--bg-dropdown)] text-white rounded-xl font-bold text-xs hover:bg-[var(--border)] transition-all flex items-center justify-center gap-1 border border-[var(--border)]"
                                 >
                                   <span className="material-symbols-outlined text-[16px]">refresh</span> Relancer
                                 </button>
@@ -5873,9 +5900,9 @@ export default function App() {
 
             {/* VIEW 5: CHANNEL WIZARD (CREATE / EDIT) */}
             {view === 'wizard' && (
-              <div className="max-w-[1240px] mx-auto bg-[#161b22] border border-[#263042] rounded-3xl p-4 sm:p-8 shadow-2xl space-y-6 sm:space-y-8">
+              <div className="max-w-[1240px] mx-auto bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-3xl p-4 sm:p-8 shadow-2xl space-y-6 sm:space-y-8">
                 {/* Wizard Header Stepper */}
-                <div className="flex items-start justify-between gap-3 border-b border-[#263042] pb-4 sm:pb-6">
+                <div className="flex items-start justify-between gap-3 border-b border-[var(--border-soft)] pb-4 sm:pb-6">
                   <div className="min-w-0">
                     <h2 className="text-base sm:text-xl font-extrabold text-white">
                       {wizardMode === 'edit' ? 'Modifier le Pipeline de la Chaîne' : 'Configuration du Template de Montage de sa Chaîne'}
@@ -5906,7 +5933,7 @@ export default function App() {
                         className={`shrink-0 whitespace-nowrap py-2 px-3 sm:px-1 text-center rounded-xl text-xs font-bold transition-all ${
                           isActive ? 'bg-[#00c2ff] text-slate-950 shadow-md' :
                           isPassed ? 'bg-[#00c2ff]/20 text-[#00c2ff] border border-[#00c2ff]/40' :
-                          'bg-[#1b2230] text-slate-400'
+                          'bg-[var(--bg-surface-alt)] text-slate-400'
                         }`}
                       >
                         {stepNum}. {label}
@@ -5944,7 +5971,7 @@ export default function App() {
                     <div className="flex items-start gap-5">
                       <div
                         onClick={() => logoInputRef.current && logoInputRef.current.click()}
-                        className="w-28 h-28 rounded-full bg-[#1b2230] border-2 border-dashed border-[#2b374d] hover:border-[#00c2ff] cursor-pointer flex items-center justify-center overflow-hidden flex-shrink-0 transition-colors group"
+                        className="w-28 h-28 rounded-full bg-[var(--bg-surface-alt)] border-2 border-dashed border-[var(--border)] hover:border-[#00c2ff] cursor-pointer flex items-center justify-center overflow-hidden flex-shrink-0 transition-colors group"
                         title={logoPreviewUrl ? "Changer la photo" : "Sélectionner une photo"}
                       >
                         {logoPreviewUrl ? (
@@ -5974,7 +6001,7 @@ export default function App() {
                         <input
                           value={newChannel.name}
                           onChange={e => setNewChannel({ ...newChannel, name: e.target.value })}
-                          className="w-full bg-[#1b2230] border border-[#2b374d] rounded-xl px-4 py-3 text-sm text-white focus:border-[#00c2ff] outline-none"
+                          className="w-full bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-4 py-3 text-sm text-white focus:border-[#00c2ff] outline-none"
                           placeholder="Ex: Stoic Mind Daily"
                         />
                       </div>
@@ -5986,7 +6013,7 @@ export default function App() {
                         rows="2"
                         value={newChannel.description}
                         onChange={e => setNewChannel({ ...newChannel, description: e.target.value })}
-                        className="w-full bg-[#1b2230] border border-[#2b374d] rounded-xl px-4 py-3 text-xs text-white focus:border-[#00c2ff] outline-none placeholder-slate-500"
+                        className="w-full bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-4 py-3 text-xs text-white focus:border-[#00c2ff] outline-none placeholder-slate-500"
                         placeholder="De quoi parle ta chaîne ? (sujets, ton, public visé...) — aide à détecter la niche et donne du contexte à l'Agent pour l'écriture automatique."
                       />
                       <p className="text-[10px] text-slate-500 mt-1.5">Se remplit automatiquement depuis la description YouTube si tu connectes la chaîne, tant que tu n'as pas déjà écrit la tienne.</p>
@@ -6003,7 +6030,7 @@ export default function App() {
                             className={`px-3.5 py-2 rounded-xl text-xs font-bold border transition-colors ${
                               newChannel.niche === n
                                 ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]'
-                                : 'bg-[#1b2230] border-[#2b374d] text-slate-300 hover:border-slate-500'
+                                : 'bg-[var(--bg-surface-alt)] border-[var(--border)] text-slate-300 hover:border-slate-500'
                             }`}
                           >
                             {n}
@@ -6013,7 +6040,7 @@ export default function App() {
                       <input
                         value={newChannel.niche}
                         onChange={e => setNewChannel({ ...newChannel, niche: e.target.value })}
-                        className="w-full mt-2 bg-[#1b2230] border border-[#2b374d] rounded-xl px-3 py-2 text-xs text-white focus:border-[#00c2ff] outline-none"
+                        className="w-full mt-2 bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-3 py-2 text-xs text-white focus:border-[#00c2ff] outline-none"
                         placeholder="Écris ta propre niche..."
                       />
                     </div>
@@ -6030,7 +6057,7 @@ export default function App() {
                         <button
                           type="button"
                           onClick={() => setNewChannel({ ...newChannel, automation_mode: (newChannel.automation_mode || 'manual') === 'auto' ? 'manual' : 'auto' })}
-                          className={`relative w-9 h-5 rounded-full overflow-hidden transition-colors ${(newChannel.automation_mode || 'manual') === 'auto' ? 'bg-[#00c2ff]' : 'bg-[#2b374d]'}`}
+                          className={`relative w-9 h-5 rounded-full overflow-hidden transition-colors ${(newChannel.automation_mode || 'manual') === 'auto' ? 'bg-[#00c2ff]' : 'bg-[var(--border)]'}`}
                         >
                           <span className={`absolute left-0.5 top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${(newChannel.automation_mode || 'manual') === 'auto' ? 'translate-x-4' : 'translate-x-0'}`} />
                         </button>
@@ -6051,7 +6078,7 @@ export default function App() {
                         <button
                           type="button"
                           onClick={() => setShowScriptStructureModal(true)}
-                          className="w-full flex items-center justify-between gap-3 border border-[#2b374d] hover:border-[#00c2ff]/60 rounded-xl p-4 bg-[#161c28] transition-colors text-left"
+                          className="w-full flex items-center justify-between gap-3 border border-[var(--border)] hover:border-[#00c2ff]/60 rounded-xl p-4 bg-[#161c28] transition-colors text-left"
                         >
                           <div className="flex items-center gap-3 min-w-0">
                             <span className="w-9 h-9 rounded-lg bg-[#00c2ff]/10 flex items-center justify-center shrink-0">
@@ -6071,14 +6098,14 @@ export default function App() {
 
                     {newChannel.automation_mode === 'auto' && (
                       <div>
-                        <div className="flex items-center gap-2 bg-[#11151c] border border-[#202938] rounded-xl px-3 py-2.5">
+                        <div className="flex items-center gap-2 bg-[var(--bg-input)] border border-[var(--border-subtle)] rounded-xl px-3 py-2.5">
                           <span className="material-symbols-outlined text-[16px] text-slate-500 shrink-0">calendar_today</span>
                           <span className="text-[11px] text-slate-400 shrink-0">Scripts (vidéos) par jour :</span>
                           <div className="flex-1 flex items-center justify-end gap-2">
                             <button
                               type="button"
                               onClick={() => setNewChannel({ ...newChannel, videos_per_day: Math.max(1, (newChannel.videos_per_day || 1) - 1) })}
-                              className="w-7 h-7 rounded-lg bg-[#1b2230] border border-[#2b374d] text-white hover:border-slate-500 flex items-center justify-center"
+                              className="w-7 h-7 rounded-lg bg-[var(--bg-surface-alt)] border border-[var(--border)] text-white hover:border-slate-500 flex items-center justify-center"
                             >
                               <span className="material-symbols-outlined text-[16px]">remove</span>
                             </button>
@@ -6091,12 +6118,12 @@ export default function App() {
                                 const n = parseInt(e.target.value);
                                 setNewChannel({ ...newChannel, videos_per_day: Number.isFinite(n) ? Math.min(100, Math.max(1, n)) : 1 });
                               }}
-                              className="w-14 text-center bg-[#1b2230] border border-[#2b374d] rounded-lg py-1 text-xs font-bold text-white focus:border-[#00c2ff] outline-none"
+                              className="w-14 text-center bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-lg py-1 text-xs font-bold text-white focus:border-[#00c2ff] outline-none"
                             />
                             <button
                               type="button"
                               onClick={() => setNewChannel({ ...newChannel, videos_per_day: Math.min(100, (newChannel.videos_per_day || 1) + 1) })}
-                              className="w-7 h-7 rounded-lg bg-[#1b2230] border border-[#2b374d] text-white hover:border-slate-500 flex items-center justify-center"
+                              className="w-7 h-7 rounded-lg bg-[var(--bg-surface-alt)] border border-[var(--border)] text-white hover:border-slate-500 flex items-center justify-center"
                             >
                               <span className="material-symbols-outlined text-[16px]">add</span>
                             </button>
@@ -6127,7 +6154,7 @@ export default function App() {
                         return (
                           <div
                             onClick={() => setShowVoiceLibrary(true)}
-                            className="flex items-center gap-2.5 bg-[#1b2230] border border-[#2b374d] hover:border-[#00c2ff]/60 rounded-xl px-3 py-2 cursor-pointer transition-colors"
+                            className="flex items-center gap-2.5 bg-[var(--bg-surface-alt)] border border-[var(--border)] hover:border-[#00c2ff]/60 rounded-xl px-3 py-2 cursor-pointer transition-colors"
                           >
                             {activeVoice ? (
                               <>
@@ -6152,7 +6179,7 @@ export default function App() {
                                 <p className="text-xs font-bold text-slate-400">Aucune voix sélectionnée</p>
                               </div>
                             )}
-                            <span className="shrink-0 px-3 py-1.5 rounded-lg bg-gradient-to-r from-[#65e0ff] to-[#1a9cff] text-[#031019] text-[11px] font-extrabold flex items-center gap-1.5">
+                            <span className="shrink-0 px-3 py-1.5 rounded-lg bg-gradient-to-r from-[#65e0ff] to-[#1a9cff] text-[var(--bg-deep)] text-[11px] font-extrabold flex items-center gap-1.5">
                               <span className="material-symbols-outlined text-[15px]">record_voice_over</span>
                               Changer
                             </span>
@@ -6172,7 +6199,7 @@ export default function App() {
                         ].map(([field, label, min, max, step]) => {
                           const settings = newChannel.voice_settings || { speed: 0.845, stability: 0.8, similarity_boost: 0.9, style: 0 };
                           const value = Number(settings[field] ?? (field === 'speed' ? 0.845 : 0));
-                          return <label key={field} className="bg-[#11151c] border border-[#202938] rounded-xl p-3">
+                          return <label key={field} className="bg-[var(--bg-input)] border border-[var(--border-subtle)] rounded-xl p-3">
                             <span className="flex justify-between text-[10px] font-bold text-slate-300 mb-2"><span>{label}</span><span className="text-[#55d8ff]">{value.toFixed(2)}</span></span>
                             <input type="range" min={min} max={max} step={step} value={value} onChange={e => {
                               setNewChannel({ ...newChannel, voice_settings: { ...settings, [field]: Number(e.target.value) } });
@@ -6223,8 +6250,8 @@ export default function App() {
                           onClick={toggleOptionA}
                           className={`p-5 rounded-2xl border-2 transition-all cursor-pointer space-y-4 flex flex-col justify-between ${
                             isOptionAChecked
-                              ? 'bg-[#1b2230] border-[#00c2ff] shadow-lg shadow-[#00c2ff]/10'
-                              : 'bg-[#141923] border-[#263042] hover:border-slate-500 opacity-60'
+                              ? 'bg-[var(--bg-surface-alt)] border-[#00c2ff] shadow-lg shadow-[#00c2ff]/10'
+                              : 'bg-[var(--bg-surface-soft)] border-[var(--border-soft)] hover:border-slate-500 opacity-60'
                           }`}
                         >
                           <div className="space-y-2">
@@ -6251,7 +6278,7 @@ export default function App() {
                             onDragLeave={() => setIsFolderDragging(false)}
                             onDrop={handleFolderDrop}
                             className={`border-2 border-dashed rounded-xl p-4 text-center cursor-pointer transition-all ${
-                              isFolderDragging ? 'border-[#00c2ff] bg-[#00c2ff]/10' : 'border-[#2b374d] hover:border-[#00c2ff] bg-[#0f1217]/60'
+                              isFolderDragging ? 'border-[#00c2ff] bg-[#00c2ff]/10' : 'border-[var(--border)] hover:border-[#00c2ff] bg-[var(--bg-input-alt)]/60'
                             }`}
                           >
                             <input
@@ -6333,8 +6360,8 @@ export default function App() {
                           onClick={toggleOptionB}
                           className={`p-5 rounded-2xl border-2 transition-all cursor-pointer space-y-4 flex flex-col justify-between ${
                             isOptionBChecked
-                              ? 'bg-[#1b2230] border-[#00c2ff] shadow-lg shadow-[#00c2ff]/10'
-                              : 'bg-[#141923] border-[#263042] hover:border-slate-500 opacity-60'
+                              ? 'bg-[var(--bg-surface-alt)] border-[#00c2ff] shadow-lg shadow-[#00c2ff]/10'
+                              : 'bg-[var(--bg-surface-soft)] border-[var(--border-soft)] hover:border-slate-500 opacity-60'
                           }`}
                         >
                           <div className="space-y-2">
@@ -6381,7 +6408,7 @@ export default function App() {
                               rows="2"
                               value={newChannel.image_style.style_prompt}
                               onChange={e => setNewChannel({ ...newChannel, image_style: { ...newChannel.image_style, style_prompt: e.target.value } })}
-                              className="w-full bg-[#0f1217] border border-[#2b374d] rounded-xl p-2.5 text-[11px] text-white focus:border-[#00c2ff] outline-none placeholder-slate-500"
+                              className="w-full bg-[var(--bg-input-alt)] border border-[var(--border)] rounded-xl p-2.5 text-[11px] text-white focus:border-[#00c2ff] outline-none placeholder-slate-500"
                               placeholder="Ex: cinematic lighting, stoic sculpture style, dark moody atmosphere..."
                             />
                             <div className="flex flex-wrap gap-1.5 mt-2">
@@ -6396,7 +6423,7 @@ export default function App() {
                                   key={preset}
                                   type="button"
                                   onClick={() => setNewChannel({ ...newChannel, image_style: { ...newChannel.image_style, style_prompt: preset } })}
-                                  className="px-2.5 py-1 rounded-full text-[10px] font-semibold bg-[#1b2230] text-slate-300 hover:bg-[#00c2ff]/10 hover:text-[#00c2ff] border border-[#2b374d] transition-colors"
+                                  className="px-2.5 py-1 rounded-full text-[10px] font-semibold bg-[var(--bg-surface-alt)] text-slate-300 hover:bg-[#00c2ff]/10 hover:text-[#00c2ff] border border-[var(--border)] transition-colors"
                                 >
                                   {preset}
                                 </button>
@@ -6415,13 +6442,13 @@ export default function App() {
                         </div>
                       )}
 
-                      <div className="bg-[#171b23] border border-[#2b374d] rounded-xl p-3.5 space-y-2.5">
+                      <div className="bg-[#171b23] border border-[var(--border)] rounded-xl p-3.5 space-y-2.5">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-3">
                             {/* Mini mockup of a YouTube video card — makes it obvious at a
                                 glance that this section is about the clickable thumbnail
                                 image, not the video content itself. */}
-                            <div className="w-16 h-10 rounded-md bg-[#0f1217] border border-[#2b374d] flex-shrink-0 relative overflow-hidden">
+                            <div className="w-16 h-10 rounded-md bg-[var(--bg-input-alt)] border border-[var(--border)] flex-shrink-0 relative overflow-hidden">
                               <img src={STABLE_EFFECT_PREVIEW_IMAGES[0]} alt="" className="absolute inset-0 w-full h-full object-cover" />
                               <span className="absolute inset-0 flex items-center justify-center">
                                 <span className="w-4 h-4 rounded-full bg-black/60 flex items-center justify-center">
@@ -6459,14 +6486,14 @@ export default function App() {
                           Optionnel — donne plusieurs exemples de la miniature que tu veux (personnage, cadrage, ambiance). L'IA analyse toutes ces images ensemble et réutilise le style commun pour toutes les miniatures générées sur cette chaîne, à la place du style visuel des vidéos ci-dessus.
                         </p>
                         {newChannel.thumbnail_style?.style_prompt ? (
-                          <div className="bg-[#0f1217] border border-[#2b374d] rounded-lg p-2.5 space-y-2">
+                          <div className="bg-[var(--bg-input-alt)] border border-[var(--border)] rounded-lg p-2.5 space-y-2">
                             <div className="flex flex-wrap gap-2">
                               {(newChannel.thumbnail_style.reference_image_paths || []).map((path) => (
                                 <div key={path} className="relative group shrink-0">
                                   <img
                                     src={`${STORAGE_BASE}/${path}`}
                                     alt="Référence miniature"
-                                    className="w-14 h-14 rounded-lg object-cover border border-[#2b374d]"
+                                    className="w-14 h-14 rounded-lg object-cover border border-[var(--border)]"
                                   />
                                   <button
                                     type="button"
@@ -6510,7 +6537,7 @@ export default function App() {
                         <button
                           type="button"
                           onClick={() => setNewChannel({ ...newChannel, music_preference: { ...newChannel.music_preference, enabled: !(newChannel.music_preference.enabled ?? true) } })}
-                          className={`relative w-9 h-5 rounded-full overflow-hidden transition-colors ${(newChannel.music_preference.enabled ?? true) ? 'bg-[#00c2ff]' : 'bg-[#2b374d]'}`}
+                          className={`relative w-9 h-5 rounded-full overflow-hidden transition-colors ${(newChannel.music_preference.enabled ?? true) ? 'bg-[#00c2ff]' : 'bg-[var(--border)]'}`}
                         >
                           <span className={`absolute left-0.5 top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${(newChannel.music_preference.enabled ?? true) ? 'translate-x-4' : 'translate-x-0'}`} />
                         </button>
@@ -6532,8 +6559,8 @@ export default function App() {
                         onClick={() => setNewChannel({ ...newChannel, music_preference: { ...newChannel.music_preference, mode: 'library' } })}
                         className={`p-5 rounded-2xl border-2 transition-all cursor-pointer space-y-4 flex flex-col ${
                           (newChannel.music_preference.mode || 'library') === 'library'
-                            ? 'bg-[#1b2230] border-[#00c2ff] shadow-lg shadow-[#00c2ff]/10'
-                            : 'bg-[#141923] border-[#263042] hover:border-slate-500 opacity-60'
+                            ? 'bg-[var(--bg-surface-alt)] border-[#00c2ff] shadow-lg shadow-[#00c2ff]/10'
+                            : 'bg-[var(--bg-surface-soft)] border-[var(--border-soft)] hover:border-slate-500 opacity-60'
                         }`}
                       >
                         <div className="space-y-2">
@@ -6546,7 +6573,7 @@ export default function App() {
 
                         <div
                           onClick={(e) => { e.stopPropagation(); musicInputRef.current && musicInputRef.current.click(); }}
-                          className="border-2 border-dashed border-[#2b374d] hover:border-[#00c2ff] rounded-xl p-4 text-center cursor-pointer transition-colors"
+                          className="border-2 border-dashed border-[var(--border)] hover:border-[#00c2ff] rounded-xl p-4 text-center cursor-pointer transition-colors"
                         >
                           <span className="material-symbols-outlined text-slate-400 text-[24px]">upload_file</span>
                           <p className="text-[11px] text-slate-300 mt-1 font-bold">Clique pour importer un ou plusieurs morceaux</p>
@@ -6598,8 +6625,8 @@ export default function App() {
                         onClick={() => setNewChannel({ ...newChannel, music_preference: { ...newChannel.music_preference, mode: 'ai_generate' } })}
                         className={`p-5 rounded-2xl border-2 transition-all cursor-pointer space-y-4 flex flex-col ${
                           newChannel.music_preference.mode === 'ai_generate'
-                            ? 'bg-[#1b2230] border-[#00c2ff] shadow-lg shadow-[#00c2ff]/10'
-                            : 'bg-[#141923] border-[#263042] hover:border-slate-500 opacity-60'
+                            ? 'bg-[var(--bg-surface-alt)] border-[#00c2ff] shadow-lg shadow-[#00c2ff]/10'
+                            : 'bg-[var(--bg-surface-soft)] border-[var(--border-soft)] hover:border-slate-500 opacity-60'
                         }`}
                       >
                         <div className="space-y-2">
@@ -6616,7 +6643,7 @@ export default function App() {
                             rows="2"
                             value={newChannel.music_preference.ai_prompt || ''}
                             onChange={e => setNewChannel({ ...newChannel, music_preference: { ...newChannel.music_preference, ai_prompt: e.target.value } })}
-                            className="w-full bg-[#0f1217] border border-[#2b374d] rounded-xl p-2.5 text-[11px] text-white focus:border-[#00c2ff] outline-none placeholder-slate-500"
+                            className="w-full bg-[var(--bg-input-alt)] border border-[var(--border)] rounded-xl p-2.5 text-[11px] text-white focus:border-[#00c2ff] outline-none placeholder-slate-500"
                             placeholder="Ex : piano doux, ambiance méditative, tempo lent... (laisse vide pour un prompt automatique)"
                           />
                         </div>
@@ -6668,7 +6695,7 @@ export default function App() {
                           of one long scroll, so the preview stays reachable without
                           hunting through every control at once. */}
                       <div className="space-y-4 min-w-0">
-                        <div className="flex w-full bg-[#1b2230] rounded-xl p-1 mb-1 overflow-x-auto">
+                        <div className="flex w-full bg-[var(--bg-surface-alt)] rounded-xl p-1 mb-1 overflow-x-auto">
                           {[
                             { id: 'presets', label: 'Préréglages', icon: 'style' },
                             { id: 'text', label: 'Police & Couleurs', icon: 'text_fields' },
@@ -6681,7 +6708,7 @@ export default function App() {
                               type="button"
                               onClick={() => setSubtitleTab(tab.id)}
                               className={`flex-1 flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg text-[11px] font-bold whitespace-nowrap transition-colors ${
-                                subtitleTab === tab.id ? 'bg-[#00c2ff] text-slate-950' : 'text-slate-300 hover:bg-[#252f42]'
+                                subtitleTab === tab.id ? 'bg-[#00c2ff] text-slate-950' : 'text-slate-300 hover:bg-[var(--border-soft)]'
                               }`}
                             >
                               <span className="material-symbols-outlined text-[15px]">{tab.icon}</span>
@@ -6723,7 +6750,7 @@ export default function App() {
                                 >
                                   <div
                                     className={`aspect-square rounded-xl flex items-center justify-center overflow-hidden bg-[#12161f] border-2 transition-all ${
-                                      isActive ? 'border-[#00c2ff] shadow-lg shadow-[#00c2ff]/20' : 'border-[#2b374d] group-hover:border-slate-500'
+                                      isActive ? 'border-[#00c2ff] shadow-lg shadow-[#00c2ff]/20' : 'border-[var(--border)] group-hover:border-slate-500'
                                     }`}
                                     style={{
                                       backgroundImage: 'radial-gradient(circle at center, rgba(255,255,255,0.06), transparent 70%)'
@@ -6765,7 +6792,7 @@ export default function App() {
                             <button
                               type="button"
                               onClick={() => { setFontSearchQuery(''); setFontPickerOpen(true); }}
-                              className="w-full flex items-center justify-between bg-[#1b2230] border border-[#2b374d] rounded-xl px-4 py-2.5 text-left hover:border-[#00c2ff] transition-colors"
+                              className="w-full flex items-center justify-between bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-4 py-2.5 text-left hover:border-[#00c2ff] transition-colors"
                             >
                               <span style={{ fontFamily: newChannel.subtitle_style.font }} className="text-sm text-white truncate">
                                 {SUBTITLE_FONTS.find(f => f.value === newChannel.subtitle_style.font)?.label || newChannel.subtitle_style.font}
@@ -6870,14 +6897,14 @@ export default function App() {
                                 <button
                                   type="button"
                                   onClick={() => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, bold: !newChannel.subtitle_style.bold } })}
-                                  className={`flex-1 py-2.5 rounded-xl text-sm font-black border transition-colors ${newChannel.subtitle_style.bold ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]' : 'bg-[#1b2230] border-[#2b374d] text-slate-300 hover:border-slate-500'}`}
+                                  className={`flex-1 py-2.5 rounded-xl text-sm font-black border transition-colors ${newChannel.subtitle_style.bold ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]' : 'bg-[var(--bg-surface-alt)] border-[var(--border)] text-slate-300 hover:border-slate-500'}`}
                                 >
                                   B
                                 </button>
                                 <button
                                   type="button"
                                   onClick={() => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, italic: !newChannel.subtitle_style.italic } })}
-                                  className={`flex-1 py-2.5 rounded-xl text-sm italic font-bold border transition-colors ${newChannel.subtitle_style.italic ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]' : 'bg-[#1b2230] border-[#2b374d] text-slate-300 hover:border-slate-500'}`}
+                                  className={`flex-1 py-2.5 rounded-xl text-sm italic font-bold border transition-colors ${newChannel.subtitle_style.italic ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]' : 'bg-[var(--bg-surface-alt)] border-[var(--border)] text-slate-300 hover:border-slate-500'}`}
                                 >
                                   I
                                 </button>
@@ -6896,7 +6923,7 @@ export default function App() {
                                     key={id}
                                     type="button"
                                     onClick={() => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, text_case: id } })}
-                                    className={`py-2.5 rounded-xl text-xs font-bold border transition-colors ${(newChannel.subtitle_style.text_case || 'none') === id ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]' : 'bg-[#1b2230] border-[#2b374d] text-slate-300 hover:border-slate-500'}`}
+                                    className={`py-2.5 rounded-xl text-xs font-bold border transition-colors ${(newChannel.subtitle_style.text_case || 'none') === id ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]' : 'bg-[var(--bg-surface-alt)] border-[var(--border)] text-slate-300 hover:border-slate-500'}`}
                                   >
                                     {label}
                                   </button>
@@ -6916,7 +6943,7 @@ export default function App() {
                                     key={id}
                                     type="button"
                                     onClick={() => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, align: id } })}
-                                    className={`py-2.5 rounded-xl border transition-colors flex items-center justify-center ${(newChannel.subtitle_style.align || 'center') === id ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]' : 'bg-[#1b2230] border-[#2b374d] text-slate-300 hover:border-slate-500'}`}
+                                    className={`py-2.5 rounded-xl border transition-colors flex items-center justify-center ${(newChannel.subtitle_style.align || 'center') === id ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]' : 'bg-[var(--bg-surface-alt)] border-[var(--border)] text-slate-300 hover:border-slate-500'}`}
                                   >
                                     <span className="material-symbols-outlined text-[18px]">{icon}</span>
                                   </button>
@@ -6936,7 +6963,7 @@ export default function App() {
                                     key={id}
                                     type="button"
                                     onClick={() => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, position: id } })}
-                                    className={`py-2.5 rounded-xl border transition-colors flex items-center justify-center ${(newChannel.subtitle_style.position || 'bottom') === id ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]' : 'bg-[#1b2230] border-[#2b374d] text-slate-300 hover:border-slate-500'}`}
+                                    className={`py-2.5 rounded-xl border transition-colors flex items-center justify-center ${(newChannel.subtitle_style.position || 'bottom') === id ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]' : 'bg-[var(--bg-surface-alt)] border-[var(--border)] text-slate-300 hover:border-slate-500'}`}
                                   >
                                     <span className="material-symbols-outlined text-[18px]">{icon}</span>
                                   </button>
@@ -6956,7 +6983,7 @@ export default function App() {
                                     key={id}
                                     type="button"
                                     onClick={() => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, highlight_mode: id, karaoke: id === 'word' } })}
-                                    className={`py-2 rounded-xl text-[10px] font-bold border transition-colors ${(newChannel.subtitle_style.highlight_mode || 'word') === id ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]' : 'bg-[#1b2230] border-[#2b374d] text-slate-300 hover:border-slate-500'}`}
+                                    className={`py-2 rounded-xl text-[10px] font-bold border transition-colors ${(newChannel.subtitle_style.highlight_mode || 'word') === id ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]' : 'bg-[var(--bg-surface-alt)] border-[var(--border)] text-slate-300 hover:border-slate-500'}`}
                                   >
                                     {label}
                                   </button>
@@ -7104,7 +7131,7 @@ export default function App() {
                           settings column (which can run long) scrolls under it. */}
                       <div className="lg:sticky lg:top-4">
                         <label className="block text-xs font-bold text-slate-300 mb-2">Aperçu en direct</label>
-                        <div ref={wizardSubtitlePreviewRef} className="w-full aspect-video rounded-2xl bg-gradient-to-b from-slate-900 to-black border border-[#2b374d] relative overflow-hidden px-6">
+                        <div ref={wizardSubtitlePreviewRef} className="w-full aspect-video rounded-2xl bg-gradient-to-b from-slate-900 to-black border border-[var(--border)] relative overflow-hidden px-6">
                           <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(0,194,255,0.08),transparent_70%)]"></div>
                           <div className={`absolute inset-x-6 z-10 flex ${subtitleAlignClass(newChannel.subtitle_style.align)} ${subtitlePositionClass(newChannel.subtitle_style.position)}`}>
                             <div
@@ -7232,7 +7259,7 @@ export default function App() {
                                   className={`px-3 py-2 rounded-xl text-xs font-bold border transition-colors ${
                                     colorGrade === id
                                       ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]'
-                                      : 'bg-[#1b2230] border-[#2b374d] text-slate-300 hover:border-slate-500'
+                                      : 'bg-[var(--bg-surface-alt)] border-[var(--border)] text-slate-300 hover:border-slate-500'
                                   }`}
                                 >
                                   {label}
@@ -7262,7 +7289,7 @@ export default function App() {
                                   className={`px-3 py-2 rounded-xl text-xs font-bold border transition-colors flex items-center justify-center gap-1.5 ${
                                     overlayEffects.includes(id)
                                       ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]'
-                                      : 'bg-[#1b2230] border-[#2b374d] text-slate-300 hover:border-slate-500'
+                                      : 'bg-[var(--bg-surface-alt)] border-[var(--border)] text-slate-300 hover:border-slate-500'
                                   }`}
                                 >
                                   {overlayEffects.includes(id) && <span className="material-symbols-outlined text-[14px]">check</span>}
@@ -7273,7 +7300,7 @@ export default function App() {
                           </div>
 
                           {(hasGrain || hasVignette) && (
-                            <div className="pt-2 border-t border-[#263042] space-y-4">
+                            <div className="pt-2 border-t border-[var(--border-soft)] space-y-4">
                               <label className="block text-xs font-bold text-[#00c2ff]">Intensité</label>
                               {hasGrain && (
                                 <div>
@@ -7308,7 +7335,7 @@ export default function App() {
                             </div>
                           )}
 
-                          <div className="pt-2 border-t border-[#263042] flex items-center justify-between gap-3">
+                          <div className="pt-2 border-t border-[var(--border-soft)] flex items-center justify-between gap-3">
                             <div>
                               <label className="block text-xs font-bold text-slate-300">Filigrane NicheCut</label>
                               <p className="text-[11px] text-slate-500 mt-0.5">Logo officiel centré à faible opacité. Le désactiver sera une option payante une fois les paiements en place.</p>
@@ -7320,7 +7347,7 @@ export default function App() {
                               <button
                                 type="button"
                                 onClick={() => setNewChannel({ ...newChannel, effects_config: { ...newChannel.effects_config, watermark_enabled: !(newChannel.effects_config.watermark_enabled ?? true) } })}
-                                className={`w-11 h-6 rounded-full relative overflow-hidden transition-colors ${(newChannel.effects_config.watermark_enabled ?? true) ? 'bg-[#00c2ff]' : 'bg-[#2b374d]'}`}
+                                className={`w-11 h-6 rounded-full relative overflow-hidden transition-colors ${(newChannel.effects_config.watermark_enabled ?? true) ? 'bg-[#00c2ff]' : 'bg-[var(--border)]'}`}
                               >
                                 <span className={`absolute left-0.5 top-0.5 w-5 h-5 rounded-full bg-white transition-transform ${(newChannel.effects_config.watermark_enabled ?? true) ? 'translate-x-5' : 'translate-x-0'}`} />
                               </button>
@@ -7330,7 +7357,7 @@ export default function App() {
 
                         <div className="lg:sticky lg:top-4">
                           <label className="block text-xs font-bold text-slate-300 mb-2">Aperçu des effets</label>
-                          <div className="relative aspect-video rounded-2xl overflow-hidden border-2 border-[#2b374d] bg-[#0f1217]">
+                          <div className="relative aspect-video rounded-2xl overflow-hidden border-2 border-[var(--border)] bg-[var(--bg-input-alt)]">
                             {previewImgSrc ? (
                               // A real project image (library-preview) can 404 when the channel
                               // has no uploaded library yet (e.g. AI-generated-only channels) —
@@ -7381,7 +7408,7 @@ export default function App() {
                 {wizardStep === 8 && (() => {
                   const timeMode = newChannel.publish_time_mode || 'range';
                   const timeModeToggle = (
-                    <div className="flex items-center gap-1 bg-[#0f1217] border border-[#2b374d] rounded-lg p-0.5 shrink-0">
+                    <div className="flex items-center gap-1 bg-[var(--bg-input-alt)] border border-[var(--border)] rounded-lg p-0.5 shrink-0">
                       <button
                         type="button"
                         onClick={() => setNewChannel({ ...newChannel, publish_time_mode: 'fixed' })}
@@ -7399,7 +7426,7 @@ export default function App() {
                     </div>
                   );
                   const timeControls = (
-                    <div className="flex items-center gap-2 bg-[#11151c] border border-[#202938] rounded-xl px-3 py-2.5 flex-wrap">
+                    <div className="flex items-center gap-2 bg-[var(--bg-input)] border border-[var(--border-subtle)] rounded-xl px-3 py-2.5 flex-wrap">
                       {timeModeToggle}
                       <span className="material-symbols-outlined text-[16px] text-slate-500 shrink-0">schedule</span>
                       {timeMode === 'fixed' ? (
@@ -7427,7 +7454,7 @@ export default function App() {
                     </div>
                   );
                   const weekdaySelector = (
-                    <div className="bg-[#11151c] border border-[#202938] rounded-xl px-3 py-2.5">
+                    <div className="bg-[var(--bg-input)] border border-[var(--border-subtle)] rounded-xl px-3 py-2.5">
                       <div className="flex items-center gap-2 mb-2">
                         <span className="material-symbols-outlined text-[16px] text-slate-500 shrink-0">event_repeat</span>
                         <span className="text-[11px] text-slate-400">Jours de publication</span>
@@ -7449,7 +7476,7 @@ export default function App() {
                                 setNewChannel({ ...newChannel, active_days: next.length === 7 ? null : next });
                               }}
                               className={`flex-1 py-2 rounded-lg text-[11px] font-bold border transition-colors ${
-                                isOn ? 'bg-[#00c2ff] text-slate-950 border-[#00c2ff]' : 'bg-[#1b2230] border-[#2b374d] text-slate-300 hover:border-slate-500'
+                                isOn ? 'bg-[#00c2ff] text-slate-950 border-[#00c2ff]' : 'bg-[var(--bg-surface-alt)] border-[var(--border)] text-slate-300 hover:border-slate-500'
                               }`}
                             >
                               {label}
@@ -7460,26 +7487,26 @@ export default function App() {
                     </div>
                   );
                   const timezonePicker = (
-                    <div className="flex items-center gap-2 bg-[#11151c] border border-[#202938] rounded-xl px-3 py-2.5 relative">
+                    <div className="flex items-center gap-2 bg-[var(--bg-input)] border border-[var(--border-subtle)] rounded-xl px-3 py-2.5 relative">
                       <span className="material-symbols-outlined text-[16px] text-slate-500 shrink-0">public</span>
                       <span className="text-[11px] text-slate-400 shrink-0">Fuseau horaire :</span>
                       <button
                         type="button"
                         onClick={() => { setTimezoneMenuOpen(o => !o); setTimezoneSearch(''); }}
-                        className="flex-1 min-w-0 flex items-center justify-between gap-2 bg-[#1b2230] border border-[#2b374d] hover:border-slate-500 rounded-lg px-2.5 py-1.5 text-[11px] text-white text-left transition-colors"
+                        className="flex-1 min-w-0 flex items-center justify-between gap-2 bg-[var(--bg-surface-alt)] border border-[var(--border)] hover:border-slate-500 rounded-lg px-2.5 py-1.5 text-[11px] text-white text-left transition-colors"
                       >
                         <span className="truncate">{newChannel.timezone || 'Africa/Douala'}</span>
                         <span className={`material-symbols-outlined text-[15px] text-slate-400 shrink-0 transition-transform ${timezoneMenuOpen ? 'rotate-180' : ''}`}>expand_more</span>
                       </button>
                       {timezoneMenuOpen && (
-                        <div className="absolute left-0 right-0 top-full mt-1.5 bg-[#1f2838] border border-[#2d3a52] rounded-xl shadow-2xl z-50 overflow-hidden">
-                          <div className="p-2 border-b border-[#2d3a52]">
+                        <div className="absolute left-0 right-0 top-full mt-1.5 bg-[var(--bg-dropdown)] border border-[var(--border-dropdown)] rounded-xl shadow-2xl z-50 overflow-hidden">
+                          <div className="p-2 border-b border-[var(--border-dropdown)]">
                             <input
                               autoFocus
                               value={timezoneSearch}
                               onChange={e => setTimezoneSearch(e.target.value)}
                               placeholder="Rechercher (ex: Douala, Paris...)"
-                              className="w-full bg-[#11151c] border border-[#2b374d] rounded-lg px-2.5 py-1.5 text-[11px] text-white focus:border-[#00c2ff] outline-none"
+                              className="w-full bg-[var(--bg-input)] border border-[var(--border)] rounded-lg px-2.5 py-1.5 text-[11px] text-white focus:border-[#00c2ff] outline-none"
                             />
                           </div>
                           <div className="max-h-52 overflow-y-auto py-1">
@@ -7491,7 +7518,7 @@ export default function App() {
                                   key={tz}
                                   type="button"
                                   onClick={() => { setNewChannel({ ...newChannel, timezone: tz }); setTimezoneMenuOpen(false); }}
-                                  className={`w-full text-left px-3 py-1.5 text-[11px] hover:bg-[#2c394e] transition-colors flex items-center justify-between gap-2 ${
+                                  className={`w-full text-left px-3 py-1.5 text-[11px] hover:bg-[var(--bg-hover)] transition-colors flex items-center justify-between gap-2 ${
                                     tz === (newChannel.timezone || 'Africa/Douala') ? 'text-[#00c2ff] font-bold' : 'text-slate-300'
                                   }`}
                                 >
@@ -7526,7 +7553,7 @@ export default function App() {
                               <select
                                 value={newChannel.publish_schedule_day_offset ?? 1}
                                 onChange={e => setNewChannel({ ...newChannel, publish_schedule_day_offset: parseInt(e.target.value) })}
-                                className="bg-[#1b2230] border border-[#2b374d] rounded-xl px-3 py-2 text-xs text-white focus:border-[#00c2ff] outline-none"
+                                className="bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-3 py-2 text-xs text-white focus:border-[#00c2ff] outline-none"
                               >
                                 <option value={0}>Le jour même</option>
                                 <option value={1}>Le lendemain</option>
@@ -7623,7 +7650,7 @@ export default function App() {
                         <div className="space-y-1">
                           <label className="block text-xs font-bold text-slate-300 mb-3">Calques (arrière-plan → premier plan)</label>
                           <div className="relative pl-2">
-                            <div className="absolute left-[19px] top-3 bottom-3 w-px bg-[#2b374d]"></div>
+                            <div className="absolute left-[19px] top-3 bottom-3 w-px bg-[var(--border)]"></div>
                             {recapItems.map(({ id, label, icon, available }, idx) => (
                               <button
                                 key={id}
@@ -7632,10 +7659,10 @@ export default function App() {
                                 onClick={() => toggleRecap(id)}
                                 className={`relative z-10 w-full mb-1.5 px-3 py-2.5 rounded-xl text-xs font-bold border transition-colors flex items-center gap-2.5 text-left ${
                                   !available
-                                    ? 'bg-[#1b2230]/50 border-[#2b374d]/50 text-slate-600 cursor-not-allowed'
+                                    ? 'bg-[var(--bg-surface-alt)]/50 border-[var(--border)]/50 text-slate-600 cursor-not-allowed'
                                     : isRecapChecked(id)
                                       ? 'bg-emerald-950/60 border-emerald-700 text-emerald-400'
-                                      : 'bg-[#1b2230] border-[#2b374d] text-slate-500 hover:border-slate-500'
+                                      : 'bg-[var(--bg-surface-alt)] border-[var(--border)] text-slate-500 hover:border-slate-500'
                                 }`}
                               >
                                 <span className="material-symbols-outlined text-[16px] shrink-0">{icon}</span>
@@ -7648,7 +7675,7 @@ export default function App() {
 
                         {/* Live 16:9 Landscape Video Mockup Preview */}
                         <div className="flex justify-center">
-                        <div ref={mockupSubtitlePreviewRef} className="w-full max-w-[640px] aspect-[16/9] bg-slate-950 rounded-2xl border-4 border-[#2b374d] relative overflow-hidden shadow-2xl flex flex-col justify-between p-5">
+                        <div ref={mockupSubtitlePreviewRef} className="w-full max-w-[640px] aspect-[16/9] bg-slate-950 rounded-2xl border-4 border-[var(--border)] relative overflow-hidden shadow-2xl flex flex-col justify-between p-5">
 
                           {/* Background Scene Visual — a freshly picked file from this wizard
                               session takes priority; otherwise fall back to a real random image
@@ -7758,11 +7785,11 @@ export default function App() {
                 {/* Wizard Footer Navigation — flex-wrap so the button group (up to 3
                     buttons in edit mode: Retour / Enregistrer et quitter / Suivant)
                     drops to its own line instead of overflowing on narrow screens. */}
-                <div className="flex flex-wrap justify-between items-center gap-3 pt-6 border-t border-[#263042]">
+                <div className="flex flex-wrap justify-between items-center gap-3 pt-6 border-t border-[var(--border-soft)]">
                   {wizardStep > 1 ? (
                     <button
                       onClick={() => setWizardStep(wizardStep - 1)}
-                      className="px-6 py-2.5 rounded-xl bg-[#1b2230] text-white font-bold text-xs hover:bg-[#252f42] transition-colors"
+                      className="px-6 py-2.5 rounded-xl bg-[var(--bg-surface-alt)] text-white font-bold text-xs hover:bg-[var(--border-soft)] transition-colors"
                     >
                       Retour
                     </button>
@@ -7842,9 +7869,10 @@ export default function App() {
 
           <div className="flex flex-col md:flex-row gap-6 items-start">
             {/* Settings side nav */}
-            <div className="w-full md:w-[220px] flex-shrink-0 bg-[#161b22] border border-[#263042] rounded-2xl p-3 space-y-1 md:sticky md:top-8">
+            <div className="w-full md:w-[220px] flex-shrink-0 bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-2xl p-3 space-y-1 md:sticky md:top-8">
               {[
                 { id: 'profile', label: 'Profil', icon: 'person' },
+                { id: 'appearance', label: 'Apparence', icon: 'palette' },
                 { id: 'security', label: 'Sécurité', icon: 'lock' },
                 { id: 'izivoice', label: 'Izivoice', icon: 'record_voice_over' },
                 { id: 'api', label: 'Clés API', icon: 'key' },
@@ -7854,14 +7882,14 @@ export default function App() {
                   key={tab.id}
                   onClick={() => setSettingsTab(tab.id)}
                   className={`w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition-all ${
-                    settingsTab === tab.id ? 'bg-[#00c2ff]/10 text-[#00c2ff]' : 'text-slate-400 hover:bg-[#1b2230] hover:text-white'
+                    settingsTab === tab.id ? 'bg-[#00c2ff]/10 text-[#00c2ff]' : 'text-slate-400 hover:bg-[var(--bg-surface-alt)] hover:text-white'
                   }`}
                 >
                   <span className="material-symbols-outlined text-[16px]">{tab.icon}</span>
                   {tab.label}
                 </button>
               ))}
-              <div className="pt-2 mt-2 border-t border-[#263042]">
+              <div className="pt-2 mt-2 border-t border-[var(--border-soft)]">
                 <button
                   onClick={handleLogout}
                   className="w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 text-rose-400 hover:bg-rose-950/50 transition-all"
@@ -7873,7 +7901,41 @@ export default function App() {
             </div>
 
             {/* Settings content */}
-            <div className="flex-1 min-w-0 bg-[#161b22] border border-[#263042] rounded-2xl p-6 space-y-5">
+            <div className="flex-1 min-w-0 bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-2xl p-6 space-y-5">
+              {settingsTab === 'appearance' && (
+                <div className="space-y-4">
+                  <div>
+                    <h3 className="text-sm font-bold text-white">Apparence</h3>
+                    <p className="text-xs text-slate-400 mt-1">Choisis le thème de l'interface, ou laisse-le suivre le réglage de ton appareil.</p>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    {[
+                      { id: 'light', label: 'Clair', icon: 'light_mode' },
+                      { id: 'dark', label: 'Sombre', icon: 'dark_mode' },
+                      { id: 'auto', label: 'Automatique', icon: 'brightness_auto' },
+                    ].map(opt => (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={() => setThemePreference(opt.id)}
+                        className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all ${
+                          themePreference === opt.id
+                            ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]'
+                            : 'bg-[var(--bg-surface-alt)] border-[var(--border)] text-slate-300 hover:border-slate-500'
+                        }`}
+                      >
+                        <span className="material-symbols-outlined text-[22px]">{opt.icon}</span>
+                        <span className="text-xs font-bold">{opt.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                  {themePreference === 'auto' && (
+                    <p className="text-[11px] text-slate-500">
+                      Suit actuellement le réglage de ton appareil : {resolveEffectiveTheme('auto') === 'light' ? 'clair' : 'sombre'}.
+                    </p>
+                  )}
+                </div>
+              )}
               {settingsTab === 'profile' && (
                   <form onSubmit={handleUpdateProfile} className="space-y-4">
                     <div className="flex items-center gap-4">
@@ -7895,7 +7957,7 @@ export default function App() {
                       <input
                         value={profileForm.name}
                         onChange={e => setProfileForm({ ...profileForm, name: e.target.value })}
-                        className="w-full bg-[#1b2230] border border-[#2b374d] rounded-xl p-3 text-xs text-white focus:border-[#00c2ff] outline-none"
+                        className="w-full bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl p-3 text-xs text-white focus:border-[#00c2ff] outline-none"
                       />
                     </div>
                     <div>
@@ -7903,7 +7965,7 @@ export default function App() {
                       <input
                         value={currentUser.email}
                         disabled
-                        className="w-full bg-[#11151c] border border-[#2b374d] rounded-xl p-3 text-xs text-slate-500 outline-none cursor-not-allowed"
+                        className="w-full bg-[var(--bg-input)] border border-[var(--border)] rounded-xl p-3 text-xs text-slate-500 outline-none cursor-not-allowed"
                       />
                     </div>
                     <div>
@@ -7912,7 +7974,7 @@ export default function App() {
                         value={profileForm.phone}
                         onChange={e => setProfileForm({ ...profileForm, phone: e.target.value })}
                         placeholder="+33 6 12 34 56 78"
-                        className="w-full bg-[#1b2230] border border-[#2b374d] rounded-xl p-3 text-xs text-white focus:border-[#00c2ff] outline-none"
+                        className="w-full bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl p-3 text-xs text-white focus:border-[#00c2ff] outline-none"
                       />
                     </div>
                     <button
@@ -7928,7 +7990,7 @@ export default function App() {
                 {settingsTab === 'security' && (
                   <div className="space-y-5">
                     {currentUser.auth_provider === 'google' ? (
-                      <div className="bg-[#11151c] border border-[#202938] rounded-xl p-4 flex items-start gap-3">
+                      <div className="bg-[var(--bg-input)] border border-[var(--border-subtle)] rounded-xl p-4 flex items-start gap-3">
                         <span className="material-symbols-outlined text-[#00c2ff] text-[20px]">verified_user</span>
                         <div>
                           <p className="text-xs font-bold text-white">Connecté via Google</p>
@@ -7945,7 +8007,7 @@ export default function App() {
                             required
                             value={passwordForm.oldPassword}
                             onChange={e => setPasswordForm({ ...passwordForm, oldPassword: e.target.value })}
-                            className="w-full bg-[#1b2230] border border-[#2b374d] rounded-xl p-3 text-xs text-white focus:border-[#00c2ff] outline-none"
+                            className="w-full bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl p-3 text-xs text-white focus:border-[#00c2ff] outline-none"
                           />
                         </div>
                         <div>
@@ -7957,7 +8019,7 @@ export default function App() {
                               minLength={4}
                               value={passwordForm.newPassword}
                               onChange={e => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
-                              className="w-full bg-[#1b2230] border border-[#2b374d] rounded-xl p-3 pr-10 text-xs text-white focus:border-[#00c2ff] outline-none"
+                              className="w-full bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl p-3 pr-10 text-xs text-white focus:border-[#00c2ff] outline-none"
                             />
                             <button
                               type="button"
@@ -7979,7 +8041,7 @@ export default function App() {
                       </form>
                     )}
 
-                    <div className="pt-5 border-t border-[#263042]">
+                    <div className="pt-5 border-t border-[var(--border-soft)]">
                       <h4 className="text-xs font-bold text-white mb-1">Authentification à deux facteurs</h4>
                       <p className="text-[11px] text-slate-400 mb-3">
                         {currentUser.auth_provider === 'google'
@@ -8015,7 +8077,7 @@ export default function App() {
                           <button
                             type="button"
                             onClick={() => { navigator.clipboard.writeText(justCreatedApiKey.key); showToast("Clé copiée.", "success"); }}
-                            className="p-2 bg-[#1b2230] hover:bg-[#252f42] rounded-lg text-white flex-shrink-0"
+                            className="p-2 bg-[var(--bg-surface-alt)] hover:bg-[var(--border-soft)] rounded-lg text-white flex-shrink-0"
                           >
                             <span className="material-symbols-outlined text-[16px]">content_copy</span>
                           </button>
@@ -8028,7 +8090,7 @@ export default function App() {
                         value={newApiKeyName}
                         onChange={e => setNewApiKeyName(e.target.value)}
                         placeholder="Nom de la clé (ex: Zapier, Script perso...)"
-                        className="flex-1 bg-[#1b2230] border border-[#2b374d] rounded-xl p-2.5 text-xs text-white focus:border-[#00c2ff] outline-none"
+                        className="flex-1 bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl p-2.5 text-xs text-white focus:border-[#00c2ff] outline-none"
                       />
                       <button
                         onClick={handleCreateApiKey}
@@ -8043,7 +8105,7 @@ export default function App() {
                         <p className="text-[11px] text-slate-500 text-center py-6">Aucune clé API créée pour le moment.</p>
                       ) : (
                         apiKeys.map(key => (
-                          <div key={key.id} className="flex items-center justify-between bg-[#11151c] border border-[#202938] rounded-xl p-3">
+                          <div key={key.id} className="flex items-center justify-between bg-[var(--bg-input)] border border-[var(--border-subtle)] rounded-xl p-3">
                             <div>
                               <p className="text-xs font-bold text-white">{key.name}</p>
                               <p className="text-[10px] text-slate-500 font-mono mt-0.5">{key.key_prefix}••••••••••••••••••••</p>
@@ -8090,7 +8152,7 @@ export default function App() {
                         <button type="button" onClick={handleDisconnectIzivoice} className="text-[11px] font-bold text-rose-400 hover:text-rose-300">Déconnecter mon compte Izivoice</button>
                       </div>
                     ) : (
-                      <form onSubmit={handleConnectIzivoice} className="bg-[#11151c] border border-[#263042] rounded-2xl p-4 space-y-4">
+                      <form onSubmit={handleConnectIzivoice} className="bg-[var(--bg-input)] border border-[var(--border-soft)] rounded-2xl p-4 space-y-4">
                         <div className="flex gap-3">
                           <span className="material-symbols-outlined text-[#00c2ff]">hub</span>
                           <div>
@@ -8100,10 +8162,10 @@ export default function App() {
                         </div>
                         <div>
                           <label className="block text-[11px] font-bold text-slate-300 mb-2">Clé API Izivoice</label>
-                          <input type="password" autoComplete="off" value={izivoiceApiKey} onChange={e => setIzivoiceApiKey(e.target.value)} placeholder="Colle ta clé API Izivoice" className="w-full bg-[#080d15] border border-[#2b374d] rounded-xl p-3 text-xs text-white focus:border-[#00c2ff] outline-none" />
+                          <input type="password" autoComplete="off" value={izivoiceApiKey} onChange={e => setIzivoiceApiKey(e.target.value)} placeholder="Colle ta clé API Izivoice" className="w-full bg-[var(--bg-deep)] border border-[var(--border)] rounded-xl p-3 text-xs text-white focus:border-[#00c2ff] outline-none" />
                           <p className="text-[9px] leading-4 text-slate-500 mt-2">La clé est vérifiée auprès d’Izivoice, chiffrée côté serveur et n’est jamais réaffichée.</p>
                         </div>
-                        <button type="submit" disabled={izivoiceConnecting || !izivoiceApiKey.trim()} className="w-full py-3 bg-gradient-to-r from-[#65e0ff] to-[#1a9cff] text-[#031019] font-extrabold text-xs rounded-xl disabled:opacity-50">
+                        <button type="submit" disabled={izivoiceConnecting || !izivoiceApiKey.trim()} className="w-full py-3 bg-gradient-to-r from-[#65e0ff] to-[#1a9cff] text-[var(--bg-deep)] font-extrabold text-xs rounded-xl disabled:opacity-50">
                           {izivoiceConnecting ? 'Vérification…' : 'Connecter et synchroniser'}
                         </button>
                       </form>
@@ -8139,7 +8201,7 @@ export default function App() {
                         </div>
                       </div>
                     ) : (
-                      <div className="bg-[#11151c] border border-[#202938] rounded-2xl p-4 text-[11px] text-slate-400">
+                      <div className="bg-[var(--bg-input)] border border-[var(--border-subtle)] rounded-2xl p-4 text-[11px] text-slate-400">
                         Aucun abonnement actif — {currentUser.free_video_quota_granted - currentUser.free_videos_used > 0
                           ? `il te reste ${currentUser.free_video_quota_granted - currentUser.free_videos_used} vidéo(s) gratuite(s).`
                           : "ton quota gratuit est épuisé."}
@@ -8153,7 +8215,7 @@ export default function App() {
                     ) : (
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         {billingPlans.map(p => (
-                          <div key={p.id} className="bg-[#161b22] border border-[#263042] rounded-2xl p-4 space-y-3">
+                          <div key={p.id} className="bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-2xl p-4 space-y-3">
                             <div>
                               <div className="text-sm font-bold text-white">{p.name}</div>
                               <div className="text-lg font-extrabold text-[#00c2ff] mt-1">{p.price_fcfa.toLocaleString()} FCFA</div>
@@ -8163,7 +8225,7 @@ export default function App() {
                               <button
                                 onClick={() => startCheckout(p.id, 'maketou')}
                                 disabled={checkoutPlanId === p.id}
-                                className="flex-1 py-2 bg-[#1f2838] hover:bg-[#2b384e] text-white rounded-xl font-bold text-[11px] disabled:opacity-50"
+                                className="flex-1 py-2 bg-[var(--bg-dropdown)] hover:bg-[var(--border)] text-white rounded-xl font-bold text-[11px] disabled:opacity-50"
                               >
                                 Maketou
                               </button>
@@ -8205,7 +8267,7 @@ export default function App() {
                 { label: 'Revenu total', value: `${adminStats.total_revenue_fcfa.toLocaleString()} FCFA`, icon: 'payments' },
                 { label: 'Vidéos aujourd\'hui', value: `${adminStats.videos_today} / ${adminStats.total_videos}`, icon: 'movie' },
               ].map(s => (
-                <div key={s.label} className="bg-[#161b22] border border-[#263042] rounded-2xl p-4">
+                <div key={s.label} className="bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-2xl p-4">
                   <span className="material-symbols-outlined text-[#00c2ff] text-[20px]">{s.icon}</span>
                   <div className="text-xl font-extrabold text-white mt-2">{s.value}</div>
                   <div className="text-[11px] text-slate-400">{s.label}</div>
@@ -8214,7 +8276,7 @@ export default function App() {
             </div>
           )}
 
-          <div className="flex items-center gap-1 bg-[#0f1217] border border-[#2b374d] rounded-xl p-1 w-fit">
+          <div className="flex items-center gap-1 bg-[var(--bg-input-alt)] border border-[var(--border)] rounded-xl p-1 w-fit">
             {[{ id: 'users', label: 'Utilisateurs' }, { id: 'plans', label: 'Offres' }].map(t => (
               <button
                 key={t.id}
@@ -8227,20 +8289,20 @@ export default function App() {
           </div>
 
           {adminTab === 'users' && (
-            <div className="bg-[#161b22] border border-[#263042] rounded-2xl overflow-hidden">
-              <div className="p-4 border-b border-[#263042]">
+            <div className="bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-2xl overflow-hidden">
+              <div className="p-4 border-b border-[var(--border-soft)]">
                 <input
                   value={adminSearch}
                   onChange={e => setAdminSearch(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && fetchAdminData()}
                   placeholder="Rechercher par email..."
-                  className="w-full max-w-xs bg-[#1b2230] border border-[#2b374d] rounded-xl px-3 py-2 text-xs text-white focus:border-[#00c2ff] outline-none"
+                  className="w-full max-w-xs bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-3 py-2 text-xs text-white focus:border-[#00c2ff] outline-none"
                 />
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-xs">
                   <thead>
-                    <tr className="text-left text-slate-500 border-b border-[#263042]">
+                    <tr className="text-left text-slate-500 border-b border-[var(--border-soft)]">
                       <th className="px-4 py-2.5 font-bold">Email</th>
                       <th className="px-4 py-2.5 font-bold">Inscrit le</th>
                       <th className="px-4 py-2.5 font-bold">Chaînes</th>
@@ -8256,7 +8318,7 @@ export default function App() {
                     ) : adminUsers.length === 0 ? (
                       <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-500">Aucun utilisateur.</td></tr>
                     ) : adminUsers.map(u => (
-                      <tr key={u.id} className="border-b border-[#202938] hover:bg-[#1b2230]/60">
+                      <tr key={u.id} className="border-b border-[var(--border-subtle)] hover:bg-[var(--bg-surface-alt)]/60">
                         <td className="px-4 py-2.5 text-white font-medium">{u.email}{u.is_admin && <span className="ml-1.5 text-[9px] px-1.5 py-0.5 rounded bg-[#00c2ff]/15 text-[#00c2ff] font-bold">ADMIN</span>}</td>
                         <td className="px-4 py-2.5 text-slate-400">{u.created_at ? new Date(u.created_at).toLocaleDateString('fr-FR') : '—'}</td>
                         <td className="px-4 py-2.5 text-slate-300">{u.channel_count}</td>
@@ -8266,7 +8328,7 @@ export default function App() {
                           {u.has_active_subscription ? (
                             <span className="px-2 py-0.5 rounded-full bg-emerald-950/60 text-emerald-400 text-[10px] font-bold">Actif</span>
                           ) : (
-                            <span className="px-2 py-0.5 rounded-full bg-[#1b2230] text-slate-500 text-[10px] font-bold">Aucun</span>
+                            <span className="px-2 py-0.5 rounded-full bg-[var(--bg-surface-alt)] text-slate-500 text-[10px] font-bold">Aucun</span>
                           )}
                         </td>
                         <td className="px-4 py-2.5 text-right">
@@ -8281,19 +8343,19 @@ export default function App() {
           )}
 
           {adminTab === 'plans' && (
-            <div className="bg-[#161b22] border border-[#263042] rounded-2xl p-4 space-y-4">
+            <div className="bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-2xl p-4 space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 items-end">
                 <div>
                   <label className="block text-[10px] font-bold text-slate-400 mb-1">Nom de l'offre</label>
-                  <input value={adminNewPlan.name} onChange={e => setAdminNewPlan({ ...adminNewPlan, name: e.target.value })} className="w-full bg-[#1b2230] border border-[#2b374d] rounded-lg px-2.5 py-2 text-xs text-white focus:border-[#00c2ff] outline-none" placeholder="Ex: Pro" />
+                  <input value={adminNewPlan.name} onChange={e => setAdminNewPlan({ ...adminNewPlan, name: e.target.value })} className="w-full bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-lg px-2.5 py-2 text-xs text-white focus:border-[#00c2ff] outline-none" placeholder="Ex: Pro" />
                 </div>
                 <div>
                   <label className="block text-[10px] font-bold text-slate-400 mb-1">Prix (FCFA)</label>
-                  <input type="number" value={adminNewPlan.price_fcfa} onChange={e => setAdminNewPlan({ ...adminNewPlan, price_fcfa: e.target.value })} className="w-full bg-[#1b2230] border border-[#2b374d] rounded-lg px-2.5 py-2 text-xs text-white focus:border-[#00c2ff] outline-none" placeholder="5000" />
+                  <input type="number" value={adminNewPlan.price_fcfa} onChange={e => setAdminNewPlan({ ...adminNewPlan, price_fcfa: e.target.value })} className="w-full bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-lg px-2.5 py-2 text-xs text-white focus:border-[#00c2ff] outline-none" placeholder="5000" />
                 </div>
                 <div>
                   <label className="block text-[10px] font-bold text-slate-400 mb-1">Durée (jours)</label>
-                  <input type="number" value={adminNewPlan.duration_days} onChange={e => setAdminNewPlan({ ...adminNewPlan, duration_days: e.target.value })} className="w-full bg-[#1b2230] border border-[#2b374d] rounded-lg px-2.5 py-2 text-xs text-white focus:border-[#00c2ff] outline-none" />
+                  <input type="number" value={adminNewPlan.duration_days} onChange={e => setAdminNewPlan({ ...adminNewPlan, duration_days: e.target.value })} className="w-full bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-lg px-2.5 py-2 text-xs text-white focus:border-[#00c2ff] outline-none" />
                 </div>
                 <button onClick={createAdminPlan} disabled={adminCreatingPlan} className="py-2 bg-[#00c2ff] text-slate-950 font-bold text-xs rounded-lg disabled:opacity-50">
                   {adminCreatingPlan ? 'Création...' : '+ Créer l\'offre'}
@@ -8301,7 +8363,7 @@ export default function App() {
               </div>
               <div className="space-y-1.5">
                 {adminPlans.map(p => (
-                  <div key={p.id} className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl border ${p.is_active ? 'bg-[#11151c] border-[#202938]' : 'bg-[#11151c]/40 border-[#202938]/50 opacity-50'}`}>
+                  <div key={p.id} className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl border ${p.is_active ? 'bg-[var(--bg-input)] border-[var(--border-subtle)]' : 'bg-[var(--bg-input)]/40 border-[var(--border-subtle)]/50 opacity-50'}`}>
                     <div>
                       <span className="text-xs font-bold text-white">{p.name}</span>
                       <span className="text-xs text-slate-400 ml-2">{p.price_fcfa.toLocaleString()} FCFA · {p.duration_days}j</span>
@@ -8321,7 +8383,7 @@ export default function App() {
       {/* ADMIN — user detail / grant-subscription drawer */}
       {adminSelectedUser && (
         <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-[70] flex items-center justify-center p-6">
-          <div className="bg-[#161b22] border border-[#263042] rounded-3xl p-6 max-w-[480px] w-full shadow-2xl space-y-4 max-h-[85vh] overflow-y-auto">
+          <div className="bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-3xl p-6 max-w-[480px] w-full shadow-2xl space-y-4 max-h-[85vh] overflow-y-auto">
             <div className="flex justify-between items-center">
               <div>
                 <h3 className="text-sm font-bold text-white">{adminSelectedUser.email}</h3>
@@ -8337,7 +8399,7 @@ export default function App() {
               {(adminSelectedUser.subscriptions || []).length === 0 ? (
                 <p className="text-xs text-slate-500">Aucun abonnement.</p>
               ) : adminSelectedUser.subscriptions.map(s => (
-                <div key={s.id} className="flex items-center justify-between bg-[#11151c] border border-[#202938] rounded-xl px-3 py-2 text-[11px]">
+                <div key={s.id} className="flex items-center justify-between bg-[var(--bg-input)] border border-[var(--border-subtle)] rounded-xl px-3 py-2 text-[11px]">
                   <div>
                     <span className={`font-bold ${s.status === 'active' ? 'text-emerald-400' : 'text-slate-500'}`}>{s.status}</span>
                     <span className="text-slate-400 ml-2">{s.plan_name || 'Octroi personnalisé'} — jusqu'au {new Date(s.expires_at).toLocaleDateString('fr-FR')}</span>
@@ -8350,12 +8412,12 @@ export default function App() {
               ))}
             </div>
 
-            <div className="pt-3 border-t border-[#202938] space-y-3">
+            <div className="pt-3 border-t border-[var(--border-subtle)] space-y-3">
               <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Accorder un abonnement</div>
               <select
                 value={adminGrantForm.plan_id}
                 onChange={e => setAdminGrantForm({ ...adminGrantForm, plan_id: e.target.value })}
-                className="w-full bg-[#1b2230] border border-[#2b374d] rounded-xl px-3 py-2 text-xs text-white focus:border-[#00c2ff] outline-none"
+                className="w-full bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-3 py-2 text-xs text-white focus:border-[#00c2ff] outline-none"
               >
                 <option value="">Octroi personnalisé (gratuit, durée libre)</option>
                 {adminPlans.filter(p => p.is_active).map(p => (
@@ -8368,14 +8430,14 @@ export default function App() {
                   value={adminGrantForm.duration_days}
                   onChange={e => setAdminGrantForm({ ...adminGrantForm, duration_days: e.target.value })}
                   placeholder="Durée en jours"
-                  className="w-full bg-[#1b2230] border border-[#2b374d] rounded-xl px-3 py-2 text-xs text-white focus:border-[#00c2ff] outline-none"
+                  className="w-full bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-3 py-2 text-xs text-white focus:border-[#00c2ff] outline-none"
                 />
               )}
               <input
                 value={adminGrantForm.note}
                 onChange={e => setAdminGrantForm({ ...adminGrantForm, note: e.target.value })}
                 placeholder="Note (ex: partenaire, geste commercial...)"
-                className="w-full bg-[#1b2230] border border-[#2b374d] rounded-xl px-3 py-2 text-xs text-white focus:border-[#00c2ff] outline-none"
+                className="w-full bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-3 py-2 text-xs text-white focus:border-[#00c2ff] outline-none"
               />
               <button
                 onClick={grantAdminSubscription}
@@ -8396,8 +8458,8 @@ export default function App() {
       {/* NOUVELLE VIDÉO MAIN ACTION MODAL */}
       {showSubmitModal && activeChannel && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-6">
-          <div className={`bg-[#161b22] border border-[#263042] rounded-3xl w-full max-h-[90vh] shadow-2xl flex flex-col ${submitStep === 2 ? 'max-w-[980px]' : 'max-w-[620px]'}`}>
-            <div className="flex justify-between items-center border-b border-[#263042] px-8 pt-8 pb-4 shrink-0">
+          <div className={`bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-3xl w-full max-h-[90vh] shadow-2xl flex flex-col ${submitStep === 2 ? 'max-w-[980px]' : 'max-w-[620px]'}`}>
+            <div className="flex justify-between items-center border-b border-[var(--border-soft)] px-8 pt-8 pb-4 shrink-0">
               <div>
                 <h3 className="text-lg font-extrabold text-white flex items-center gap-2">
                   <span className="material-symbols-outlined text-[#00c2ff]">movie_filter</span>
@@ -8414,7 +8476,7 @@ export default function App() {
 
             <div className="overflow-y-auto px-8 py-6 space-y-6">
             {/* Active Channel (read-only — already chosen before opening this modal) */}
-            <div className="bg-[#11151c] border border-[#202938] rounded-2xl p-3">
+            <div className="bg-[var(--bg-input)] border border-[var(--border-subtle)] rounded-2xl p-3">
               <div className="text-sm font-bold text-white truncate">{activeChannel.name}</div>
               <div className="text-[11px] text-slate-400 truncate">{activeChannel.niche}</div>
             </div>
@@ -8422,7 +8484,7 @@ export default function App() {
             {submitStep === 1 ? (
               <>
                 {/* Input Mode Selector */}
-                <div className="grid grid-cols-2 gap-3 bg-[#11151c] p-1.5 rounded-xl border border-[#202938]">
+                <div className="grid grid-cols-2 gap-3 bg-[var(--bg-input)] p-1.5 rounded-xl border border-[var(--border-subtle)]">
                   <button
                     type="button"
                     onClick={() => setSubmitMode('text')}
@@ -8448,7 +8510,7 @@ export default function App() {
                     de la voix déjà active pour ne jamais la changer par accident
                     à chaque vidéo. */}
                 {submitMode === 'text' && (
-                  <div className="flex items-center gap-2 bg-[#11151c] border border-[#202938] rounded-xl px-3.5 py-2.5">
+                  <div className="flex items-center gap-2 bg-[var(--bg-input)] border border-[var(--border-subtle)] rounded-xl px-3.5 py-2.5">
                     <span className="material-symbols-outlined text-[16px] text-[#00c2ff] shrink-0">graphic_eq</span>
                     <span className="text-[11px] text-slate-400">Voix de la chaîne :</span>
                     <span className="text-xs font-bold text-white truncate">{activeChannel.voice_name || availableVoices.find(v => v.id === activeChannel.voice_id)?.name || 'Non configurée'}</span>
@@ -8470,7 +8532,7 @@ export default function App() {
                       rows="5"
                       value={singleScriptText}
                       onChange={e => setSingleScriptText(e.target.value)}
-                      className="w-full bg-[#1b2230] border border-[#2b374d] rounded-2xl p-4 text-xs text-white focus:border-[#00c2ff] outline-none placeholder-slate-500"
+                      className="w-full bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-2xl p-4 text-xs text-white focus:border-[#00c2ff] outline-none placeholder-slate-500"
                       placeholder="Collez ici le texte de votre vidéo. L'IA générera la voix off et calera les sous-titres karaoké..."
                     />
                   </div>
@@ -8481,7 +8543,7 @@ export default function App() {
                     onDrop={handleDrop}
                     onClick={() => fileInputRef.current && fileInputRef.current.click()}
                     className={`border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-all ${
-                      isDragging ? 'border-[#00c2ff] bg-[#00c2ff]/10' : 'border-[#2b374d] hover:border-slate-400 bg-[#11151c]'
+                      isDragging ? 'border-[#00c2ff] bg-[#00c2ff]/10' : 'border-[var(--border)] hover:border-slate-400 bg-[var(--bg-input)]'
                     }`}
                   >
                     <input
@@ -8512,7 +8574,7 @@ export default function App() {
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div className="space-y-3">
                   {submitMode === 'text' && (
-                    <div className="flex items-center justify-between bg-[#11151c] border border-[#202938] rounded-xl p-3">
+                    <div className="flex items-center justify-between bg-[var(--bg-input)] border border-[var(--border-subtle)] rounded-xl p-3">
                       <span className="text-xs text-slate-400">Voix off</span>
                       <span className="text-xs font-bold text-white">{availableVoices.find(v => v.id === selectedVoice)?.name || selectedVoice}</span>
                     </div>
@@ -8535,7 +8597,7 @@ export default function App() {
                         className={`w-full px-3 py-2 rounded-xl text-xs font-bold border transition-colors flex items-center gap-2.5 text-left ${
                           checked
                             ? 'bg-emerald-950/60 border-emerald-700 text-emerald-400'
-                            : 'bg-[#1b2230] border-[#2b374d] text-slate-500 hover:border-slate-500'
+                            : 'bg-[var(--bg-surface-alt)] border-[var(--border)] text-slate-500 hover:border-slate-500'
                         }`}
                       >
                         <span className="material-symbols-outlined text-[16px] shrink-0">{icon}</span>
@@ -8552,7 +8614,7 @@ export default function App() {
                       className={`w-full px-3 py-2 rounded-xl text-xs font-bold border transition-colors flex items-center gap-2.5 text-left ${
                         transcribeAudio
                           ? 'bg-emerald-950/60 border-emerald-700 text-emerald-400'
-                          : 'bg-[#1b2230] border-[#2b374d] text-slate-500 hover:border-slate-500'
+                          : 'bg-[var(--bg-surface-alt)] border-[var(--border)] text-slate-500 hover:border-slate-500'
                       }`}
                       title="Sans transcription, les sous-titres utiliseront le titre du fichier au lieu du texte réel parlé."
                     >
@@ -8569,7 +8631,7 @@ export default function App() {
                       exactly as configured on the channel, not just a text summary. */}
                   <div>
                     <div className="text-xs text-slate-400 mb-2">Aperçu visuel du rendu final</div>
-                    <div ref={submitSubtitlePreviewRef} className="w-full aspect-video rounded-2xl overflow-hidden relative border border-[#2b374d] shadow-lg">
+                    <div ref={submitSubtitlePreviewRef} className="w-full aspect-video rounded-2xl overflow-hidden relative border border-[var(--border)] shadow-lg">
                       {recapVisible.visual && activeChannel.image_style?.source !== 'ai_generated' && (
                         <img
                           src={`${API_BASE}/channels/${activeChannel.id}/library-preview`}
@@ -8634,7 +8696,7 @@ export default function App() {
                     </div>
                   </div>
 
-                  <div className="bg-[#11151c] border border-[#202938] rounded-xl p-3">
+                  <div className="bg-[var(--bg-input)] border border-[var(--border-subtle)] rounded-xl p-3">
                     <div className="text-xs text-slate-400 mb-2">{submitMode === 'text' ? 'Aperçu du script' : `Fichiers audio (${audioFilesList.length})`}</div>
                     {submitMode === 'text' ? (
                       <p className="text-xs text-white line-clamp-4">{singleScriptText}</p>
@@ -8644,7 +8706,7 @@ export default function App() {
                       // second full-length player at this step just wastes space.
                       <div className="space-y-1.5">
                         {audioFilesList.map((f, i) => (
-                          <div key={`${f.name}-${f.size}-${i}`} className="flex items-center gap-2.5 text-xs text-white bg-[#161b22] border border-[#202938] rounded-lg px-3 py-2">
+                          <div key={`${f.name}-${f.size}-${i}`} className="flex items-center gap-2.5 text-xs text-white bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-lg px-3 py-2">
                             <span className="material-symbols-outlined text-[16px] text-slate-400 shrink-0">audiotrack</span>
                             <span className="flex-1 truncate">{f.name}</span>
                           </div>
@@ -8662,7 +8724,7 @@ export default function App() {
             )}
             </div>
 
-            <div className="shrink-0 border-t border-[#263042] px-8 py-5">
+            <div className="shrink-0 border-t border-[var(--border-soft)] px-8 py-5">
               {submitStep === 1 ? (
                 <button
                   onClick={() => {
@@ -8679,7 +8741,7 @@ export default function App() {
                   <button
                     onClick={() => setSubmitStep(1)}
                     disabled={loading}
-                    className="flex-1 py-3 bg-[#1b2230] text-white rounded-xl font-bold text-sm hover:bg-[#252f42] transition-colors border border-[#2b374d]"
+                    className="flex-1 py-3 bg-[var(--bg-surface-alt)] text-white rounded-xl font-bold text-sm hover:bg-[var(--border-soft)] transition-colors border border-[var(--border)]"
                   >
                     Modifier
                   </button>
@@ -8701,7 +8763,7 @@ export default function App() {
       {/* VIDEO PLAYER MODAL */}
       {selectedVideo && (
         <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-50 flex items-center justify-center p-6">
-          <div className="bg-[#161b22] border border-[#263042] rounded-3xl p-6 max-w-[min(1200px,92vw)] w-full shadow-2xl space-y-4">
+          <div className="bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-3xl p-6 max-w-[min(1200px,92vw)] w-full shadow-2xl space-y-4">
             <div className="flex justify-between items-center">
               <h3 className="text-sm font-bold text-white">Aperçu Vidéo Rendu</h3>
               <button onClick={() => setSelectedVideo(null)} className="text-slate-400 hover:text-white">
@@ -8709,7 +8771,7 @@ export default function App() {
               </button>
             </div>
 
-            <div className="aspect-[16/9] max-h-[80vh] mx-auto rounded-2xl overflow-hidden border border-[#263042]">
+            <div className="aspect-[16/9] max-h-[80vh] mx-auto rounded-2xl overflow-hidden border border-[var(--border-soft)]">
               <VideoPlayer
                 src={getVideoUrl(selectedVideo.output_path)}
                 className="w-full h-full"
@@ -8720,7 +8782,7 @@ export default function App() {
             <div className="flex items-center gap-3 pt-2">
               <button
                 onClick={() => openStudio(selectedVideo)}
-                className="flex-1 py-3 bg-[#1b2230] text-white font-bold text-xs rounded-xl text-center hover:bg-[#252f42] transition-all flex items-center justify-center gap-2 border border-[#2b374d]"
+                className="flex-1 py-3 bg-[var(--bg-surface-alt)] text-white font-bold text-xs rounded-xl text-center hover:bg-[var(--border-soft)] transition-all flex items-center justify-center gap-2 border border-[var(--border)]"
               >
                 <span className="material-symbols-outlined text-[18px]">edit</span> Éditer
               </button>
@@ -8739,7 +8801,7 @@ export default function App() {
       {studioVideo && (
         <div className="fixed inset-0 bg-slate-950 z-50 flex flex-col">
           {/* Header */}
-          <div className="flex justify-between items-center px-5 py-3 border-b border-[#202938] shrink-0">
+          <div className="flex justify-between items-center px-5 py-3 border-b border-[var(--border-subtle)] shrink-0">
             <div className="flex items-center gap-2 min-w-0">
               <span className="material-symbols-outlined text-[18px] text-[#00c2ff] shrink-0">auto_fix_high</span>
               {studioEditingTitle ? (
@@ -8749,7 +8811,7 @@ export default function App() {
                     value={studioTitleDraft}
                     onChange={(e) => setStudioTitleDraft(e.target.value)}
                     onKeyDown={(e) => { if (e.key === 'Enter') saveStudioTitle(); if (e.key === 'Escape') setStudioEditingTitle(false); }}
-                    className="bg-[#1b2230] border border-[#00c2ff] rounded-lg px-2.5 py-1 text-sm font-bold text-white outline-none w-[420px] max-w-[40vw]"
+                    className="bg-[var(--bg-surface-alt)] border border-[#00c2ff] rounded-lg px-2.5 py-1 text-sm font-bold text-white outline-none w-[420px] max-w-[40vw]"
                   />
                   <button onClick={saveStudioTitle} disabled={studioSavingTitle} className="text-[#00c2ff] hover:text-[#38d0ff]">
                     <span className="material-symbols-outlined text-[20px]">{studioSavingTitle ? 'progress_activity' : 'check'}</span>
@@ -8795,13 +8857,13 @@ export default function App() {
               {/* Body: voice-off/script (left) · video player (main) · scene editor (right) */}
               <div className="flex-1 flex min-h-0">
                 {/* LEFT — voice-off picker + audio player + full-script editor */}
-                <div className="w-72 shrink-0 border-r border-[#202938] flex flex-col min-h-0">
-                  <div className="px-4 py-3 border-b border-[#202938] shrink-0 space-y-3">
+                <div className="w-72 shrink-0 border-r border-[var(--border-subtle)] flex flex-col min-h-0">
+                  <div className="px-4 py-3 border-b border-[var(--border-subtle)] shrink-0 space-y-3">
                     <div>
                       <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Voix off</div>
                       <button
                         onClick={() => setStudioVoiceMenuOpen(o => !o)}
-                        className="w-full flex items-center justify-between gap-2 bg-[#1b2230] border border-[#2b374d] hover:border-[#00c2ff]/50 rounded-xl px-3 py-2 text-left"
+                        className="w-full flex items-center justify-between gap-2 bg-[var(--bg-surface-alt)] border border-[var(--border)] hover:border-[#00c2ff]/50 rounded-xl px-3 py-2 text-left"
                       >
                         <span className="text-xs font-bold text-white truncate">
                           {availableVoices.find(v => v.id === studioVoiceDraft)?.name || studioVoiceDraft || 'Non définie'}
@@ -8809,12 +8871,12 @@ export default function App() {
                         <span className={`material-symbols-outlined text-[16px] text-slate-400 transition-transform ${studioVoiceMenuOpen ? 'rotate-180' : ''}`}>expand_more</span>
                       </button>
                       {studioVoiceMenuOpen && (
-                        <div className="mt-1.5 bg-[#1b2230] border border-[#2b374d] rounded-xl max-h-56 overflow-y-auto">
+                        <div className="mt-1.5 bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl max-h-56 overflow-y-auto">
                           {availableVoices.map(v => (
                             <button
                               key={v.id}
                               onClick={() => { setStudioVoiceDraft(v.id); setStudioVoiceMenuOpen(false); }}
-                              className={`w-full text-left px-3 py-2 text-xs hover:bg-[#2b384e] flex items-center justify-between gap-2 ${studioVoiceDraft === v.id ? 'text-[#38d0ff] font-bold' : 'text-slate-300'}`}
+                              className={`w-full text-left px-3 py-2 text-xs hover:bg-[var(--border)] flex items-center justify-between gap-2 ${studioVoiceDraft === v.id ? 'text-[#38d0ff] font-bold' : 'text-slate-300'}`}
                             >
                               <span className="truncate">{v.name}</span>
                               {v.preview_url && (
@@ -8878,7 +8940,7 @@ export default function App() {
                           value={studioFullScriptDraft}
                           onChange={(e) => setStudioFullScriptDraft(e.target.value)}
                           rows={20}
-                          className="w-full bg-[#1b2230] border border-[#2b374d] rounded-xl p-3 text-[11px] leading-relaxed text-white focus:border-[#00c2ff] outline-none resize-none"
+                          className="w-full bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl p-3 text-[11px] leading-relaxed text-white focus:border-[#00c2ff] outline-none resize-none"
                         />
                         <p className="text-[10px] text-slate-500 mt-1.5">Garde une ligne vide entre chaque scène ({studioScenes.length} au total) — n'en ajoute ni n'en retire.</p>
                       </>
@@ -8889,7 +8951,7 @@ export default function App() {
                             key={scene.index}
                             onClick={() => selectStudioScene(scene, { seek: true })}
                             className={`text-[11px] leading-snug cursor-pointer rounded-lg px-2 py-1.5 -mx-2 transition-colors ${
-                              studioSelectedIndex === scene.index ? 'bg-[#00c2ff]/15 text-white' : 'text-slate-400 hover:text-slate-200 hover:bg-[#1b2230]'
+                              studioSelectedIndex === scene.index ? 'bg-[#00c2ff]/15 text-white' : 'text-slate-400 hover:text-slate-200 hover:bg-[var(--bg-surface-alt)]'
                             }`}
                           >
                             {scene.text || <span className="italic text-slate-600">(scène {scene.index + 1})</span>}
@@ -8916,8 +8978,8 @@ export default function App() {
                     const scene = studioScenes.find(s => s.index === studioSelectedIndex);
                     if (!scene) return null;
                     return (
-                      <div className="w-80 shrink-0 border-l border-[#202938] flex flex-col min-h-0">
-                        <div className="px-4 py-3 border-b border-[#202938] shrink-0">
+                      <div className="w-80 shrink-0 border-l border-[var(--border-subtle)] flex flex-col min-h-0">
+                        <div className="px-4 py-3 border-b border-[var(--border-subtle)] shrink-0">
                           <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Scène {scene.index + 1}</div>
                           <div className="text-[11px] text-slate-400 mt-0.5">{scene.duration.toFixed(1)}s</div>
                         </div>
@@ -8927,7 +8989,7 @@ export default function App() {
                             <label className={`w-full py-2.5 rounded-xl font-bold text-xs border transition-all flex items-center justify-center gap-2 cursor-pointer ${
                               studioReplacingIndex === scene.index
                                 ? 'bg-[#00c2ff]/10 border-[#00c2ff]/30 text-[#55d8ff]'
-                                : 'bg-[#1f2838] hover:bg-[#2b384e] border-[#2b374d] text-white'
+                                : 'bg-[var(--bg-dropdown)] hover:bg-[var(--border)] border-[var(--border)] text-white'
                             }`}>
                               <span className={`material-symbols-outlined text-[16px] ${studioReplacingIndex === scene.index ? 'animate-spin' : ''}`}>
                                 {studioReplacingIndex === scene.index ? 'progress_activity' : 'image'}
@@ -8954,7 +9016,7 @@ export default function App() {
                                   rows={6}
                                   value={studioSubtitleDraft}
                                   onChange={(e) => setStudioSubtitleDraft(e.target.value)}
-                                  className="w-full bg-[#1b2230] border border-[#2b374d] rounded-xl p-3 text-xs text-white focus:border-[#00c2ff] outline-none resize-none"
+                                  className="w-full bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl p-3 text-xs text-white focus:border-[#00c2ff] outline-none resize-none"
                                 />
                                 <p className="text-[10px] text-slate-500 mt-1.5">Modifie uniquement cette section. Les autres scènes et leurs images ne sont pas régénérées.</p>
                               </div>
@@ -8973,7 +9035,7 @@ export default function App() {
                                   <div className="bg-[#00c2ff]/5 border border-[#00c2ff]/30 rounded-xl p-3 space-y-2">
                                     <p className="text-[11px] text-slate-300">L’Agent régénérera uniquement la voix de la scène {scene.index + 1} et ajustera sa durée. Confirmer ?</p>
                                     <div className="flex gap-2">
-                                      <button onClick={() => setStudioConfirmRegen(false)} className="flex-1 py-1.5 bg-[#1f2838] text-white rounded-lg text-[11px] font-bold">Annuler</button>
+                                      <button onClick={() => setStudioConfirmRegen(false)} className="flex-1 py-1.5 bg-[var(--bg-dropdown)] text-white rounded-lg text-[11px] font-bold">Annuler</button>
                                       <button onClick={() => regenerateSceneAudio(scene.index)} disabled={studioRegeneratingAudio} className="flex-1 py-1.5 bg-[#00c2ff] text-slate-950 rounded-lg text-[11px] font-bold disabled:opacity-50">
                                         {studioRegeneratingAudio ? 'Régénération...' : 'Confirmer'}
                                       </button>
@@ -8983,7 +9045,7 @@ export default function App() {
                                 <button
                                   onClick={() => saveSceneSubtitle(scene.index)}
                                   disabled={studioSavingSubtitle || !studioSubtitleDraft.trim() || studioSubtitleDraft.trim() === scene.text}
-                                  className="w-full py-2 bg-[#1f2838] hover:bg-[#2b384e] text-slate-300 rounded-xl font-bold text-[11px] transition-all border border-[#2b374d] disabled:opacity-40 flex items-center justify-center gap-1.5"
+                                  className="w-full py-2 bg-[var(--bg-dropdown)] hover:bg-[var(--border)] text-slate-300 rounded-xl font-bold text-[11px] transition-all border border-[var(--border)] disabled:opacity-40 flex items-center justify-center gap-1.5"
                                 >
                                   <span className="material-symbols-outlined text-[14px]">subtitles</span>
                                   {studioSavingSubtitle ? 'Enregistrement…' : 'Modifier seulement le sous-titre'}
@@ -8998,7 +9060,7 @@ export default function App() {
                 </div>
 
                 {/* BOTTOM — scene timeline strip, playhead-synced with the video above */}
-                <div className="h-28 shrink-0 border-t border-[#202938] px-4 py-2.5 overflow-x-auto">
+                <div className="h-28 shrink-0 border-t border-[var(--border-subtle)] px-4 py-2.5 overflow-x-auto">
                   <div className="flex gap-2 h-full">
                     {studioScenes.map(scene => {
                       const isPlayingHere = studioPlaybackTime >= scene.start && studioPlaybackTime < scene.end;
@@ -9008,7 +9070,7 @@ export default function App() {
                           key={scene.index}
                           onClick={() => selectStudioScene(scene, { seek: true })}
                           className={`relative h-full aspect-video shrink-0 rounded-lg overflow-hidden border-2 transition-all ${
-                            isActive ? 'border-[#00c2ff]' : 'border-transparent hover:border-[#2b374d]'
+                            isActive ? 'border-[#00c2ff]' : 'border-transparent hover:border-[var(--border)]'
                           }`}
                           title={studioIsPlaying ? 'Mets la vidéo en pause pour éditer cette image' : `Éditer l'image de la scène ${scene.index + 1}`}
                         >
@@ -9032,7 +9094,7 @@ export default function App() {
       {/* NEW FOLDER MODAL */}
       {showNewFolderModal && (
         <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-[60] flex items-center justify-center p-6">
-          <div className="bg-[#161b22] border border-[#263042] rounded-2xl p-6 max-w-[380px] w-full shadow-2xl space-y-4">
+          <div className="bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-2xl p-6 max-w-[380px] w-full shadow-2xl space-y-4">
             <div className="flex justify-between items-center">
               <h3 className="text-sm font-bold text-white">Nouveau dossier</h3>
               <button onClick={() => { setShowNewFolderModal(false); setNewFolderName(''); }} className="text-slate-400 hover:text-white">
@@ -9045,7 +9107,7 @@ export default function App() {
               onChange={e => setNewFolderName(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') createFolder(); }}
               placeholder="Nom du dossier"
-              className="w-full bg-[#1b2230] border border-[#2b374d] rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-[#00c2ff]"
+              className="w-full bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-[#00c2ff]"
             />
             <button
               onClick={createFolder}
@@ -9089,7 +9151,7 @@ export default function App() {
 
       {showIzivoiceKeyModal && (
         <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-[60] flex items-center justify-center p-6">
-          <div className="bg-[#161b22] border border-[#263042] rounded-3xl p-6 max-w-[440px] w-full shadow-2xl space-y-4">
+          <div className="bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-3xl p-6 max-w-[440px] w-full shadow-2xl space-y-4">
             <div className="flex justify-between items-center">
               <h3 className="text-sm font-bold text-white">Connecter ta clé Izivoice</h3>
               <button onClick={() => setShowIzivoiceKeyModal(false)} className="text-slate-400 hover:text-white">
@@ -9109,7 +9171,7 @@ export default function App() {
               value={izivoiceKeyDraft}
               onChange={e => setIzivoiceKeyDraft(e.target.value)}
               placeholder="Clé API Izivoice"
-              className="w-full bg-[#1b2230] border border-[#2b374d] rounded-xl px-3 py-2.5 text-sm text-white focus:border-[#00c2ff] outline-none"
+              className="w-full bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-3 py-2.5 text-sm text-white focus:border-[#00c2ff] outline-none"
             />
             <div className="flex gap-3">
               {izivoiceStatus?.connected && (
@@ -9131,7 +9193,7 @@ export default function App() {
 
       {publishReviewVideo && (
         <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-[60] flex items-center justify-center p-6">
-          <div className="bg-[#161b22] border border-[#263042] rounded-3xl p-6 max-w-[520px] w-full shadow-2xl space-y-5">
+          <div className="bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-3xl p-6 max-w-[520px] w-full shadow-2xl space-y-5">
             <div className="flex justify-between items-center">
               <h3 className="text-sm font-bold text-white flex items-center gap-2">
                 <YouTubeIcon className="w-5 h-3.5" /> Publier sur YouTube
@@ -9156,7 +9218,7 @@ export default function App() {
                 value={publishTitleDraft}
                 onChange={e => setPublishTitleDraft(e.target.value.slice(0, 100))}
                 maxLength={100}
-                className="w-full bg-[#1b2230] border border-[#2b374d] rounded-xl px-3 py-2.5 text-sm text-white focus:border-[#00c2ff] outline-none"
+                className="w-full bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-3 py-2.5 text-sm text-white focus:border-[#00c2ff] outline-none"
                 placeholder="Titre de la vidéo (100 caractères max)"
               />
             </div>
@@ -9166,7 +9228,7 @@ export default function App() {
               <textarea
                 value={publishDescriptionDraft}
                 onChange={e => setPublishDescriptionDraft(e.target.value)}
-                className="w-full bg-[#1b2230] border border-[#2b374d] rounded-xl px-3 py-2.5 text-xs text-white focus:border-[#00c2ff] outline-none min-h-[140px]"
+                className="w-full bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-3 py-2.5 text-xs text-white focus:border-[#00c2ff] outline-none min-h-[140px]"
                 placeholder="Description de la vidéo..."
               />
             </div>
@@ -9175,7 +9237,7 @@ export default function App() {
               <button
                 onClick={() => setPublishReviewVideo(null)}
                 disabled={!!publishingVideoId}
-                className="flex-1 py-2.5 bg-[#1b2230] text-slate-300 rounded-xl font-bold text-xs hover:bg-[#252f42] transition-colors border border-[#2b374d] disabled:opacity-50"
+                className="flex-1 py-2.5 bg-[var(--bg-surface-alt)] text-slate-300 rounded-xl font-bold text-xs hover:bg-[var(--border-soft)] transition-colors border border-[var(--border)] disabled:opacity-50"
               >
                 Annuler
               </button>
@@ -9197,7 +9259,7 @@ export default function App() {
 
       {downloadModalVideo && (
         <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-[60] flex items-center justify-center p-6">
-          <div className="bg-[#161b22] border border-[#263042] rounded-3xl p-6 max-w-[420px] w-full shadow-2xl space-y-5">
+          <div className="bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-3xl p-6 max-w-[420px] w-full shadow-2xl space-y-5">
             <div className="flex justify-between items-center">
               <h3 className="text-sm font-bold text-white">Télécharger la vidéo</h3>
               <button
@@ -9218,7 +9280,7 @@ export default function App() {
                   key={opt.key}
                   disabled={!!downloadingQuality}
                   onClick={() => runDownload(downloadModalVideo, opt.key)}
-                  className="w-full flex items-center justify-between p-3.5 bg-[#1b2230] hover:bg-[#252f42] border border-[#2b374d] rounded-2xl transition-all disabled:opacity-50 text-left"
+                  className="w-full flex items-center justify-between p-3.5 bg-[var(--bg-surface-alt)] hover:bg-[var(--border-soft)] border border-[var(--border)] rounded-2xl transition-all disabled:opacity-50 text-left"
                 >
                   <div>
                     <div className="text-xs font-bold text-white">{opt.label}</div>
@@ -9240,9 +9302,9 @@ export default function App() {
 
       {/* FULL-PAGE AUTHENTICATION */}
       {(showAuthModal || isAuthRoute) && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-[#070b12] text-white">
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-[var(--bg-page)] text-white">
           <div className="absolute inset-0 bg-[url('/assets/backgrounds/nichecut-abstract-tech.webp')] bg-cover bg-center opacity-40" />
-          <div className="absolute inset-0 bg-gradient-to-r from-[#070b12] via-[#070b12]/90 to-[#070b12]/70" />
+          <div className="absolute inset-0 bg-gradient-to-r from-[var(--bg-page)] via-[var(--bg-page)]/90 to-[var(--bg-page)]/70" />
           <div className="relative min-h-screen grid lg:grid-cols-[1.05fr_.95fr]">
             <section className="hidden lg:flex min-h-screen flex-col justify-between px-12 xl:px-20 py-10 border-r border-white/10">
               <div className="flex items-center justify-between">
@@ -9307,7 +9369,7 @@ export default function App() {
                   </div>
 
                   {authTab !== 'forgot' && (
-                    <div className="grid grid-cols-2 bg-[#080d15] p-1 rounded-xl border border-white/10 mb-6">
+                    <div className="grid grid-cols-2 bg-[var(--bg-deep)] p-1 rounded-xl border border-white/10 mb-6">
                       <button type="button" onClick={() => navigate('/login', { replace: true, state: location.state })} className={`py-2.5 text-xs font-bold rounded-lg transition-all ${authTab === 'login' ? 'bg-[#1d2a38] text-white shadow-sm' : 'text-slate-500 hover:text-white'}`}>Connexion</button>
                       <button type="button" onClick={() => navigate('/signup', { replace: true, state: location.state })} className={`py-2.5 text-xs font-bold rounded-lg transition-all ${authTab === 'register' ? 'bg-[#1d2a38] text-white shadow-sm' : 'text-slate-500 hover:text-white'}`}>Inscription</button>
                     </div>
@@ -9319,7 +9381,7 @@ export default function App() {
                         <label className="block text-[11px] font-bold text-slate-300 mb-2">Adresse email</label>
                         <div className="relative">
                           <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-[18px] text-slate-500">mail</span>
-                          <input type="email" required disabled={forgotStep === 'verify'} value={forgotForm.email} onChange={e => setForgotForm({ ...forgotForm, email: e.target.value })} className="w-full bg-[#080d15] border border-white/10 rounded-xl pl-12 pr-4 py-3.5 text-sm text-white focus:border-[#00c2ff] outline-none disabled:text-slate-500" placeholder="nom@exemple.com" />
+                          <input type="email" required disabled={forgotStep === 'verify'} value={forgotForm.email} onChange={e => setForgotForm({ ...forgotForm, email: e.target.value })} className="w-full bg-[var(--bg-deep)] border border-white/10 rounded-xl pl-12 pr-4 py-3.5 text-sm text-white focus:border-[#00c2ff] outline-none disabled:text-slate-500" placeholder="nom@exemple.com" />
                         </div>
                       </div>
                       {forgotStep === 'verify' && <>
@@ -9327,19 +9389,19 @@ export default function App() {
                           <div className="flex items-center justify-between mb-2"><label className="block text-[11px] font-bold text-slate-300">Code reçu par email</label><button type="button" onClick={() => { setForgotStep('request'); setResetCode(''); }} className="text-[10px] text-[#42d2ff] hover:underline">Modifier l’email</button></div>
                           <div className="relative">
                             <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-[18px] text-slate-500">pin</span>
-                            <input inputMode="numeric" pattern="[0-9]{6}" maxLength={6} required value={resetCode} onChange={e => setResetCode(e.target.value.replace(/\D/g, '').slice(0, 6))} className="w-full bg-[#080d15] border border-white/10 rounded-xl pl-12 pr-4 py-3.5 text-lg tracking-[.45em] font-bold text-white focus:border-[#00c2ff] outline-none" placeholder="000000" />
+                            <input inputMode="numeric" pattern="[0-9]{6}" maxLength={6} required value={resetCode} onChange={e => setResetCode(e.target.value.replace(/\D/g, '').slice(0, 6))} className="w-full bg-[var(--bg-deep)] border border-white/10 rounded-xl pl-12 pr-4 py-3.5 text-lg tracking-[.45em] font-bold text-white focus:border-[#00c2ff] outline-none" placeholder="000000" />
                           </div>
                         </div>
                         <div>
                           <label className="block text-[11px] font-bold text-slate-300 mb-2">Nouveau mot de passe</label>
                           <div className="relative">
                             <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-[18px] text-slate-500">lock</span>
-                            <input type={showAuthPassword ? 'text' : 'password'} required minLength={8} value={forgotForm.newPassword} onChange={e => setForgotForm({ ...forgotForm, newPassword: e.target.value })} className="w-full bg-[#080d15] border border-white/10 rounded-xl pl-12 pr-12 py-3.5 text-sm text-white focus:border-[#00c2ff] outline-none" placeholder="8 caractères minimum" />
+                            <input type={showAuthPassword ? 'text' : 'password'} required minLength={8} value={forgotForm.newPassword} onChange={e => setForgotForm({ ...forgotForm, newPassword: e.target.value })} className="w-full bg-[var(--bg-deep)] border border-white/10 rounded-xl pl-12 pr-12 py-3.5 text-sm text-white focus:border-[#00c2ff] outline-none" placeholder="8 caractères minimum" />
                             <button type="button" onClick={() => setShowAuthPassword(!showAuthPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white" tabIndex={-1}><span className="material-symbols-outlined text-[18px]">{showAuthPassword ? 'visibility_off' : 'visibility'}</span></button>
                           </div>
                         </div>
                       </>}
-                      <button type="submit" disabled={loading} className="w-full py-3.5 bg-gradient-to-r from-[#65e0ff] to-[#1a9cff] text-[#031019] font-extrabold text-xs rounded-xl hover:brightness-110 transition-all disabled:opacity-50">{loading ? 'Chargement...' : forgotStep === 'request' ? 'Recevoir mon code' : 'Réinitialiser le mot de passe'}</button>
+                      <button type="submit" disabled={loading} className="w-full py-3.5 bg-gradient-to-r from-[#65e0ff] to-[#1a9cff] text-[var(--bg-deep)] font-extrabold text-xs rounded-xl hover:brightness-110 transition-all disabled:opacity-50">{loading ? 'Chargement...' : forgotStep === 'request' ? 'Recevoir mon code' : 'Réinitialiser le mot de passe'}</button>
                       <button type="button" onClick={() => { setForgotStep('request'); setResetCode(''); setAuthTab('login'); }} className="w-full text-center text-xs text-slate-400 hover:text-white font-medium">← Retour à la connexion</button>
                     </form>
                   ) : (
@@ -9349,7 +9411,7 @@ export default function App() {
                           <label className="block text-[11px] font-bold text-slate-300 mb-2">Adresse email</label>
                           <div className="relative">
                             <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-[18px] text-slate-500">mail</span>
-                            <input type="email" required value={authForm.email} onChange={e => setAuthForm({ ...authForm, email: e.target.value })} className="w-full bg-[#080d15] border border-white/10 rounded-xl pl-12 pr-4 py-3.5 text-sm text-white focus:border-[#00c2ff] outline-none placeholder-slate-600" placeholder="nom@exemple.com" />
+                            <input type="email" required value={authForm.email} onChange={e => setAuthForm({ ...authForm, email: e.target.value })} className="w-full bg-[var(--bg-deep)] border border-white/10 rounded-xl pl-12 pr-4 py-3.5 text-sm text-white focus:border-[#00c2ff] outline-none placeholder-slate-600" placeholder="nom@exemple.com" />
                           </div>
                         </div>
                         <div>
@@ -9359,17 +9421,17 @@ export default function App() {
                           </div>
                           <div className="relative">
                             <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-[18px] text-slate-500">lock</span>
-                            <input type={showAuthPassword ? 'text' : 'password'} required minLength={authTab === 'register' ? 8 : undefined} value={authForm.password} onChange={e => setAuthForm({ ...authForm, password: e.target.value })} className="w-full bg-[#080d15] border border-white/10 rounded-xl pl-12 pr-12 py-3.5 text-sm text-white focus:border-[#00c2ff] outline-none" placeholder="••••••••" />
+                            <input type={showAuthPassword ? 'text' : 'password'} required minLength={authTab === 'register' ? 8 : undefined} value={authForm.password} onChange={e => setAuthForm({ ...authForm, password: e.target.value })} className="w-full bg-[var(--bg-deep)] border border-white/10 rounded-xl pl-12 pr-12 py-3.5 text-sm text-white focus:border-[#00c2ff] outline-none" placeholder="••••••••" />
                             <button type="button" onClick={() => setShowAuthPassword(!showAuthPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white" tabIndex={-1}><span className="material-symbols-outlined text-[18px]">{showAuthPassword ? 'visibility_off' : 'visibility'}</span></button>
                           </div>
                         </div>
-                        <button type="submit" disabled={loading} className="w-full py-3.5 bg-gradient-to-r from-[#65e0ff] to-[#1a9cff] text-[#031019] font-extrabold text-xs rounded-xl hover:brightness-110 transition-all shadow-lg shadow-[#00c2ff]/10 disabled:opacity-50 flex items-center justify-center gap-2">
+                        <button type="submit" disabled={loading} className="w-full py-3.5 bg-gradient-to-r from-[#65e0ff] to-[#1a9cff] text-[var(--bg-deep)] font-extrabold text-xs rounded-xl hover:brightness-110 transition-all shadow-lg shadow-[#00c2ff]/10 disabled:opacity-50 flex items-center justify-center gap-2">
                           {loading ? 'Chargement...' : authTab === 'register' ? 'Reprendre mon temps' : 'Se connecter'} <span className="material-symbols-outlined text-[17px]">arrow_forward</span>
                         </button>
                       </form>
 
                       <div className="flex items-center gap-3 my-6"><div className="h-px bg-white/10 flex-1" /><span className="text-[9px] text-slate-600 font-bold tracking-widest">OU CONTINUER AVEC</span><div className="h-px bg-white/10 flex-1" /></div>
-                      {GOOGLE_CLIENT_ID ? <div ref={googleButtonRef} className="w-full max-w-full flex justify-center items-center min-h-[44px] overflow-hidden rounded-xl" /> : <div className="w-full py-3 bg-[#080d15] text-slate-600 font-bold text-xs rounded-xl flex items-center justify-center border border-white/10">Connexion Google indisponible</div>}
+                      {GOOGLE_CLIENT_ID ? <div ref={googleButtonRef} className="w-full max-w-full flex justify-center items-center min-h-[44px] overflow-hidden rounded-xl" /> : <div className="w-full py-3 bg-[var(--bg-deep)] text-slate-600 font-bold text-xs rounded-xl flex items-center justify-center border border-white/10">Connexion Google indisponible</div>}
 
                       <p className="text-center text-xs text-slate-500 mt-6 mb-0">
                         {authTab === 'login' ? 'Pas encore de compte ?' : 'Tu as déjà un compte ?'}{' '}
@@ -9389,8 +9451,8 @@ export default function App() {
       {/* CHANNEL PICKER MODAL (when Nouvelle Vidéo clicked without active channel preset) */}
       {showChannelPickerModal && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-6">
-          <div className="bg-[#161b22] border border-[#263042] rounded-3xl p-8 max-w-[480px] w-full shadow-2xl space-y-6">
-            <div className="flex justify-between items-center border-b border-[#263042] pb-4">
+          <div className="bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-3xl p-8 max-w-[480px] w-full shadow-2xl space-y-6">
+            <div className="flex justify-between items-center border-b border-[var(--border-soft)] pb-4">
               <h3 className="text-base font-extrabold text-white">Choisir une chaîne pour la vidéo</h3>
               <button onClick={() => setShowChannelPickerModal(false)} className="text-slate-400 hover:text-white">
                 <span className="material-symbols-outlined">close</span>
@@ -9405,7 +9467,7 @@ export default function App() {
                     setShowChannelPickerModal(false);
                     startNewVideoFor(chan);
                   }}
-                  className="p-4 bg-[#1b2230] hover:bg-[#252f42] border border-[#2b374d] rounded-2xl cursor-pointer flex items-center gap-4 transition-all"
+                  className="p-4 bg-[var(--bg-surface-alt)] hover:bg-[var(--border-soft)] border border-[var(--border)] rounded-2xl cursor-pointer flex items-center gap-4 transition-all"
                 >
                   <div className="w-10 h-10 rounded-xl bg-[#00c2ff] text-slate-950 flex items-center justify-center font-bold text-sm">
                     {chan.name.slice(0, 2).toUpperCase()}
@@ -9452,7 +9514,7 @@ export default function App() {
         return (
           <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-[120] flex items-center justify-center p-4 sm:p-6" onClick={() => setShowScriptStructureModal(false)}>
             <div className="bg-[#111822] border border-[#293548] rounded-3xl w-full max-w-2xl shadow-2xl flex flex-col max-h-[88vh]" onClick={e => e.stopPropagation()}>
-              <div className="p-5 sm:p-6 border-b border-[#263042] flex items-start justify-between gap-4 flex-shrink-0">
+              <div className="p-5 sm:p-6 border-b border-[var(--border-soft)] flex items-start justify-between gap-4 flex-shrink-0">
                 <div>
                   <div className="flex items-center gap-2 text-[#59d8ff] mb-1">
                     <span className="material-symbols-outlined text-[20px]">description</span>
@@ -9472,7 +9534,7 @@ export default function App() {
                   <button
                     type="button"
                     onClick={() => { setLanguageSearch(''); setShowLanguageModal(o => !o); }}
-                    className={`w-full bg-[#1b2230] border rounded-lg px-3 py-2.5 text-xs text-white transition-colors flex items-center justify-between gap-3 ${showLanguageModal ? 'border-[#00c2ff]' : 'border-[#2b374d] hover:border-[#00c2ff]/60'}`}
+                    className={`w-full bg-[var(--bg-surface-alt)] border rounded-lg px-3 py-2.5 text-xs text-white transition-colors flex items-center justify-between gap-3 ${showLanguageModal ? 'border-[#00c2ff]' : 'border-[var(--border)] hover:border-[#00c2ff]/60'}`}
                   >
                     <span className="flex items-center gap-2 min-w-0">
                       <span className="material-symbols-outlined text-[17px] text-[#00c2ff]">language</span>
@@ -9487,14 +9549,14 @@ export default function App() {
                     );
                     const selectedLanguage = structure.language || 'English';
                     return (
-                      <div className="absolute left-0 right-0 top-full mt-1.5 bg-[#1f2838] border border-[#2d3a52] rounded-xl shadow-2xl z-30 overflow-hidden">
-                        <div className="p-2 border-b border-[#2d3a52]">
+                      <div className="absolute left-0 right-0 top-full mt-1.5 bg-[var(--bg-dropdown)] border border-[var(--border-dropdown)] rounded-xl shadow-2xl z-30 overflow-hidden">
+                        <div className="p-2 border-b border-[var(--border-dropdown)]">
                           <input
                             autoFocus
                             value={languageSearch}
                             onChange={e => setLanguageSearch(e.target.value)}
                             placeholder="Rechercher : français, Hindi, العربية…"
-                            className="w-full bg-[#11151c] border border-[#2b374d] rounded-lg px-2.5 py-1.5 text-[11px] text-white focus:border-[#00c2ff] outline-none"
+                            className="w-full bg-[var(--bg-input)] border border-[var(--border)] rounded-lg px-2.5 py-1.5 text-[11px] text-white focus:border-[#00c2ff] outline-none"
                           />
                         </div>
                         <div className="max-h-56 overflow-y-auto py-1">
@@ -9516,7 +9578,7 @@ export default function App() {
                                   }));
                                   setShowLanguageModal(false);
                                 }}
-                                className={`w-full text-left px-3 py-1.5 text-[11px] hover:bg-[#2c394e] transition-colors flex items-center justify-between gap-2 ${active ? 'text-[#00c2ff] font-bold' : 'text-slate-300'}`}
+                                className={`w-full text-left px-3 py-1.5 text-[11px] hover:bg-[var(--bg-hover)] transition-colors flex items-center justify-between gap-2 ${active ? 'text-[#00c2ff] font-bold' : 'text-slate-300'}`}
                               >
                                 <span className="truncate">{lang.label}{lang.label !== lang.value ? ` — ${lang.value}` : ''}</span>
                                 {active && <span className="material-symbols-outlined text-[14px] shrink-0">check</span>}
@@ -9539,7 +9601,7 @@ export default function App() {
                         min="0"
                         value={wordsToChars(totalWords)}
                         onChange={e => updateStructure({ parts: redistributePartsToTotal(parts, charsToWords(parseInt(e.target.value) || 0)) })}
-                        className="w-full bg-[#1b2230] border border-[#2b374d] rounded-lg px-3 py-2.5 pr-20 text-xs text-white focus:border-[#00c2ff] outline-none"
+                        className="w-full bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-lg px-3 py-2.5 pr-20 text-xs text-white focus:border-[#00c2ff] outline-none"
                       />
                       <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-slate-500 font-bold">caractères</span>
                     </div>
@@ -9550,7 +9612,7 @@ export default function App() {
                         step="0.5"
                         value={Math.round(wordsToMinutes(totalWords) * 10) / 10}
                         onChange={e => updateStructure({ parts: redistributePartsToTotal(parts, minutesToWords(parseFloat(e.target.value) || 0)) })}
-                        className="w-full bg-[#1b2230] border border-[#2b374d] rounded-lg px-3 py-2.5 pr-16 text-xs text-white focus:border-[#00c2ff] outline-none"
+                        className="w-full bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-lg px-3 py-2.5 pr-16 text-xs text-white focus:border-[#00c2ff] outline-none"
                       />
                       <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-slate-500 font-bold">minutes</span>
                     </div>
@@ -9573,12 +9635,12 @@ export default function App() {
                     <span className="text-[10px] text-slate-500 font-bold pr-11">Mots</span>
                   </div>
                   {parts.map((part, idx) => (
-                    <div key={idx} className="border border-[#2b374d] rounded-lg p-3 space-y-2 bg-[#1b2230]">
+                    <div key={idx} className="border border-[var(--border)] rounded-lg p-3 space-y-2 bg-[var(--bg-surface-alt)]">
                       <div className="flex items-center gap-2">
                         <input
                           value={part.name || ''}
                           onChange={e => updatePart(idx, { name: e.target.value })}
-                          className="flex-1 bg-[#0e1420] border border-[#2b374d] rounded-lg px-2.5 py-1.5 text-xs text-white focus:border-[#00c2ff] outline-none"
+                          className="flex-1 bg-[var(--bg-input-alt)] border border-[var(--border)] rounded-lg px-2.5 py-1.5 text-xs text-white focus:border-[#00c2ff] outline-none"
                           placeholder="Nom de la partie (interne)"
                         />
                         <input
@@ -9586,7 +9648,7 @@ export default function App() {
                           min="20"
                           value={part.word_count ?? 300}
                           onChange={e => updatePart(idx, { word_count: parseInt(e.target.value) || 0 })}
-                          className="w-24 bg-[#0e1420] border border-[#2b374d] rounded-lg px-2.5 py-1.5 text-xs text-white focus:border-[#00c2ff] outline-none"
+                          className="w-24 bg-[var(--bg-input-alt)] border border-[var(--border)] rounded-lg px-2.5 py-1.5 text-xs text-white focus:border-[#00c2ff] outline-none"
                           placeholder="Mots"
                         />
                         <button type="button" onClick={() => removePart(idx)} className="shrink-0 w-8 h-8 flex items-center justify-center rounded-lg text-red-400 hover:bg-red-500/10">
@@ -9596,7 +9658,7 @@ export default function App() {
                       <textarea
                         value={part.guidance || ''}
                         onChange={e => updatePart(idx, { guidance: e.target.value })}
-                        className="w-full bg-[#0e1420] border border-[#2b374d] rounded-lg px-2.5 py-1.5 text-xs text-white focus:border-[#00c2ff] outline-none min-h-[50px]"
+                        className="w-full bg-[var(--bg-input-alt)] border border-[var(--border)] rounded-lg px-2.5 py-1.5 text-xs text-white focus:border-[#00c2ff] outline-none min-h-[50px]"
                         placeholder="Ce que cette partie doit couvrir..."
                       />
                     </div>
@@ -9611,7 +9673,7 @@ export default function App() {
                   <textarea
                     value={rulesText}
                     onChange={e => updateStructure({ formatting_rules: e.target.value.split('\n').map(r => r.trim()).filter(Boolean) })}
-                    className="w-full bg-[#1b2230] border border-[#2b374d] rounded-lg px-3 py-2 text-xs text-white focus:border-[#00c2ff] outline-none min-h-[80px]"
+                    className="w-full bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-lg px-3 py-2 text-xs text-white focus:border-[#00c2ff] outline-none min-h-[80px]"
                   />
                 </div>
 
@@ -9620,12 +9682,12 @@ export default function App() {
                   <textarea
                     value={structure.cta_style || ''}
                     onChange={e => updateStructure({ cta_style: e.target.value })}
-                    className="w-full bg-[#1b2230] border border-[#2b374d] rounded-lg px-3 py-2 text-xs text-white focus:border-[#00c2ff] outline-none min-h-[50px]"
+                    className="w-full bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-lg px-3 py-2 text-xs text-white focus:border-[#00c2ff] outline-none min-h-[50px]"
                   />
                 </div>
               </div>
 
-              <div className="p-4 sm:p-5 border-t border-[#263042] flex-shrink-0">
+              <div className="p-4 sm:p-5 border-t border-[var(--border-soft)] flex-shrink-0">
                 <button
                   type="button"
                   onClick={() => setShowScriptStructureModal(false)}
@@ -9669,8 +9731,8 @@ export default function App() {
         }
         return (
           <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-[110] flex items-center justify-center p-6" onClick={() => setFontPickerOpen(false)}>
-            <div className="bg-[#161b22] border border-[#263042] rounded-3xl w-full max-w-lg shadow-2xl flex flex-col max-h-[80vh]" onClick={e => e.stopPropagation()}>
-              <div className="p-5 border-b border-[#263042] space-y-3 flex-shrink-0">
+            <div className="bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-3xl w-full max-w-lg shadow-2xl flex flex-col max-h-[80vh]" onClick={e => e.stopPropagation()}>
+              <div className="p-5 border-b border-[var(--border-soft)] space-y-3 flex-shrink-0">
                 <div className="flex items-center justify-between">
                   <h3 className="text-base font-bold text-white">Choisir une police</h3>
                   <button onClick={() => setFontPickerOpen(false)} className="text-slate-400 hover:text-white">
@@ -9684,7 +9746,7 @@ export default function App() {
                     value={fontSearchQuery}
                     onChange={e => setFontSearchQuery(e.target.value)}
                     placeholder="Rechercher une police..."
-                    className="w-full bg-[#1b2230] border border-[#2b374d] rounded-xl pl-10 pr-4 py-2.5 text-sm text-white focus:border-[#00c2ff] outline-none"
+                    className="w-full bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl pl-10 pr-4 py-2.5 text-sm text-white focus:border-[#00c2ff] outline-none"
                   />
                 </div>
               </div>
@@ -9707,7 +9769,7 @@ export default function App() {
                               setFontPickerOpen(false);
                             }}
                             className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-left transition-colors ${
-                              isActive ? 'bg-[#00c2ff]/10 border border-[#00c2ff]' : 'hover:bg-[#1b2230] border border-transparent'
+                              isActive ? 'bg-[#00c2ff]/10 border border-[#00c2ff]' : 'hover:bg-[var(--bg-surface-alt)] border border-transparent'
                             }`}
                           >
                             <span style={{ fontFamily: f.value }} className={`text-base ${isActive ? 'text-[#00c2ff]' : 'text-white'}`}>
@@ -9728,9 +9790,9 @@ export default function App() {
 
       {confirmDialog && (
         <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-[110] flex items-center justify-center p-6">
-          <div className="bg-[#161b22] border border-[#263042] rounded-3xl p-7 max-w-[420px] w-full shadow-2xl space-y-5">
+          <div className="bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-3xl p-7 max-w-[420px] w-full shadow-2xl space-y-5">
             <div className="flex items-start gap-3">
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${confirmDialog.danger ? 'bg-rose-950 text-rose-300' : 'bg-[#1b2230] text-[#00c2ff]'}`}>
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${confirmDialog.danger ? 'bg-rose-950 text-rose-300' : 'bg-[var(--bg-surface-alt)] text-[#00c2ff]'}`}>
                 <span className="material-symbols-outlined text-[20px]">{confirmDialog.danger ? 'warning' : 'help'}</span>
               </div>
               <div>
@@ -9741,7 +9803,7 @@ export default function App() {
             <div className="flex justify-end gap-3 pt-1">
               <button
                 onClick={() => resolveConfirm(false)}
-                className="px-4 py-2.5 bg-[#1b2230] text-slate-300 border border-[#2b374d] rounded-xl font-bold text-xs hover:bg-[#232c3a] transition-all"
+                className="px-4 py-2.5 bg-[var(--bg-surface-alt)] text-slate-300 border border-[var(--border)] rounded-xl font-bold text-xs hover:bg-[var(--border-soft)] transition-all"
               >
                 Annuler
               </button>
