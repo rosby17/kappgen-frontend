@@ -3583,12 +3583,12 @@ export default function App() {
                                   </button>
                                   {vid.status === 'done' && (
                                     <button onClick={(e) => handleDownloadVideo(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[#2c394e] hover:text-white flex items-center gap-2 font-medium">
-                                      <span className="material-symbols-outlined text-[16px] text-emerald-400">download</span> Télécharger
+                                      <span className="material-symbols-outlined text-[16px] text-[#00c2ff]">download</span> Télécharger
                                     </button>
                                   )}
                                   {vid.status === 'done' && (
                                     <button disabled={publishingVideoId === vid.id} onClick={(e) => handlePublishYouTube(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[#2c394e] hover:text-white flex items-center gap-2 font-medium disabled:opacity-50">
-                                      <span className="material-symbols-outlined text-[16px] text-red-400">{vid.youtube_video_id ? 'open_in_new' : 'smart_display'}</span>
+                                      <span className="material-symbols-outlined text-[16px] text-[#00c2ff]">{vid.youtube_video_id ? 'open_in_new' : 'smart_display'}</span>
                                       {vid.youtube_video_id ? 'Voir sur YouTube' : publishingVideoId === vid.id ? 'Publication…' : 'Publier sur YouTube'}
                                     </button>
                                   )}
@@ -3604,7 +3604,7 @@ export default function App() {
                                   )}
                                   <div className="h-[1px] bg-[#2d3a52] my-1"></div>
                                   <button onClick={(e) => { e.stopPropagation(); setMovingVideoId(movingVideoId === vid.id ? null : vid.id); }} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[#2c394e] hover:text-white flex items-center gap-2 font-medium">
-                                    <span className="material-symbols-outlined text-[16px] text-amber-400">drive_file_move</span> Déplacer vers…
+                                    <span className="material-symbols-outlined text-[16px] text-[#00c2ff]">drive_file_move</span> Déplacer vers…
                                   </button>
                                   {movingVideoId === vid.id && (
                                     <div className="border-t border-[#2d3a52] mt-1 pt-1 max-h-40 overflow-y-auto">
@@ -3976,12 +3976,12 @@ export default function App() {
                                 </button>
                                 {vid.status === 'done' && (
                                   <button onClick={(e) => handleDownloadVideo(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[#2c394e] hover:text-white flex items-center gap-2 font-medium">
-                                    <span className="material-symbols-outlined text-[16px] text-emerald-400">download</span> Télécharger
+                                    <span className="material-symbols-outlined text-[16px] text-[#00c2ff]">download</span> Télécharger
                                   </button>
                                 )}
                                 {vid.status === 'done' && (
                                   <button disabled={publishingVideoId === vid.id} onClick={(e) => handlePublishYouTube(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[#2c394e] hover:text-white flex items-center gap-2 font-medium disabled:opacity-50">
-                                    <span className="material-symbols-outlined text-[16px] text-red-400">{vid.youtube_video_id ? 'open_in_new' : 'smart_display'}</span>
+                                    <span className="material-symbols-outlined text-[16px] text-[#00c2ff]">{vid.youtube_video_id ? 'open_in_new' : 'smart_display'}</span>
                                     {vid.youtube_video_id ? 'Voir sur YouTube' : publishingVideoId === vid.id ? 'Publication…' : 'Publier sur YouTube'}
                                   </button>
                                 )}
