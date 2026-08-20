@@ -101,9 +101,9 @@ function ProductPreview() {
 export default function LandingPage() {
   const [menuOpen, setMenuOpen] = useState(false);
   useEffect(() => {
-    document.title = 'NicheCut — L’Agent autonome qui gère ta chaîne YouTube';
+    document.title = 'NicheCut — Tu vis. NicheCut travaille.';
     const description = document.querySelector('meta[name="description"]');
-    if (description) description.content = 'Configure le style de ta chaîne une fois. L’Agent NicheCut trouve les idées, crée les vidéos et les publie sur YouTube pendant que tu dors.';
+    if (description) description.content = 'Sors des écrans. NicheCut trouve les idées, crée les vidéos et les publie sur YouTube pendant que tu vis, voyages ou dors.';
   }, []);
 
   return (
@@ -124,8 +124,8 @@ export default function LandingPage() {
         <section className="hero" id="accueil">
           <div className="hero-grid" /><div className="hero-orb orb-one" /><div className="hero-orb orb-two" />
           <div className="hero-copy">
-            <h1>Tu dors.<br /><span>NicheCut travaille pour toi sur YouTube.</span></h1>
-            <p>L’Agent imagine, crée et publie des vidéos originales dans le style de ta chaîne. Nous l’avons travaillé à partir des réalités du terrain YouTube pour construire une audience durable, pas produire du contenu générique en masse.</p>
+            <h1>Sors des écrans.<br /><span>NicheCut reste au travail.</span></h1>
+            <p>Tu vis, tu voyages, tu dors. L’Agent imagine, crée et publie des vidéos originales dans le style de ta chaîne, avec les réalités du terrain YouTube intégrées à chaque étape.</p>
             <div className="hero-actions">
               <a className="button button-primary" href={appUrl('/signup')}>Automatiser ma chaîne <ArrowRight size={18} /></a>
               <a className="button button-ghost" href="#fonctionnement"><Play size={17} fill="currentColor" /> Découvrir l’Agent</a>
@@ -143,7 +143,7 @@ export default function LandingPage() {
         </section>
 
         <section className="section workflow" id="fonctionnement">
-          <div className="workflow-copy"><div className="section-kicker">CONFIGURE. ACTIVE. DORS.</div><h2>Une seule configuration.<br />Une production continue.</h2><p>Tu ne dois plus nourrir l’outil à chaque vidéo. Une fois activé, l’Agent pilote ton calendrier de contenu en autonomie.</p><a className="text-link" href={appUrl('/signup')}>Activer mon Agent <ArrowRight size={17} /></a></div>
+          <div className="workflow-copy"><div className="section-kicker">CONFIGURE. ACTIVE. VIS.</div><h2>Tu dors.<br /><span>Ta chaîne avance.</span></h2><p>Tu ne dois plus nourrir l’outil à chaque vidéo. Une fois activé, l’Agent poursuit ton calendrier de contenu sans te ramener constamment devant un écran.</p><a className="text-link" href={appUrl('/signup')}>Activer mon Agent <ArrowRight size={17} /></a></div>
           <div className="steps">{steps.map(([number, title, text]) => <article className="step" key={number}><span>{number}</span><div><h3>{title}</h3><p>{text}</p></div></article>)}</div>
         </section>
 
@@ -179,7 +179,7 @@ export default function LandingPage() {
           ['Où se trouve l’application ?', `L’espace de production est séparé de ce site et accessible sur ${APP_ORIGIN.replace('https://', '')}.`],
         ].map(([q, a]) => <details key={q}><summary>{q}<span>+</span></summary><p>{a}</p></details>)}</div></section>
 
-        <section className="final-cta"><div className="cta-icon"><WandSparkles /></div><h2>Configure ta chaîne. Puis oublie la création.</h2><p>L’Agent NicheCut travaille, produit et publie pendant que tu vis ta vie.</p><a className="button button-primary" href={appUrl('/signup')}>Activer mon Agent NicheCut <ArrowRight size={18} /></a></section>
+        <section className="final-cta"><div className="cta-icon"><WandSparkles /></div><h2>Tu vis. NicheCut travaille.</h2><p>Configure ton univers une fois, puis récupère le temps que la création te prenait.</p><a className="button button-primary" href={appUrl('/signup')}>Activer mon Agent NicheCut <ArrowRight size={18} /></a></section>
       </main>
 
       <footer className="landing-footer"><a className="brand" href="#accueil"><img src="/assets/logo/logo-nichecut.png" alt="" /><span>NicheCut</span></a><p>L’Agent autonome qui gère ta chaîne YouTube de l’idée à la publication.</p><div><a href="#fonctionnalites">Fonctionnalités</a><a href="#faq">FAQ</a><a href={appUrl('/login')}>Connexion</a></div><span>© {new Date().getFullYear()} NicheCut. Tous droits réservés.</span></footer>

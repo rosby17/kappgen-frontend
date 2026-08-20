@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Navigate, useNavigate, useLocation, useParams } from 'react-router-dom';
+import freedomSunrise from './assets/dashboard/freedom-sunrise.png';
 
 const getOrigin = () => (typeof window !== 'undefined' ? window.location.origin : '');
 const isLocalhost = getOrigin().includes('localhost') || getOrigin().includes('127.0.0.1');
@@ -2473,7 +2474,7 @@ export default function App() {
     const queued = channel.queued_count || 0;
     const done = channel.done_count || 0;
     const failed = channel.failed_count || 0;
-    if (rendering > 0) return { label: 'Génération en cours', className: 'bg-blue-950/80 text-blue-300 border border-blue-700/60 animate-pulse' };
+    if (rendering > 0) return { label: 'NicheCut travaille', className: 'bg-blue-950/80 text-blue-300 border border-blue-700/60 animate-pulse' };
     if (queued > 0) return { label: 'En file', className: 'bg-amber-950/80 text-amber-300 border border-amber-700/60' };
     if (done > 0) return { label: 'Prête', className: 'bg-emerald-950/80 text-emerald-300 border border-emerald-700/60' };
     if (failed > 0) return { label: 'Échec de rendu', className: 'bg-rose-950/80 text-rose-300 border border-rose-700/60' };
@@ -2539,7 +2540,7 @@ export default function App() {
         fetchChannelVideos(activeChannel.id);
         fetchChannels();
         fetchAllVideos();
-        showToast("Vidéo soumise avec succès — le montage et le rendu sont lancés.", "success");
+        showToast("C’est lancé. Tu peux quitter cet écran, NicheCut reste au travail.", "success");
       } else {
         const err = await res.json();
         showToast(err.detail || "Erreur lors de l'envoi.", "error");
@@ -3271,13 +3272,23 @@ export default function App() {
               <>
                 <div className="pt-1">
                   <p className="text-[10px] font-bold uppercase tracking-[.18em] text-[#55d8ff] mb-2">Ton espace NicheCut</p>
-                  <h2 className="text-2xl md:text-3xl font-extrabold text-white tracking-[-.025em]">Tout avance, même quand tu déconnectes.</h2>
+                  <h2 className="text-2xl md:text-3xl font-extrabold text-white tracking-[-.025em]">Sors des écrans. NicheCut reste au travail.</h2>
                 </div>
 
                 {/* A single quiet promise card, integrated into the existing dashboard language. */}
-                <section className="relative min-h-[240px] rounded-2xl overflow-hidden border border-[#263042] shadow-lg bg-[#161b22]">
-                  <img src="/assets/dashboard/freedom-sunrise.png" alt="Un créateur se détend pendant que NicheCut s’occupe de sa chaîne" className="absolute inset-y-0 right-0 w-full md:w-[58%] h-full object-cover" />
-                  <div className="absolute inset-0 bg-gradient-to-r from-[#161b22] via-[#161b22]/95 md:via-[#161b22]/80 to-[#161b22]/15" />
+                <section className="relative min-h-[240px] overflow-hidden rounded-2xl bg-[radial-gradient(circle_at_80%_50%,rgba(0,194,255,.08),transparent_46%),#161b22]">
+                  <img
+                    src={freedomSunrise}
+                    alt=""
+                    aria-hidden="true"
+                    className="absolute inset-0 w-full h-full object-cover object-center md:object-right opacity-80"
+                    style={{
+                      WebkitMaskImage: 'radial-gradient(ellipse 68% 125% at 82% 50%, #000 28%, rgba(0,0,0,.92) 48%, transparent 82%)',
+                      maskImage: 'radial-gradient(ellipse 68% 125% at 82% 50%, #000 28%, rgba(0,0,0,.92) 48%, transparent 82%)'
+                    }}
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-r from-[#161b22] via-[#161b22]/55 to-transparent pointer-events-none" />
+                  <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-[#0f141c]/65 to-transparent pointer-events-none" />
                   <div className="relative z-10 min-h-[240px] flex flex-col justify-center p-6 md:p-8 max-w-xl">
                     <h3 className="text-xl md:text-2xl font-extrabold text-white leading-tight">Tu vis. NicheCut travaille.</h3>
                     <p className="text-sm text-slate-400 leading-6 mt-3 max-w-md">Ton Agent prépare tes vidéos et veille sur tes publications. Voyage, repose-toi ou profite simplement de ton temps.</p>
@@ -3294,16 +3305,13 @@ export default function App() {
                 <section>
                   <div className="flex justify-between items-center mb-5">
                     <h3 className="text-lg font-bold text-white">Aperçu des Chaînes</h3>
-                    <button onClick={() => setView('channels')} className="text-xs font-bold text-[#00c2ff] hover:underline flex items-center gap-1">
-                      Voir toutes les chaînes ({channels.length}) <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
-                    </button>
                   </div>
 
                   {channels.length === 0 ? (
                     <div className="bg-[#161b22] border border-[#263042] rounded-2xl p-10 text-center">
                       <span className="material-symbols-outlined text-[48px] text-slate-500 mb-3">subscriptions</span>
                       <h4 className="text-base font-bold text-white mb-1">Aucune chaîne configurée</h4>
-                      <p className="text-xs text-slate-400 mb-5">Créez votre première chaîne pour automatiser le montage.</p>
+                      <p className="text-xs text-slate-400 mb-5">Configure ton univers une fois. NicheCut s’occupera de la suite.</p>
                       <button onClick={openCreateWizard} className="px-5 py-2.5 bg-[#00c2ff] text-slate-950 font-bold text-xs rounded-xl">
                         + Créer une chaîne
                       </button>
@@ -6468,7 +6476,7 @@ export default function App() {
                   <span className="material-symbols-outlined text-[15px]">smart_toy</span> AGENT YOUTUBE AUTONOME
                 </div>
                 <h1 className="text-[clamp(3.2rem,5.6vw,6.2rem)] leading-[.96] tracking-[-.06em] font-extrabold m-0">
-                  Tu dors.<br /><span className="text-transparent bg-clip-text bg-gradient-to-r from-[#67e1ff] via-[#22bfff] to-[#8484ff]">NicheCut travaille.</span>
+                  Tu dors.<br /><span className="text-transparent bg-clip-text bg-gradient-to-r from-[#67e1ff] via-[#22bfff] to-[#8484ff]">Ta chaîne avance.</span>
                 </h1>
                 <p className="mt-7 max-w-xl text-base xl:text-lg leading-8 text-slate-400">
                   Configure le style de ta chaîne une fois. Nous avons travaillé l’Agent à partir des réalités du terrain YouTube pour créer des vidéos originales, authentiques et pensées pour respecter les règles de la plateforme.
@@ -6507,10 +6515,10 @@ export default function App() {
                       {authTab === 'register' ? 'Créer ton espace' : authTab === 'forgot' ? 'Récupérer ton accès' : 'Content de te revoir'}
                     </p>
                     <h2 className="text-3xl sm:text-4xl font-extrabold tracking-[-.04em] m-0">
-                      {authTab === 'register' ? 'Lance ton Agent.' : authTab === 'forgot' ? 'Nouveau mot de passe.' : 'Reprends le contrôle.'}
+                      {authTab === 'register' ? 'Lance ton Agent.' : authTab === 'forgot' ? 'Nouveau mot de passe.' : 'Content de te revoir.'}
                     </h2>
                     <p className="text-sm text-slate-400 mt-3 mb-0">
-                      {authTab === 'register' ? 'Configure ta première chaîne et laisse NicheCut travailler.' : authTab === 'forgot' ? 'Choisis un nouveau mot de passe pour ton compte.' : 'Ton Agent et tes chaînes t’attendent.'}
+                      {authTab === 'register' ? 'Configure ta première chaîne, puis va vivre. NicheCut reste au travail.' : authTab === 'forgot' ? 'Choisis un nouveau mot de passe pour ton compte.' : 'Ton Agent a continué pendant ton absence.'}
                     </p>
                   </div>
 
