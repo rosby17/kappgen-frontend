@@ -916,6 +916,63 @@ function YouTubeIcon({ className = "" }) {
   );
 }
 
+// Ordered pipeline steps shown to the creator while a video renders (and, for
+// auto-published channels, while it's uploaded to YouTube afterwards) — turns
+// the raw progress_stage string from the backend into a visual "what's
+// happening right now" strip instead of just a percentage bar.
+const PIPELINE_STEPS = [
+  { match: /transcription|voix/i, floor: 0, label: 'Voix off', icon: 'record_voice_over' },
+  { match: /découpage|scènes en/i, floor: 25, label: 'Script & scènes', icon: 'auto_stories' },
+  { match: /préparation des visuels/i, floor: 35, label: 'Visuels', icon: 'image' },
+  { match: /sous-titres/i, floor: 55, label: 'Sous-titres', icon: 'subtitles' },
+  { match: /animation/i, floor: 65, label: 'Montage', icon: 'movie' },
+  { match: /mixage/i, floor: 82, label: 'Audio', icon: 'graphic_eq' },
+  { match: /assemblage/i, floor: 90, label: 'Assemblage', icon: 'movie_edit' },
+  { match: /youtube|miniature/i, floor: 100, label: 'YouTube', icon: 'youtube' },
+];
+
+function getActivePipelineStepIndex(stage, percent) {
+  const stageText = stage || '';
+  const byStage = PIPELINE_STEPS.findIndex(s => s.match.test(stageText));
+  if (byStage !== -1) return byStage;
+  // Fallback purely on percent for stages whose exact wording changes.
+  let idx = 0;
+  PIPELINE_STEPS.forEach((s, i) => { if ((percent || 0) >= s.floor) idx = i; });
+  return idx;
+}
+
+function PipelineStepper({ stage, percent, failed = false }) {
+  const activeIndex = getActivePipelineStepIndex(stage, percent);
+  return (
+    <div className="flex items-center justify-center gap-1">
+      {PIPELINE_STEPS.map((step, i) => {
+        const state = failed && i === activeIndex ? 'failed' : i < activeIndex ? 'done' : i === activeIndex ? 'active' : 'pending';
+        return (
+          <div key={step.label} className="flex items-center" title={step.label}>
+            <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 transition-colors ${
+              state === 'done' ? 'bg-emerald-500/20 text-emerald-400' :
+              state === 'active' ? 'bg-[#00c2ff]/20 text-[#00c2ff] ring-2 ring-[#00c2ff]/40' :
+              state === 'failed' ? 'bg-rose-500/20 text-rose-400' :
+              'bg-slate-800 text-slate-600'
+            }`}>
+              {state === 'done' ? (
+                <span className="material-symbols-outlined text-[12px]">check</span>
+              ) : step.icon === 'youtube' ? (
+                <YouTubeIcon className="w-2.5 h-2" />
+              ) : (
+                <span className={`material-symbols-outlined text-[12px] ${state === 'active' ? 'animate-pulse' : ''}`}>{step.icon}</span>
+              )}
+            </div>
+            {i < PIPELINE_STEPS.length - 1 && (
+              <div className={`w-2.5 h-0.5 ${i < activeIndex ? 'bg-emerald-500/40' : 'bg-slate-800'}`} />
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function ChannelAvatar({ channel, logoUrl, sizeClass = "w-12 h-12", roundedClass = "rounded-xl", textClass = "text-lg" }) {
   const [failed, setFailed] = useState(false);
   if (!logoUrl || failed) {
@@ -3416,10 +3473,16 @@ export default function App() {
                                       {formatDuration(vid.duration_seconds)}
                                     </div>
                                   )}
+                                  {vid.progress_stage && /youtube|miniature/i.test(vid.progress_stage) && !vid.youtube_video_id && !vid.youtube_publish_error && (
+                                    <div className="absolute inset-x-0 bottom-0 bg-black/85 px-2 py-1.5 flex items-center gap-1.5">
+                                      <YouTubeIcon className="w-3.5 h-2.5 animate-pulse" />
+                                      <span className="text-[9px] font-bold text-white truncate">{vid.progress_stage}</span>
+                                    </div>
+                                  )}
                                 </>
                               ) : vid.status === 'rendering' ? (
-                                <div className="p-4 text-center space-y-2 w-full max-w-[220px]">
-                                  <span className="material-symbols-outlined text-[36px] text-blue-400 animate-spin">progress_activity</span>
+                                <div className="p-4 text-center space-y-2.5 w-full max-w-[220px]">
+                                  <PipelineStepper stage={vid.progress_stage} percent={vid.progress_percent} />
                                   <div className="text-[11px] font-bold text-blue-300">{vid.progress_stage || 'Rendu en cours…'}</div>
                                   <div className="h-1.5 rounded-full bg-slate-800 overflow-hidden">
                                     <div className="h-full bg-[#00c2ff] transition-all duration-700" style={{ width: `${vid.progress_percent || 2}%` }} />
@@ -3711,14 +3774,6 @@ export default function App() {
                       </div>
                     )}
                     <button
-                      onClick={(e) => openEditWizard(activeChannel, e)}
-                      title="Modifier le Pipeline"
-                      className="min-h-11 px-3.5 py-2 bg-transparent text-slate-300 rounded-xl font-bold text-xs hover:bg-white/[.055] hover:text-white transition-colors flex items-center justify-center gap-2 border border-white/[.08]"
-                    >
-                      <span className="material-symbols-outlined text-[18px]">edit</span>
-                      <span className="hidden sm:inline">Configurer</span>
-                    </button>
-                    <button
                       onClick={() => setShowSubmitModal(true)}
                       title="Nouvelle Vidéo"
                       className="min-h-11 px-4 sm:px-5 py-2 bg-gradient-to-r from-[#61dcff] to-[#16b8ff] text-[#041018] rounded-xl font-extrabold text-xs hover:brightness-110 transition-all flex items-center justify-center gap-2 shadow-lg shadow-[#00bfff]/20"
@@ -3812,10 +3867,16 @@ export default function App() {
                                     {formatDuration(vid.duration_seconds)}
                                   </div>
                                 )}
+                                {vid.progress_stage && /youtube|miniature/i.test(vid.progress_stage) && !vid.youtube_video_id && !vid.youtube_publish_error && (
+                                  <div className="absolute inset-x-0 bottom-0 bg-black/85 px-2 py-1.5 flex items-center gap-1.5">
+                                    <YouTubeIcon className="w-3.5 h-2.5 animate-pulse" />
+                                    <span className="text-[9px] font-bold text-white truncate">{vid.progress_stage}</span>
+                                  </div>
+                                )}
                               </>
                             ) : vid.status === 'rendering' ? (
-                              <div className="p-4 text-center space-y-2 w-full max-w-[220px]">
-                                <span className="material-symbols-outlined text-[36px] text-blue-400 animate-spin">progress_activity</span>
+                              <div className="p-4 text-center space-y-2.5 w-full max-w-[220px]">
+                                <PipelineStepper stage={vid.progress_stage} percent={vid.progress_percent} />
                                 <div className="text-[11px] font-bold text-blue-300">{vid.progress_stage || 'Rendu en cours…'}</div>
                                 <div className="h-1.5 rounded-full bg-slate-800 overflow-hidden">
                                   <div className="h-full bg-[#00c2ff] transition-all duration-700" style={{ width: `${vid.progress_percent || 2}%` }} />
@@ -5162,15 +5223,11 @@ export default function App() {
                           <div className="pt-2 border-t border-[#263042] flex items-center justify-between gap-3">
                             <div>
                               <label className="block text-xs font-bold text-slate-300">Filigrane NicheCut</label>
-                              <p className="text-[11px] text-slate-500 mt-0.5">Petite marque "créé avec NicheCut", discrète, en bas à gauche.</p>
+                              <p className="text-[11px] text-slate-500 mt-0.5">Logo officiel centré à faible opacité sur les exports gratuits.</p>
                             </div>
-                            <button
-                              type="button"
-                              onClick={() => setNewChannel({ ...newChannel, effects_config: { ...newChannel.effects_config, watermark_enabled: !(newChannel.effects_config.watermark_enabled ?? true) } })}
-                              className={`shrink-0 w-11 h-6 rounded-full relative transition-colors ${(newChannel.effects_config.watermark_enabled ?? true) ? 'bg-[#00c2ff]' : 'bg-[#2b374d]'}`}
-                            >
-                              <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform ${(newChannel.effects_config.watermark_enabled ?? true) ? 'translate-x-[22px]' : 'translate-x-0.5'}`} />
-                            </button>
+                            <span className="shrink-0 px-2.5 py-1 rounded-lg bg-[#00c2ff]/10 border border-[#00c2ff]/25 text-[#62dcff] text-[10px] font-bold uppercase tracking-wide">
+                              Export gratuit
+                            </span>
                           </div>
                         </div>
 
