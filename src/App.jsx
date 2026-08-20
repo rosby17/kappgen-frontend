@@ -5653,7 +5653,7 @@ export default function App() {
                               }}
                               disabled={librarySyncing}
                               title="Mettre à jour la bibliothèque"
-                              className="min-h-11 px-3.5 py-2 bg-[#18212d] text-white rounded-xl hover:bg-[#202c3b] transition-colors flex items-center justify-center gap-2.5 border border-[var(--border)] disabled:opacity-60 text-left"
+                              className="min-h-11 px-3.5 py-2 bg-[var(--bg-surface-alt)] text-white rounded-xl hover:bg-[var(--bg-hover)] transition-colors flex items-center justify-center gap-2.5 border border-[var(--border)] disabled:opacity-60 text-left"
                             >
                               <span className={`material-symbols-outlined text-[18px] text-[#52d5ff] ${librarySyncing ? 'animate-spin' : ''}`}>{librarySyncing ? 'progress_activity' : 'sync'}</span>
                               <span className="hidden sm:grid leading-tight"><strong className="text-[10px]">{librarySyncing ? 'Synchronisation…' : 'Bibliothèque visuelle'}</strong><small className="text-[8px] font-medium text-slate-500 mt-1">Synchronisée {formatSyncAgo(activeChannel.id, nowTick)}</small></span>
@@ -6104,7 +6104,7 @@ export default function App() {
                         <button
                           type="button"
                           onClick={() => setShowScriptStructureModal(true)}
-                          className="w-full flex items-center justify-between gap-3 border border-[var(--border)] hover:border-[#00c2ff]/60 rounded-xl p-4 bg-[#161c28] transition-colors text-left"
+                          className="w-full flex items-center justify-between gap-3 border border-[var(--border)] hover:border-[#00c2ff]/60 rounded-xl p-4 bg-[var(--bg-surface-alt)] transition-colors text-left"
                         >
                           <div className="flex items-center gap-3 min-w-0">
                             <span className="w-9 h-9 rounded-lg bg-[#00c2ff]/10 flex items-center justify-center shrink-0">
