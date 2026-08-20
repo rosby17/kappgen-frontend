@@ -22,14 +22,14 @@ const features = [
 
 const steps = [
   ['01', 'Configure ta chaîne une fois', 'Définis sa niche, son ton, son identité visuelle, son rythme et sa fréquence de publication.'],
-  ['02', 'Laisse NicheCut prendre le relais', 'Connecte ta chaîne YouTube et définis une fois les règles à respecter.'],
+  ['02', 'Laisse KappGen prendre le relais', 'Connecte ta chaîne YouTube et définis une fois les règles à respecter.'],
   ['03', 'Va vivre. Ou va dormir.', 'L’Agent cherche les idées, écrit, crée la voix, monte et prépare chaque nouvelle vidéo.'],
-  ['04', 'Retrouve tes vidéos publiées', 'NicheCut programme et publie sur ta chaîne. Tu gardes la visibilité, pas la charge de travail.'],
+  ['04', 'Retrouve tes vidéos publiées', 'KappGen programme et publie sur ta chaîne. Tu gardes la visibilité, pas la charge de travail.'],
 ];
 
 const pricingPlans = [
   {
-    name: 'Découverte', price: 'Gratuit', description: 'Découvre la qualité NicheCut avant de lancer ton Agent.',
+    name: 'Découverte', price: 'Gratuit', description: 'Découvre la qualité KappGen avant de lancer ton Agent.',
     features: ['1 vidéo test', 'Export avec filigrane', 'Création assistée', 'Sans publication automatique'],
     cta: 'Tester sans pression', featured: false,
   },
@@ -39,7 +39,7 @@ const pricingPlans = [
     cta: 'Créer à mon rythme', featured: false,
   },
   {
-    name: 'Automatique', price: '69 $', localPrice: '≈ 42 000 FCFA / mois', description: 'L’expérience NicheCut complète : tu configures, l’Agent exécute.',
+    name: 'Automatique', price: '69 $', localPrice: '≈ 42 000 FCFA / mois', description: 'L’expérience KappGen complète : tu configures, l’Agent exécute.',
     features: ['1 chaîne YouTube', '12 vidéos autonomes / mois', 'Jusqu’à 1h par vidéo', 'Programmation automatique', 'Publication automatique YouTube'],
     cta: 'Dormir l’esprit tranquille', featured: true,
   },
@@ -52,7 +52,7 @@ const pricingPlans = [
 
 function ProductPreview() {
   return (
-    <div className="product-preview" aria-label="Aperçu de l’interface NicheCut">
+    <div className="product-preview" aria-label="Aperçu de l’interface KappGen">
       <div className="preview-glow" />
       <div className="preview-window">
         <div className="preview-topbar">
@@ -62,7 +62,7 @@ function ProductPreview() {
         </div>
         <div className="preview-body">
           <aside className="preview-sidebar">
-            <div className="preview-brand"><img src="/assets/logo/logo-nichecut.png" alt="" /><span><b>NicheCut</b><small>Video Automation</small></span></div>
+            <div className="preview-brand"><img src="/assets/logo/logo-kappgen.png" alt="" /><span><b>KappGen</b><small>Video Automation</small></span></div>
             <div className="preview-nav active"><Layers3 size={15} /> Home</div>
             <div className="preview-nav"><CirclePlay size={15} /> Mes chaînes</div>
             <div className="preview-nav"><Clapperboard size={15} /> Mes vidéos</div>
@@ -70,11 +70,11 @@ function ProductPreview() {
           <div className="preview-content">
             <div className="preview-current-heading">
               <small>TON ESPACE NICHECUT</small>
-              <strong>Sors des écrans. NicheCut reste au travail.</strong>
+              <strong>Sors des écrans. KappGen reste au travail.</strong>
             </div>
             <div className="preview-freedom-card">
               <img src={freedomSunrise} alt="" />
-              <div><strong>Tu vis. NicheCut travaille.</strong><span>Ta chaîne continue pendant que tu profites de ton temps.</span><button>Voir mes chaînes</button></div>
+              <div><strong>Tu vis. KappGen travaille.</strong><span>Ta chaîne continue pendant que tu profites de ton temps.</span><button>Voir mes chaînes</button></div>
             </div>
             <div className="preview-channels-current">
               <strong>Aperçu des chaînes</strong>
@@ -90,15 +90,15 @@ function ProductPreview() {
 export default function LandingPage() {
   const [menuOpen, setMenuOpen] = useState(false);
   useEffect(() => {
-    document.title = 'NicheCut — Tu vis. NicheCut travaille.';
+    document.title = 'KappGen — Tu vis. KappGen travaille.';
     const description = document.querySelector('meta[name="description"]');
-    if (description) description.content = 'Sors des écrans. NicheCut trouve les idées, crée les vidéos et les publie sur YouTube pendant que tu vis, voyages ou dors.';
+    if (description) description.content = 'Sors des écrans. KappGen trouve les idées, crée les vidéos et les publie sur YouTube pendant que tu vis, voyages ou dors.';
   }, []);
 
   return (
     <div className="landing-shell">
       <header className="landing-header">
-        <a className="brand" href="#accueil" aria-label="NicheCut — Accueil"><img src="/assets/logo/logo-nichecut.png" alt="" /><span>NicheCut</span></a>
+        <a className="brand" href="#accueil" aria-label="KappGen — Accueil"><img src="/assets/logo/logo-kappgen.png" alt="" /><span>KappGen</span></a>
         <nav className={menuOpen ? 'open' : ''}>
           <a href="#fonctionnalites" onClick={() => setMenuOpen(false)}>Fonctionnalités</a>
           <a href="#fonctionnement" onClick={() => setMenuOpen(false)}>Comment ça marche</a>
@@ -113,7 +113,7 @@ export default function LandingPage() {
         <section className="hero" id="accueil">
           <div className="hero-grid" /><div className="hero-orb orb-one" /><div className="hero-orb orb-two" />
           <div className="hero-copy">
-            <h1>Tu dors.<br /><span>NicheCut travaille pour toi sur YouTube.</span></h1>
+            <h1>Tu dors.<br /><span>KappGen travaille pour toi sur YouTube.</span></h1>
             <p>Tu vis, tu voyages, tu dors. L’Agent imagine, crée et publie des vidéos originales dans le style de ta chaîne, avec les réalités du terrain YouTube intégrées à chaque étape.</p>
             <div className="hero-actions">
               <a className="button button-primary" href={appUrl('/signup')}>Sors des écrans <ArrowRight size={18} /></a>
@@ -127,7 +127,7 @@ export default function LandingPage() {
         <section className="proof-strip"><span>UNE CHAÎNE QUI AVANCE SANS TE RETENIR</span><div><span>Recherche d’idées</span><ChevronRight /><span>Script</span><ChevronRight /><span>Production</span><ChevronRight /><span>Publication</span></div></section>
 
         <section className="section features" id="fonctionnalites">
-          <div className="section-intro"><div className="section-kicker">UN AGENT, TOUTE TA CHAÎNE</div><h2>Tu définis la direction.<br /><span>Il exécute tout le reste.</span></h2><p>NicheCut ne s’arrête pas au montage. Son Agent orchestre toute la chaîne de création, de la première idée jusqu’à la publication sur YouTube.</p></div>
+          <div className="section-intro"><div className="section-kicker">UN AGENT, TOUTE TA CHAÎNE</div><h2>Tu définis la direction.<br /><span>Il exécute tout le reste.</span></h2><p>KappGen ne s’arrête pas au montage. Son Agent orchestre toute la chaîne de création, de la première idée jusqu’à la publication sur YouTube.</p></div>
           <div className="feature-grid">{features.map(({ icon: Icon, title, text }, index) => <article className={index === 0 || index === 5 ? 'feature-card featured' : 'feature-card'} key={title}><div className="feature-icon"><Icon /></div><h3>{title}</h3><p>{text}</p></article>)}</div>
         </section>
 
@@ -136,7 +136,7 @@ export default function LandingPage() {
           <div className="steps">{steps.map(([number, title, text]) => <article className="step" key={number}><span>{number}</span><div><h3>{title}</h3><p>{text}</p></div></article>)}</div>
         </section>
 
-        <section className="section audience"><div className="audience-card"><div><div className="section-kicker">ENTRAÎNÉ POUR LA RÉALITÉ DE YOUTUBE</div><h2>Autonome ne veut pas dire générique.</h2><p>Nous maîtrisons les réalités du terrain YouTube et avons travaillé l’Agent autour de ce qui compte vraiment : originalité, rétention, identité éditoriale, droits et règles de monétisation. NicheCut ne produit pas à la chaîne ; il crée selon ton univers et applique ces exigences à chaque vidéo pour réduire les risques de démonétisation, de suppression ou de sanction.</p></div><div className="audience-list">{['Originalité à chaque vidéo', 'Rétention pensée dès le script', 'Identité de chaîne préservée', 'Règles YouTube intégrées'].map((item) => <span key={item}><BadgeCheck /> {item}</span>)}</div></div></section>
+        <section className="section audience"><div className="audience-card"><div><div className="section-kicker">ENTRAÎNÉ POUR LA RÉALITÉ DE YOUTUBE</div><h2>Autonome ne veut pas dire générique.</h2><p>Nous maîtrisons les réalités du terrain YouTube et avons travaillé l’Agent autour de ce qui compte vraiment : originalité, rétention, identité éditoriale, droits et règles de monétisation. KappGen ne produit pas à la chaîne ; il crée selon ton univers et applique ces exigences à chaque vidéo pour réduire les risques de démonétisation, de suppression ou de sanction.</p></div><div className="audience-list">{['Originalité à chaque vidéo', 'Rétention pensée dès le script', 'Identité de chaîne préservée', 'Règles YouTube intégrées'].map((item) => <span key={item}><BadgeCheck /> {item}</span>)}</div></div></section>
 
         <section className="section pricing" id="tarifs">
           <div className="section-intro centered"><div className="section-kicker">DES OFFRES POUR REPRENDRE TON TEMPS</div><h2>Commence avec une vidéo.<br /><span>Puis libère-toi des écrans.</span></h2><p>Choisis le rythme qui laisse ta chaîne avancer sans sacrifier tes journées, tes nuits ou tes vacances.</p></div>
@@ -168,10 +168,10 @@ export default function LandingPage() {
           ['Où se trouve l’application ?', `L’espace de production est séparé de ce site et accessible sur ${APP_ORIGIN.replace('https://', '')}.`],
         ].map(([q, a]) => <details key={q}><summary>{q}<span>+</span></summary><p>{a}</p></details>)}</div></section>
 
-        <section className="final-cta"><div className="cta-icon"><WandSparkles /></div><h2>Tu vis. NicheCut travaille.</h2><p>La création de contenu t’absorbe, t’enferme un peu plus chaque jour. Reprends le contrôle de ton temps — sans sacrifier un centime des revenus que tu as bâtis.</p><a className="button button-primary" href={appUrl('/signup')}>Je reprends mon temps <ArrowRight size={18} /></a></section>
+        <section className="final-cta"><div className="cta-icon"><WandSparkles /></div><h2>Tu vis. KappGen travaille.</h2><p>La création de contenu t’absorbe, t’enferme un peu plus chaque jour. Reprends le contrôle de ton temps — sans sacrifier un centime des revenus que tu as bâtis.</p><a className="button button-primary" href={appUrl('/signup')}>Je reprends mon temps <ArrowRight size={18} /></a></section>
       </main>
 
-      <footer className="landing-footer"><a className="brand" href="#accueil"><img src="/assets/logo/logo-nichecut.png" alt="" /><span>NicheCut</span></a><p>L’Agent autonome qui gère ta chaîne YouTube de l’idée à la publication.</p><div><a href="#fonctionnalites">Fonctionnalités</a><a href="#faq">FAQ</a><a href={appUrl('/login')}>Connexion</a></div><span>© {new Date().getFullYear()} NicheCut. Tous droits réservés.</span></footer>
+      <footer className="landing-footer"><a className="brand" href="#accueil"><img src="/assets/logo/logo-kappgen.png" alt="" /><span>KappGen</span></a><p>L’Agent autonome qui gère ta chaîne YouTube de l’idée à la publication.</p><div><a href="#fonctionnalites">Fonctionnalités</a><a href="#faq">FAQ</a><a href={appUrl('/login')}>Connexion</a></div><span>© {new Date().getFullYear()} KappGen. Tous droits réservés.</span></footer>
     </div>
   );
 }

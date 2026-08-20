@@ -88,7 +88,7 @@ const SCRIPT_STRUCTURE_DEFAULTS = {
   },
 };
 // The structure editor's own part names/guidance text are meta-instructions
-// read by the *creator* configuring their channel — NicheCut's interface is
+// read by the *creator* configuring their channel — KappGen's interface is
 // French, so these always default to French, regardless of `language`
 // below, which is a completely separate setting: the language the AI
 // actually WRITES the generated video's script in. A francophone creator
@@ -1459,8 +1459,8 @@ function ServerAudioPreview({ src, name, volume, onRemove }) {
   );
 }
 
-// Renders a channel's logo as a rounded-square avatar, or the NicheCut icon
-// if no logo is set. Falls back to the NicheCut icon automatically if the
+// Renders a channel's logo as a rounded-square avatar, or the KappGen icon
+// if no logo is set. Falls back to the KappGen icon automatically if the
 // image URL 404s (e.g. a logo file lost before persistent storage was fixed)
 // instead of showing a broken-image icon with overflowing alt text.
 // The real render burns subtitles onto a 1920x1080 frame with libass, where
@@ -1696,7 +1696,7 @@ function ChannelAvatar({ channel, logoUrl, sizeClass = "w-12 h-12", textClass = 
   // channel logo across the app (cards, headers, sidebar) must be a circle.
   const image = (!logoUrl || failed) ? (
     <div className={`${sizeClass} rounded-full bg-gradient-to-tr from-[#004c66] to-[#007f99] flex items-center justify-center flex-shrink-0 border border-[#00c2ff]/30 shadow-md p-2`}>
-      <img src="/assets/logo/logo-nichecut.png" alt="NicheCut" className="w-full h-full object-contain" />
+      <img src="/assets/logo/logo-kappgen.png" alt="KappGen" className="w-full h-full object-contain" />
     </div>
   ) : (
     <img
@@ -1780,7 +1780,7 @@ export default function App() {
   const navigate = useNavigate();
   const location = useLocation();
   useEffect(() => {
-    document.title = 'NicheCut Studio — Espace de production';
+    document.title = 'KappGen Studio — Espace de production';
   }, []);
 
   const [themePreference, setThemePreference] = useState(() => {
@@ -1811,8 +1811,8 @@ export default function App() {
   const [activeProduct, setActiveProduct] = useState('montage');
   const [productMenuOpen, setProductMenuOpen] = useState(false);
   const NICHECUT_PRODUCTS = [
-    { id: 'montage', label: 'NicheCut Montage Simple', icon: 'movie_edit', available: true },
-    { id: 'avatar', label: 'NicheCut Avatar', icon: 'face', available: false },
+    { id: 'montage', label: 'KappGen Montage Simple', icon: 'movie_edit', available: true },
+    { id: 'avatar', label: 'KappGen Avatar', icon: 'face', available: false },
   ];
   const [channelsLoaded, setChannelsLoaded] = useState(false);
   const [videosLoaded, setVideosLoaded] = useState(false);
@@ -2394,7 +2394,7 @@ export default function App() {
       setChannelsLoadError('');
     } catch (e) {
       console.error("API error loading channels:", e);
-      setChannelsLoadError("Impossible de charger vos chaînes. Vérifiez que l’API NicheCut est accessible.");
+      setChannelsLoadError("Impossible de charger vos chaînes. Vérifiez que l’API KappGen est accessible.");
     } finally {
       setChannelsLoaded(true);
     }
@@ -2424,7 +2424,7 @@ export default function App() {
       setVideosLoadError('');
     } catch (e) {
       console.error("API error loading videos:", e);
-      setVideosLoadError("Impossible de charger vos vidéos. Vérifiez que l’API NicheCut est accessible.");
+      setVideosLoadError("Impossible de charger vos vidéos. Vérifiez que l’API KappGen est accessible.");
     } finally {
       setVideosLoaded(true);
     }
@@ -2648,7 +2648,7 @@ export default function App() {
     fetchAllVideos();
     fetchFolders();
     // Was 6s — that's 3 requests/6s sustained for as long as any tab stays
-    // open, and it multiplies with every extra NicheCut tab a creator has
+    // open, and it multiplies with every extra KappGen tab a creator has
     // open at once. At that rate it's plausible to eventually trip
     // Cloudflare's rate-limiting/bot-protection on the API's edge, which
     // fails at the connection level (shows up in the browser as a plain
@@ -2886,19 +2886,19 @@ export default function App() {
       if (!res.ok) throw new Error(body.detail || 'Connexion Izivoice impossible.');
       setIzivoiceConnection(body);
       setIzivoiceApiKey('');
-      showToast('Compte Izivoice synchronisé avec NicheCut.', 'success');
+      showToast('Compte Izivoice synchronisé avec KappGen.', 'success');
     } catch (err) { showToast(err.message, 'error'); }
     finally { setIzivoiceConnecting(false); }
   };
 
   const handleDisconnectIzivoice = async () => {
-    const ok = await askConfirm("NicheCut repassera sur son moteur vocal par défaut. Tes vidéos et tes chaînes restent intactes.", { title: 'Déconnecter Izivoice ?' });
+    const ok = await askConfirm("KappGen repassera sur son moteur vocal par défaut. Tes vidéos et tes chaînes restent intactes.", { title: 'Déconnecter Izivoice ?' });
     if (!ok) return;
     const res = await authFetch(`${API_BASE}/channels/izivoice/connect?user_id=${encodeURIComponent(currentUser.id)}`, { method: 'DELETE' });
     if (res.ok) {
       setIzivoiceConnection(await res.json());
       setAvailableVoices(VOICE_MODELS);
-      showToast('Izivoice déconnecté. Le moteur NicheCut prend le relais.', 'success');
+      showToast('Izivoice déconnecté. Le moteur KappGen prend le relais.', 'success');
     }
   };
 
@@ -3065,7 +3065,7 @@ export default function App() {
         fetchChannelVideos(channel.id);
         fetchChannels();
         fetchAllVideos();
-        showToast("C’est lancé. Tu peux quitter cet écran, NicheCut reste au travail.", "success");
+        showToast("C’est lancé. Tu peux quitter cet écran, KappGen reste au travail.", "success");
       } else {
         const err = await res.json();
         showToast(err.detail || "Erreur lors du lancement.", "error");
@@ -3570,7 +3570,7 @@ export default function App() {
   const getChannelLogoUrl = (channel) => {
     if (channel?.branding?.logo_path) return getVideoUrl(channel.branding.logo_path);
     if (channel?.youtube_channel_thumbnail_url) return channel.youtube_channel_thumbnail_url;
-    return "/assets/logo/logo-nichecut.png";
+    return "/assets/logo/logo-kappgen.png";
   };
 
   const getChannelStatusInfo = (channel) => {
@@ -3578,7 +3578,7 @@ export default function App() {
     const queued = channel.queued_count || 0;
     const done = channel.done_count || 0;
     const failed = channel.failed_count || 0;
-    if (rendering > 0) return { label: 'NicheCut travaille', className: 'bg-blue-950/80 text-blue-300 border border-blue-700/60 animate-pulse' };
+    if (rendering > 0) return { label: 'KappGen travaille', className: 'bg-blue-950/80 text-blue-300 border border-blue-700/60 animate-pulse' };
     if (queued > 0) return { label: 'En file', className: 'bg-amber-950/80 text-amber-300 border border-amber-700/60' };
     if (done > 0) return { label: 'Prête', className: 'bg-emerald-950/80 text-emerald-300 border border-emerald-700/60' };
     if (failed > 0) return { label: 'Échec de rendu', className: 'bg-rose-950/80 text-rose-300 border border-rose-700/60' };
@@ -3641,7 +3641,7 @@ export default function App() {
         fetchChannelVideos(activeChannel.id);
         fetchChannels();
         fetchAllVideos();
-        showToast("C’est lancé. Tu peux quitter cet écran, NicheCut reste au travail.", "success");
+        showToast("C’est lancé. Tu peux quitter cet écran, KappGen reste au travail.", "success");
       } else {
         const err = await res.json();
         showToast(err.detail || "Erreur lors de l'envoi.", "error");
@@ -3952,7 +3952,7 @@ export default function App() {
       if (!res.ok) throw new Error();
       setIzivoiceStatus({ connected: false, key_prefix: null, mode: 'nichecut' });
       setShowIzivoiceKeyModal(false);
-      showToast('Clé Izivoice déconnectée — retour au compte NicheCut par défaut.', 'success');
+      showToast('Clé Izivoice déconnectée — retour au compte KappGen par défaut.', 'success');
     } catch {
       showToast('Impossible de déconnecter la clé.', 'error');
     }
@@ -4143,7 +4143,7 @@ export default function App() {
     const url = `${API_BASE}/videos/${vid.id}/download?quality=${quality}`;
     const a = document.createElement('a');
     a.href = url;
-    a.download = `nichecut-${(vid.script_text || 'video').slice(0, 40).replace(/[^a-z0-9]+/gi, '-')}-${quality}.mp4`;
+    a.download = `kappgen-${(vid.script_text || 'video').slice(0, 40).replace(/[^a-z0-9]+/gi, '-')}-${quality}.mp4`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -4153,7 +4153,7 @@ export default function App() {
     }, 600);
   };
 
-  // NicheCut Studio — post-render editor: swap a bad scene image without
+  // KappGen Studio — post-render editor: swap a bad scene image without
   // redoing TTS/pacing/image-gen for the whole video.
   const [studioScenes, setStudioScenes] = useState([]);
   const [studioLoading, setStudioLoading] = useState(false);
@@ -4280,7 +4280,7 @@ export default function App() {
   const regenerateStudioWithVoice = async () => {
     if (!studioVideo || !studioVoiceDraft || !studioScenes?.length) return;
     const fullText = studioScenes.map(s => s.text || '').join('\n\n');
-    const ok = await askConfirm("NicheCut va relancer un rendu complet de cette vidéo avec la nouvelle voix. Cela crée une nouvelle vidéo distincte — l'actuelle reste inchangée.", { title: 'Régénérer avec cette voix ?' });
+    const ok = await askConfirm("KappGen va relancer un rendu complet de cette vidéo avec la nouvelle voix. Cela crée une nouvelle vidéo distincte — l'actuelle reste inchangée.", { title: 'Régénérer avec cette voix ?' });
     if (!ok) return;
     setStudioRegeneratingVoice(true);
     try {
@@ -4601,8 +4601,8 @@ export default function App() {
           <span className="material-symbols-outlined text-[24px]">menu</span>
         </button>
         <div className="flex items-center gap-2" onClick={() => setView('home')}>
-          <img src="/assets/logo/logo-nichecut.png" alt="NicheCut" className="w-7 h-7 rounded-lg object-cover" />
-          <span className="font-title-sm text-sm font-black text-white tracking-wide">NicheCut</span>
+          <img src="/assets/logo/logo-kappgen.png" alt="KappGen" className="w-7 h-7 rounded-lg object-cover" />
+          <span className="font-title-sm text-sm font-black text-white tracking-wide">KappGen</span>
         </div>
         {currentUser ? (
           <button onClick={() => setView('settings')} className="w-8 h-8 rounded-full overflow-hidden border border-[var(--border)] flex-shrink-0">
@@ -4627,9 +4627,9 @@ export default function App() {
             <div>
               <div className="px-6 mb-8 flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <img src="/assets/logo/logo-nichecut.png" alt="NicheCut" className="w-9 h-9 rounded-xl shadow-lg shadow-[#00c2ff]/20 object-cover" />
+                  <img src="/assets/logo/logo-kappgen.png" alt="KappGen" className="w-9 h-9 rounded-xl shadow-lg shadow-[#00c2ff]/20 object-cover" />
                   <div>
-                    <div className="font-title-sm text-base font-black text-white tracking-wide">NicheCut</div>
+                    <div className="font-title-sm text-base font-black text-white tracking-wide">KappGen</div>
                     <div className="text-slate-400 text-xs font-normal">Video Automation</div>
                   </div>
                 </div>
@@ -4686,9 +4686,9 @@ export default function App() {
         <div>
           {/* Brand Logo Header */}
           <div className="px-6 mb-3 flex items-center gap-3 cursor-pointer" onClick={() => setView('home')}>
-            <img src="/assets/logo/logo-nichecut.png" alt="NicheCut" className="w-9 h-9 rounded-xl shadow-lg shadow-[#00c2ff]/20 object-cover" />
+            <img src="/assets/logo/logo-kappgen.png" alt="KappGen" className="w-9 h-9 rounded-xl shadow-lg shadow-[#00c2ff]/20 object-cover" />
             <div>
-              <div className="font-title-sm text-base font-black text-white tracking-wide">NicheCut</div>
+              <div className="font-title-sm text-base font-black text-white tracking-wide">KappGen</div>
               <div className="text-slate-400 text-xs font-normal">Video Automation</div>
             </div>
           </div>
@@ -4775,7 +4775,7 @@ export default function App() {
             <div className="w-20 h-20 rounded-2xl bg-[#00c2ff]/10 flex items-center justify-center">
               <span className="material-symbols-outlined text-[40px] text-[#00c2ff]">face</span>
             </div>
-            <h2 className="text-2xl font-extrabold text-white">NicheCut Avatar</h2>
+            <h2 className="text-2xl font-extrabold text-white">KappGen Avatar</h2>
             <p className="text-sm text-slate-400 max-w-md">
               Bientôt disponible — des vidéos avec un avatar IA qui parle à la caméra, dans le même esprit de pilote automatique.
             </p>
@@ -4786,7 +4786,7 @@ export default function App() {
               onClick={() => setActiveProduct('montage')}
               className="mt-2 px-5 py-2.5 bg-[var(--bg-surface-alt)] text-white rounded-xl font-bold text-xs hover:bg-[var(--border-soft)] transition-colors border border-[var(--border)]"
             >
-              Retour à NicheCut Montage Simple
+              Retour à KappGen Montage Simple
             </button>
           </div>
         )}
@@ -4912,8 +4912,8 @@ export default function App() {
             {(view === 'home' || view === 'dashboard') && (
               <>
                 <div className="pt-1">
-                  <p className="text-[10px] font-bold uppercase tracking-[.18em] text-[#55d8ff] mb-2">Ton espace NicheCut</p>
-                  <h2 className="text-2xl md:text-3xl font-extrabold text-white tracking-[-.025em]">Sors des écrans. NicheCut reste au travail.</h2>
+                  <p className="text-[10px] font-bold uppercase tracking-[.18em] text-[#55d8ff] mb-2">Ton espace KappGen</p>
+                  <h2 className="text-2xl md:text-3xl font-extrabold text-white tracking-[-.025em]">Sors des écrans. KappGen reste au travail.</h2>
                 </div>
 
                 {/* A single quiet promise card, integrated into the existing dashboard language. */}
@@ -4931,7 +4931,7 @@ export default function App() {
                   <div className="absolute inset-0 bg-gradient-to-r from-[var(--bg-surface)] via-[var(--bg-surface)]/55 to-transparent pointer-events-none" />
                   <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-[#0f141c]/65 to-transparent pointer-events-none" />
                   <div className="relative z-10 min-h-[300px] flex flex-col justify-center p-6 md:p-8 max-w-xl">
-                    <h3 className="text-xl md:text-2xl font-extrabold text-white leading-tight">Tu vis. NicheCut travaille.</h3>
+                    <h3 className="text-xl md:text-2xl font-extrabold text-white leading-tight">Tu vis. KappGen travaille.</h3>
                     <p className="text-sm text-slate-400 leading-6 mt-3 max-w-md">Ton Agent prépare tes vidéos et veille sur tes publications. Voyage, repose-toi ou profite simplement de ton temps.</p>
                     <div className="flex items-center gap-3 mt-6">
                       <button onClick={channels.length ? () => setView('channels') : openCreateWizard} className="px-5 py-2.5 bg-[#00c2ff] hover:bg-[#38d0ff] text-slate-950 font-bold text-xs rounded-xl transition-colors">
@@ -4952,7 +4952,7 @@ export default function App() {
                     <div className="bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-2xl p-10 text-center">
                       <span className="material-symbols-outlined text-[48px] text-slate-500 mb-3">subscriptions</span>
                       <h4 className="text-base font-bold text-white mb-1">Aucune chaîne configurée</h4>
-                      <p className="text-xs text-slate-400 mb-5">Configure ton univers une fois. NicheCut s’occupera de la suite.</p>
+                      <p className="text-xs text-slate-400 mb-5">Configure ton univers une fois. KappGen s’occupera de la suite.</p>
                       <button onClick={openCreateWizard} className="px-5 py-2.5 bg-[#00c2ff] text-slate-950 font-bold text-xs rounded-xl">
                         + Créer une chaîne
                       </button>
@@ -6661,7 +6661,7 @@ export default function App() {
                             <span className="material-symbols-outlined text-[#00c2ff] text-[24px]">auto_awesome</span>
                             <h4 className="font-bold text-white text-xs">Générer avec l'IA</h4>
                           </div>
-                          <p className="text-[11px] text-slate-400">NicheCut écrit le prompt à partir de la niche (et du script), puis IziVoice génère la musique.</p>
+                          <p className="text-[11px] text-slate-400">KappGen écrit le prompt à partir de la niche (et du script), puis IziVoice génère la musique.</p>
                         </div>
 
                         <div onClick={(e) => e.stopPropagation()}>
@@ -7364,7 +7364,7 @@ export default function App() {
 
                           <div className="pt-2 border-t border-[var(--border-soft)] flex items-center justify-between gap-3">
                             <div>
-                              <label className="block text-xs font-bold text-slate-300">Filigrane NicheCut</label>
+                              <label className="block text-xs font-bold text-slate-300">Filigrane KappGen</label>
                               <p className="text-[11px] text-slate-500 mt-0.5">Logo officiel centré à faible opacité. Le désactiver sera une option payante une fois les paiements en place.</p>
                             </div>
                             <div className="flex items-center gap-2 shrink-0">
@@ -7619,7 +7619,7 @@ export default function App() {
                   // channel's own detail page has been opened, so editing straight from
                   // the channel grid left this avatar stuck on the placeholder even
                   // though the channel's real YouTube photo was already known.
-                  const resolvedLogoUrl = logoPreviewUrl || (wizardMode === 'edit' && editingChannel && getChannelLogoUrl(editingChannel) !== "/assets/logo/logo-nichecut.png" ? getChannelLogoUrl(editingChannel) : null);
+                  const resolvedLogoUrl = logoPreviewUrl || (wizardMode === 'edit' && editingChannel && getChannelLogoUrl(editingChannel) !== "/assets/logo/logo-kappgen.png" ? getChannelLogoUrl(editingChannel) : null);
                   const musicLabel = musicFiles[0]?.name
                     || newChannel.music_preference?.tracks?.[0]?.split('/').pop()?.replace(/^[0-9a-f]{8}_/, '')
                     || (newChannel.music_preference?.mode === 'ai_generate' ? 'Musique générée par IA' : null);
@@ -8072,7 +8072,7 @@ export default function App() {
                       <h4 className="text-xs font-bold text-white mb-1">Authentification à deux facteurs</h4>
                       <p className="text-[11px] text-slate-400 mb-3">
                         {currentUser.auth_provider === 'google'
-                          ? "Activez la validation en 2 étapes depuis votre compte Google — elle protège aussi votre connexion à NicheCut."
+                          ? "Activez la validation en 2 étapes depuis votre compte Google — elle protège aussi votre connexion à KappGen."
                           : "Bientôt disponible pour les comptes email/mot de passe."}
                       </p>
                       {currentUser.auth_provider === 'google' && (
@@ -8093,7 +8093,7 @@ export default function App() {
                   <div className="space-y-5">
                     <div>
                       <h4 className="text-xs font-bold text-white mb-1">Clés API</h4>
-                      <p className="text-[11px] text-slate-400">Utilisez une clé API pour intégrer NicheCut à vos propres outils (génération programmatique de vidéos).</p>
+                      <p className="text-[11px] text-slate-400">Utilisez une clé API pour intégrer KappGen à vos propres outils (génération programmatique de vidéos).</p>
                     </div>
 
                     {justCreatedApiKey && (
@@ -8159,7 +8159,7 @@ export default function App() {
                         <h4 className="text-sm font-extrabold text-white">Synchronisation Izivoice</h4>
                       </div>
                       <p className="text-[11px] leading-5 text-slate-400">
-                        Sans connexion, NicheCut utilise automatiquement son propre moteur Izivoice. En connectant ta clé, tu retrouves dans NicheCut tes voix, tes clones et les ressources liées à ton compte Izivoice.
+                        Sans connexion, KappGen utilise automatiquement son propre moteur Izivoice. En connectant ta clé, tu retrouves dans KappGen tes voix, tes clones et les ressources liées à ton compte Izivoice.
                       </p>
                     </div>
 
@@ -8183,7 +8183,7 @@ export default function App() {
                         <div className="flex gap-3">
                           <span className="material-symbols-outlined text-[#00c2ff]">hub</span>
                           <div>
-                            <p className="text-xs font-bold text-white">Moteur NicheCut actif</p>
+                            <p className="text-xs font-bold text-white">Moteur KappGen actif</p>
                             <p className="text-[10px] text-slate-400 mt-1">Tu peux créer tes vidéos normalement. La connexion Izivoice ajoute la synchronisation de ton espace personnel.</p>
                           </div>
                         </div>
@@ -8204,7 +8204,7 @@ export default function App() {
                   <div className="space-y-5">
                     <div>
                       <h4 className="text-xs font-bold text-white mb-1">Abonnement</h4>
-                      <p className="text-[11px] text-slate-400">Génère plus de vidéos et retire le filigrane NicheCut avec un abonnement actif.</p>
+                      <p className="text-[11px] text-slate-400">Génère plus de vidéos et retire le filigrane KappGen avec un abonnement actif.</p>
                     </div>
 
                     {billingVerifyStatus === 'pending' && (
@@ -8283,7 +8283,7 @@ export default function App() {
               <span className="material-symbols-outlined text-[#00c2ff]">shield_person</span>
               Administration
             </h2>
-            <p className="text-xs text-slate-400 mt-1">Utilisateurs, abonnements et offres NicheCut.</p>
+            <p className="text-xs text-slate-400 mt-1">Utilisateurs, abonnements et offres KappGen.</p>
           </div>
 
           {adminStats && (
@@ -8683,7 +8683,7 @@ export default function App() {
                           style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='60'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")" }}
                         />
                       )}
-                      {(activeChannel.branding?.logo_enabled ?? true) && getChannelLogoUrl(activeChannel) !== "/assets/logo/logo-nichecut.png" && (
+                      {(activeChannel.branding?.logo_enabled ?? true) && getChannelLogoUrl(activeChannel) !== "/assets/logo/logo-kappgen.png" && (
                         <div className="absolute top-3 right-3 z-20">
                           <img
                             src={getChannelLogoUrl(activeChannel)}
@@ -9186,7 +9186,7 @@ export default function App() {
               </button>
             </div>
             <p className="text-xs text-slate-400">
-              Colle ta clé API Izivoice personnelle pour retrouver ici tes voix clonées et ton historique de doublage — au lieu d'utiliser le compte partagé NicheCut.
+              Colle ta clé API Izivoice personnelle pour retrouver ici tes voix clonées et ton historique de doublage — au lieu d'utiliser le compte partagé KappGen.
             </p>
             {izivoiceStatus?.connected && (
               <div className="bg-emerald-950/40 border border-emerald-800 rounded-xl px-3 py-2 text-[11px] text-emerald-300">
@@ -9336,8 +9336,8 @@ export default function App() {
             <section className="hidden lg:flex min-h-screen flex-col justify-between px-12 xl:px-20 py-10 border-r border-white/10">
               <div className="flex items-center justify-between">
                 <a href={MARKETING_ORIGIN} className="flex items-center gap-3 text-white no-underline">
-                  <img src="/assets/logo/logo-nichecut.png" alt="NicheCut" className="w-10 h-10 object-contain" />
-                  <span className="text-xl font-extrabold tracking-tight">NicheCut</span>
+                  <img src="/assets/logo/logo-kappgen.png" alt="KappGen" className="w-10 h-10 object-contain" />
+                  <span className="text-xl font-extrabold tracking-tight">KappGen</span>
                 </a>
                 <a href={MARKETING_ORIGIN} className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-[10px] font-bold tracking-[.14em] text-slate-300 no-underline hover:border-[#00c2ff]/40 hover:text-white transition-all">
                   <span className="material-symbols-outlined text-[15px]">arrow_back</span> RETOUR AU SITE
@@ -9369,7 +9369,7 @@ export default function App() {
 
               <div className="flex items-center gap-2 text-[10px] text-slate-500">
                 <span className="material-symbols-outlined text-[15px] text-emerald-400">verified_user</span>
-                © {new Date().getFullYear()} NicheCut · Connexion sécurisée
+                © {new Date().getFullYear()} KappGen · Connexion sécurisée
               </div>
             </section>
 
@@ -9377,7 +9377,7 @@ export default function App() {
               <div className="w-full max-w-[470px]">
                 <div className="lg:hidden flex items-center justify-between mb-8">
                   <a href={MARKETING_ORIGIN} className="flex items-center gap-2 text-white no-underline font-extrabold">
-                    <img src="/assets/logo/logo-nichecut.png" alt="NicheCut" className="w-9 h-9 object-contain" /> NicheCut
+                    <img src="/assets/logo/logo-kappgen.png" alt="KappGen" className="w-9 h-9 object-contain" /> KappGen
                   </a>
                   <a href={MARKETING_ORIGIN} className="text-xs text-slate-400 no-underline">Retour au site</a>
                 </div>
@@ -9391,7 +9391,7 @@ export default function App() {
                       {authTab === 'register' ? 'Lance ton Agent.' : authTab === 'forgot' ? 'Nouveau mot de passe.' : 'Content de te revoir.'}
                     </h2>
                     <p className="text-sm text-slate-400 mt-3 mb-0">
-                      {authTab === 'register' ? 'Configure ta première chaîne, puis va vivre. NicheCut reste au travail.' : authTab === 'forgot' ? 'Choisis un nouveau mot de passe pour ton compte.' : 'Ton Agent a continué pendant ton absence.'}
+                      {authTab === 'register' ? 'Configure ta première chaîne, puis va vivre. KappGen reste au travail.' : authTab === 'forgot' ? 'Choisis un nouveau mot de passe pour ton compte.' : 'Ton Agent a continué pendant ton absence.'}
                     </p>
                   </div>
 
@@ -9467,7 +9467,7 @@ export default function App() {
                     </>
                   )}
                 </div>
-                <p className="text-center text-[9px] leading-5 text-slate-600 mt-5 px-6">En continuant, tu acceptes les conditions d’utilisation et la politique de confidentialité de NicheCut.</p>
+                <p className="text-center text-[9px] leading-5 text-slate-600 mt-5 px-6">En continuant, tu acceptes les conditions d’utilisation et la politique de confidentialité de KappGen.</p>
               </div>
             </section>
           </div>
