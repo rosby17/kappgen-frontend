@@ -1136,10 +1136,11 @@ function ChannelAvatar({ channel, logoUrl, sizeClass = "w-12 h-12", textClass = 
   // Pipeline not finished yet (missing voice and/or visuals) — a ring +
   // percentage on the avatar itself, rather than blocking the channel from
   // being saved at all. Generation stays blocked separately, elsewhere.
-  // The badge sits top-left (not bottom-right) so it never collides with the
-  // green/red status dot some callers overlay on the opposite corner — it's
-  // also a fixed-size true circle (not a stretched pill) to actually match
-  // the avatar's own roundness instead of reading as a rounded square.
+  // Stays bottom-right (its original spot) — it's now a fixed-size true
+  // circle (not a stretched pill) to actually match the avatar's own
+  // roundness instead of reading as a rounded square. The green/red status
+  // dot some callers overlay moved to the top corner so it stops colliding
+  // with this badge.
   return (
     <div className={`relative ${sizeClass} flex-shrink-0`} title={`Configuration à ${percent}% — termine la voix et les visuels pour pouvoir générer une vidéo`}>
       <div
@@ -1150,7 +1151,7 @@ function ChannelAvatar({ channel, logoUrl, sizeClass = "w-12 h-12", textClass = 
           {image}
         </div>
       </div>
-      <span className="absolute -top-1 -left-1 w-[20px] h-[20px] bg-[#00c2ff] text-slate-950 text-[7px] font-black rounded-full leading-none shadow-md flex items-center justify-center">
+      <span className="absolute -bottom-1 -right-1 w-[20px] h-[20px] bg-[#00c2ff] text-slate-950 text-[7px] font-black rounded-full leading-none shadow-md flex items-center justify-center">
         {percent}%
       </span>
     </div>
@@ -1225,6 +1226,7 @@ export default function App() {
   const [languageSearch, setLanguageSearch] = useState('');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const profileMenuRef = useRef(null);
   const [openChannelMenuId, setOpenChannelMenuId] = useState(null);
   const [openVideoMenuId, setOpenVideoMenuId] = useState(null);
   const [publishingVideoId, setPublishingVideoId] = useState(null);
@@ -2116,6 +2118,22 @@ export default function App() {
     tryRender();
     return () => { cancelled = true; };
   }, [showAuthModal, authTab]);
+
+  // Close the profile dropdown on any click outside it — a document-level
+  // listener instead of a full-screen "catcher" overlay, so it isn't at the
+  // mercy of z-index/stacking-context quirks elsewhere on the page (the
+  // overlay approach was silently losing outside clicks to other stacked
+  // elements, only closing when the avatar itself was clicked again).
+  useEffect(() => {
+    if (!profileMenuOpen) return;
+    const handleClickOutside = (e) => {
+      if (profileMenuRef.current && !profileMenuRef.current.contains(e.target)) {
+        setProfileMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [profileMenuOpen]);
 
   const handleLogout = () => {
     setCurrentUser(null);
@@ -3856,7 +3874,7 @@ export default function App() {
 
             {/* Profile widget — top right */}
             {currentUser ? (
-              <div className="relative flex-shrink-0">
+              <div ref={profileMenuRef} className="relative flex-shrink-0">
                 <div
                   onClick={() => setProfileMenuOpen(o => !o)}
                   className="w-9 h-9 rounded-full cursor-pointer transition-all shadow-sm ring-2 ring-transparent hover:ring-[#00c2ff]/50 flex-shrink-0 overflow-hidden"
@@ -3871,29 +3889,26 @@ export default function App() {
                   )}
                 </div>
                 {profileMenuOpen && (
-                  <>
-                    <div className="fixed inset-0 z-[60]" onClick={() => setProfileMenuOpen(false)} />
-                    <div className="absolute right-0 top-full mt-2 w-56 bg-[#161b22] border border-[#263042] rounded-2xl shadow-2xl z-[70] overflow-hidden py-1.5">
-                      <div className="px-3.5 py-2.5 border-b border-[#263042]">
-                        <p className="text-xs font-bold text-white truncate">{currentUser.name}</p>
-                        <p className="text-[11px] text-slate-400 truncate">{currentUser.email}</p>
-                      </div>
-                      <button
-                        onClick={() => { setView('settings'); setProfileMenuOpen(false); }}
-                        className="w-full text-left px-3.5 py-2.5 text-xs font-bold flex items-center gap-2 text-slate-300 hover:bg-[#1b2230] hover:text-white transition-all"
-                      >
-                        <span className="material-symbols-outlined text-[16px]">settings</span>
-                        Paramètres
-                      </button>
-                      <button
-                        onClick={() => { handleLogout(); setProfileMenuOpen(false); }}
-                        className="w-full text-left px-3.5 py-2.5 text-xs font-bold flex items-center gap-2 text-rose-400 hover:bg-rose-950/50 transition-all"
-                      >
-                        <span className="material-symbols-outlined text-[16px]">logout</span>
-                        Déconnexion
-                      </button>
+                  <div className="absolute right-0 top-full mt-2 w-56 bg-[#161b22] border border-[#263042] rounded-2xl shadow-2xl z-[70] overflow-hidden py-1.5">
+                    <div className="px-3.5 py-2.5 border-b border-[#263042]">
+                      <p className="text-xs font-bold text-white truncate">{currentUser.name}</p>
+                      <p className="text-[11px] text-slate-400 truncate">{currentUser.email}</p>
                     </div>
-                  </>
+                    <button
+                      onClick={() => { setView('settings'); setProfileMenuOpen(false); }}
+                      className="w-full text-left px-3.5 py-2.5 text-xs font-bold flex items-center gap-2 text-slate-300 hover:bg-[#1b2230] hover:text-white transition-all"
+                    >
+                      <span className="material-symbols-outlined text-[16px]">settings</span>
+                      Paramètres
+                    </button>
+                    <button
+                      onClick={() => { handleLogout(); setProfileMenuOpen(false); }}
+                      className="w-full text-left px-3.5 py-2.5 text-xs font-bold flex items-center gap-2 text-rose-400 hover:bg-rose-950/50 transition-all"
+                    >
+                      <span className="material-symbols-outlined text-[16px]">logout</span>
+                      Déconnexion
+                    </button>
+                  </div>
                 )}
               </div>
             ) : (
@@ -4054,7 +4069,7 @@ export default function App() {
                               <div className="relative shrink-0">
                                 <ChannelAvatar channel={chan} logoUrl={logoUrl} sizeClass="w-12 h-12" textClass="text-lg" />
                                 <span
-                                  className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full ${getChannelStatusDotColor(chan)} ring-2 ring-[#161b22]`}
+                                  className={`absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full ${getChannelStatusDotColor(chan)} ring-2 ring-[#161b22]`}
                                   title={chan.is_render_ready ? (chan.failed_count > 0 ? 'Échec de rendu à corriger' : 'Chaîne active') : 'Configuration incomplète'}
                                 />
                               </div>
@@ -4516,7 +4531,7 @@ export default function App() {
                           return (
                             <span
                               title={s.label}
-                              className={`absolute -bottom-1 -right-1 w-3 h-3 rounded-full ${getChannelStatusDotColor(activeChannel)} ring-2 ring-[#171d27]`}
+                              className={`absolute -top-1 -right-1 w-3 h-3 rounded-full ${getChannelStatusDotColor(activeChannel)} ring-2 ring-[#171d27]`}
                             />
                           );
                         })()}
@@ -4529,6 +4544,21 @@ export default function App() {
                       )}
                       {activeChannel.youtube_connected ? (
                         <div className="inline-flex items-center gap-1.5 mt-2.5">
+                          <a
+                            href={
+                              activeChannel.youtube_channel_handle
+                                ? `https://www.youtube.com/${activeChannel.youtube_channel_handle.startsWith('@') ? activeChannel.youtube_channel_handle : `@${activeChannel.youtube_channel_handle}`}`
+                                : `https://www.youtube.com/channel/${activeChannel.youtube_channel_id}`
+                            }
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            title="Ouvrir la chaîne sur YouTube"
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[9px] font-bold uppercase tracking-[.1em] bg-emerald-950/80 text-emerald-300 border border-emerald-700/60 hover:bg-emerald-900/80 transition-colors"
+                          >
+                            <YouTubeIcon className="w-3.5 h-2.5" />
+                            Voir la chaîne
+                          </a>
                           <button
                             onClick={async (e) => {
                               e.stopPropagation();
@@ -4545,11 +4575,10 @@ export default function App() {
                                 showToast('Impossible de déconnecter YouTube.', 'error');
                               }
                             }}
-                            title="YouTube connecté — cliquer pour déconnecter"
-                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[9px] font-bold uppercase tracking-[.1em] bg-emerald-950/80 text-emerald-300 border border-emerald-700/60 hover:bg-emerald-900/80 transition-colors"
+                            title="Déconnecter YouTube"
+                            className="inline-flex items-center justify-center w-5 h-5 rounded-full text-slate-500 hover:text-rose-400 hover:bg-rose-950/40 transition-colors"
                           >
-                            <YouTubeIcon className="w-3.5 h-2.5" />
-                            Chaîne YouTube connectée
+                            <span className="material-symbols-outlined text-[13px]">link_off</span>
                           </button>
                         </div>
                       ) : (
