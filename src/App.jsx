@@ -5,8 +5,8 @@ import freedomSunrise from './assets/dashboard/freedom-sunrise.png';
 const getOrigin = () => (typeof window !== 'undefined' ? window.location.origin : '');
 const isLocalhost = getOrigin().includes('localhost') || getOrigin().includes('127.0.0.1');
 
-let rawApiBase = import.meta.env.VITE_API_BASE || (isLocalhost ? `${getOrigin()}/api` : "https://api-nichecut.tools-cl.com/api");
-if (rawApiBase.startsWith("http://api-nichecut.tools-cl.com")) {
+let rawApiBase = import.meta.env.VITE_API_BASE || (isLocalhost ? `${getOrigin()}/api` : "https://api.kappgen.com/api");
+if (rawApiBase.startsWith("http://api.kappgen.com")) {
   rawApiBase = rawApiBase.replace("http://", "https://");
 }
 const API_BASE = rawApiBase;
@@ -123,14 +123,14 @@ const redistributePartsToTotal = (parts, newTotalWords) => {
   });
 };
 
-let rawStorageBase = import.meta.env.VITE_STORAGE_BASE || (isLocalhost ? `${getOrigin()}/storage` : "https://api-nichecut.tools-cl.com/storage");
-if (rawStorageBase.startsWith("http://api-nichecut.tools-cl.com")) {
+let rawStorageBase = import.meta.env.VITE_STORAGE_BASE || (isLocalhost ? `${getOrigin()}/storage` : "https://api.kappgen.com/storage");
+if (rawStorageBase.startsWith("http://api.kappgen.com")) {
   rawStorageBase = rawStorageBase.replace("http://", "https://");
 }
 const STORAGE_BASE = rawStorageBase;
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || "";
-const MARKETING_ORIGIN = import.meta.env.VITE_MARKETING_ORIGIN || (isLocalhost ? getOrigin().replace(/\/app\/?$/, '') : "https://nichecut.tools-cl.com");
+const MARKETING_ORIGIN = import.meta.env.VITE_MARKETING_ORIGIN || (isLocalhost ? getOrigin().replace(/\/app\/?$/, '') : "https://kappgen.com");
 
 // Human-readable URL slug derived from a channel name, e.g. "Riviere de Grace" -> "riviere-de-grace".
 // Purely a display/routing convenience — the channel's real id is still what's sent to the API.
