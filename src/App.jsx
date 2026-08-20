@@ -96,6 +96,33 @@ const SCRIPT_STRUCTURE_DEFAULTS = {
 // French labels here to understand what they're configuring.
 const getScriptStructureDefaults = () => SCRIPT_STRUCTURE_DEFAULTS.Français;
 
+// Rough conversion ratios used only to let the creator set a script's total
+// length as characters or as a target video duration instead of raw word
+// counts. Matches the ~150 wpm speech-rate estimate already used server-side
+// (backend/src/api/routes/videos.py) so the duration shown here lines up
+// with the duration the backend will actually estimate.
+const CHARS_PER_WORD = 6;
+const WORDS_PER_MINUTE = 150;
+const wordsToChars = (words) => Math.round(words * CHARS_PER_WORD);
+const charsToWords = (chars) => Math.round(chars / CHARS_PER_WORD);
+const wordsToMinutes = (words) => words / WORDS_PER_MINUTE;
+const minutesToWords = (minutes) => Math.round(minutes * WORDS_PER_MINUTE);
+
+// Rescales every part's word_count proportionally so the parts sum to
+// newTotalWords, preserving each part's relative share of the total. The
+// last part absorbs the rounding remainder so the sum always matches exactly.
+const redistributePartsToTotal = (parts, newTotalWords) => {
+  if (!parts.length) return parts;
+  const currentTotal = parts.reduce((sum, p) => sum + (Number(p.word_count) || 0), 0) || parts.length;
+  let running = 0;
+  return parts.map((p, i) => {
+    if (i === parts.length - 1) return { ...p, word_count: Math.max(0, newTotalWords - running) };
+    const share = Math.round(((Number(p.word_count) || 0) / currentTotal) * newTotalWords);
+    running += share;
+    return { ...p, word_count: share };
+  });
+};
+
 let rawStorageBase = import.meta.env.VITE_STORAGE_BASE || (isLocalhost ? `${getOrigin()}/storage` : "https://api-nichecut.tools-cl.com/storage");
 if (rawStorageBase.startsWith("http://api-nichecut.tools-cl.com")) {
   rawStorageBase = rawStorageBase.replace("http://", "https://");
@@ -6177,9 +6204,23 @@ export default function App() {
 
                       <div className="bg-[#171b23] border border-[#2b374d] rounded-xl p-3.5 space-y-2.5">
                         <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2.5">
-                            <span className="material-symbols-outlined text-[#00c2ff] text-[24px]">photo_camera</span>
-                            <h4 className="font-bold text-white text-xs">Style de la miniature YouTube</h4>
+                          <div className="flex items-center gap-3">
+                            {/* Mini mockup of a YouTube video card — makes it obvious at a
+                                glance that this section is about the clickable thumbnail
+                                image, not the video content itself. */}
+                            <div className="w-16 h-10 rounded-md bg-[#0f1217] border border-[#2b374d] flex-shrink-0 relative overflow-hidden flex items-center justify-center">
+                              <span className="material-symbols-outlined text-slate-500 text-[18px]">image</span>
+                              <span className="absolute inset-0 flex items-center justify-center">
+                                <span className="w-4 h-4 rounded-full bg-black/60 flex items-center justify-center">
+                                  <span className="material-symbols-outlined text-white text-[10px]">play_arrow</span>
+                                </span>
+                              </span>
+                              <span className="absolute bottom-0.5 right-0.5 px-1 rounded bg-black/70 text-[7px] font-bold text-white leading-tight">4:12</span>
+                            </div>
+                            <div>
+                              <h4 className="font-bold text-white text-xs">Style de la miniature YouTube</h4>
+                              <p className="text-[10px] text-slate-500">L'image d'aperçu cliquable affichée sur YouTube — pas la vidéo elle-même.</p>
+                            </div>
                           </div>
                           <div onClick={(e) => e.stopPropagation()}>
                             <input
@@ -8716,8 +8757,39 @@ export default function App() {
                   })()}
                 </div>
 
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-300 mb-1">Longueur totale du script</label>
+                  <p className="text-[10px] text-slate-500 mb-2">Renseigne l'un ou l'autre — les parties ci-dessous sont réparties automatiquement au prorata pour atteindre ce total.</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="relative">
+                      <input
+                        type="number"
+                        min="0"
+                        value={wordsToChars(totalWords)}
+                        onChange={e => updateStructure({ parts: redistributePartsToTotal(parts, charsToWords(parseInt(e.target.value) || 0)) })}
+                        className="w-full bg-[#1b2230] border border-[#2b374d] rounded-lg px-3 py-2.5 pr-20 text-xs text-white focus:border-[#00c2ff] outline-none"
+                      />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-slate-500 font-bold">caractères</span>
+                    </div>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.5"
+                        value={Math.round(wordsToMinutes(totalWords) * 10) / 10}
+                        onChange={e => updateStructure({ parts: redistributePartsToTotal(parts, minutesToWords(parseFloat(e.target.value) || 0)) })}
+                        className="w-full bg-[#1b2230] border border-[#2b374d] rounded-lg px-3 py-2.5 pr-16 text-xs text-white focus:border-[#00c2ff] outline-none"
+                      />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-slate-500 font-bold">minutes</span>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="space-y-3">
-                  <label className="block text-[11px] font-bold text-slate-300">Parties du script</label>
+                  <div className="flex items-center justify-between px-1">
+                    <label className="text-[11px] font-bold text-slate-300">Parties du script</label>
+                    <span className="text-[10px] text-slate-500 font-bold pr-11">Mots</span>
+                  </div>
                   {parts.map((part, idx) => (
                     <div key={idx} className="border border-[#2b374d] rounded-lg p-3 space-y-2 bg-[#1b2230]">
                       <div className="flex items-center gap-2">
