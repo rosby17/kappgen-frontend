@@ -5566,25 +5566,28 @@ export default function App() {
 
             {/* VIEW 5: CHANNEL WIZARD (CREATE / EDIT) */}
             {view === 'wizard' && (
-              <div className="max-w-[1240px] mx-auto bg-[#161b22] border border-[#263042] rounded-3xl p-8 shadow-2xl space-y-8">
+              <div className="max-w-[1240px] mx-auto bg-[#161b22] border border-[#263042] rounded-3xl p-4 sm:p-8 shadow-2xl space-y-6 sm:space-y-8">
                 {/* Wizard Header Stepper */}
-                <div className="flex items-center justify-between border-b border-[#263042] pb-6">
-                  <div>
-                    <h2 className="text-xl font-extrabold text-white">
+                <div className="flex items-start justify-between gap-3 border-b border-[#263042] pb-4 sm:pb-6">
+                  <div className="min-w-0">
+                    <h2 className="text-base sm:text-xl font-extrabold text-white">
                       {wizardMode === 'edit' ? 'Modifier le Pipeline de la Chaîne' : 'Configuration du Template de Montage de sa Chaîne'}
                     </h2>
                     <p className="text-xs text-slate-400 mt-1">Étape {wizardStep} sur 9</p>
                   </div>
                   <button
                     onClick={() => setView(wizardMode === 'edit' && editingChannelId ? 'channel_detail' : 'channels')}
-                    className="text-slate-400 hover:text-white p-2"
+                    className="text-slate-400 hover:text-white p-2 shrink-0"
                   >
                     <span className="material-symbols-outlined">close</span>
                   </button>
                 </div>
 
-                {/* Steps Timeline Indicator */}
-                <div className="grid grid-cols-9 gap-2">
+                {/* Steps Timeline Indicator — a fixed 9-col grid crushed every label
+                    unreadable on mobile (~40px/column). Below sm, it's a horizontally
+                    scrollable row of pills sized to their own text instead; sm+ keeps
+                    the original evenly-spaced grid. */}
+                <div className="flex sm:grid sm:grid-cols-9 gap-2 overflow-x-auto sm:overflow-visible -mx-4 px-4 sm:mx-0 sm:px-0 pb-1 sm:pb-0">
                   {['Identité', 'Script', 'Voix Off', 'Visuels', 'Musique', 'Sous-titres', 'Effets', 'Publication', 'Aperçu'].map((label, idx) => {
                     const stepNum = idx + 1;
                     const isActive = wizardStep === stepNum;
@@ -5593,7 +5596,7 @@ export default function App() {
                       <button
                         key={stepNum}
                         onClick={() => setWizardStep(stepNum)}
-                        className={`py-2 px-1 text-center rounded-xl text-xs font-bold transition-all ${
+                        className={`shrink-0 whitespace-nowrap py-2 px-3 sm:px-1 text-center rounded-xl text-xs font-bold transition-all ${
                           isActive ? 'bg-[#00c2ff] text-slate-950 shadow-md' :
                           isPassed ? 'bg-[#00c2ff]/20 text-[#00c2ff] border border-[#00c2ff]/40' :
                           'bg-[#1b2230] text-slate-400'
@@ -7445,8 +7448,10 @@ export default function App() {
                   );
                 })()}
 
-                {/* Wizard Footer Navigation */}
-                <div className="flex justify-between items-center pt-6 border-t border-[#263042]">
+                {/* Wizard Footer Navigation — flex-wrap so the button group (up to 3
+                    buttons in edit mode: Retour / Enregistrer et quitter / Suivant)
+                    drops to its own line instead of overflowing on narrow screens. */}
+                <div className="flex flex-wrap justify-between items-center gap-3 pt-6 border-t border-[#263042]">
                   {wizardStep > 1 ? (
                     <button
                       onClick={() => setWizardStep(wizardStep - 1)}
@@ -7456,7 +7461,7 @@ export default function App() {
                     </button>
                   ) : <div></div>}
 
-                  <div className="flex items-center gap-3">
+                  <div className="flex flex-wrap items-center gap-3">
                     {/* In edit mode the pipeline already exists — no need to click through
                         every step just to save a change made on this one. Create mode keeps
                         the guided step-by-step flow since nothing's configured yet. */}
