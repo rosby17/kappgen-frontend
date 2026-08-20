@@ -2322,9 +2322,14 @@ export default function App() {
       };
       xhr.upload.onprogress = (event) => {
         if (!event.lengthComputable) return;
-        const percent = Math.min(92, Math.round(5 + (event.loaded / event.total) * 87));
+        const ratio = event.loaded / event.total;
+        const percent = Math.min(92, Math.round(5 + ratio * 87));
+        // All files travel in a single multipart request, so there's no
+        // native "file N of M done" event — estimate it from the byte ratio,
+        // which tracks closely enough since images are a similar size.
+        const imagesDone = Math.min(files.length, Math.max(0, Math.round(ratio * files.length)));
         setLibraryUploadProgress(percent);
-        setLibraryUploadMessage(`Importation : ${event.loaded.toLocaleString('fr-FR')} / ${event.total.toLocaleString('fr-FR')} octets`);
+        setLibraryUploadMessage(`Importation : ${imagesDone.toLocaleString('fr-FR')} / ${files.length.toLocaleString('fr-FR')} images`);
       };
       xhr.upload.onload = () => {
         setLibraryUploadStatus('validating');
