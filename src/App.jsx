@@ -7527,94 +7527,6 @@ export default function App() {
         </div>
       )}
 
-      {/* SCRIPT LANGUAGE MODAL */}
-      {showLanguageModal && (() => {
-        const query = languageSearch.trim().toLocaleLowerCase();
-        const filteredLanguages = SCRIPT_LANGUAGES.filter(lang =>
-          !query || `${lang.label} ${lang.value} ${lang.code}`.toLocaleLowerCase().includes(query)
-        );
-        const selectedLanguage = newChannel.script_structure?.language || 'English';
-        return (
-          <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-[120] flex items-center justify-center p-4 sm:p-6" onClick={() => setShowLanguageModal(false)}>
-            <div className="bg-[#111822] border border-[#293548] rounded-3xl w-full max-w-2xl shadow-2xl flex flex-col max-h-[84vh]" onClick={e => e.stopPropagation()}>
-              <div className="p-5 sm:p-6 border-b border-[#263042] space-y-4 flex-shrink-0">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <div className="flex items-center gap-2 text-[#59d8ff] mb-1">
-                      <span className="material-symbols-outlined text-[20px]">language</span>
-                      <span className="text-[10px] font-bold uppercase tracking-[.16em]">Audience internationale</span>
-                    </div>
-                    <h3 className="text-lg font-extrabold text-white">Langue du script</h3>
-                    <p className="text-xs text-slate-400 mt-1">L’Agent écrira le titre, le script et la narration dans cette langue.</p>
-                  </div>
-                  <button onClick={() => setShowLanguageModal(false)} className="text-slate-400 hover:text-white p-1">
-                    <span className="material-symbols-outlined">close</span>
-                  </button>
-                </div>
-                <div className="relative">
-                  <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-[18px]">search</span>
-                  <input
-                    autoFocus
-                    value={languageSearch}
-                    onChange={e => setLanguageSearch(e.target.value)}
-                    placeholder="Rechercher : français, Hindi, العربية…"
-                    className="w-full bg-[#0b111a] border border-[#2b374d] rounded-xl pl-10 pr-4 py-3 text-sm text-white focus:border-[#00c2ff] outline-none"
-                  />
-                </div>
-              </div>
-              <div className="overflow-y-auto p-3 sm:p-4">
-                {filteredLanguages.length === 0 ? (
-                  <p className="text-sm text-slate-500 text-center py-10">Aucune langue trouvée.</p>
-                ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {filteredLanguages.map(lang => {
-                      const active = selectedLanguage === lang.value;
-                      return (
-                        <button
-                          key={lang.code}
-                          type="button"
-                          onClick={() => {
-                            setNewChannel(prev => {
-                              const current = prev.script_structure || {};
-                              // Only swap guidance text if it's still an unedited default — never
-                              // clobber a creator's own custom parts/rules/cta just by changing language.
-                              const shouldRelocalize = isPristineScriptStructure(current);
-                              return {
-                                ...prev,
-                                script_structure: {
-                                  ...current,
-                                  language: lang.value,
-                                  ...(shouldRelocalize ? getScriptStructureDefaults(lang.value) : {}),
-                                },
-                              };
-                            });
-                            setShowLanguageModal(false);
-                          }}
-                          className={`flex items-center gap-3 p-3 rounded-xl text-left border transition-all ${
-                            active ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-white' : 'bg-[#151d29] border-[#263042] hover:border-[#3a4a62] text-slate-200'
-                          }`}
-                        >
-                          <span className={`w-10 h-8 rounded-lg flex items-center justify-center text-[10px] font-black ${active ? 'bg-[#00c2ff] text-[#07111a]' : 'bg-[#202b3a] text-slate-400'}`}>{lang.code}</span>
-                          <span className="min-w-0 flex-1">
-                            <span className="block text-sm font-bold truncate">{lang.label}</span>
-                            {lang.label !== lang.value && <span className="block text-[10px] text-slate-500 truncate mt-0.5">{lang.value}</span>}
-                          </span>
-                          {active && <span className="material-symbols-outlined text-[19px] text-[#00c2ff]">check_circle</span>}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-              <div className="px-5 py-3 border-t border-[#263042] text-[10px] text-slate-500 flex items-center gap-2 flex-shrink-0">
-                <span className="material-symbols-outlined text-[15px]">auto_awesome</span>
-                Le ton et les expressions seront adaptés naturellement à la langue sélectionnée.
-              </div>
-            </div>
-          </div>
-        );
-      })()}
-
       {/* SCRIPT STRUCTURE MODAL — pulled out of the wizard step into a popup so
           configuring the auto-script structure doesn't force scrolling through
           a long inline form. */}
@@ -7649,19 +7561,71 @@ export default function App() {
               </div>
 
               <div className="overflow-y-auto p-5 sm:p-6 space-y-4">
-                <div>
+                <div className="relative">
                   <label className="block text-[11px] font-bold text-slate-300 mb-1">Langue du script</label>
                   <button
                     type="button"
-                    onClick={() => { setLanguageSearch(''); setShowLanguageModal(true); }}
-                    className="w-full bg-[#1b2230] border border-[#2b374d] hover:border-[#00c2ff]/60 rounded-lg px-3 py-2.5 text-xs text-white transition-colors flex items-center justify-between gap-3"
+                    onClick={() => { setLanguageSearch(''); setShowLanguageModal(o => !o); }}
+                    className={`w-full bg-[#1b2230] border rounded-lg px-3 py-2.5 text-xs text-white transition-colors flex items-center justify-between gap-3 ${showLanguageModal ? 'border-[#00c2ff]' : 'border-[#2b374d] hover:border-[#00c2ff]/60'}`}
                   >
                     <span className="flex items-center gap-2 min-w-0">
                       <span className="material-symbols-outlined text-[17px] text-[#00c2ff]">language</span>
                       <span className="truncate">{SCRIPT_LANGUAGES.find(lang => lang.value === (structure.language || 'English'))?.label || structure.language || 'English'}</span>
                     </span>
-                    <span className="material-symbols-outlined text-[18px] text-slate-500">expand_more</span>
+                    <span className={`material-symbols-outlined text-[18px] text-slate-500 transition-transform ${showLanguageModal ? 'rotate-180' : ''}`}>expand_more</span>
                   </button>
+                  {showLanguageModal && (() => {
+                    const query = languageSearch.trim().toLocaleLowerCase();
+                    const filteredLanguages = SCRIPT_LANGUAGES.filter(lang =>
+                      !query || `${lang.label} ${lang.value} ${lang.code}`.toLocaleLowerCase().includes(query)
+                    );
+                    const selectedLanguage = structure.language || 'English';
+                    return (
+                      <div className="absolute left-0 right-0 top-full mt-1.5 bg-[#1f2838] border border-[#2d3a52] rounded-xl shadow-2xl z-30 overflow-hidden">
+                        <div className="p-2 border-b border-[#2d3a52]">
+                          <input
+                            autoFocus
+                            value={languageSearch}
+                            onChange={e => setLanguageSearch(e.target.value)}
+                            placeholder="Rechercher : français, Hindi, العربية…"
+                            className="w-full bg-[#11151c] border border-[#2b374d] rounded-lg px-2.5 py-1.5 text-[11px] text-white focus:border-[#00c2ff] outline-none"
+                          />
+                        </div>
+                        <div className="max-h-56 overflow-y-auto py-1">
+                          {filteredLanguages.length === 0 ? (
+                            <p className="text-xs text-slate-500 text-center py-6">Aucune langue trouvée.</p>
+                          ) : filteredLanguages.map(lang => {
+                            const active = selectedLanguage === lang.value;
+                            return (
+                              <button
+                                key={lang.code}
+                                type="button"
+                                onClick={() => {
+                                  setNewChannel(prev => {
+                                    const current = prev.script_structure || {};
+                                    const shouldRelocalize = isPristineScriptStructure(current);
+                                    return {
+                                      ...prev,
+                                      script_structure: {
+                                        ...current,
+                                        language: lang.value,
+                                        ...(shouldRelocalize ? getScriptStructureDefaults(lang.value) : {}),
+                                      },
+                                    };
+                                  });
+                                  setShowLanguageModal(false);
+                                }}
+                                className={`w-full text-left px-3 py-1.5 text-[11px] hover:bg-[#2c394e] transition-colors flex items-center justify-between gap-2 ${active ? 'text-[#00c2ff] font-bold' : 'text-slate-300'}`}
+                              >
+                                <span className="truncate">{lang.label}{lang.label !== lang.value ? ` — ${lang.value}` : ''}</span>
+                                {active && <span className="material-symbols-outlined text-[14px] shrink-0">check</span>}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 <div className="space-y-3">
