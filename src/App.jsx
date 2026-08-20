@@ -2049,6 +2049,9 @@ export default function App() {
   const [savingIzivoiceKey, setSavingIzivoiceKey] = useState(false);
   const cloneVoiceInputRef = useRef(null);
   const [showVoiceLibrary, setShowVoiceLibrary] = useState(false);
+  // Separate from VoiceLibraryModal's own (locally-scoped) playingId — this one
+  // is for the compact voice selector on the Voix Off step, outside that modal.
+  const [wizardVoicePreviewId, setWizardVoicePreviewId] = useState(null);
   const [showVoiceCloner, setShowVoiceCloner] = useState(false);
   const [savedVoiceIds, setSavedVoiceIds] = useState(() => readVoiceIdList(SAVED_VOICE_IDS_KEY));
   const [clonedVoiceIds, setClonedVoiceIds] = useState(() => readVoiceIdList(CLONED_VOICE_IDS_KEY));
@@ -5863,11 +5866,11 @@ export default function App() {
                                   voice={activeVoice}
                                   size={34}
                                   playable={!!activeVoice.preview_url}
-                                  playing={playingId === activeVoice.id}
+                                  playing={wizardVoicePreviewId === activeVoice.id}
                                   onTogglePlay={() => {
-                                    if (playingId === activeVoice.id) { stopVoicePreview(); setPlayingId(null); return; }
-                                    playVoicePreviewExclusive(activeVoice.preview_url, () => setPlayingId(null));
-                                    setPlayingId(activeVoice.id);
+                                    if (wizardVoicePreviewId === activeVoice.id) { stopVoicePreview(); setWizardVoicePreviewId(null); return; }
+                                    playVoicePreviewExclusive(activeVoice.preview_url, () => setWizardVoicePreviewId(null));
+                                    setWizardVoicePreviewId(activeVoice.id);
                                   }}
                                 />
                                 <div className="min-w-0 flex-1">
