@@ -87,20 +87,14 @@ const SCRIPT_STRUCTURE_DEFAULTS = {
     cta_style: "Glisse une invitation naturelle à aimer, s'abonner et commenter sans casser le ton.",
   },
 };
-const getScriptStructureDefaults = (language) => SCRIPT_STRUCTURE_DEFAULTS[language] || SCRIPT_STRUCTURE_DEFAULTS.English;
-// True when the structure still matches an unedited default set (in any
-// covered language) — only then is it safe to auto-swap guidance text when
-// the creator changes the script language, without clobbering their edits.
-const isPristineScriptStructure = (structure) => {
-  if (!structure) return true;
-  const { language, ...rest } = structure;
-  return Object.values(SCRIPT_STRUCTURE_DEFAULTS).some(defaults => {
-    const { parts, formatting_rules, cta_style } = defaults;
-    return JSON.stringify({ parts, formatting_rules, cta_style }) === JSON.stringify({
-      parts: rest.parts, formatting_rules: rest.formatting_rules, cta_style: rest.cta_style,
-    });
-  });
-};
+// The structure editor's own part names/guidance text are meta-instructions
+// read by the *creator* configuring their channel — NicheCut's interface is
+// French, so these always default to French, regardless of `language`
+// below, which is a completely separate setting: the language the AI
+// actually WRITES the generated video's script in. A francophone creator
+// can perfectly well generate English-language videos while still reading
+// French labels here to understand what they're configuring.
+const getScriptStructureDefaults = () => SCRIPT_STRUCTURE_DEFAULTS.Français;
 
 let rawStorageBase = import.meta.env.VITE_STORAGE_BASE || (isLocalhost ? `${getOrigin()}/storage` : "https://api-nichecut.tools-cl.com/storage");
 if (rawStorageBase.startsWith("http://api-nichecut.tools-cl.com")) {
@@ -2191,7 +2185,7 @@ export default function App() {
     publish_schedule_day_offset: 1,
     script_structure: {
       language: 'English',
-      ...SCRIPT_STRUCTURE_DEFAULTS.English,
+      ...getScriptStructureDefaults(),
     },
     voice_id: '',
     voice_name: '',
@@ -8654,18 +8648,13 @@ export default function App() {
                                 key={lang.code}
                                 type="button"
                                 onClick={() => {
-                                  setNewChannel(prev => {
-                                    const current = prev.script_structure || {};
-                                    const shouldRelocalize = isPristineScriptStructure(current);
-                                    return {
-                                      ...prev,
-                                      script_structure: {
-                                        ...current,
-                                        language: lang.value,
-                                        ...(shouldRelocalize ? getScriptStructureDefaults(lang.value) : {}),
-                                      },
-                                    };
-                                  });
+                                  // Only changes the language the AI writes the script IN — the
+                                  // part names/guidance shown here stay in French (the editor's
+                                  // own interface language) no matter what's picked.
+                                  setNewChannel(prev => ({
+                                    ...prev,
+                                    script_structure: { ...(prev.script_structure || {}), language: lang.value },
+                                  }));
                                   setShowLanguageModal(false);
                                 }}
                                 className={`w-full text-left px-3 py-1.5 text-[11px] hover:bg-[#2c394e] transition-colors flex items-center justify-between gap-2 ${active ? 'text-[#00c2ff] font-bold' : 'text-slate-300'}`}
