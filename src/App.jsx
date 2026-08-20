@@ -5601,87 +5601,59 @@ export default function App() {
                   <div className="space-y-6">
                     <h3 className="text-base font-bold text-white">2. Génération du Script</h3>
                     <div>
-                      <label className="block text-xs font-bold text-slate-300 mb-2">Génération du script</label>
-                      <ModeDropdown
-                        value={newChannel.automation_mode || 'manual'}
-                        onChange={v => setNewChannel({ ...newChannel, automation_mode: v })}
-                        options={[
-                          { value: 'manual', icon: 'edit_note', label: 'Manuel', desc: 'Tu écris ou colles le script toi-même' },
-                          { value: 'auto', icon: 'auto_awesome', label: 'Automatique', desc: `L'Agent choisit le sujet, écrit le script, entre ${String(newChannel.automation_window_start_hour ?? 7).padStart(2, '0')}h et ${String(newChannel.automation_window_end_hour ?? 11).padStart(2, '0')}h` },
-                        ]}
-                      />
+                      <div className="flex items-center justify-between bg-[#11151c] border border-[#202938] rounded-xl px-4 py-3">
+                        <div>
+                          <div className="text-xs font-bold text-white">
+                            {(newChannel.automation_mode || 'manual') === 'auto' ? 'Automatique' : 'Manuel'}
+                          </div>
+                          <div className="text-[11px] text-slate-400 mt-0.5">
+                            {(newChannel.automation_mode || 'manual') === 'auto'
+                              ? "L'Agent choisit le sujet et écrit le script pour toi"
+                              : 'Tu écris ou colles le script toi-même à chaque vidéo'}
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setNewChannel({ ...newChannel, automation_mode: (newChannel.automation_mode || 'manual') === 'auto' ? 'manual' : 'auto' })}
+                          className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${(newChannel.automation_mode || 'manual') === 'auto' ? 'bg-[#00c2ff]' : 'bg-[#2b374d]'}`}
+                        >
+                          <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform ${(newChannel.automation_mode || 'manual') === 'auto' ? 'translate-x-[22px]' : 'translate-x-0.5'}`} />
+                        </button>
+                      </div>
                       {newChannel.automation_mode === 'auto' && (
                         <div className="mt-3 space-y-2">
                           <div className="flex items-center gap-2 bg-[#11151c] border border-[#202938] rounded-xl px-3 py-2.5">
                             <span className="material-symbols-outlined text-[16px] text-slate-500 shrink-0">calendar_today</span>
                             <span className="text-[11px] text-slate-400 shrink-0">Vidéos par jour :</span>
-                            <div className="flex-1 flex gap-1.5">
-                              {[1, 2, 3].map(n => (
-                                <button
-                                  key={n}
-                                  type="button"
-                                  onClick={() => setNewChannel({ ...newChannel, videos_per_day: n })}
-                                  className={`flex-1 py-1.5 rounded-lg text-[11px] font-bold border transition-colors ${
-                                    (newChannel.videos_per_day || 1) === n
-                                      ? 'bg-[#00c2ff] text-slate-950 border-[#00c2ff]'
-                                      : 'bg-[#1b2230] border-[#2b374d] text-slate-300 hover:border-slate-500'
-                                  }`}
-                                >
-                                  {n}
-                                </button>
-                              ))}
+                            <div className="flex-1 flex items-center justify-end gap-2">
+                              <button
+                                type="button"
+                                onClick={() => setNewChannel({ ...newChannel, videos_per_day: Math.max(1, (newChannel.videos_per_day || 1) - 1) })}
+                                className="w-7 h-7 rounded-lg bg-[#1b2230] border border-[#2b374d] text-white hover:border-slate-500 flex items-center justify-center"
+                              >
+                                <span className="material-symbols-outlined text-[16px]">remove</span>
+                              </button>
+                              <input
+                                type="number"
+                                min={1}
+                                max={100}
+                                value={newChannel.videos_per_day || 1}
+                                onChange={e => {
+                                  const n = parseInt(e.target.value);
+                                  setNewChannel({ ...newChannel, videos_per_day: Number.isFinite(n) ? Math.min(100, Math.max(1, n)) : 1 });
+                                }}
+                                className="w-14 text-center bg-[#1b2230] border border-[#2b374d] rounded-lg py-1 text-xs font-bold text-white focus:border-[#00c2ff] outline-none"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => setNewChannel({ ...newChannel, videos_per_day: Math.min(100, (newChannel.videos_per_day || 1) + 1) })}
+                                className="w-7 h-7 rounded-lg bg-[#1b2230] border border-[#2b374d] text-white hover:border-slate-500 flex items-center justify-center"
+                              >
+                                <span className="material-symbols-outlined text-[16px]">add</span>
+                              </button>
                             </div>
                           </div>
-                          <div className="flex items-center gap-2 bg-[#11151c] border border-[#202938] rounded-xl px-3 py-2.5">
-                            <span className="material-symbols-outlined text-[16px] text-slate-500 shrink-0">schedule</span>
-                            <span className="text-[11px] text-slate-400 shrink-0">Plage horaire :</span>
-                            <select
-                              value={newChannel.automation_window_start_hour ?? 7}
-                              onChange={e => setNewChannel({ ...newChannel, automation_window_start_hour: parseInt(e.target.value) })}
-                              className="bg-[#1b2230] border border-[#2b374d] rounded-lg px-2 py-1.5 text-[11px] text-white focus:border-[#00c2ff] outline-none"
-                            >
-                              {Array.from({ length: 24 }, (_, h) => <option key={h} value={h}>{String(h).padStart(2, '0')}h00</option>)}
-                            </select>
-                            <span className="text-[11px] text-slate-500">à</span>
-                            <select
-                              value={newChannel.automation_window_end_hour ?? 11}
-                              onChange={e => setNewChannel({ ...newChannel, automation_window_end_hour: parseInt(e.target.value) })}
-                              className="bg-[#1b2230] border border-[#2b374d] rounded-lg px-2 py-1.5 text-[11px] text-white focus:border-[#00c2ff] outline-none"
-                            >
-                              {Array.from({ length: 24 }, (_, h) => <option key={h} value={h}>{String(h).padStart(2, '0')}h00</option>)}
-                            </select>
-                          </div>
-                          <div className="bg-[#11151c] border border-[#202938] rounded-xl px-3 py-2.5">
-                            <div className="flex items-center gap-2 mb-2">
-                              <span className="material-symbols-outlined text-[16px] text-slate-500 shrink-0">event_repeat</span>
-                              <span className="text-[11px] text-slate-400">Jours actifs — laisse tout coché pour publier tous les jours, ou choisis juste certains jours (ex: une fois par semaine, 3x/semaine...)</span>
-                            </div>
-                            <div className="flex gap-1.5">
-                              {[
-                                { id: 0, label: 'L' }, { id: 1, label: 'M' }, { id: 2, label: 'M' },
-                                { id: 3, label: 'J' }, { id: 4, label: 'V' }, { id: 5, label: 'S' }, { id: 6, label: 'D' },
-                              ].map(({ id, label }) => {
-                                const activeDays = newChannel.active_days;
-                                const isOn = !activeDays || activeDays.length === 0 || activeDays.includes(id);
-                                return (
-                                  <button
-                                    key={id}
-                                    type="button"
-                                    onClick={() => {
-                                      const current = (activeDays && activeDays.length > 0) ? activeDays : [0, 1, 2, 3, 4, 5, 6];
-                                      const next = current.includes(id) ? current.filter(d => d !== id) : [...current, id].sort();
-                                      setNewChannel({ ...newChannel, active_days: next.length === 7 ? null : next });
-                                    }}
-                                    className={`flex-1 py-2 rounded-lg text-[11px] font-bold border transition-colors ${
-                                      isOn ? 'bg-[#00c2ff] text-slate-950 border-[#00c2ff]' : 'bg-[#1b2230] border-[#2b374d] text-slate-300 hover:border-slate-500'
-                                    }`}
-                                  >
-                                    {label}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          </div>
+                          <p className="text-[10px] text-slate-500 px-1">Le nombre de scripts à écrire chaque jour — sans contrainte d'heure : la plage horaire et les jours de publication se règlent à l'étape « Publication ».</p>
                           <div className="flex items-center gap-2 bg-[#11151c] border border-[#202938] rounded-xl px-3 py-2.5 relative">
                             <span className="material-symbols-outlined text-[16px] text-slate-500 shrink-0">public</span>
                             <span className="text-[11px] text-slate-400 shrink-0">Fuseau horaire :</span>
@@ -7148,31 +7120,71 @@ export default function App() {
                         ]}
                       />
                       {newChannel.publish_mode === 'scheduled' && (
-                        <div className="mt-3 flex items-center gap-3">
-                          <div>
-                            <label className="block text-[11px] font-bold text-slate-300 mb-1">Combien de jours après le rendu</label>
+                        <div className="mt-3 space-y-2">
+                          <div className="flex items-center gap-3">
+                            <div>
+                              <label className="block text-[11px] font-bold text-slate-300 mb-1">Combien de jours après le rendu</label>
+                              <select
+                                value={newChannel.publish_schedule_day_offset ?? 1}
+                                onChange={e => setNewChannel({ ...newChannel, publish_schedule_day_offset: parseInt(e.target.value) })}
+                                className="bg-[#1b2230] border border-[#2b374d] rounded-xl px-3 py-2 text-xs text-white focus:border-[#00c2ff] outline-none"
+                              >
+                                <option value={0}>Le jour même</option>
+                                <option value={1}>Le lendemain</option>
+                                <option value={2}>Dans 2 jours</option>
+                                <option value={3}>Dans 3 jours</option>
+                              </select>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 bg-[#11151c] border border-[#202938] rounded-xl px-3 py-2.5">
+                            <span className="material-symbols-outlined text-[16px] text-slate-500 shrink-0">schedule</span>
+                            <span className="text-[11px] text-slate-400 shrink-0">Plage horaire de publication :</span>
                             <select
-                              value={newChannel.publish_schedule_day_offset ?? 1}
-                              onChange={e => setNewChannel({ ...newChannel, publish_schedule_day_offset: parseInt(e.target.value) })}
-                              className="bg-[#1b2230] border border-[#2b374d] rounded-xl px-3 py-2 text-xs text-white focus:border-[#00c2ff] outline-none"
+                              value={newChannel.automation_window_start_hour ?? 7}
+                              onChange={e => setNewChannel({ ...newChannel, automation_window_start_hour: parseInt(e.target.value) })}
+                              className="bg-[#1b2230] border border-[#2b374d] rounded-lg px-2 py-1.5 text-[11px] text-white focus:border-[#00c2ff] outline-none"
                             >
-                              <option value={0}>Le jour même</option>
-                              <option value={1}>Le lendemain</option>
-                              <option value={2}>Dans 2 jours</option>
-                              <option value={3}>Dans 3 jours</option>
+                              {Array.from({ length: 24 }, (_, h) => <option key={h} value={h}>{String(h).padStart(2, '0')}h00</option>)}
+                            </select>
+                            <span className="text-[11px] text-slate-500">à</span>
+                            <select
+                              value={newChannel.automation_window_end_hour ?? 11}
+                              onChange={e => setNewChannel({ ...newChannel, automation_window_end_hour: parseInt(e.target.value) })}
+                              className="bg-[#1b2230] border border-[#2b374d] rounded-lg px-2 py-1.5 text-[11px] text-white focus:border-[#00c2ff] outline-none"
+                            >
+                              {Array.from({ length: 24 }, (_, h) => <option key={h} value={h}>{String(h).padStart(2, '0')}h00</option>)}
                             </select>
                           </div>
-                          <div>
-                            <label className="block text-[11px] font-bold text-slate-300 mb-1">À quelle heure (ton fuseau horaire)</label>
-                            <select
-                              value={newChannel.publish_schedule_hour ?? 8}
-                              onChange={e => setNewChannel({ ...newChannel, publish_schedule_hour: parseInt(e.target.value) })}
-                              className="bg-[#1b2230] border border-[#2b374d] rounded-xl px-3 py-2 text-xs text-white focus:border-[#00c2ff] outline-none"
-                            >
-                              {Array.from({ length: 24 }, (_, h) => (
-                                <option key={h} value={h}>{String(h).padStart(2, '0')}h00</option>
-                              ))}
-                            </select>
+                          <div className="bg-[#11151c] border border-[#202938] rounded-xl px-3 py-2.5">
+                            <div className="flex items-center gap-2 mb-2">
+                              <span className="material-symbols-outlined text-[16px] text-slate-500 shrink-0">event_repeat</span>
+                              <span className="text-[11px] text-slate-400">Jours de publication — laisse tout coché pour publier tous les jours, ou choisis juste certains jours</span>
+                            </div>
+                            <div className="flex gap-1.5">
+                              {[
+                                { id: 0, label: 'L' }, { id: 1, label: 'M' }, { id: 2, label: 'M' },
+                                { id: 3, label: 'J' }, { id: 4, label: 'V' }, { id: 5, label: 'S' }, { id: 6, label: 'D' },
+                              ].map(({ id, label }) => {
+                                const activeDays = newChannel.active_days;
+                                const isOn = !activeDays || activeDays.length === 0 || activeDays.includes(id);
+                                return (
+                                  <button
+                                    key={id}
+                                    type="button"
+                                    onClick={() => {
+                                      const current = (activeDays && activeDays.length > 0) ? activeDays : [0, 1, 2, 3, 4, 5, 6];
+                                      const next = current.includes(id) ? current.filter(d => d !== id) : [...current, id].sort();
+                                      setNewChannel({ ...newChannel, active_days: next.length === 7 ? null : next });
+                                    }}
+                                    className={`flex-1 py-2 rounded-lg text-[11px] font-bold border transition-colors ${
+                                      isOn ? 'bg-[#00c2ff] text-slate-950 border-[#00c2ff]' : 'bg-[#1b2230] border-[#2b374d] text-slate-300 hover:border-slate-500'
+                                    }`}
+                                  >
+                                    {label}
+                                  </button>
+                                );
+                              })}
+                            </div>
                           </div>
                         </div>
                       )}
