@@ -2314,6 +2314,19 @@ export default function App() {
     return { label: 'Configurée', className: 'bg-slate-800/80 text-slate-300 border border-slate-700/60' };
   };
 
+  // Compact dot-only version of the same status, overlaid on the channel avatar.
+  const getChannelStatusDotColor = (channel) => {
+    const rendering = channel.rendering_count || 0;
+    const queued = channel.queued_count || 0;
+    const done = channel.done_count || 0;
+    const failed = channel.failed_count || 0;
+    if (rendering > 0) return 'bg-blue-400';
+    if (queued > 0) return 'bg-amber-400';
+    if (done > 0) return 'bg-emerald-400';
+    if (failed > 0) return 'bg-rose-400';
+    return 'bg-slate-500';
+  };
+
   const handleDrop = (e) => {
     e.preventDefault();
     e.stopPropagation();
@@ -3459,6 +3472,15 @@ export default function App() {
                       <div className="absolute -inset-1 rounded-[22px] bg-gradient-to-br from-[#36d5ff]/35 to-[#6b7dff]/10 blur-sm" />
                       <div className="relative">
                         <ChannelAvatar channel={activeChannel} logoUrl={getChannelLogoUrl(activeChannel)} sizeClass="w-16 h-16 sm:w-20 sm:h-20" roundedClass="rounded-2xl" textClass="text-2xl" />
+                        {(() => {
+                          const s = getChannelStatusInfo(activeChannel);
+                          return (
+                            <span
+                              title={s.label}
+                              className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full ${getChannelStatusDotColor(activeChannel)} ring-2 ring-[#171d27]`}
+                            />
+                          );
+                        })()}
                       </div>
                     </div>
                     <div className="min-w-0">
@@ -3470,10 +3492,50 @@ export default function App() {
                           <><span className="w-1 h-1 rounded-full bg-slate-600" /><span className="text-slate-300">{activeChannel.youtube_channel_handle}</span></>
                         )}
                       </div>
-                      {(() => {
-                        const s = getChannelStatusInfo(activeChannel);
-                        return <span className={`inline-flex items-center gap-1.5 mt-2.5 px-2.5 py-1 rounded-full text-[9px] font-bold uppercase tracking-[.1em] ${s.className}`}><span className="w-1.5 h-1.5 rounded-full bg-current" />{s.label}</span>;
-                      })()}
+                      {activeChannel.youtube_connected ? (
+                        <button
+                          onClick={async () => {
+                            const ok = await askConfirm(`Déconnecter la chaîne YouTube "${activeChannel.youtube_channel_title || ''}" ? La publication automatique s'arrêtera.`, { title: 'Déconnecter YouTube', danger: true });
+                            if (!ok) return;
+                            try {
+                              const res = await fetch(`${API_BASE}/channels/${activeChannel.id}/youtube/disconnect`, { method: 'POST' });
+                              if (!res.ok) throw new Error();
+                              const updated = await res.json();
+                              setActiveChannel(updated);
+                              fetchChannels();
+                              showToast('Chaîne YouTube déconnectée.', 'success');
+                            } catch {
+                              showToast('Impossible de déconnecter YouTube.', 'error');
+                            }
+                          }}
+                          title="YouTube connecté — cliquer pour déconnecter"
+                          className="inline-flex items-center gap-1.5 mt-2.5 px-2.5 py-1 rounded-full text-[9px] font-bold uppercase tracking-[.1em] bg-emerald-950/80 text-emerald-300 border border-emerald-700/60 hover:bg-emerald-900/80 transition-colors"
+                        >
+                          <span className="material-symbols-outlined text-[12px]">check_circle</span>
+                          Chaîne YouTube connectée
+                        </button>
+                      ) : (
+                        <button
+                          onClick={async () => {
+                            try {
+                              const res = await fetch(`${API_BASE}/channels/${activeChannel.id}/youtube/auth-url`);
+                              if (!res.ok) {
+                                const detail = await res.json().catch(() => ({}));
+                                throw new Error(detail.detail || "Connexion YouTube indisponible.");
+                              }
+                              const data = await res.json();
+                              window.location.href = data.auth_url;
+                            } catch (err) {
+                              showToast(err.message, 'error');
+                            }
+                          }}
+                          title="Connecter YouTube"
+                          className="inline-flex items-center gap-1.5 mt-2.5 px-2.5 py-1 rounded-full text-[9px] font-bold uppercase tracking-[.1em] bg-slate-800/80 text-slate-300 border border-slate-700/60 hover:bg-slate-700/80 hover:text-white transition-colors"
+                        >
+                          <span className="material-symbols-outlined text-[12px]">smart_display</span>
+                          Connecter YouTube
+                        </button>
+                      )}
                     </div>
                   </div>
 
@@ -3530,50 +3592,6 @@ export default function App() {
                             </button>
                           </div>
                       </div>
-                    )}
-                    {activeChannel.youtube_connected ? (
-                      <button
-                        onClick={async () => {
-                          const ok = await askConfirm(`Déconnecter la chaîne YouTube "${activeChannel.youtube_channel_title || ''}" ? La publication automatique s'arrêtera.`, { title: 'Déconnecter YouTube', danger: true });
-                          if (!ok) return;
-                          try {
-                            const res = await fetch(`${API_BASE}/channels/${activeChannel.id}/youtube/disconnect`, { method: 'POST' });
-                            if (!res.ok) throw new Error();
-                            const updated = await res.json();
-                            setActiveChannel(updated);
-                            fetchChannels();
-                            showToast('Chaîne YouTube déconnectée.', 'success');
-                          } catch {
-                            showToast('Impossible de déconnecter YouTube.', 'error');
-                          }
-                        }}
-                        title="YouTube connecté"
-                        className="min-h-11 px-3.5 py-2 bg-emerald-500/[.08] text-emerald-400 rounded-xl font-bold hover:bg-emerald-500/[.14] transition-colors flex items-center justify-center gap-2 border border-emerald-500/25"
-                      >
-                        <span className="material-symbols-outlined text-[18px]">check_circle</span>
-                        <span className="hidden sm:grid text-left leading-tight"><strong className="text-[10px] truncate max-w-[130px]">{activeChannel.youtube_channel_title || 'YouTube'}</strong><small className="text-[8px] font-medium text-emerald-500/70 mt-1">Chaîne connectée</small></span>
-                      </button>
-                    ) : (
-                      <button
-                        onClick={async () => {
-                          try {
-                            const res = await fetch(`${API_BASE}/channels/${activeChannel.id}/youtube/auth-url`);
-                            if (!res.ok) {
-                              const detail = await res.json().catch(() => ({}));
-                              throw new Error(detail.detail || "Connexion YouTube indisponible.");
-                            }
-                            const data = await res.json();
-                            window.location.href = data.auth_url;
-                          } catch (err) {
-                            showToast(err.message, 'error');
-                          }
-                        }}
-                        title="Connecter YouTube"
-                        className="min-h-11 px-3.5 py-2 bg-[#18212d] text-white rounded-xl font-bold text-xs hover:bg-[#202c3b] transition-colors flex items-center justify-center gap-2 border border-[#2b374d]"
-                      >
-                        <span className="material-symbols-outlined text-[18px]">smart_display</span>
-                        <span className="hidden sm:inline">Connecter YouTube</span>
-                      </button>
                     )}
                     <button
                       onClick={(e) => openEditWizard(activeChannel, e)}
