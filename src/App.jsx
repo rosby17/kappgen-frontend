@@ -1227,6 +1227,7 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [connectingYouTubeFromWizard, setConnectingYouTubeFromWizard] = useState(false);
   const [timezoneMenuOpen, setTimezoneMenuOpen] = useState(false);
+  const [syncingYouTubeIdentity, setSyncingYouTubeIdentity] = useState(false);
   const [timezoneSearch, setTimezoneSearch] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [videoFilterChannelId, setVideoFilterChannelId] = useState('all');
@@ -4035,27 +4036,55 @@ export default function App() {
                         <div className="text-slate-400 text-[11px] font-medium mt-0.5">{activeChannel.youtube_channel_handle}</div>
                       )}
                       {activeChannel.youtube_connected ? (
-                        <button
-                          onClick={async () => {
-                            const ok = await askConfirm(`Déconnecter la chaîne YouTube "${activeChannel.youtube_channel_title || ''}" ? La publication automatique s'arrêtera.`, { title: 'Déconnecter YouTube', danger: true });
-                            if (!ok) return;
-                            try {
-                              const res = await fetch(`${API_BASE}/channels/${activeChannel.id}/youtube/disconnect`, { method: 'POST' });
-                              if (!res.ok) throw new Error();
-                              const updated = await res.json();
-                              setActiveChannel(updated);
-                              fetchChannels();
-                              showToast('Chaîne YouTube déconnectée.', 'success');
-                            } catch {
-                              showToast('Impossible de déconnecter YouTube.', 'error');
-                            }
-                          }}
-                          title="YouTube connecté — cliquer pour déconnecter"
-                          className="inline-flex items-center gap-1.5 mt-2.5 px-2.5 py-1 rounded-full text-[9px] font-bold uppercase tracking-[.1em] bg-emerald-950/80 text-emerald-300 border border-emerald-700/60 hover:bg-emerald-900/80 transition-colors"
-                        >
-                          <YouTubeIcon className="w-3.5 h-2.5" />
-                          Chaîne YouTube connectée
-                        </button>
+                        <div className="inline-flex items-center gap-1.5 mt-2.5">
+                          <button
+                            onClick={async () => {
+                              const ok = await askConfirm(`Déconnecter la chaîne YouTube "${activeChannel.youtube_channel_title || ''}" ? La publication automatique s'arrêtera.`, { title: 'Déconnecter YouTube', danger: true });
+                              if (!ok) return;
+                              try {
+                                const res = await fetch(`${API_BASE}/channels/${activeChannel.id}/youtube/disconnect`, { method: 'POST' });
+                                if (!res.ok) throw new Error();
+                                const updated = await res.json();
+                                setActiveChannel(updated);
+                                fetchChannels();
+                                showToast('Chaîne YouTube déconnectée.', 'success');
+                              } catch {
+                                showToast('Impossible de déconnecter YouTube.', 'error');
+                              }
+                            }}
+                            title="YouTube connecté — cliquer pour déconnecter"
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[9px] font-bold uppercase tracking-[.1em] bg-emerald-950/80 text-emerald-300 border border-emerald-700/60 hover:bg-emerald-900/80 transition-colors"
+                          >
+                            <YouTubeIcon className="w-3.5 h-2.5" />
+                            Chaîne YouTube connectée
+                          </button>
+                          <button
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              setSyncingYouTubeIdentity(true);
+                              try {
+                                const res = await fetch(`${API_BASE}/channels/${activeChannel.id}/youtube/refresh`, { method: 'POST' });
+                                if (!res.ok) {
+                                  const detail = await res.json().catch(() => ({}));
+                                  throw new Error(detail.detail || "Synchronisation impossible.");
+                                }
+                                const updated = await res.json();
+                                setActiveChannel(updated);
+                                fetchChannels();
+                                showToast('Nom et photo synchronisés depuis YouTube.', 'success');
+                              } catch (err) {
+                                showToast(err.message, 'error');
+                              } finally {
+                                setSyncingYouTubeIdentity(false);
+                              }
+                            }}
+                            disabled={syncingYouTubeIdentity}
+                            title="Resynchroniser le nom et la photo depuis YouTube"
+                            className="w-6 h-6 flex items-center justify-center rounded-full bg-emerald-950/80 text-emerald-300 border border-emerald-700/60 hover:bg-emerald-900/80 transition-colors disabled:opacity-50"
+                          >
+                            <span className={`material-symbols-outlined text-[13px] ${syncingYouTubeIdentity ? 'animate-spin' : ''}`}>sync</span>
+                          </button>
+                        </div>
                       ) : (
                         <button
                           onClick={async () => {
