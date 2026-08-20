@@ -2621,6 +2621,7 @@ export default function App() {
 
   const totalQueued = channels.reduce((acc, c) => acc + (c.queued_count || 0) + (c.rendering_count || 0), 0);
   const totalCompleted = channels.reduce((acc, c) => acc + (c.done_count || 0), 0);
+  const autoChannelsCount = channels.filter(c => c.automation_mode === 'auto').length;
 
   // Sample sentence for karaoke animation preview
   const sampleWords = [
@@ -2841,35 +2842,58 @@ export default function App() {
             {/* VIEW 1: HOME / DASHBOARD OVERVIEW */}
             {(view === 'home' || view === 'dashboard') && (
               <>
+                {/* Autopilot Promise Banner — the app's core promise: configure once, forget about creation */}
+                <section className="bg-gradient-to-r from-[#0a2a3a] via-[#122a3f] to-[#161b22] border border-[#00c2ff]/25 rounded-2xl p-6 md:p-7 flex flex-col md:flex-row items-center justify-between gap-6 shadow-xl relative overflow-hidden">
+                  <div className="absolute -right-10 -top-10 w-40 h-40 bg-[#00c2ff]/10 rounded-full blur-2xl"></div>
+                  <div className="space-y-2 relative">
+                    <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-[#00c2ff] bg-[#00c2ff]/10 px-2.5 py-1 rounded-lg uppercase tracking-wide">
+                      <span className="material-symbols-outlined text-[14px]">bolt</span> Pilote automatique
+                    </span>
+                    <h3 className="text-xl font-extrabold text-white leading-snug">
+                      Configure ta chaîne. Oublie la création.
+                    </h3>
+                    <p className="text-sm text-slate-400 max-w-xl">
+                      NicheCut choisit le sujet, écrit le script, génère la voix, monte la vidéo et la met prête à publier chaque jour — toi, tu ne regardes que tes stats sur YouTube Studio.
+                    </p>
+                  </div>
+                  <button
+                    onClick={openCreateWizard}
+                    className="px-6 py-3 bg-[#00c2ff] hover:bg-[#38d0ff] text-slate-950 font-bold text-sm rounded-xl transition-all flex items-center gap-2 shadow-lg shadow-[#00c2ff]/20 flex-shrink-0 relative"
+                  >
+                    <span className="material-symbols-outlined text-[20px]">settings_suggest</span>
+                    Configurer une chaîne
+                  </button>
+                </section>
+
                 {/* Stats Row Bento Cards */}
                 <section className="grid grid-cols-1 md:grid-cols-3 gap-5">
                   <div className="bg-[#161b22] border border-[#263042] rounded-2xl p-6 flex flex-col justify-between shadow-lg relative overflow-hidden group">
                     <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-[#00c2ff]/5 rounded-full blur-xl group-hover:bg-[#00c2ff]/10 transition-all"></div>
                     <div className="flex justify-between items-start mb-4">
-                      <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Chaînes Actives</h3>
+                      <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">En Pilote Automatique</h3>
                       <div className="p-2 rounded-xl bg-[#00c2ff]/10 text-[#00c2ff]">
-                        <span className="material-symbols-outlined text-[22px]" style={{ fontVariationSettings: "'FILL' 1" }}>cell_tower</span>
+                        <span className="material-symbols-outlined text-[22px]" style={{ fontVariationSettings: "'FILL' 1" }}>smart_toy</span>
                       </div>
                     </div>
                     <div className="flex items-end justify-between">
-                      <span className="text-4xl font-extrabold text-white">{channels.length}</span>
-                      <span className="text-xs font-bold text-[#00c2ff] bg-[#00c2ff]/10 px-2.5 py-1 rounded-lg">Configurées</span>
+                      <span className="text-4xl font-extrabold text-white">{autoChannelsCount}</span>
+                      <span className="text-xs font-bold text-[#00c2ff] bg-[#00c2ff]/10 px-2.5 py-1 rounded-lg">/ {channels.length} chaînes</span>
                     </div>
                     <div className="w-full h-1.5 bg-[#202938] mt-4 rounded-full overflow-hidden">
-                      <div className="h-full bg-gradient-to-r from-[#00c2ff] to-[#0088ff] w-full rounded-full"></div>
+                      <div className="h-full bg-gradient-to-r from-[#00c2ff] to-[#0088ff] rounded-full" style={{ width: channels.length ? `${(autoChannelsCount / channels.length) * 100}%` : '0%' }}></div>
                     </div>
                   </div>
 
                   <div className="bg-[#161b22] border border-[#263042] rounded-2xl p-6 flex flex-col justify-between shadow-lg relative overflow-hidden group">
                     <div className="flex justify-between items-start mb-4">
-                      <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Vidéos en Attente</h3>
+                      <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">En Cours de Génération</h3>
                       <div className="p-2 rounded-xl bg-amber-500/10 text-amber-400">
                         <span className="material-symbols-outlined text-[22px]" style={{ fontVariationSettings: "'FILL' 1" }}>hourglass_empty</span>
                       </div>
                     </div>
                     <div className="flex items-end justify-between">
                       <span className="text-4xl font-extrabold text-white">{totalQueued}</span>
-                      <span className="text-xs font-medium text-amber-400 bg-amber-500/10 px-2.5 py-1 rounded-lg">En cours de rendu...</span>
+                      <span className="text-xs font-medium text-amber-400 bg-amber-500/10 px-2.5 py-1 rounded-lg">Sans intervention</span>
                     </div>
                     <div className="w-full h-1.5 bg-[#202938] mt-4 rounded-full overflow-hidden flex">
                       <div className="h-full bg-amber-400 w-2/3 animate-pulse"></div>
@@ -2878,14 +2902,14 @@ export default function App() {
 
                   <div className="bg-[#161b22] border border-[#263042] rounded-2xl p-6 flex flex-col justify-between shadow-lg relative overflow-hidden group">
                     <div className="flex justify-between items-start mb-4">
-                      <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Vidéos Terminées</h3>
+                      <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Prêtes à Publier</h3>
                       <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-400">
                         <span className="material-symbols-outlined text-[22px]" style={{ fontVariationSettings: "'FILL' 1" }}>task_alt</span>
                       </div>
                     </div>
                     <div className="flex items-end justify-between">
                       <span className="text-4xl font-extrabold text-white">{totalCompleted}</span>
-                      <span className="text-xs font-bold text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-lg">Prêtes à publier</span>
+                      <span className="text-xs font-bold text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-lg">Direction YouTube</span>
                     </div>
                     <div className="w-full h-1.5 bg-[#202938] mt-4 rounded-full overflow-hidden">
                       <div className="h-full bg-emerald-400 w-full rounded-full"></div>
@@ -2893,23 +2917,14 @@ export default function App() {
                   </div>
                 </section>
 
-                {/* Quick Launch Banner */}
-                <section className="bg-gradient-to-r from-[#161b22] via-[#1a2332] to-[#161b22] border border-[#263042] rounded-2xl p-6 flex flex-col md:flex-row items-center justify-between gap-6 shadow-xl">
-                  <div className="space-y-1">
-                    <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                      <span className="material-symbols-outlined text-[#00c2ff]">auto_awesome</span>
-                      Générateur de Vidéo Automatisé
-                    </h3>
-                    <p className="text-sm text-slate-400">
-                      Générez une vidéo YouTube longue durée (16:9) complète avec sous-titres karaoké, voix off IA et montage visuel en 1 clic.
-                    </p>
-                  </div>
+                {/* Manual generation — secondary path, de-emphasized now that autopilot is the default promise */}
+                <section className="flex justify-end">
                   <button
                     onClick={openNewVideoFlow}
-                    className="px-6 py-3 bg-[#00c2ff] hover:bg-[#38d0ff] text-slate-950 font-bold text-sm rounded-xl transition-all flex items-center gap-2 shadow-lg shadow-[#00c2ff]/20 flex-shrink-0"
+                    className="text-xs font-bold text-slate-400 hover:text-[#00c2ff] transition-colors flex items-center gap-1.5"
                   >
-                    <span className="material-symbols-outlined text-[20px]">videocam</span>
-                    Lancer une Génération
+                    <span className="material-symbols-outlined text-[16px]">videocam</span>
+                    Ou génère une vidéo manuellement
                   </button>
                 </section>
 
@@ -2947,6 +2962,15 @@ export default function App() {
                                 <h4 className="font-bold text-white text-sm truncate">{chan.name}</h4>
                                 <span className="text-xs text-slate-400 block truncate">{chan.niche}</span>
                               </div>
+                              {chan.automation_mode === 'auto' ? (
+                                <span className="shrink-0 inline-flex items-center gap-1 text-[10px] font-bold text-[#00c2ff] bg-[#00c2ff]/10 px-2 py-1 rounded-lg uppercase" title="Publication automatique quotidienne">
+                                  <span className="material-symbols-outlined text-[13px]">bolt</span> Auto
+                                </span>
+                              ) : (
+                                <span className="shrink-0 inline-flex items-center gap-1 text-[10px] font-bold text-slate-400 bg-slate-500/10 px-2 py-1 rounded-lg uppercase" title="Tu soumets chaque script toi-même">
+                                  Manuel
+                                </span>
+                              )}
                             </div>
                             <div className="flex items-center justify-between text-xs pt-2 border-t border-[#202938]">
                               <span className={`px-2.5 py-1 rounded-lg font-bold text-[11px] uppercase ${statusInfo.className}`}>
