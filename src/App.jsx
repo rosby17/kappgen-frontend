@@ -2477,18 +2477,19 @@ export default function App() {
   };
 
   const handleConnectYouTubeFromWizard = async () => {
-    if (!newChannel.name.trim()) return showToast("Donne d'abord un nom à ta chaîne.", "error");
     setConnectingYouTubeFromWizard(true);
     try {
       let channelId = wizardMode === 'edit' ? editingChannelId : null;
       if (!channelId) {
         // Not saved yet — create the channel now (defaults for everything not
-        // yet configured) so the OAuth callback has a real id to attach to.
+        // yet configured, including the name — that's exactly what the real
+        // YouTube channel name will overwrite once connected) so the OAuth
+        // callback has a real id to attach to.
         const url = currentUser ? `${API_BASE}/channels?user_id=${currentUser.id}` : `${API_BASE}/channels`;
         const res = await fetch(url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(newChannel),
+          body: JSON.stringify({ ...newChannel, name: newChannel.name.trim() || 'Nouvelle chaîne' }),
         });
         if (!res.ok) throw new Error("Impossible de créer la chaîne avant la connexion YouTube.");
         const created = await res.json();
@@ -5693,11 +5694,20 @@ export default function App() {
                           <div className="pt-2 border-t border-[#263042] flex items-center justify-between gap-3">
                             <div>
                               <label className="block text-xs font-bold text-slate-300">Filigrane NicheCut</label>
-                              <p className="text-[11px] text-slate-500 mt-0.5">Logo officiel centré à faible opacité sur les exports gratuits.</p>
+                              <p className="text-[11px] text-slate-500 mt-0.5">Logo officiel centré à faible opacité. Le désactiver sera une option payante une fois les paiements en place.</p>
                             </div>
-                            <span className="shrink-0 px-2.5 py-1 rounded-lg bg-[#00c2ff]/10 border border-[#00c2ff]/25 text-[#62dcff] text-[10px] font-bold uppercase tracking-wide">
-                              Export gratuit
-                            </span>
+                            <div className="flex items-center gap-2 shrink-0">
+                              <span className="px-2 py-1 rounded-lg bg-amber-400/10 border border-amber-400/25 text-amber-300 text-[9px] font-bold uppercase tracking-wide">
+                                Premium
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => setNewChannel({ ...newChannel, effects_config: { ...newChannel.effects_config, watermark_enabled: !(newChannel.effects_config.watermark_enabled ?? true) } })}
+                                className={`w-11 h-6 rounded-full relative transition-colors ${(newChannel.effects_config.watermark_enabled ?? true) ? 'bg-[#00c2ff]' : 'bg-[#2b374d]'}`}
+                              >
+                                <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform ${(newChannel.effects_config.watermark_enabled ?? true) ? 'translate-x-[22px]' : 'translate-x-0.5'}`} />
+                              </button>
+                            </div>
                           </div>
                         </div>
 
