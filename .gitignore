@@ -25,3 +25,4 @@ dist-ssr
 
 # Env (VITE_ vars are public/bundled anyway, but keep local overrides out of git)
 .env.local
+.claude/
