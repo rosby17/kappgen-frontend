@@ -1074,6 +1074,24 @@ export default function App() {
     return () => clearTimeout(timer);
   }, [toast]);
 
+  // Google redirects back here after a YouTube connection attempt (?youtube=connected|error).
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const ytStatus = params.get('youtube');
+    if (!ytStatus) return;
+    if (ytStatus === 'connected') {
+      showToast('Chaîne YouTube connectée avec succès.', 'success');
+    } else {
+      const msg = params.get('youtube_message');
+      showToast(msg ? `Connexion YouTube échouée : ${msg}` : 'Connexion YouTube échouée.', 'error');
+    }
+    params.delete('youtube');
+    params.delete('youtube_message');
+    const cleanUrl = window.location.pathname + (params.toString() ? `?${params.toString()}` : '');
+    window.history.replaceState({}, '', cleanUrl);
+    fetchChannels();
+  }, []);
+
   // Karaoke Animation Preview Index
   const [previewWordIndex, setPreviewWordIndex] = useState(0);
 
@@ -3468,6 +3486,50 @@ export default function App() {
                             </span>
                           </div>
                       </div>
+                    )}
+                    {activeChannel.youtube_connected ? (
+                      <button
+                        onClick={async () => {
+                          const ok = await askConfirm(`Déconnecter la chaîne YouTube "${activeChannel.youtube_channel_title || ''}" ? La publication automatique s'arrêtera.`, { title: 'Déconnecter YouTube', danger: true });
+                          if (!ok) return;
+                          try {
+                            const res = await fetch(`${API_BASE}/channels/${activeChannel.id}/youtube/disconnect`, { method: 'POST' });
+                            if (!res.ok) throw new Error();
+                            const updated = await res.json();
+                            setActiveChannel(updated);
+                            fetchChannels();
+                            showToast('Chaîne YouTube déconnectée.', 'success');
+                          } catch {
+                            showToast('Impossible de déconnecter YouTube.', 'error');
+                          }
+                        }}
+                        title="YouTube connecté"
+                        className="w-10 h-10 sm:w-auto sm:h-auto sm:px-4 sm:py-2.5 bg-emerald-500/10 text-emerald-400 rounded-xl font-bold text-xs hover:bg-emerald-500/20 transition-colors flex items-center justify-center gap-2 border border-emerald-500/30"
+                      >
+                        <span className="material-symbols-outlined text-[18px]">check_circle</span>
+                        <span className="hidden sm:inline truncate max-w-[160px]">{activeChannel.youtube_channel_title || 'YouTube connecté'}</span>
+                      </button>
+                    ) : (
+                      <button
+                        onClick={async () => {
+                          try {
+                            const res = await fetch(`${API_BASE}/channels/${activeChannel.id}/youtube/auth-url`);
+                            if (!res.ok) {
+                              const detail = await res.json().catch(() => ({}));
+                              throw new Error(detail.detail || "Connexion YouTube indisponible.");
+                            }
+                            const data = await res.json();
+                            window.location.href = data.auth_url;
+                          } catch (err) {
+                            showToast(err.message, 'error');
+                          }
+                        }}
+                        title="Connecter YouTube"
+                        className="w-10 h-10 sm:w-auto sm:h-auto sm:px-4 sm:py-2.5 bg-[#1b2230] text-white rounded-xl font-bold text-xs hover:bg-[#252f42] transition-colors flex items-center justify-center gap-2 border border-[#2b374d]"
+                      >
+                        <span className="material-symbols-outlined text-[18px]">smart_display</span>
+                        <span className="hidden sm:inline">Connecter YouTube</span>
+                      </button>
                     )}
                     <button
                       onClick={(e) => openEditWizard(activeChannel, e)}
