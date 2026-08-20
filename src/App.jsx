@@ -3105,20 +3105,26 @@ export default function App() {
       <nav className="hidden md:flex flex-col bg-[#141923] text-primary font-label-bold text-label-bold fixed left-0 top-0 h-screen w-[240px] z-40 border-r border-[#263042] py-6 justify-between">
 
         <div>
-          {/* Brand / Product Switcher */}
+          {/* Brand Logo Header */}
+          <div className="px-6 mb-3 flex items-center gap-3 cursor-pointer" onClick={() => setView('home')}>
+            <img src="/assets/logo/logo-nichecut.png" alt="NicheCut" className="w-9 h-9 rounded-xl shadow-lg shadow-[#00c2ff]/20 object-cover" />
+            <div>
+              <div className="font-title-sm text-base font-black text-white tracking-wide">NicheCut</div>
+              <div className="text-slate-400 text-xs font-normal">Video Automation</div>
+            </div>
+          </div>
+
+          {/* Product Switcher */}
           <div className="px-3 mb-8 relative">
             <button
               onClick={() => setProductMenuOpen(o => !o)}
-              className="w-full px-3 py-2.5 flex items-center gap-3 rounded-xl hover:bg-[#1f2838] transition-colors text-left"
+              className="w-full px-3 py-2 flex items-center gap-2 rounded-xl bg-[#1b2230] hover:bg-[#1f2838] border border-[#2b374d] transition-colors text-left"
             >
-              <img src="/assets/logo/logo-nichecut.png" alt="NicheCut" className="w-9 h-9 rounded-xl shadow-lg shadow-[#00c2ff]/20 object-cover flex-shrink-0" />
-              <div className="min-w-0 flex-1">
-                <div className="font-title-sm text-sm font-black text-white tracking-wide truncate">
-                  {NICHECUT_PRODUCTS.find(p => p.id === activeProduct)?.label}
-                </div>
-                <div className="text-slate-400 text-[11px] font-normal">Video Automation</div>
-              </div>
-              <span className={`material-symbols-outlined text-[18px] text-slate-400 transition-transform ${productMenuOpen ? 'rotate-180' : ''}`}>expand_more</span>
+              <span className="material-symbols-outlined text-[16px] text-[#00c2ff] flex-shrink-0">{NICHECUT_PRODUCTS.find(p => p.id === activeProduct)?.icon}</span>
+              <span className="min-w-0 flex-1 text-xs font-bold text-white truncate">
+                {NICHECUT_PRODUCTS.find(p => p.id === activeProduct)?.label}
+              </span>
+              <span className={`material-symbols-outlined text-[16px] text-slate-400 transition-transform ${productMenuOpen ? 'rotate-180' : ''}`}>expand_more</span>
             </button>
 
             {productMenuOpen && (
@@ -3263,40 +3269,24 @@ export default function App() {
             {/* VIEW 1: HOME / DASHBOARD OVERVIEW */}
             {(view === 'home' || view === 'dashboard') && (
               <>
-                {/* Freedom first: this page sells peace of mind, not machinery. */}
-                <section className="relative min-h-[390px] md:min-h-[430px] rounded-[28px] overflow-hidden border border-white/10 shadow-2xl bg-[#09111b]">
-                  <img src="/assets/dashboard/freedom-sunrise.png" alt="Un créateur se détend face à l’océan pendant que NicheCut s’occupe de sa chaîne" className="absolute inset-0 w-full h-full object-cover" />
-                  <div className="absolute inset-0 bg-gradient-to-r from-[#07101c]/95 via-[#07101c]/72 to-transparent" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#07101c]/65 via-transparent to-[#07101c]/10" />
-                  <div className="relative z-10 min-h-[390px] md:min-h-[430px] flex flex-col justify-center px-7 py-10 md:px-12 max-w-2xl">
-                    <p className="text-[10px] md:text-[11px] uppercase tracking-[.24em] text-[#72dcff] font-bold mb-5">Ta chaîne continue. Toi, tu respires.</p>
-                    <h2 className="text-3xl md:text-5xl font-extrabold text-white leading-[1.04] tracking-[-.035em]">
-                      Sors des écrans.<br />NicheCut reste au travail.
-                    </h2>
-                    <p className="text-sm md:text-base text-slate-300/90 leading-7 mt-5 max-w-lg">
-                      Voyage, repose-toi, vis pleinement. Ton Agent prépare et publie un contenu original pendant que ta chaîne continue de grandir.
-                    </p>
-                    <div className="flex flex-wrap items-center gap-3 mt-8">
-                      <button onClick={channels.length ? () => setView('channels') : openCreateWizard} className="px-5 py-3 bg-white text-[#07101c] font-extrabold text-xs rounded-full hover:bg-[#dff7ff] transition-colors">
-                        {channels.length ? 'Voir mes chaînes' : 'Préparer ma première chaîne'}
-                      </button>
-                      <button onClick={openNewVideoFlow} className="px-5 py-3 bg-white/5 border border-white/15 text-white font-bold text-xs rounded-full hover:bg-white/10 transition-colors">
-                        Créer maintenant
-                      </button>
-                    </div>
-                  </div>
-                </section>
+                <div className="pt-1">
+                  <p className="text-[10px] font-bold uppercase tracking-[.18em] text-[#55d8ff] mb-2">Ton espace NicheCut</p>
+                  <h2 className="text-2xl md:text-3xl font-extrabold text-white tracking-[-.025em]">Tout avance, même quand tu déconnectes.</h2>
+                </div>
 
-                <section className="grid grid-cols-1 lg:grid-cols-[1.15fr_.85fr] gap-5">
-                  <div className="rounded-[24px] border border-white/10 bg-[#121923] px-7 py-8 md:px-9 md:py-10 flex flex-col justify-center">
-                    <span className="material-symbols-outlined text-[#63d9ff] text-[26px] mb-5">nightlight</span>
-                    <h3 className="text-2xl md:text-3xl font-extrabold text-white tracking-[-.025em]">Tu dors. Ta chaîne avance.</h3>
-                    <p className="text-sm text-slate-400 leading-7 mt-3 max-w-xl">Plus besoin de vérifier sans cesse si le script est prêt, si le montage est terminé ou si la vidéo est publiée. Tu définis ton univers une fois. NicheCut veille sur la suite.</p>
-                    <p className="text-xs text-slate-500 mt-6">Reviens uniquement quand tu en as envie.</p>
-                  </div>
-                  <div className="relative min-h-[260px] rounded-[24px] overflow-hidden border border-white/10 bg-[#0a111b]">
-                    <img src="/assets/dashboard/freedom-sleep.png" alt="Un créateur dort paisiblement pendant que sa chaîne continue" className="absolute inset-0 w-full h-full object-cover" />
-                    <div className="absolute inset-0 bg-gradient-to-t from-[#07101c]/60 via-transparent to-transparent" />
+                {/* A single quiet promise card, integrated into the existing dashboard language. */}
+                <section className="relative min-h-[240px] rounded-2xl overflow-hidden border border-[#263042] shadow-lg bg-[#161b22]">
+                  <img src="/assets/dashboard/freedom-sunrise.png" alt="Un créateur se détend pendant que NicheCut s’occupe de sa chaîne" className="absolute inset-y-0 right-0 w-full md:w-[58%] h-full object-cover" />
+                  <div className="absolute inset-0 bg-gradient-to-r from-[#161b22] via-[#161b22]/95 md:via-[#161b22]/80 to-[#161b22]/15" />
+                  <div className="relative z-10 min-h-[240px] flex flex-col justify-center p-6 md:p-8 max-w-xl">
+                    <h3 className="text-xl md:text-2xl font-extrabold text-white leading-tight">Tu vis. NicheCut travaille.</h3>
+                    <p className="text-sm text-slate-400 leading-6 mt-3 max-w-md">Ton Agent prépare tes vidéos et veille sur tes publications. Voyage, repose-toi ou profite simplement de ton temps.</p>
+                    <div className="flex items-center gap-3 mt-6">
+                      <button onClick={channels.length ? () => setView('channels') : openCreateWizard} className="px-5 py-2.5 bg-[#00c2ff] hover:bg-[#38d0ff] text-slate-950 font-bold text-xs rounded-xl transition-colors">
+                        {channels.length ? 'Voir mes chaînes' : 'Configurer une chaîne'}
+                      </button>
+                      <button onClick={openNewVideoFlow} className="text-xs font-bold text-slate-300 hover:text-white transition-colors">Créer une vidéo</button>
+                    </div>
                   </div>
                 </section>
 
