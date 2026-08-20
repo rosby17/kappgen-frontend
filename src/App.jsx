@@ -1147,6 +1147,8 @@ export default function App() {
   const [authForm, setAuthForm] = useState({ email: '', password: '' });
   const [showAuthPassword, setShowAuthPassword] = useState(false);
   const [forgotForm, setForgotForm] = useState({ email: '', newPassword: '' });
+  const [forgotStep, setForgotStep] = useState('request'); // 'request' | 'verify'
+  const [resetCode, setResetCode] = useState('');
   const [settingsTab, setSettingsTab] = useState('profile'); // 'profile' | 'security' | 'api'
   const [profileForm, setProfileForm] = useState({ name: '', phone: '' });
   const [passwordForm, setPasswordForm] = useState({ oldPassword: '', newPassword: '' });
@@ -1663,16 +1665,26 @@ export default function App() {
     e.preventDefault();
     try {
       setLoading(true);
-      const res = await fetch(`${API_BASE}/auth/reset-password`, {
+      const requestingCode = forgotStep === 'request';
+      const res = await fetch(`${API_BASE}/auth/${requestingCode ? 'forgot-password' : 'reset-password'}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: forgotForm.email, new_password: forgotForm.newPassword })
+        body: JSON.stringify(requestingCode
+          ? { email: forgotForm.email }
+          : { email: forgotForm.email, code: resetCode, new_password: forgotForm.newPassword })
       });
       if (res.ok) {
-        showToast("Mot de passe réinitialisé. Connectez-vous avec le nouveau.", "success");
-        setAuthForm({ email: forgotForm.email, password: '' });
-        setForgotForm({ email: '', newPassword: '' });
-        setAuthTab('login');
+        if (requestingCode) {
+          setForgotStep('verify');
+          showToast("Si ce compte existe, un code vient d'être envoyé par email.", "success");
+        } else {
+          showToast("Mot de passe réinitialisé. Connecte-toi avec le nouveau.", "success");
+          setAuthForm({ email: forgotForm.email, password: '' });
+          setForgotForm({ email: '', newPassword: '' });
+          setResetCode('');
+          setForgotStep('request');
+          setAuthTab('login');
+        }
       } else {
         const err = await res.json();
         showToast(err.detail || "Erreur lors de la réinitialisation.", "error");
@@ -5923,19 +5935,28 @@ export default function App() {
                         <label className="block text-[11px] font-bold text-slate-300 mb-2">Adresse email</label>
                         <div className="relative">
                           <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-[18px] text-slate-500">mail</span>
-                          <input type="email" required value={forgotForm.email} onChange={e => setForgotForm({ ...forgotForm, email: e.target.value })} className="w-full h-13 bg-[#080d15] border border-white/10 rounded-xl pl-12 pr-4 py-3.5 text-sm text-white focus:border-[#00c2ff] outline-none" placeholder="nom@exemple.com" />
+                          <input type="email" required disabled={forgotStep === 'verify'} value={forgotForm.email} onChange={e => setForgotForm({ ...forgotForm, email: e.target.value })} className="w-full bg-[#080d15] border border-white/10 rounded-xl pl-12 pr-4 py-3.5 text-sm text-white focus:border-[#00c2ff] outline-none disabled:text-slate-500" placeholder="nom@exemple.com" />
                         </div>
                       </div>
-                      <div>
-                        <label className="block text-[11px] font-bold text-slate-300 mb-2">Nouveau mot de passe</label>
-                        <div className="relative">
-                          <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-[18px] text-slate-500">lock</span>
-                          <input type={showAuthPassword ? 'text' : 'password'} required minLength={4} value={forgotForm.newPassword} onChange={e => setForgotForm({ ...forgotForm, newPassword: e.target.value })} className="w-full bg-[#080d15] border border-white/10 rounded-xl pl-12 pr-12 py-3.5 text-sm text-white focus:border-[#00c2ff] outline-none" placeholder="••••••••" />
-                          <button type="button" onClick={() => setShowAuthPassword(!showAuthPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white" tabIndex={-1}><span className="material-symbols-outlined text-[18px]">{showAuthPassword ? 'visibility_off' : 'visibility'}</span></button>
+                      {forgotStep === 'verify' && <>
+                        <div>
+                          <div className="flex items-center justify-between mb-2"><label className="block text-[11px] font-bold text-slate-300">Code reçu par email</label><button type="button" onClick={() => { setForgotStep('request'); setResetCode(''); }} className="text-[10px] text-[#42d2ff] hover:underline">Modifier l’email</button></div>
+                          <div className="relative">
+                            <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-[18px] text-slate-500">pin</span>
+                            <input inputMode="numeric" pattern="[0-9]{6}" maxLength={6} required value={resetCode} onChange={e => setResetCode(e.target.value.replace(/\D/g, '').slice(0, 6))} className="w-full bg-[#080d15] border border-white/10 rounded-xl pl-12 pr-4 py-3.5 text-lg tracking-[.45em] font-bold text-white focus:border-[#00c2ff] outline-none" placeholder="000000" />
+                          </div>
                         </div>
-                      </div>
-                      <button type="submit" disabled={loading} className="w-full py-3.5 bg-gradient-to-r from-[#65e0ff] to-[#1a9cff] text-[#031019] font-extrabold text-xs rounded-xl hover:brightness-110 transition-all disabled:opacity-50">{loading ? 'Réinitialisation...' : 'Réinitialiser le mot de passe'}</button>
-                      <button type="button" onClick={() => setAuthTab('login')} className="w-full text-center text-xs text-slate-400 hover:text-white font-medium">← Retour à la connexion</button>
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-300 mb-2">Nouveau mot de passe</label>
+                          <div className="relative">
+                            <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-[18px] text-slate-500">lock</span>
+                            <input type={showAuthPassword ? 'text' : 'password'} required minLength={8} value={forgotForm.newPassword} onChange={e => setForgotForm({ ...forgotForm, newPassword: e.target.value })} className="w-full bg-[#080d15] border border-white/10 rounded-xl pl-12 pr-12 py-3.5 text-sm text-white focus:border-[#00c2ff] outline-none" placeholder="8 caractères minimum" />
+                            <button type="button" onClick={() => setShowAuthPassword(!showAuthPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white" tabIndex={-1}><span className="material-symbols-outlined text-[18px]">{showAuthPassword ? 'visibility_off' : 'visibility'}</span></button>
+                          </div>
+                        </div>
+                      </>}
+                      <button type="submit" disabled={loading} className="w-full py-3.5 bg-gradient-to-r from-[#65e0ff] to-[#1a9cff] text-[#031019] font-extrabold text-xs rounded-xl hover:brightness-110 transition-all disabled:opacity-50">{loading ? 'Chargement...' : forgotStep === 'request' ? 'Recevoir mon code' : 'Réinitialiser le mot de passe'}</button>
+                      <button type="button" onClick={() => { setForgotStep('request'); setResetCode(''); setAuthTab('login'); }} className="w-full text-center text-xs text-slate-400 hover:text-white font-medium">← Retour à la connexion</button>
                     </form>
                   ) : (
                     <>
@@ -5950,11 +5971,11 @@ export default function App() {
                         <div>
                           <div className="flex items-center justify-between mb-2">
                             <label className="block text-[11px] font-bold text-slate-300">Mot de passe</label>
-                            {authTab === 'login' && <button type="button" onClick={() => { setForgotForm({ email: authForm.email, newPassword: '' }); setAuthTab('forgot'); }} className="text-[10px] text-[#42d2ff] hover:underline font-bold">Mot de passe oublié ?</button>}
+                            {authTab === 'login' && <button type="button" onClick={() => { setForgotForm({ email: authForm.email, newPassword: '' }); setForgotStep('request'); setResetCode(''); setAuthTab('forgot'); }} className="text-[10px] text-[#42d2ff] hover:underline font-bold">Mot de passe oublié ?</button>}
                           </div>
                           <div className="relative">
                             <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-[18px] text-slate-500">lock</span>
-                            <input type={showAuthPassword ? 'text' : 'password'} required minLength={authTab === 'register' ? 4 : undefined} value={authForm.password} onChange={e => setAuthForm({ ...authForm, password: e.target.value })} className="w-full bg-[#080d15] border border-white/10 rounded-xl pl-12 pr-12 py-3.5 text-sm text-white focus:border-[#00c2ff] outline-none" placeholder="••••••••" />
+                            <input type={showAuthPassword ? 'text' : 'password'} required minLength={authTab === 'register' ? 8 : undefined} value={authForm.password} onChange={e => setAuthForm({ ...authForm, password: e.target.value })} className="w-full bg-[#080d15] border border-white/10 rounded-xl pl-12 pr-12 py-3.5 text-sm text-white focus:border-[#00c2ff] outline-none" placeholder="••••••••" />
                             <button type="button" onClick={() => setShowAuthPassword(!showAuthPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white" tabIndex={-1}><span className="material-symbols-outlined text-[18px]">{showAuthPassword ? 'visibility_off' : 'visibility'}</span></button>
                           </div>
                         </div>
