@@ -2850,7 +2850,7 @@ export default function App() {
                       <span className="material-symbols-outlined text-[14px]">bolt</span> Pilote automatique
                     </span>
                     <h3 className="text-xl font-extrabold text-white leading-snug">
-                      Configure ta chaîne. Oublie la création.
+                      Configure ta/tes chaîne(s). Oublie la création.
                     </h3>
                     <p className="text-sm text-slate-400 max-w-xl">
                       NicheCut choisit le sujet, écrit le script, génère la voix, monte la vidéo et la met prête à publier chaque jour — toi, tu ne regardes que tes stats sur YouTube Studio.
