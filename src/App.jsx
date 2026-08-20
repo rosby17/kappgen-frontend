@@ -608,13 +608,13 @@ function VoiceCard({ voice, active, saved, playingId, onSelect, onToggleSave, on
   return (
     <div
       onClick={() => onSelect(voice)}
-      className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl border cursor-pointer transition-colors ${
+      className={`flex items-center gap-2.5 px-3 py-1.5 rounded-lg border cursor-pointer transition-colors ${
         active ? 'bg-[#00c2ff]/10 border-[#00c2ff]' : 'bg-[#1b2230] border-[#2b374d] hover:border-slate-500'
       }`}
     >
       <VoiceAvatar
         voice={voice}
-        size={44}
+        size={32}
         playable={!!voice.preview_url}
         playing={playing}
         onTogglePlay={() => onPlayPreview(voice)}
@@ -631,11 +631,11 @@ function VoiceCard({ voice, active, saved, playingId, onSelect, onToggleSave, on
       <button
         type="button"
         onClick={(e) => { e.stopPropagation(); onToggleSave(voice); }}
-        className="shrink-0 w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center"
+        className="shrink-0 w-7 h-7 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center"
         title={saved ? 'Retirer des enregistrées' : 'Enregistrer cette voix'}
       >
         <span
-          className={`material-symbols-outlined text-[16px] ${saved ? 'text-[#00c2ff]' : 'text-slate-400'}`}
+          className={`material-symbols-outlined text-[15px] ${saved ? 'text-[#00c2ff]' : 'text-slate-400'}`}
           style={{ fontVariationSettings: saved ? "'FILL' 1" : "'FILL' 0" }}
         >bookmark</span>
       </button>
@@ -755,10 +755,10 @@ function VoiceLibraryModal({
             <button
               type="button"
               onClick={onOpenCloner}
-              className="shrink-0 px-3 py-2 rounded-lg border border-[#00c2ff]/35 bg-[#00c2ff]/10 text-[#56d9ff] text-[11px] font-bold flex items-center gap-1.5"
+              className="shrink-0 px-4 py-2 rounded-lg bg-gradient-to-r from-[#65e0ff] to-[#1a9cff] text-[#031019] text-[11px] font-extrabold flex items-center gap-1.5 shadow-md shadow-[#00c2ff]/20 hover:brightness-110 transition-all"
             >
-              <span className="material-symbols-outlined text-[15px]">fingerprint</span>
-              Cloner une voix
+              <span className="material-symbols-outlined text-[16px]">fingerprint</span>
+              Cloner ma voix
             </button>
           ) : (
             <span className="shrink-0 text-[10px] text-slate-600">Clonage disponible après la création</span>
@@ -804,7 +804,7 @@ function VoiceLibraryModal({
           </div>
         )}
 
-        <div className="flex-1 overflow-y-auto px-5 py-3 space-y-2">
+        <div className="flex-1 overflow-y-auto px-5 py-3 space-y-1.5">
           {list.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-center gap-2 py-10">
               <span className="material-symbols-outlined text-[32px] text-slate-600">record_voice_over</span>
@@ -5739,10 +5739,13 @@ export default function App() {
                         const activeId = newChannel.voice_id || selectedVoice;
                         const activeVoice = availableVoices.find(v => v.id === activeId) || (activeId ? { id: activeId, name: newChannel.voice_name || activeId, desc: 'Voix' } : null);
                         return (
-                          <div className="flex items-center gap-3 bg-[#1b2230] border border-[#2b374d] rounded-xl px-3.5 py-3">
+                          <div
+                            onClick={() => setShowVoiceLibrary(true)}
+                            className="flex items-center gap-2.5 bg-[#1b2230] border border-[#2b374d] hover:border-[#00c2ff]/60 rounded-xl px-3 py-2 cursor-pointer transition-colors"
+                          >
                             {activeVoice ? (
                               <>
-                                <VoiceAvatar voice={activeVoice} size={44} />
+                                <VoiceAvatar voice={activeVoice} size={34} />
                                 <div className="min-w-0 flex-1">
                                   <p className="text-xs font-bold text-white truncate">{activeVoice.name}</p>
                                   <p className="text-[10px] text-slate-500 truncate">{activeVoice.desc}</p>
@@ -5753,14 +5756,10 @@ export default function App() {
                                 <p className="text-xs font-bold text-slate-400">Aucune voix sélectionnée</p>
                               </div>
                             )}
-                            <button
-                              type="button"
-                              onClick={() => setShowVoiceLibrary(true)}
-                              className="shrink-0 px-3.5 py-2 rounded-lg bg-gradient-to-r from-[#65e0ff] to-[#1a9cff] text-[#031019] text-[11px] font-extrabold flex items-center gap-1.5"
-                            >
+                            <span className="shrink-0 px-3 py-1.5 rounded-lg bg-gradient-to-r from-[#65e0ff] to-[#1a9cff] text-[#031019] text-[11px] font-extrabold flex items-center gap-1.5">
                               <span className="material-symbols-outlined text-[15px]">record_voice_over</span>
-                              Sélectionner une voix
-                            </button>
+                              Changer
+                            </span>
                           </div>
                         );
                       })()}
