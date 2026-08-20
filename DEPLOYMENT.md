@@ -1,27 +1,27 @@
-# Architecture des domaines NicheCut
+# Architecture des domaines KappGen
 
 Le même build frontend sert deux surfaces selon le nom d'hôte :
 
-- `https://nichecut.tools-cl.com` : landing page marketing.
-- `https://appnichecut.tools-cl.com` : application NicheCut.
-- `https://api-nichecut.tools-cl.com` : API FastAPI existante.
+- `https://kappgen.com` : landing page marketing.
+- `https://app.kappgen.com` : application KappGen.
+- `https://api.kappgen.com` : API FastAPI existante.
 
 ## Cloudflare Pages
 
-Le projet Pages `nichecut` doit avoir les deux domaines personnalisés :
+Le projet Pages `kappgen-frontend` doit avoir les deux domaines personnalisés :
 
-1. `nichecut.tools-cl.com`
-2. `appnichecut.tools-cl.com`
+1. `kappgen.com`
+2. `app.kappgen.com`
 
-Dans **Workers & Pages → nichecut → Custom domains**, ajouter le second domaine.
+Dans **Workers & Pages → kappgen-frontend → Custom domains**, ajouter le second domaine.
 Cloudflare crée automatiquement le CNAME et le certificat TLS.
 
 Variables de build :
 
 ```env
-VITE_API_BASE=https://api-nichecut.tools-cl.com/api
-VITE_STORAGE_BASE=https://api-nichecut.tools-cl.com/storage
-VITE_APP_ORIGIN=https://appnichecut.tools-cl.com
+VITE_API_BASE=https://api.kappgen.com/api
+VITE_STORAGE_BASE=https://api.kappgen.com/storage
+VITE_APP_ORIGIN=https://app.kappgen.com
 ```
 
 Commande de build : `npm run build`
