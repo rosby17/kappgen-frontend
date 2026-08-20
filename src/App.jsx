@@ -4730,6 +4730,19 @@ export default function App() {
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {/* Add Channel Card — kept first so it stays easy to find as the
+                        channel list grows, instead of getting pushed further down
+                        every time a new channel is added. */}
+                    <button
+                      onClick={openCreateWizard}
+                      className="rounded-2xl p-5 border-2 border-dashed border-[#2b374d] hover:border-[#00c2ff] hover:bg-[#161b22] transition-all flex flex-col items-center justify-center gap-3 min-h-[220px] text-slate-400 hover:text-[#00c2ff] group"
+                    >
+                      <div className="w-14 h-14 rounded-full bg-[#1b2230] group-hover:bg-[#00c2ff]/10 flex items-center justify-center transition-colors">
+                        <span className="material-symbols-outlined text-[28px]">add</span>
+                      </div>
+                      <span className="font-bold text-sm">Ajouter une Chaîne</span>
+                    </button>
+
                     {filteredChannels.map(chan => {
                       const logoUrl = getChannelLogoUrl(chan);
                       const statusInfo = getChannelStatusInfo(chan);
@@ -4815,17 +4828,6 @@ export default function App() {
                         </div>
                       );
                     })}
-
-                    {/* Add Channel Card — single entry point to create a channel */}
-                    <button
-                      onClick={openCreateWizard}
-                      className="rounded-2xl p-5 border-2 border-dashed border-[#2b374d] hover:border-[#00c2ff] hover:bg-[#161b22] transition-all flex flex-col items-center justify-center gap-3 min-h-[220px] text-slate-400 hover:text-[#00c2ff] group"
-                    >
-                      <div className="w-14 h-14 rounded-full bg-[#1b2230] group-hover:bg-[#00c2ff]/10 flex items-center justify-center transition-colors">
-                        <span className="material-symbols-outlined text-[28px]">add</span>
-                      </div>
-                      <span className="font-bold text-sm">Ajouter une Chaîne</span>
-                    </button>
                   </div>
                 )}
               </section>
