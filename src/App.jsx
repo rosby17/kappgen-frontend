@@ -1763,6 +1763,7 @@ function viewFromPath(path) {
   if (/^\/channels\/[^/]+\/edit$/.test(path)) return 'wizard';
   if (/^\/channels\/[^/]+$/.test(path)) return 'channel_detail';
   if (path === '/settings') return 'settings';
+  if (path === '/admin') return 'admin';
   return 'home';
 }
 
@@ -2526,6 +2527,13 @@ export default function App() {
     if (path === '/videos') { setView('videos'); return; }
     if (path === '/settings') { setView('settings'); return; }
     if (path === '/admin') { setView('admin'); return; }
+    if (path === '/billing/success') {
+      const params = new URLSearchParams(location.search);
+      setBillingVerifyOrderId(params.get('order_id'));
+      setView('settings');
+      setSettingsTab('billing');
+      return;
+    }
     if (path === '/channels/new') {
       // Guard against re-running on every `channels` refetch — only (re)reset the
       // form the first time we land here, not on every poll while the user is
@@ -3622,6 +3630,191 @@ export default function App() {
 
   // Declared early — the voice-catalog effect just below needs it in its
   // guard condition, before the rest of the Studio state block further down.
+  // Admin dashboard state — all fetched/mutated via /api/admin/* (server-side
+  // gated on is_admin; the client-side currentUser.is_admin check just hides
+  // the nav entry, it isn't itself a security boundary).
+  const [adminTab, setAdminTab] = useState('users'); // 'users' | 'plans'
+  const [adminUsers, setAdminUsers] = useState([]);
+  const [adminUsersLoading, setAdminUsersLoading] = useState(false);
+  const [adminSearch, setAdminSearch] = useState('');
+  const [adminPlans, setAdminPlans] = useState([]);
+  const [adminStats, setAdminStats] = useState(null);
+  const [adminSelectedUser, setAdminSelectedUser] = useState(null);
+  const [adminGrantForm, setAdminGrantForm] = useState({ plan_id: '', duration_days: 30, note: '' });
+  const [adminGranting, setAdminGranting] = useState(false);
+  const [adminNewPlan, setAdminNewPlan] = useState({ name: '', price_fcfa: '', duration_days: 30 });
+  const [adminCreatingPlan, setAdminCreatingPlan] = useState(false);
+
+  // Billing (subscription) tab, under Paramètres — public plan list + this
+  // user's current subscription status + checkout kickoff.
+  const [billingPlans, setBillingPlans] = useState([]);
+  const [billingSubscription, setBillingSubscription] = useState(null);
+  const [billingLoading, setBillingLoading] = useState(false);
+  const [checkoutPlanId, setCheckoutPlanId] = useState(null);
+  const [billingVerifyOrderId, setBillingVerifyOrderId] = useState(null);
+  const [billingVerifyStatus, setBillingVerifyStatus] = useState(null); // null | 'pending' | 'success' | 'failed'
+
+  // Landed back from Maketou/Tara Money's hosted checkout on /billing/success —
+  // poll /api/billing/verify until it resolves (Maketou has no webhook, this
+  // return-page call is its only confirmation path; Tara usually confirms via
+  // its webhook first, but this also catches it if the webhook is slow).
+  useEffect(() => {
+    if (!billingVerifyOrderId || !currentUser) return;
+    setBillingVerifyStatus('pending');
+    let attempts = 0;
+    const poll = async () => {
+      attempts += 1;
+      try {
+        const res = await authFetch(`${API_BASE}/billing/verify?order_id=${encodeURIComponent(billingVerifyOrderId)}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.status === 'success') {
+            setBillingVerifyStatus('success');
+            fetchBillingData();
+            return;
+          }
+        }
+      } catch (err) {
+        console.error("Erreur vérification paiement:", err);
+      }
+      if (attempts < 10) setTimeout(poll, 3000);
+      else setBillingVerifyStatus('failed');
+    };
+    poll();
+  }, [billingVerifyOrderId, currentUser?.id]);
+
+  const fetchBillingData = async () => {
+    setBillingLoading(true);
+    try {
+      const [plansRes, subRes] = await Promise.all([
+        fetch(`${API_BASE}/billing/plans`),
+        authFetch(`${API_BASE}/billing/subscription`),
+      ]);
+      if (plansRes.ok) setBillingPlans(await plansRes.json());
+      if (subRes.ok) setBillingSubscription(await subRes.json());
+    } catch (err) {
+      console.error("Erreur chargement abonnement:", err);
+    } finally {
+      setBillingLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (view === 'settings' && settingsTab === 'billing' && currentUser) fetchBillingData();
+  }, [view, settingsTab, currentUser?.id]);
+
+  const startCheckout = async (planId, provider) => {
+    setCheckoutPlanId(planId);
+    try {
+      const res = await authFetch(`${API_BASE}/billing/checkout`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plan_id: planId, provider }),
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || 'Échec du paiement');
+      const data = await res.json();
+      window.location.href = data.redirect_url;
+    } catch (err) {
+      showToast(err.message, 'error');
+      setCheckoutPlanId(null);
+    }
+  };
+
+  const fetchAdminData = async () => {
+    setAdminUsersLoading(true);
+    try {
+      const [usersRes, plansRes, statsRes] = await Promise.all([
+        authFetch(`${API_BASE}/admin/users${adminSearch ? `?q=${encodeURIComponent(adminSearch)}` : ''}`),
+        authFetch(`${API_BASE}/admin/plans`),
+        authFetch(`${API_BASE}/admin/stats`),
+      ]);
+      if (usersRes.ok) setAdminUsers(await usersRes.json());
+      if (plansRes.ok) setAdminPlans(await plansRes.json());
+      if (statsRes.ok) setAdminStats(await statsRes.json());
+    } catch (err) {
+      console.error("Erreur chargement admin:", err);
+    } finally {
+      setAdminUsersLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (view === 'admin' && currentUser?.is_admin) fetchAdminData();
+  }, [view, currentUser?.is_admin]);
+
+  const openAdminUser = async (userId) => {
+    try {
+      const res = await authFetch(`${API_BASE}/admin/users/${userId}`);
+      if (res.ok) setAdminSelectedUser(await res.json());
+    } catch (err) {
+      console.error("Erreur chargement utilisateur:", err);
+    }
+  };
+
+  const grantAdminSubscription = async () => {
+    if (!adminSelectedUser) return;
+    setAdminGranting(true);
+    try {
+      const body = adminGrantForm.plan_id
+        ? { plan_id: adminGrantForm.plan_id, note: adminGrantForm.note || null }
+        : { duration_days: parseInt(adminGrantForm.duration_days) || 30, note: adminGrantForm.note || null };
+      const res = await authFetch(`${API_BASE}/admin/users/${adminSelectedUser.id}/grant-subscription`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || 'Échec de l\'octroi');
+      showToast('Abonnement accordé.', 'success');
+      await openAdminUser(adminSelectedUser.id);
+      fetchAdminData();
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setAdminGranting(false);
+    }
+  };
+
+  const revokeAdminSubscription = async (userId) => {
+    try {
+      await authFetch(`${API_BASE}/admin/users/${userId}/revoke-subscription`, { method: 'POST' });
+      showToast('Abonnement révoqué.', 'success');
+      await openAdminUser(userId);
+      fetchAdminData();
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  };
+
+  const createAdminPlan = async () => {
+    if (!adminNewPlan.name.trim() || !adminNewPlan.price_fcfa) return;
+    setAdminCreatingPlan(true);
+    try {
+      const res = await authFetch(`${API_BASE}/admin/plans`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: adminNewPlan.name.trim(),
+          price_fcfa: parseInt(adminNewPlan.price_fcfa),
+          duration_days: parseInt(adminNewPlan.duration_days) || 30,
+          is_active: true,
+        }),
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || 'Échec de la création');
+      setAdminNewPlan({ name: '', price_fcfa: '', duration_days: 30 });
+      fetchAdminData();
+      showToast('Offre créée.', 'success');
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setAdminCreatingPlan(false);
+    }
+  };
+
+  const deleteAdminPlan = async (planId) => {
+    try {
+      await authFetch(`${API_BASE}/admin/plans/${planId}`, { method: 'DELETE' });
+      fetchAdminData();
+    } catch (err) {
+      console.error("Erreur suppression plan:", err);
+    }
+  };
+
   const [studioVideo, setStudioVideo] = useState(null);
 
   useEffect(() => {
@@ -4626,6 +4819,15 @@ export default function App() {
                       <span className="material-symbols-outlined text-[16px]">settings</span>
                       Paramètres
                     </button>
+                    {currentUser.is_admin && (
+                      <button
+                        onClick={() => { setView('admin'); setProfileMenuOpen(false); }}
+                        className="w-full text-left px-3.5 py-2.5 text-xs font-bold flex items-center gap-2 text-slate-300 hover:bg-[#1b2230] hover:text-white transition-all"
+                      >
+                        <span className="material-symbols-outlined text-[16px]">shield_person</span>
+                        Administration
+                      </button>
+                    )}
                     <button
                       onClick={() => { handleLogout(); setProfileMenuOpen(false); }}
                       className="w-full text-left px-3.5 py-2.5 text-xs font-bold flex items-center gap-2 text-rose-400 hover:bg-rose-950/50 transition-all"
@@ -7646,6 +7848,7 @@ export default function App() {
                 { id: 'security', label: 'Sécurité', icon: 'lock' },
                 { id: 'izivoice', label: 'Izivoice', icon: 'record_voice_over' },
                 { id: 'api', label: 'Clés API', icon: 'key' },
+                { id: 'billing', label: 'Abonnement', icon: 'workspace_premium' },
               ].map(tab => (
                 <button
                   key={tab.id}
@@ -7907,10 +8110,285 @@ export default function App() {
                     )}
                   </div>
                 )}
+
+                {settingsTab === 'billing' && (
+                  <div className="space-y-5">
+                    <div>
+                      <h4 className="text-xs font-bold text-white mb-1">Abonnement</h4>
+                      <p className="text-[11px] text-slate-400">Génère plus de vidéos et retire le filigrane NicheCut avec un abonnement actif.</p>
+                    </div>
+
+                    {billingVerifyStatus === 'pending' && (
+                      <div className="bg-[#00c2ff]/10 border border-[#00c2ff]/30 rounded-2xl p-4 flex items-center gap-2 text-xs text-[#38d0ff]">
+                        <span className="material-symbols-outlined text-[16px] animate-spin">progress_activity</span>
+                        Vérification du paiement en cours...
+                      </div>
+                    )}
+                    {billingVerifyStatus === 'failed' && (
+                      <div className="bg-amber-950/40 border border-amber-800/60 rounded-2xl p-4 text-xs text-amber-300">
+                        Paiement pas encore confirmé — si tu viens de payer, ça peut prendre quelques minutes. Recharge cette page dans un instant.
+                      </div>
+                    )}
+
+                    {billingSubscription?.active ? (
+                      <div className="bg-emerald-950/40 border border-emerald-800/60 rounded-2xl p-4 flex items-center gap-3">
+                        <span className="material-symbols-outlined text-emerald-400">workspace_premium</span>
+                        <div>
+                          <div className="text-xs font-bold text-emerald-300">Abonnement actif — {billingSubscription.subscription.plan_name || 'Offre personnalisée'}</div>
+                          <div className="text-[11px] text-emerald-500/80">Valable jusqu'au {new Date(billingSubscription.subscription.expires_at).toLocaleDateString('fr-FR')}</div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="bg-[#11151c] border border-[#202938] rounded-2xl p-4 text-[11px] text-slate-400">
+                        Aucun abonnement actif — {currentUser.free_video_quota_granted - currentUser.free_videos_used > 0
+                          ? `il te reste ${currentUser.free_video_quota_granted - currentUser.free_videos_used} vidéo(s) gratuite(s).`
+                          : "ton quota gratuit est épuisé."}
+                      </div>
+                    )}
+
+                    {billingLoading ? (
+                      <p className="text-xs text-slate-500">Chargement des offres...</p>
+                    ) : billingPlans.length === 0 ? (
+                      <p className="text-xs text-slate-500">Aucune offre disponible pour le moment.</p>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {billingPlans.map(p => (
+                          <div key={p.id} className="bg-[#161b22] border border-[#263042] rounded-2xl p-4 space-y-3">
+                            <div>
+                              <div className="text-sm font-bold text-white">{p.name}</div>
+                              <div className="text-lg font-extrabold text-[#00c2ff] mt-1">{p.price_fcfa.toLocaleString()} FCFA</div>
+                              <div className="text-[11px] text-slate-500">{p.duration_days} jours</div>
+                            </div>
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => startCheckout(p.id, 'maketou')}
+                                disabled={checkoutPlanId === p.id}
+                                className="flex-1 py-2 bg-[#1f2838] hover:bg-[#2b384e] text-white rounded-xl font-bold text-[11px] disabled:opacity-50"
+                              >
+                                Maketou
+                              </button>
+                              <button
+                                onClick={() => startCheckout(p.id, 'tarapay')}
+                                disabled={checkoutPlanId === p.id}
+                                className="flex-1 py-2 bg-[#00c2ff] text-slate-950 rounded-xl font-bold text-[11px] disabled:opacity-50"
+                              >
+                                Tara Money
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           </div>
       )}
+
+      {/* ADMIN DASHBOARD — dedicated page (view === 'admin'), server-side gated on is_admin */}
+      {view === 'admin' && currentUser?.is_admin && (
+        <div className="max-w-[1200px] mx-auto space-y-6">
+          <div>
+            <h2 className="text-xl font-extrabold text-white flex items-center gap-2">
+              <span className="material-symbols-outlined text-[#00c2ff]">shield_person</span>
+              Administration
+            </h2>
+            <p className="text-xs text-slate-400 mt-1">Utilisateurs, abonnements et offres NicheCut.</p>
+          </div>
+
+          {adminStats && (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {[
+                { label: 'Utilisateurs', value: adminStats.total_users, icon: 'group' },
+                { label: 'Abonnements actifs', value: adminStats.active_subscriptions, icon: 'workspace_premium' },
+                { label: 'Revenu total', value: `${adminStats.total_revenue_fcfa.toLocaleString()} FCFA`, icon: 'payments' },
+                { label: 'Vidéos aujourd\'hui', value: `${adminStats.videos_today} / ${adminStats.total_videos}`, icon: 'movie' },
+              ].map(s => (
+                <div key={s.label} className="bg-[#161b22] border border-[#263042] rounded-2xl p-4">
+                  <span className="material-symbols-outlined text-[#00c2ff] text-[20px]">{s.icon}</span>
+                  <div className="text-xl font-extrabold text-white mt-2">{s.value}</div>
+                  <div className="text-[11px] text-slate-400">{s.label}</div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="flex items-center gap-1 bg-[#0f1217] border border-[#2b374d] rounded-xl p-1 w-fit">
+            {[{ id: 'users', label: 'Utilisateurs' }, { id: 'plans', label: 'Offres' }].map(t => (
+              <button
+                key={t.id}
+                onClick={() => setAdminTab(t.id)}
+                className={`px-4 py-2 rounded-lg text-xs font-bold transition-colors ${adminTab === t.id ? 'bg-[#00c2ff] text-slate-950' : 'text-slate-400 hover:text-white'}`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+
+          {adminTab === 'users' && (
+            <div className="bg-[#161b22] border border-[#263042] rounded-2xl overflow-hidden">
+              <div className="p-4 border-b border-[#263042]">
+                <input
+                  value={adminSearch}
+                  onChange={e => setAdminSearch(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && fetchAdminData()}
+                  placeholder="Rechercher par email..."
+                  className="w-full max-w-xs bg-[#1b2230] border border-[#2b374d] rounded-xl px-3 py-2 text-xs text-white focus:border-[#00c2ff] outline-none"
+                />
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="text-left text-slate-500 border-b border-[#263042]">
+                      <th className="px-4 py-2.5 font-bold">Email</th>
+                      <th className="px-4 py-2.5 font-bold">Inscrit le</th>
+                      <th className="px-4 py-2.5 font-bold">Chaînes</th>
+                      <th className="px-4 py-2.5 font-bold">Vidéos</th>
+                      <th className="px-4 py-2.5 font-bold">Quota gratuit</th>
+                      <th className="px-4 py-2.5 font-bold">Abonnement</th>
+                      <th className="px-4 py-2.5"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {adminUsersLoading ? (
+                      <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-500">Chargement...</td></tr>
+                    ) : adminUsers.length === 0 ? (
+                      <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-500">Aucun utilisateur.</td></tr>
+                    ) : adminUsers.map(u => (
+                      <tr key={u.id} className="border-b border-[#202938] hover:bg-[#1b2230]/60">
+                        <td className="px-4 py-2.5 text-white font-medium">{u.email}{u.is_admin && <span className="ml-1.5 text-[9px] px-1.5 py-0.5 rounded bg-[#00c2ff]/15 text-[#00c2ff] font-bold">ADMIN</span>}</td>
+                        <td className="px-4 py-2.5 text-slate-400">{u.created_at ? new Date(u.created_at).toLocaleDateString('fr-FR') : '—'}</td>
+                        <td className="px-4 py-2.5 text-slate-300">{u.channel_count}</td>
+                        <td className="px-4 py-2.5 text-slate-300">{u.video_count}</td>
+                        <td className="px-4 py-2.5 text-slate-300">{u.free_videos_used}/{u.free_video_quota_granted}</td>
+                        <td className="px-4 py-2.5">
+                          {u.has_active_subscription ? (
+                            <span className="px-2 py-0.5 rounded-full bg-emerald-950/60 text-emerald-400 text-[10px] font-bold">Actif</span>
+                          ) : (
+                            <span className="px-2 py-0.5 rounded-full bg-[#1b2230] text-slate-500 text-[10px] font-bold">Aucun</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-2.5 text-right">
+                          <button onClick={() => { openAdminUser(u.id); setAdminGrantForm({ plan_id: '', duration_days: 30, note: '' }); }} className="text-[#00c2ff] font-bold hover:underline">Gérer</button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {adminTab === 'plans' && (
+            <div className="bg-[#161b22] border border-[#263042] rounded-2xl p-4 space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 items-end">
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 mb-1">Nom de l'offre</label>
+                  <input value={adminNewPlan.name} onChange={e => setAdminNewPlan({ ...adminNewPlan, name: e.target.value })} className="w-full bg-[#1b2230] border border-[#2b374d] rounded-lg px-2.5 py-2 text-xs text-white focus:border-[#00c2ff] outline-none" placeholder="Ex: Pro" />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 mb-1">Prix (FCFA)</label>
+                  <input type="number" value={adminNewPlan.price_fcfa} onChange={e => setAdminNewPlan({ ...adminNewPlan, price_fcfa: e.target.value })} className="w-full bg-[#1b2230] border border-[#2b374d] rounded-lg px-2.5 py-2 text-xs text-white focus:border-[#00c2ff] outline-none" placeholder="5000" />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 mb-1">Durée (jours)</label>
+                  <input type="number" value={adminNewPlan.duration_days} onChange={e => setAdminNewPlan({ ...adminNewPlan, duration_days: e.target.value })} className="w-full bg-[#1b2230] border border-[#2b374d] rounded-lg px-2.5 py-2 text-xs text-white focus:border-[#00c2ff] outline-none" />
+                </div>
+                <button onClick={createAdminPlan} disabled={adminCreatingPlan} className="py-2 bg-[#00c2ff] text-slate-950 font-bold text-xs rounded-lg disabled:opacity-50">
+                  {adminCreatingPlan ? 'Création...' : '+ Créer l\'offre'}
+                </button>
+              </div>
+              <div className="space-y-1.5">
+                {adminPlans.map(p => (
+                  <div key={p.id} className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl border ${p.is_active ? 'bg-[#11151c] border-[#202938]' : 'bg-[#11151c]/40 border-[#202938]/50 opacity-50'}`}>
+                    <div>
+                      <span className="text-xs font-bold text-white">{p.name}</span>
+                      <span className="text-xs text-slate-400 ml-2">{p.price_fcfa.toLocaleString()} FCFA · {p.duration_days}j</span>
+                    </div>
+                    {p.is_active && (
+                      <button onClick={() => deleteAdminPlan(p.id)} className="text-rose-400 hover:text-rose-300 text-[11px] font-bold">Désactiver</button>
+                    )}
+                  </div>
+                ))}
+                {adminPlans.length === 0 && <p className="text-xs text-slate-500 text-center py-4">Aucune offre créée.</p>}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ADMIN — user detail / grant-subscription drawer */}
+      {adminSelectedUser && (
+        <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-[70] flex items-center justify-center p-6">
+          <div className="bg-[#161b22] border border-[#263042] rounded-3xl p-6 max-w-[480px] w-full shadow-2xl space-y-4 max-h-[85vh] overflow-y-auto">
+            <div className="flex justify-between items-center">
+              <div>
+                <h3 className="text-sm font-bold text-white">{adminSelectedUser.email}</h3>
+                <p className="text-[11px] text-slate-500">{adminSelectedUser.channels?.length || 0} chaîne(s) · {adminSelectedUser.free_videos_used}/{adminSelectedUser.free_video_quota_granted} vidéos gratuites utilisées</p>
+              </div>
+              <button onClick={() => setAdminSelectedUser(null)} className="text-slate-400 hover:text-white">
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+
+            <div className="space-y-1.5">
+              <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Historique d'abonnement</div>
+              {(adminSelectedUser.subscriptions || []).length === 0 ? (
+                <p className="text-xs text-slate-500">Aucun abonnement.</p>
+              ) : adminSelectedUser.subscriptions.map(s => (
+                <div key={s.id} className="flex items-center justify-between bg-[#11151c] border border-[#202938] rounded-xl px-3 py-2 text-[11px]">
+                  <div>
+                    <span className={`font-bold ${s.status === 'active' ? 'text-emerald-400' : 'text-slate-500'}`}>{s.status}</span>
+                    <span className="text-slate-400 ml-2">{s.plan_name || 'Octroi personnalisé'} — jusqu'au {new Date(s.expires_at).toLocaleDateString('fr-FR')}</span>
+                    {s.note && <div className="text-slate-500 mt-0.5">{s.note}</div>}
+                  </div>
+                  {s.status === 'active' && (
+                    <button onClick={() => revokeAdminSubscription(adminSelectedUser.id)} className="text-rose-400 font-bold shrink-0 ml-2">Révoquer</button>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            <div className="pt-3 border-t border-[#202938] space-y-3">
+              <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Accorder un abonnement</div>
+              <select
+                value={adminGrantForm.plan_id}
+                onChange={e => setAdminGrantForm({ ...adminGrantForm, plan_id: e.target.value })}
+                className="w-full bg-[#1b2230] border border-[#2b374d] rounded-xl px-3 py-2 text-xs text-white focus:border-[#00c2ff] outline-none"
+              >
+                <option value="">Octroi personnalisé (gratuit, durée libre)</option>
+                {adminPlans.filter(p => p.is_active).map(p => (
+                  <option key={p.id} value={p.id}>{p.name} — {p.price_fcfa.toLocaleString()} FCFA / {p.duration_days}j</option>
+                ))}
+              </select>
+              {!adminGrantForm.plan_id && (
+                <input
+                  type="number"
+                  value={adminGrantForm.duration_days}
+                  onChange={e => setAdminGrantForm({ ...adminGrantForm, duration_days: e.target.value })}
+                  placeholder="Durée en jours"
+                  className="w-full bg-[#1b2230] border border-[#2b374d] rounded-xl px-3 py-2 text-xs text-white focus:border-[#00c2ff] outline-none"
+                />
+              )}
+              <input
+                value={adminGrantForm.note}
+                onChange={e => setAdminGrantForm({ ...adminGrantForm, note: e.target.value })}
+                placeholder="Note (ex: partenaire, geste commercial...)"
+                className="w-full bg-[#1b2230] border border-[#2b374d] rounded-xl px-3 py-2 text-xs text-white focus:border-[#00c2ff] outline-none"
+              />
+              <button
+                onClick={grantAdminSubscription}
+                disabled={adminGranting}
+                className="w-full py-2.5 bg-[#00c2ff] text-slate-950 font-bold text-xs rounded-xl disabled:opacity-50"
+              >
+                {adminGranting ? 'Octroi...' : 'Accorder l\'abonnement'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
           </div>
         </div>
       </main>
