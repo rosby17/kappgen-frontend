@@ -5200,6 +5200,11 @@ export default function App() {
                 <section className="relative overflow-hidden bg-gradient-to-br from-[#171d27] via-[#141a23] to-[#10151d] border border-[#293446] rounded-3xl p-5 sm:p-6 shadow-[0_24px_70px_rgba(0,0,0,.22)]">
                   <div className="absolute -top-24 -left-16 w-72 h-72 rounded-full bg-[#00c2ff]/[.055] blur-3xl pointer-events-none" />
                   <div className="relative flex flex-col xl:flex-row xl:items-center justify-between gap-6">
+                  {/* xl:contents makes this wrapper disappear from the layout at xl+ (its
+                      two children rejoin the row above as before); below xl it's a real
+                      row so "Nouvelle Vidéo" sits next to the channel name instead of
+                      wrapping to its own line under the sync/actions cluster. */}
+                  <div className="flex items-center justify-between gap-3 xl:contents">
                   <div
                     onClick={(e) => openEditWizard(activeChannel, e)}
                     title="Modifier la configuration de la chaîne"
@@ -5289,6 +5294,19 @@ export default function App() {
                       )}
                     </div>
                   </div>
+                  {/* Mobile/tablet copy — same row as the channel name, icon-only.
+                      Hidden at xl+ where the desktop copy (in the actions cluster
+                      below) takes over. */}
+                  <button
+                    onClick={() => startNewVideoFor(activeChannel)}
+                    disabled={generatingAutoVideo}
+                    title="Nouvelle Vidéo"
+                    className="xl:hidden shrink-0 min-h-11 min-w-11 px-3.5 py-2 bg-gradient-to-r from-[#61dcff] to-[#16b8ff] text-[#041018] rounded-xl font-extrabold text-xs hover:brightness-110 transition-all flex items-center justify-center gap-2 shadow-lg shadow-[#00bfff]/20 disabled:opacity-60"
+                  >
+                    <span className="material-symbols-outlined text-[18px]">add</span>
+                    <span className="hidden sm:inline">Nouvelle Vidéo</span>
+                  </button>
+                  </div>
 
                   <div className="flex items-stretch gap-2 flex-shrink-0 flex-wrap xl:justify-end rounded-2xl xl:bg-[#0a0f16]/45 xl:border xl:border-white/[.055] xl:p-2">
                     {(activeChannel.image_style?.source === 'library' || activeChannel.image_style?.source === 'hybrid') && (
@@ -5344,14 +5362,19 @@ export default function App() {
                           </div>
                       </div>
                     )}
+                    {/* "Nouvelle Vidéo" itself now lives next to the channel name
+                        above (see the identity row) so it stays on the same line
+                        as the name on mobile instead of wrapping to its own row —
+                        this desktop-only copy keeps it grouped with the sync
+                        button in the xl+ actions cluster. */}
                     <button
                       onClick={() => startNewVideoFor(activeChannel)}
                       disabled={generatingAutoVideo}
                       title="Nouvelle Vidéo"
-                      className="min-h-11 px-4 sm:px-5 py-2 bg-gradient-to-r from-[#61dcff] to-[#16b8ff] text-[#041018] rounded-xl font-extrabold text-xs hover:brightness-110 transition-all flex items-center justify-center gap-2 shadow-lg shadow-[#00bfff]/20 disabled:opacity-60"
+                      className="hidden xl:flex min-h-11 px-4 sm:px-5 py-2 bg-gradient-to-r from-[#61dcff] to-[#16b8ff] text-[#041018] rounded-xl font-extrabold text-xs hover:brightness-110 transition-all items-center justify-center gap-2 shadow-lg shadow-[#00bfff]/20 disabled:opacity-60"
                     >
                       <span className="material-symbols-outlined text-[18px]">add</span>
-                      <span className="hidden sm:inline">Nouvelle Vidéo</span>
+                      <span>Nouvelle Vidéo</span>
                     </button>
                   </div>
                   </div>
