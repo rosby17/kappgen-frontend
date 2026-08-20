@@ -1441,6 +1441,8 @@ export default function App() {
   const [singleScriptText, setSingleScriptText] = useState('');
   const [selectedVoice, setSelectedVoice] = useState('fr-FR-Thomas');
   const [availableVoices, setAvailableVoices] = useState(VOICE_MODELS);
+  const defaultVoicesRef = useRef(VOICE_MODELS);
+  const [voiceSearching, setVoiceSearching] = useState(false);
   const [cloningVoice, setCloningVoice] = useState(false);
   const [voiceSearchQuery, setVoiceSearchQuery] = useState('');
   const [izivoiceStatus, setIzivoiceStatus] = useState(null);
@@ -1555,17 +1557,17 @@ export default function App() {
   const [thumbnailStyleAnalyzing, setThumbnailStyleAnalyzing] = useState(false);
 
   const handleUploadThumbnailStyle = async (e) => {
-    const file = e.target.files?.[0];
+    const files = Array.from(e.target.files || []);
     e.target.value = '';
-    if (!file) return;
+    if (!files.length) return;
     if (!editingChannelId) {
-      showToast("Enregistre d'abord la chaîne avant d'ajouter une image de référence de miniature.", "error");
+      showToast("Enregistre d'abord la chaîne avant d'ajouter des images de référence de miniature.", "error");
       return;
     }
     setThumbnailStyleAnalyzing(true);
     try {
       const formData = new FormData();
-      formData.append('file', file);
+      files.forEach(file => formData.append('files', file));
       const res = await fetch(`${API_BASE}/channels/${editingChannelId}/thumbnail-style`, { method: 'POST', body: formData });
       if (!res.ok) {
         const detail = await res.json().catch(() => ({}));
@@ -1574,22 +1576,25 @@ export default function App() {
       const data = await res.json();
       setNewChannel(prev => ({ ...prev, thumbnail_style: data.thumbnail_style }));
       setChannels(prev => prev.map(c => c.id === data.id ? data : c));
-      showToast("Style de miniature analysé et enregistré.", "success");
+      showToast(`Style de miniature ré-analysé sur ${(data.thumbnail_style?.reference_image_paths || []).length} image(s).`, "success");
     } catch (err) {
-      showToast(err.message || "Erreur lors de l'analyse de l'image.", "error");
+      showToast(err.message || "Erreur lors de l'analyse des images.", "error");
     } finally {
       setThumbnailStyleAnalyzing(false);
     }
   };
 
-  const handleRemoveThumbnailStyle = async () => {
+  const handleRemoveThumbnailStyle = async (imagePath = null) => {
     if (!editingChannelId) return;
     setThumbnailStyleAnalyzing(true);
     try {
-      const res = await fetch(`${API_BASE}/channels/${editingChannelId}/thumbnail-style`, { method: 'DELETE' });
+      const url = imagePath
+        ? `${API_BASE}/channels/${editingChannelId}/thumbnail-style?image_path=${encodeURIComponent(imagePath)}`
+        : `${API_BASE}/channels/${editingChannelId}/thumbnail-style`;
+      const res = await fetch(url, { method: 'DELETE' });
       if (!res.ok) throw new Error("Suppression impossible.");
       const data = await res.json();
-      setNewChannel(prev => ({ ...prev, thumbnail_style: null }));
+      setNewChannel(prev => ({ ...prev, thumbnail_style: data.thumbnail_style || null }));
       setChannels(prev => prev.map(c => c.id === data.id ? data : c));
     } catch (err) {
       showToast(err.message, "error");
@@ -2917,6 +2922,7 @@ export default function App() {
           preview_url: v.preview_url || v.languages?.find(item => item.preview_url)?.preview_url || null,
         }));
         if (voices.length) {
+          defaultVoicesRef.current = voices;
           setAvailableVoices(voices);
           const preferred = inWizard ? newChannel.voice_id : activeChannel?.voice_id;
           if (preferred && voices.some(v => v.id === preferred)) setSelectedVoice(preferred);
@@ -2925,6 +2931,36 @@ export default function App() {
       })
       .catch(() => {});
   }, [showSubmitModal, submitMode, view, currentUser?.id, activeChannel?.voice_id, studioVideo?.id]);
+
+  // Izivoice's catalog holds 11 000+ voices — the default fetch above only
+  // covers the first ~1000, so a name/accent/language typed here that isn't
+  // in that slice needs its own server-side search instead of filtering the
+  // already-loaded list (which would silently miss almost everything).
+  useEffect(() => {
+    const query = voiceSearchQuery.trim();
+    if (query.length < 2) {
+      setAvailableVoices(defaultVoicesRef.current);
+      return;
+    }
+    const ownerQuery = currentUser ? `&user_id=${encodeURIComponent(currentUser.id)}` : '';
+    setVoiceSearching(true);
+    const handle = setTimeout(() => {
+      fetch(`${API_BASE}/channels/voice/catalog?search=${encodeURIComponent(query)}${ownerQuery}`)
+        .then(res => res.ok ? res.json() : Promise.reject())
+        .then(data => {
+          const voices = (data.voices || []).map(v => ({
+            id: v.voice_id,
+            name: v.name || v.voice_id,
+            desc: [v.language, v.gender, v.accent].filter(Boolean).join(' · ') || 'Voix Izivoice',
+            preview_url: v.preview_url || v.languages?.find(item => item.preview_url)?.preview_url || null,
+          }));
+          setAvailableVoices(voices);
+        })
+        .catch(() => {})
+        .finally(() => setVoiceSearching(false));
+    }, 350);
+    return () => clearTimeout(handle);
+  }, [voiceSearchQuery, currentUser?.id]);
 
   useEffect(() => {
     if (view !== 'wizard' || !currentUser) return;
@@ -3769,7 +3805,7 @@ export default function App() {
         )}
         
         {/* Top Header Bar */}
-        <div className="hidden md:flex justify-between items-center px-8 py-5 border-b border-[#202938] bg-[#141923]/60 backdrop-blur-md">
+        <div className="relative z-30 hidden md:flex justify-between items-center px-8 py-5 border-b border-[#202938] bg-[#141923]/60 backdrop-blur-md">
           <h1 className="text-xl font-extrabold text-white tracking-tight flex items-center gap-3">
             {view === 'home' && 'Tableau de Bord'}
             {view === 'channels' && 'Vos Pipelines de Chaînes'}
@@ -3810,8 +3846,8 @@ export default function App() {
                 </div>
                 {profileMenuOpen && (
                   <>
-                    <div className="fixed inset-0 z-40" onClick={() => setProfileMenuOpen(false)} />
-                    <div className="absolute right-0 top-full mt-2 w-56 bg-[#161b22] border border-[#263042] rounded-2xl shadow-2xl z-50 overflow-hidden py-1.5">
+                    <div className="fixed inset-0 z-[60]" onClick={() => setProfileMenuOpen(false)} />
+                    <div className="absolute right-0 top-full mt-2 w-56 bg-[#161b22] border border-[#263042] rounded-2xl shadow-2xl z-[70] overflow-hidden py-1.5">
                       <div className="px-3.5 py-2.5 border-b border-[#263042]">
                         <p className="text-xs font-bold text-white truncate">{currentUser.name}</p>
                         <p className="text-[11px] text-slate-400 truncate">{currentUser.email}</p>
@@ -5666,17 +5702,19 @@ export default function App() {
 
                     <div>
                       <div className="flex items-center justify-between gap-3 mb-2">
-                        <label className="text-xs font-bold text-slate-300">Bibliothèque de voix ({availableVoices.length})</label>
-                        <input
-                          value={voiceSearchQuery}
-                          onChange={e => setVoiceSearchQuery(e.target.value)}
-                          placeholder="Rechercher (langue, accent, nom...)"
-                          className="bg-[#1b2230] border border-[#2b374d] rounded-lg px-3 py-1.5 text-[11px] text-white focus:border-[#00c2ff] outline-none w-56"
-                        />
+                        <label className="text-xs font-bold text-slate-300">Bibliothèque de voix ({availableVoices.length}{voiceSearchQuery.trim().length < 2 ? ' / 11 000+' : ''})</label>
+                        <div className="relative">
+                          <input
+                            value={voiceSearchQuery}
+                            onChange={e => setVoiceSearchQuery(e.target.value)}
+                            placeholder="Rechercher dans les 11 000+ voix (langue, accent, nom...)"
+                            className="bg-[#1b2230] border border-[#2b374d] rounded-lg px-3 py-1.5 text-[11px] text-white focus:border-[#00c2ff] outline-none w-72"
+                          />
+                          {voiceSearching && <span className="material-symbols-outlined text-[14px] text-slate-500 absolute right-2.5 top-1/2 -translate-y-1/2 animate-spin">progress_activity</span>}
+                        </div>
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-72 overflow-y-auto pr-1">
                         {availableVoices
-                          .filter(v => !voiceSearchQuery || `${v.name} ${v.desc}`.toLowerCase().includes(voiceSearchQuery.toLowerCase()))
                           .map(v => {
                             const active = (newChannel.voice_id || selectedVoice) === v.id;
                             return (
@@ -6123,6 +6161,7 @@ export default function App() {
                               ref={thumbnailStyleInputRef}
                               type="file"
                               accept="image/png,image/jpeg,image/webp"
+                              multiple
                               onChange={handleUploadThumbnailStyle}
                               className="hidden"
                             />
@@ -6133,36 +6172,49 @@ export default function App() {
                               className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold bg-[#00c2ff]/10 text-[#00c2ff] hover:bg-[#00c2ff]/20 transition-colors disabled:opacity-50"
                             >
                               <span className="material-symbols-outlined text-[13px]">{thumbnailStyleAnalyzing ? 'hourglass_top' : 'image_search'}</span>
-                              {thumbnailStyleAnalyzing ? 'Analyse...' : (newChannel.thumbnail_style?.style_prompt ? "Changer l'image de référence" : "Ajouter une image de référence")}
+                              {thumbnailStyleAnalyzing ? 'Analyse...' : (newChannel.thumbnail_style?.style_prompt ? "Ajouter d'autres images" : "Ajouter des images de référence")}
                             </button>
                           </div>
                         </div>
                         <p className="text-[11px] text-slate-400">
-                          Optionnel — donne un exemple de la miniature que tu veux (personnage, cadrage, ambiance). L'IA analyse cette image une fois et réutilise ce style pour toutes les miniatures générées sur cette chaîne, à la place du style visuel des vidéos ci-dessus.
+                          Optionnel — donne plusieurs exemples de la miniature que tu veux (personnage, cadrage, ambiance). L'IA analyse toutes ces images ensemble et réutilise le style commun pour toutes les miniatures générées sur cette chaîne, à la place du style visuel des vidéos ci-dessus.
                         </p>
                         {newChannel.thumbnail_style?.style_prompt ? (
-                          <div className="flex items-start gap-2.5 bg-[#0f1217] border border-[#2b374d] rounded-lg p-2.5">
-                            {newChannel.thumbnail_style.reference_image_path && (
-                              <img
-                                src={`${STORAGE_BASE}/${newChannel.thumbnail_style.reference_image_path}`}
-                                alt="Référence miniature"
-                                className="w-14 h-14 rounded-lg object-cover border border-[#2b374d] shrink-0"
-                              />
-                            )}
-                            <div className="flex-1 min-w-0">
+                          <div className="bg-[#0f1217] border border-[#2b374d] rounded-lg p-2.5 space-y-2">
+                            <div className="flex flex-wrap gap-2">
+                              {(newChannel.thumbnail_style.reference_image_paths || []).map((path) => (
+                                <div key={path} className="relative group shrink-0">
+                                  <img
+                                    src={`${STORAGE_BASE}/${path}`}
+                                    alt="Référence miniature"
+                                    className="w-14 h-14 rounded-lg object-cover border border-[#2b374d]"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveThumbnailStyle(path)}
+                                    disabled={thumbnailStyleAnalyzing}
+                                    title="Retirer cette image"
+                                    className="absolute -top-1.5 -right-1.5 w-4.5 h-4.5 rounded-full bg-red-500 hover:bg-red-400 text-white flex items-center justify-center disabled:opacity-50"
+                                  >
+                                    <span className="material-symbols-outlined text-[12px]">close</span>
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                            <div>
                               <p className="text-[10px] text-slate-300 line-clamp-3">{newChannel.thumbnail_style.style_prompt}</p>
                               <button
                                 type="button"
-                                onClick={handleRemoveThumbnailStyle}
+                                onClick={() => handleRemoveThumbnailStyle()}
                                 disabled={thumbnailStyleAnalyzing}
                                 className="mt-1 text-[10px] font-semibold text-red-400 hover:text-red-300 disabled:opacity-50"
                               >
-                                Retirer
+                                Tout retirer
                               </button>
                             </div>
                           </div>
                         ) : !editingChannelId ? (
-                          <p className="text-[10px] text-amber-400/80">Enregistre d'abord la chaîne pour pouvoir ajouter une image de référence de miniature.</p>
+                          <p className="text-[10px] text-amber-400/80">Enregistre d'abord la chaîne pour pouvoir ajouter des images de référence de miniature.</p>
                         ) : null}
                       </div>
                     </div>
