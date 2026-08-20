@@ -102,7 +102,7 @@ export default function LandingPage() {
           <div className="hero-grid" /><div className="hero-orb orb-one" /><div className="hero-orb orb-two" />
           <div className="hero-copy">
             <h1>Tu dors.<br /><span>NicheCut travaille pour toi sur YouTube.</span></h1>
-            <p>L’Agent imagine, crée et publie des vidéos originales dans le style de ta chaîne — une automatisation pensée pour construire une audience durable, pas produire du contenu générique en masse.</p>
+            <p>L’Agent imagine, crée et publie des vidéos originales dans le style de ta chaîne. Nous l’avons travaillé à partir des réalités du terrain YouTube pour construire une audience durable, pas produire du contenu générique en masse.</p>
             <div className="hero-actions">
               <a className="button button-primary" href={appUrl('/signup')}>Automatiser ma chaîne <ArrowRight size={18} /></a>
               <a className="button button-ghost" href="#fonctionnement"><Play size={17} fill="currentColor" /> Découvrir l’Agent</a>
@@ -124,7 +124,7 @@ export default function LandingPage() {
           <div className="steps">{steps.map(([number, title, text]) => <article className="step" key={number}><span>{number}</span><div><h3>{title}</h3><p>{text}</p></div></article>)}</div>
         </section>
 
-        <section className="section audience"><div className="audience-card"><div><div className="section-kicker">ORIGINAL PAR CONCEPTION</div><h2>Autonome ne veut pas dire générique.</h2><p>NicheCut ne produit pas à la chaîne. L’Agent crée des vidéos originales et authentiques selon ton univers, tout en intégrant les bonnes pratiques et les règles de la communauté YouTube pour réduire les risques de démonétisation, de suppression ou de sanction.</p></div><div className="audience-list">{['Création originale', 'Identité de chaîne préservée', 'Bonnes pratiques YouTube', 'Qualité avant quantité'].map((item) => <span key={item}><BadgeCheck /> {item}</span>)}</div></div></section>
+        <section className="section audience"><div className="audience-card"><div><div className="section-kicker">ENTRAÎNÉ POUR LA RÉALITÉ DE YOUTUBE</div><h2>Autonome ne veut pas dire générique.</h2><p>Nous maîtrisons les réalités du terrain YouTube et avons travaillé l’Agent autour de ce qui compte vraiment : originalité, rétention, identité éditoriale, droits et règles de monétisation. NicheCut ne produit pas à la chaîne ; il crée selon ton univers et applique ces exigences à chaque vidéo pour réduire les risques de démonétisation, de suppression ou de sanction.</p></div><div className="audience-list">{['Originalité à chaque vidéo', 'Rétention pensée dès le script', 'Identité de chaîne préservée', 'Règles YouTube intégrées'].map((item) => <span key={item}><BadgeCheck /> {item}</span>)}</div></div></section>
 
         <section className="section pricing" id="tarifs">
           <div className="section-intro centered"><div className="section-kicker">ACCÈS ANTICIPÉ</div><h2>Construis une chaîne qui publie<br /><span>même quand tu dors.</span></h2><p>Rejoins l’accès anticipé et configure ton premier Agent NicheCut.</p></div>
@@ -134,7 +134,7 @@ export default function LandingPage() {
         <section className="section faq" id="faq"><div><div className="section-kicker">QUESTIONS FRÉQUENTES</div><h2>Avant d’activer<br />ton Agent.</h2></div><div className="faq-list">{[
           ['Dois-je fournir les idées ou les scripts ?', 'Non. En mode autonome, l’Agent recherche les sujets, choisit l’angle et rédige lui-même les scripts.'],
           ['Dois-je valider chaque vidéo ?', 'Non. Tu peux laisser l’Agent aller jusqu’à la publication automatique. Tu gardes néanmoins une vue complète sur son activité.'],
-          ['Est-ce du contenu générique produit en masse ?', 'Non. Chaque chaîne possède sa propre identité et chaque vidéo est conçue avec un angle, un script et un rendu originaux. NicheCut privilégie la pertinence et l’authenticité, en tenant compte des règles de la communauté YouTube.'],
+          ['Est-ce du contenu générique produit en masse ?', 'Non. Nous avons conçu l’Agent à partir des réalités du terrain YouTube : une chaîne doit être originale, cohérente, capable de retenir son audience et respecter les règles de la plateforme. Chaque vidéo possède donc son propre angle, son script et son rendu, tout en restant fidèle à l’identité de ta chaîne.'],
           ['Puis-je gérer plusieurs chaînes ?', 'Oui. Chaque chaîne possède son propre Agent, son style, sa niche et son calendrier de publication.'],
           ['Où se trouve l’application ?', `L’espace de production est séparé de ce site et accessible sur ${APP_ORIGIN.replace('https://', '')}.`],
         ].map(([q, a]) => <details key={q}><summary>{q}<span>+</span></summary><p>{a}</p></details>)}</div></section>
