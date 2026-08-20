@@ -1259,6 +1259,9 @@ export default function App() {
   const [apiKeys, setApiKeys] = useState([]);
   const [newApiKeyName, setNewApiKeyName] = useState('');
   const [justCreatedApiKey, setJustCreatedApiKey] = useState(null);
+  const [izivoiceConnection, setIzivoiceConnection] = useState({ connected: false, mode: 'nichecut', key_prefix: null });
+  const [izivoiceApiKey, setIzivoiceApiKey] = useState('');
+  const [izivoiceConnecting, setIzivoiceConnecting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [resetSuccessMsg, setResetSuccessMsg] = useState('');
 
@@ -1267,6 +1270,9 @@ export default function App() {
   const [submitMode, setSubmitMode] = useState('text'); // 'text' | 'audio_upload'
   const [singleScriptText, setSingleScriptText] = useState('');
   const [selectedVoice, setSelectedVoice] = useState('fr-FR-Thomas');
+  const [availableVoices, setAvailableVoices] = useState(VOICE_MODELS);
+  const [cloningVoice, setCloningVoice] = useState(false);
+  const cloneVoiceInputRef = useRef(null);
   const [audioFilesList, setAudioFilesList] = useState([]);
   // Izivoice STT transcription (for accurate audio-upload subtitles) is billable —
   // default on, but the user can opt out in the final preview to avoid credit cost.
@@ -1449,6 +1455,9 @@ export default function App() {
     },
     automation_mode: 'manual',
     automation_style_prompt: '',
+    publish_mode: 'manual',
+    publish_schedule_hour: 8,
+    publish_schedule_day_offset: 1,
     script_structure: {
       language: 'English',
       parts: [
@@ -1466,7 +1475,10 @@ export default function App() {
         'Write in flowing continuous paragraphs, never a single isolated line.',
       ],
       cta_style: 'Weave in a natural invitation to like, subscribe, and comment without breaking the tone.',
-    }
+    },
+    voice_id: '',
+    voice_name: '',
+    voice_settings: { speed: 0.845, stability: 0.8, similarity_boost: 0.9, style: 0 }
   };
   const [newChannel, setNewChannel] = useState(defaultChannelForm);
 
@@ -1896,6 +1908,7 @@ export default function App() {
       setSettingsTab('profile');
       setJustCreatedApiKey(null);
       fetchApiKeys();
+      fetchIzivoiceConnection();
     }
   }, [showProfileModal, currentUser]);
 
@@ -1906,6 +1919,45 @@ export default function App() {
       if (res.ok) setApiKeys(await res.json());
     } catch (e) {
       console.error("Erreur chargement clés API:", e);
+    }
+  };
+
+  const fetchIzivoiceConnection = async () => {
+    if (!currentUser) return;
+    try {
+      const res = await fetch(`${API_BASE}/channels/izivoice/status?user_id=${encodeURIComponent(currentUser.id)}`);
+      if (res.ok) setIzivoiceConnection(await res.json());
+    } catch (e) {
+      console.error('Erreur statut Izivoice:', e);
+    }
+  };
+
+  const handleConnectIzivoice = async (e) => {
+    e.preventDefault();
+    if (!izivoiceApiKey.trim()) return;
+    setIzivoiceConnecting(true);
+    try {
+      const res = await fetch(`${API_BASE}/channels/izivoice/connect`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: currentUser.id, api_key: izivoiceApiKey.trim() })
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.detail || 'Connexion Izivoice impossible.');
+      setIzivoiceConnection(body);
+      setIzivoiceApiKey('');
+      showToast('Compte Izivoice synchronisé avec NicheCut.', 'success');
+    } catch (err) { showToast(err.message, 'error'); }
+    finally { setIzivoiceConnecting(false); }
+  };
+
+  const handleDisconnectIzivoice = async () => {
+    const ok = await askConfirm("NicheCut repassera sur son moteur vocal par défaut. Tes vidéos et tes chaînes restent intactes.", { title: 'Déconnecter Izivoice ?' });
+    if (!ok) return;
+    const res = await fetch(`${API_BASE}/channels/izivoice/connect?user_id=${encodeURIComponent(currentUser.id)}`, { method: 'DELETE' });
+    if (res.ok) {
+      setIzivoiceConnection(await res.json());
+      setAvailableVoices(VOICE_MODELS);
+      showToast('Izivoice déconnecté. Le moteur NicheCut prend le relais.', 'success');
     }
   };
 
@@ -2073,6 +2125,9 @@ export default function App() {
       },
       automation_mode: channel.automation_mode || 'manual',
       automation_style_prompt: channel.automation_style_prompt || '',
+      publish_mode: channel.publish_mode || 'manual',
+      publish_schedule_hour: channel.publish_schedule_hour ?? 8,
+      publish_schedule_day_offset: channel.publish_schedule_day_offset ?? 1,
       script_structure: channel.script_structure || defaultChannelForm.script_structure
     });
     const draft = loadDraft(channel.id);
@@ -2485,6 +2540,78 @@ export default function App() {
       showToast("Erreur réseau: " + e.message, "error");
     } finally {
       setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!showSubmitModal || submitMode !== 'text') return;
+    const ownerQuery = currentUser ? `?user_id=${encodeURIComponent(currentUser.id)}` : '';
+    fetch(`${API_BASE}/channels/voice/catalog${ownerQuery}`)
+      .then(res => res.ok ? res.json() : Promise.reject())
+      .then(data => {
+        const voices = (data.voices || []).map(v => ({
+          id: v.voice_id,
+          name: v.name || v.voice_id,
+          desc: [v.language, v.gender, v.accent].filter(Boolean).join(' · ') || 'Voix Izivoice',
+          preview_url: v.preview_url || v.languages?.find(item => item.preview_url)?.preview_url || null,
+        }));
+        if (voices.length) {
+          setAvailableVoices(voices);
+          const preferred = activeChannel?.voice_id;
+          if (preferred && voices.some(v => v.id === preferred)) setSelectedVoice(preferred);
+          else if (!voices.some(v => v.id === selectedVoice)) setSelectedVoice(voices[0].id);
+        }
+      })
+      .catch(() => {});
+  }, [showSubmitModal, submitMode, currentUser?.id, activeChannel?.voice_id]);
+
+  const handleCloneVoice = async (file) => {
+    if (!file || !activeChannel) return;
+    const consent = await askConfirm("Je confirme être propriétaire de cette voix ou disposer du consentement explicite de son propriétaire.", { title: 'Consentement vocal obligatoire' });
+    if (!consent) return;
+    const name = window.prompt('Nom de cette voix :', 'Ma voix');
+    if (!name?.trim()) return;
+    setCloningVoice(true);
+    try {
+      const form = new FormData();
+      form.append('name', name.trim());
+      form.append('consent_confirmed', 'true');
+      if (currentUser) form.append('user_id', currentUser.id);
+      form.append('audio', file);
+      const res = await fetch(`${API_BASE}/channels/${activeChannel.id}/voice/clone`, { method: 'POST', body: form });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.detail || 'Clonage impossible.');
+      const voice = { id: body.voice_id, name: body.name, desc: 'Voix personnelle clonée' };
+      setAvailableVoices(prev => [voice, ...prev.filter(v => v.id !== voice.id)]);
+      setSelectedVoice(voice.id);
+      showToast('Ta voix a été clonée et sélectionnée.', 'success');
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setCloningVoice(false);
+      if (cloneVoiceInputRef.current) cloneVoiceInputRef.current.value = '';
+    }
+  };
+
+  const saveChannelVoice = async (voiceId, settings = activeChannel?.voice_settings) => {
+    setSelectedVoice(voiceId);
+    if (!activeChannel) return;
+    const voice = availableVoices.find(item => item.id === voiceId);
+    const payload = {
+      voice_id: voiceId,
+      voice_name: voice?.name || voiceId,
+      voice_settings: settings || { speed: 0.845, stability: 0.8, similarity_boost: 0.9, style: 0 }
+    };
+    try {
+      const res = await fetch(`${API_BASE}/channels/${activeChannel.id}`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+      });
+      if (!res.ok) throw new Error();
+      const saved = await res.json();
+      setActiveChannel(saved);
+      setChannels(prev => prev.map(channel => channel.id === saved.id ? saved : channel));
+    } catch {
+      showToast("La voix est sélectionnée pour cette vidéo, mais le réglage permanent n'a pas pu être enregistré.", 'error');
     }
   };
 
@@ -4170,7 +4297,7 @@ export default function App() {
                     </div>
 
                     <div>
-                      <label className="block text-xs font-bold text-slate-300 mb-2">Mode de publication</label>
+                      <label className="block text-xs font-bold text-slate-300 mb-2">Génération de contenu</label>
                       <div className="flex gap-2">
                         <button
                           type="button"
@@ -4206,6 +4333,61 @@ export default function App() {
                             className="w-full bg-[#1b2230] border border-[#2b374d] rounded-xl px-3 py-2 text-xs text-white focus:border-[#00c2ff] outline-none min-h-[70px]"
                             placeholder="Ex: ton direct et percutant, toujours finir par une question au public..."
                           />
+                        </div>
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-300 mb-2">Publication YouTube</label>
+                      <p className="text-[11px] text-slate-500 mb-2">Indépendant du mode ci-dessus — décide ce qui arrive à une vidéo une fois qu'elle est prête.</p>
+                      <div className="grid grid-cols-3 gap-2">
+                        {[
+                          { value: 'manual', label: 'Manuelle', desc: "Tu télécharges et publies toi-même, ou tu cliques «Publier» quand tu veux." },
+                          { value: 'scheduled', label: 'Programmée', desc: "Publiée automatiquement à une heure fixe que tu choisis." },
+                          { value: 'auto', label: 'Automatique', desc: 'Publiée dès que le rendu est terminé, sans délai.' },
+                        ].map(opt => (
+                          <button
+                            key={opt.value}
+                            type="button"
+                            onClick={() => setNewChannel({ ...newChannel, publish_mode: opt.value })}
+                            className={`px-3 py-2.5 rounded-xl text-xs font-bold border transition-colors text-left ${
+                              (newChannel.publish_mode || 'manual') === opt.value
+                                ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]'
+                                : 'bg-[#1b2230] border-[#2b374d] text-slate-300 hover:border-slate-500'
+                            }`}
+                          >
+                            {opt.label}
+                            <span className="block font-normal text-[10px] text-slate-400 mt-0.5">{opt.desc}</span>
+                          </button>
+                        ))}
+                      </div>
+                      {newChannel.publish_mode === 'scheduled' && (
+                        <div className="mt-3 flex items-center gap-3">
+                          <div>
+                            <label className="block text-[11px] font-bold text-slate-300 mb-1">Combien de jours après le rendu</label>
+                            <select
+                              value={newChannel.publish_schedule_day_offset ?? 1}
+                              onChange={e => setNewChannel({ ...newChannel, publish_schedule_day_offset: parseInt(e.target.value) })}
+                              className="bg-[#1b2230] border border-[#2b374d] rounded-xl px-3 py-2 text-xs text-white focus:border-[#00c2ff] outline-none"
+                            >
+                              <option value={0}>Le jour même</option>
+                              <option value={1}>Le lendemain</option>
+                              <option value={2}>Dans 2 jours</option>
+                              <option value={3}>Dans 3 jours</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-[11px] font-bold text-slate-300 mb-1">À quelle heure (Cameroun)</label>
+                            <select
+                              value={newChannel.publish_schedule_hour ?? 8}
+                              onChange={e => setNewChannel({ ...newChannel, publish_schedule_hour: parseInt(e.target.value) })}
+                              className="bg-[#1b2230] border border-[#2b374d] rounded-xl px-3 py-2 text-xs text-white focus:border-[#00c2ff] outline-none"
+                            >
+                              {Array.from({ length: 24 }, (_, h) => (
+                                <option key={h} value={h}>{String(h).padStart(2, '0')}h00</option>
+                              ))}
+                            </select>
+                          </div>
                         </div>
                       )}
                     </div>
@@ -5624,13 +5806,39 @@ export default function App() {
                     <label className="block text-xs font-bold text-slate-300 mb-2">Modèle de Voix Off IA</label>
                     <select
                       value={selectedVoice}
-                      onChange={e => setSelectedVoice(e.target.value)}
+                      onChange={e => saveChannelVoice(e.target.value)}
                       className="w-full bg-[#1b2230] border border-[#2b374d] rounded-xl px-4 py-2.5 text-xs text-white focus:border-[#00c2ff] outline-none"
                     >
-                      {VOICE_MODELS.map(v => (
+                      {availableVoices.map(v => (
                         <option key={v.id} value={v.id}>{v.name} — {v.desc}</option>
                       ))}
                     </select>
+                    <div className="mt-2 flex items-center justify-between gap-3">
+                      <p className="text-[10px] text-slate-500">Voix permanente de la chaîne, réutilisée automatiquement par l’Agent.</p>
+                      <button type="button" disabled={cloningVoice} onClick={() => cloneVoiceInputRef.current?.click()} className="shrink-0 px-3 py-2 rounded-lg border border-[#00c2ff]/35 bg-[#00c2ff]/10 text-[#56d9ff] text-[11px] font-bold flex items-center gap-1.5 disabled:opacity-50">
+                        <span className="material-symbols-outlined text-[15px]">fingerprint</span>
+                        {cloningVoice ? 'Clonage…' : 'Cloner ma voix'}
+                      </button>
+                      <input ref={cloneVoiceInputRef} type="file" accept="audio/*" className="hidden" onChange={e => handleCloneVoice(e.target.files?.[0])} />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3 mt-4">
+                      {[
+                        ['speed', 'Vitesse', 0.5, 1.5, 0.05],
+                        ['stability', 'Stabilité', 0, 1, 0.05],
+                        ['similarity_boost', 'Fidélité', 0, 1, 0.05],
+                        ['style', 'Expression', 0, 1, 0.05]
+                      ].map(([field, label, min, max, step]) => {
+                        const settings = activeChannel.voice_settings || { speed: 0.845, stability: 0.8, similarity_boost: 0.9, style: 0 };
+                        const value = Number(settings[field] ?? (field === 'speed' ? 0.845 : 0));
+                        return <label key={field} className="bg-[#11151c] border border-[#202938] rounded-xl p-3">
+                          <span className="flex justify-between text-[10px] font-bold text-slate-300 mb-2"><span>{label}</span><span className="text-[#55d8ff]">{value.toFixed(2)}</span></span>
+                          <input type="range" min={min} max={max} step={step} value={value} onChange={e => {
+                            const next = { ...settings, [field]: Number(e.target.value) };
+                            setActiveChannel(prev => ({ ...prev, voice_settings: next }));
+                          }} onMouseUp={e => saveChannelVoice(selectedVoice, { ...settings, [field]: Number(e.currentTarget.value) })} onTouchEnd={e => saveChannelVoice(selectedVoice, { ...settings, [field]: Number(e.currentTarget.value) })} className="w-full accent-[#00c2ff]" />
+                        </label>;
+                      })}
+                    </div>
                   </div>
                 )}
 
@@ -5694,7 +5902,7 @@ export default function App() {
                   {submitMode === 'text' && (
                     <div className="flex items-center justify-between bg-[#11151c] border border-[#202938] rounded-xl p-3">
                       <span className="text-xs text-slate-400">Voix off</span>
-                      <span className="text-xs font-bold text-white">{VOICE_MODELS.find(v => v.id === selectedVoice)?.name || selectedVoice}</span>
+                      <span className="text-xs font-bold text-white">{availableVoices.find(v => v.id === selectedVoice)?.name || selectedVoice}</span>
                     </div>
                   )}
                   {/* Same recap/toggle principle as the pipeline's Aperçu Final — these
@@ -6418,6 +6626,7 @@ export default function App() {
                 {[
                   { id: 'profile', label: 'Profil', icon: 'person' },
                   { id: 'security', label: 'Sécurité', icon: 'lock' },
+                  { id: 'izivoice', label: 'Izivoice', icon: 'record_voice_over' },
                   { id: 'api', label: 'Clés API', icon: 'key' },
                 ].map(tab => (
                   <button
@@ -6629,6 +6838,55 @@ export default function App() {
                         ))
                       )}
                     </div>
+                  </div>
+                )}
+
+                {settingsTab === 'izivoice' && (
+                  <div className="space-y-5">
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="material-symbols-outlined text-[#59d8ff]">record_voice_over</span>
+                        <h4 className="text-sm font-extrabold text-white">Synchronisation Izivoice</h4>
+                      </div>
+                      <p className="text-[11px] leading-5 text-slate-400">
+                        Sans connexion, NicheCut utilise automatiquement son propre moteur Izivoice. En connectant ta clé, tu retrouves dans NicheCut tes voix, tes clones et les ressources liées à ton compte Izivoice.
+                      </p>
+                    </div>
+
+                    {izivoiceConnection.connected ? (
+                      <div className="bg-emerald-950/25 border border-emerald-700/40 rounded-2xl p-4 space-y-4">
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex gap-3">
+                            <span className="material-symbols-outlined text-emerald-400">cloud_done</span>
+                            <div>
+                              <p className="text-xs font-bold text-white">Compte Izivoice connecté</p>
+                              <p className="text-[10px] text-emerald-300 mt-1 font-mono">{izivoiceConnection.key_prefix}</p>
+                              <p className="text-[10px] text-slate-400 mt-2">Les prochaines générations utilisent ton compte et tes propres voix.</p>
+                            </div>
+                          </div>
+                          <span className="px-2 py-1 rounded-full bg-emerald-500/10 text-emerald-300 text-[9px] font-bold uppercase tracking-wider">Synchronisé</span>
+                        </div>
+                        <button type="button" onClick={handleDisconnectIzivoice} className="text-[11px] font-bold text-rose-400 hover:text-rose-300">Déconnecter mon compte Izivoice</button>
+                      </div>
+                    ) : (
+                      <form onSubmit={handleConnectIzivoice} className="bg-[#11151c] border border-[#263042] rounded-2xl p-4 space-y-4">
+                        <div className="flex gap-3">
+                          <span className="material-symbols-outlined text-[#00c2ff]">hub</span>
+                          <div>
+                            <p className="text-xs font-bold text-white">Moteur NicheCut actif</p>
+                            <p className="text-[10px] text-slate-400 mt-1">Tu peux créer tes vidéos normalement. La connexion Izivoice ajoute la synchronisation de ton espace personnel.</p>
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-300 mb-2">Clé API Izivoice</label>
+                          <input type="password" autoComplete="off" value={izivoiceApiKey} onChange={e => setIzivoiceApiKey(e.target.value)} placeholder="Colle ta clé API Izivoice" className="w-full bg-[#080d15] border border-[#2b374d] rounded-xl p-3 text-xs text-white focus:border-[#00c2ff] outline-none" />
+                          <p className="text-[9px] leading-4 text-slate-500 mt-2">La clé est vérifiée auprès d’Izivoice, chiffrée côté serveur et n’est jamais réaffichée.</p>
+                        </div>
+                        <button type="submit" disabled={izivoiceConnecting || !izivoiceApiKey.trim()} className="w-full py-3 bg-gradient-to-r from-[#65e0ff] to-[#1a9cff] text-[#031019] font-extrabold text-xs rounded-xl disabled:opacity-50">
+                          {izivoiceConnecting ? 'Vérification…' : 'Connecter et synchroniser'}
+                        </button>
+                      </form>
+                    )}
                   </div>
                 )}
               </div>
