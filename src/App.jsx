@@ -1718,7 +1718,7 @@ function ChannelAvatar({ channel, logoUrl, sizeClass = "w-12 h-12", textClass = 
   // dot some callers overlay moved to the top corner so it stops colliding
   // with this badge.
   return (
-    <div className={`relative ${sizeClass} flex-shrink-0`} title={`Configuration à ${percent}% — termine la voix et les visuels pour pouvoir générer une vidéo`}>
+    <div className={`relative ${sizeClass} flex-shrink-0`} title={percent < 100 ? `Configuration à ${percent}% — configure une source visuelle (Option A ou B) pour pouvoir générer une vidéo` : 'Pipeline configuré — prêt à générer des vidéos'}>
       <div
         className="absolute inset-0 rounded-full p-[2.5px]"
         style={{ background: `conic-gradient(#00c2ff ${percent}%, #2b374d 0)` }}
@@ -3437,7 +3437,7 @@ export default function App() {
       clearDraft(wizardMode === 'edit' ? editingChannelId : null);
       resetWizardState();
       if (savingIncomplete || !saved.is_render_ready) {
-        showToast(`Chaîne enregistrée (${saved.completion_percent ?? 50}% configurée) — termine la voix et les visuels avant de générer une vidéo.`, 'success');
+        showToast(`Chaîne enregistrée (${saved.completion_percent ?? 50}% configurée) — configure une source visuelle (Option A ou B) avant de générer une vidéo.`, 'success');
       } else {
         showToast('Chaîne enregistrée.', 'success');
       }
