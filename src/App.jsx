@@ -17,6 +17,7 @@ if (rawStorageBase.startsWith("http://api-nichecut.tools-cl.com")) {
 const STORAGE_BASE = rawStorageBase;
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || "";
+const MARKETING_ORIGIN = import.meta.env.VITE_MARKETING_ORIGIN || (isLocalhost ? getOrigin().replace(/\/app\/?$/, '') : "https://nichecut.tools-cl.com");
 
 // Human-readable URL slug derived from a channel name, e.g. "Riviere de Grace" -> "riviere-de-grace".
 // Purely a display/routing convenience — the channel's real id is still what's sent to the API.
@@ -5811,170 +5812,140 @@ export default function App() {
         </div>
       )}
 
-      {/* USER AUTH MODAL */}
+      {/* FULL-PAGE AUTHENTICATION */}
       {showAuthModal && (
-        <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-center justify-center p-6">
-          <div className="bg-[#161b22] border border-[#263042] rounded-3xl p-8 max-w-[440px] w-full shadow-2xl space-y-6">
-            <div className="flex justify-between items-center">
-              <h3 className="text-lg font-extrabold text-white">
-                {authTab === 'login' && 'Connexion'}
-                {authTab === 'register' && 'Inscription'}
-                {authTab === 'forgot' && 'Mot de passe oublié'}
-              </h3>
-              {currentUser && (
-                <button onClick={() => setShowAuthModal(false)} className="text-slate-400 hover:text-white">
-                  <span className="material-symbols-outlined">close</span>
-                </button>
-              )}
-            </div>
-            {!currentUser && (
-              <p className="text-[11px] text-slate-500 -mt-3">Un compte est requis pour accéder au tableau de bord.</p>
-            )}
-
-            {authTab !== 'forgot' && (
-              <div className="flex bg-[#1b2230] p-1 rounded-xl border border-[#2b374d]">
-                <button
-                  type="button"
-                  onClick={() => setAuthTab('login')}
-                  className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${
-                    authTab === 'login' ? 'bg-[#00c2ff] text-slate-950 shadow-sm' : 'text-slate-400 hover:text-white'
-                  }`}
-                >
-                  Connexion
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setAuthTab('register')}
-                  className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${
-                    authTab === 'register' ? 'bg-[#00c2ff] text-slate-950 shadow-sm' : 'text-slate-400 hover:text-white'
-                  }`}
-                >
-                  Inscription
-                </button>
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-[#070b12] text-white">
+          <div className="absolute inset-0 bg-[url('/assets/backgrounds/nichecut-abstract-tech.webp')] bg-cover bg-center opacity-40" />
+          <div className="absolute inset-0 bg-gradient-to-r from-[#070b12] via-[#070b12]/90 to-[#070b12]/70" />
+          <div className="relative min-h-screen grid lg:grid-cols-[1.05fr_.95fr]">
+            <section className="hidden lg:flex min-h-screen flex-col justify-between px-12 xl:px-20 py-10 border-r border-white/10">
+              <div className="flex items-center justify-between">
+                <a href={MARKETING_ORIGIN} className="flex items-center gap-3 text-white no-underline">
+                  <img src="/assets/logo/logo-nichecut.png" alt="NicheCut" className="w-10 h-10 object-contain" />
+                  <span className="text-xl font-extrabold tracking-tight">NicheCut</span>
+                </a>
+                <a href={MARKETING_ORIGIN} className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-[10px] font-bold tracking-[.14em] text-slate-300 no-underline hover:border-[#00c2ff]/40 hover:text-white transition-all">
+                  <span className="material-symbols-outlined text-[15px]">arrow_back</span> RETOUR AU SITE
+                </a>
               </div>
-            )}
 
-            {authTab === 'forgot' ? (
-              <form onSubmit={handleForgotPasswordSubmit} className="space-y-4">
-                <p className="text-xs text-slate-400 -mt-2">
-                  Saisissez votre email et un nouveau mot de passe pour réinitialiser votre accès.
+              <div className="max-w-[650px] py-16">
+                <div className="inline-flex items-center gap-2 rounded-full border border-[#00c2ff]/20 bg-[#00c2ff]/5 px-3 py-2 text-[10px] font-bold tracking-[.14em] text-[#65dcff] mb-7">
+                  <span className="material-symbols-outlined text-[15px]">smart_toy</span> AGENT YOUTUBE AUTONOME
+                </div>
+                <h1 className="text-[clamp(3.2rem,5.6vw,6.2rem)] leading-[.96] tracking-[-.06em] font-extrabold m-0">
+                  Tu dors.<br /><span className="text-transparent bg-clip-text bg-gradient-to-r from-[#67e1ff] via-[#22bfff] to-[#8484ff]">NicheCut travaille.</span>
+                </h1>
+                <p className="mt-7 max-w-xl text-base xl:text-lg leading-8 text-slate-400">
+                  Configure le style de ta chaîne une fois. L’Agent trouve les idées, écrit, monte et publie sur YouTube sans que tu lèves le petit doigt.
                 </p>
-                <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-1">Adresse Email</label>
-                  <input
-                    type="email"
-                    required
-                    value={forgotForm.email}
-                    onChange={e => setForgotForm({ ...forgotForm, email: e.target.value })}
-                    className="w-full bg-[#1b2230] border border-[#2b374d] rounded-xl p-3 text-xs text-white focus:border-[#00c2ff] outline-none"
-                    placeholder="nom@exemple.com"
-                  />
+                <div className="mt-9 grid sm:grid-cols-3 gap-3 max-w-2xl">
+                  {[
+                    ['lightbulb', 'Idées trouvées'],
+                    ['movie_edit', 'Vidéos créées'],
+                    ['publish', 'YouTube publié'],
+                  ].map(([icon, label]) => (
+                    <div key={label} className="rounded-2xl border border-white/10 bg-white/[.035] px-4 py-4 text-xs font-bold text-slate-300 flex items-center gap-2.5">
+                      <span className="material-symbols-outlined text-[18px] text-[#38d0ff]">{icon}</span>{label}
+                    </div>
+                  ))}
                 </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-1">Nouveau mot de passe</label>
-                  <div className="relative">
-                    <input
-                      type={showAuthPassword ? "text" : "password"}
-                      required
-                      minLength={4}
-                      value={forgotForm.newPassword}
-                      onChange={e => setForgotForm({ ...forgotForm, newPassword: e.target.value })}
-                      className="w-full bg-[#1b2230] border border-[#2b374d] rounded-xl p-3 pr-10 text-xs text-white focus:border-[#00c2ff] outline-none"
-                      placeholder="••••••••"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowAuthPassword(!showAuthPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
-                      tabIndex={-1}
-                    >
-                      <span className="material-symbols-outlined text-[18px]">{showAuthPassword ? "visibility_off" : "visibility"}</span>
-                    </button>
-                  </div>
-                </div>
-                <button
-                  type="submit"
-                  className="w-full py-3 bg-[#00c2ff] text-slate-950 font-bold text-xs rounded-xl hover:bg-[#38d0ff] transition-all mt-4"
-                >
-                  Réinitialiser le mot de passe
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setAuthTab('login')}
-                  className="w-full text-center text-xs text-slate-400 hover:text-white font-medium"
-                >
-                  ← Retour à la connexion
-                </button>
-              </form>
-            ) : (
-              <>
-                {GOOGLE_CLIENT_ID ? (
-                  <div ref={googleButtonRef} className="w-full max-w-full flex justify-center items-center min-h-[44px] overflow-hidden" />
-                ) : (
-                  <div className="w-full py-3 bg-[#1b2230] text-slate-500 font-bold text-xs rounded-xl flex items-center justify-center gap-2 border border-[#2b374d]">
-                    Connexion Google indisponible
-                  </div>
-                )}
+              </div>
 
-                <div className="flex items-center gap-3">
-                  <div className="h-px bg-[#263042] flex-1" />
-                  <span className="text-[10px] text-slate-500 font-bold">OU</span>
-                  <div className="h-px bg-[#263042] flex-1" />
+              <div className="flex items-center gap-2 text-[10px] text-slate-500">
+                <span className="material-symbols-outlined text-[15px] text-emerald-400">verified_user</span>
+                © {new Date().getFullYear()} NicheCut · Connexion sécurisée
+              </div>
+            </section>
+
+            <section className="min-h-screen flex items-center justify-center px-5 py-10 sm:px-10">
+              <div className="w-full max-w-[470px]">
+                <div className="lg:hidden flex items-center justify-between mb-8">
+                  <a href={MARKETING_ORIGIN} className="flex items-center gap-2 text-white no-underline font-extrabold">
+                    <img src="/assets/logo/logo-nichecut.png" alt="NicheCut" className="w-9 h-9 object-contain" /> NicheCut
+                  </a>
+                  <a href={MARKETING_ORIGIN} className="text-xs text-slate-400 no-underline">Retour au site</a>
                 </div>
 
-                <form onSubmit={handleAuthSubmit} className="space-y-4">
-                  <div>
-                    <label className="block text-xs font-bold text-slate-300 mb-1">Adresse Email</label>
-                    <input
-                      type="email"
-                      required
-                      value={authForm.email}
-                      onChange={e => setAuthForm({ ...authForm, email: e.target.value })}
-                      className="w-full bg-[#1b2230] border border-[#2b374d] rounded-xl p-3 text-xs text-white focus:border-[#00c2ff] outline-none"
-                      placeholder="nom@exemple.com"
-                    />
+                <div className="rounded-[28px] border border-white/10 bg-[#101722]/90 backdrop-blur-xl p-6 sm:p-9 shadow-[0_35px_100px_rgba(0,0,0,.48)]">
+                  <div className="mb-7">
+                    <p className="text-[10px] font-bold tracking-[.16em] text-[#44d2ff] uppercase mb-3">
+                      {authTab === 'register' ? 'Créer ton espace' : authTab === 'forgot' ? 'Récupérer ton accès' : 'Content de te revoir'}
+                    </p>
+                    <h2 className="text-3xl sm:text-4xl font-extrabold tracking-[-.04em] m-0">
+                      {authTab === 'register' ? 'Lance ton Agent.' : authTab === 'forgot' ? 'Nouveau mot de passe.' : 'Reprends le contrôle.'}
+                    </h2>
+                    <p className="text-sm text-slate-400 mt-3 mb-0">
+                      {authTab === 'register' ? 'Configure ta première chaîne et laisse NicheCut travailler.' : authTab === 'forgot' ? 'Choisis un nouveau mot de passe pour ton compte.' : 'Ton Agent et tes chaînes t’attendent.'}
+                    </p>
                   </div>
-                  <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="block text-xs font-bold text-slate-300">Mot de passe</label>
-                      {authTab === 'login' && (
-                        <button
-                          type="button"
-                          onClick={() => { setForgotForm({ email: authForm.email, newPassword: '' }); setAuthTab('forgot'); }}
-                          className="text-[11px] text-[#00c2ff] hover:underline font-semibold"
-                        >
-                          Mot de passe oublié ?
+
+                  {authTab !== 'forgot' && (
+                    <div className="grid grid-cols-2 bg-[#080d15] p-1 rounded-xl border border-white/10 mb-6">
+                      <button type="button" onClick={() => setAuthTab('login')} className={`py-2.5 text-xs font-bold rounded-lg transition-all ${authTab === 'login' ? 'bg-[#1d2a38] text-white shadow-sm' : 'text-slate-500 hover:text-white'}`}>Connexion</button>
+                      <button type="button" onClick={() => setAuthTab('register')} className={`py-2.5 text-xs font-bold rounded-lg transition-all ${authTab === 'register' ? 'bg-[#1d2a38] text-white shadow-sm' : 'text-slate-500 hover:text-white'}`}>Inscription</button>
+                    </div>
+                  )}
+
+                  {authTab === 'forgot' ? (
+                    <form onSubmit={handleForgotPasswordSubmit} className="space-y-5">
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-300 mb-2">Adresse email</label>
+                        <div className="relative">
+                          <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-[18px] text-slate-500">mail</span>
+                          <input type="email" required value={forgotForm.email} onChange={e => setForgotForm({ ...forgotForm, email: e.target.value })} className="w-full h-13 bg-[#080d15] border border-white/10 rounded-xl pl-12 pr-4 py-3.5 text-sm text-white focus:border-[#00c2ff] outline-none" placeholder="nom@exemple.com" />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-300 mb-2">Nouveau mot de passe</label>
+                        <div className="relative">
+                          <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-[18px] text-slate-500">lock</span>
+                          <input type={showAuthPassword ? 'text' : 'password'} required minLength={4} value={forgotForm.newPassword} onChange={e => setForgotForm({ ...forgotForm, newPassword: e.target.value })} className="w-full bg-[#080d15] border border-white/10 rounded-xl pl-12 pr-12 py-3.5 text-sm text-white focus:border-[#00c2ff] outline-none" placeholder="••••••••" />
+                          <button type="button" onClick={() => setShowAuthPassword(!showAuthPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white" tabIndex={-1}><span className="material-symbols-outlined text-[18px]">{showAuthPassword ? 'visibility_off' : 'visibility'}</span></button>
+                        </div>
+                      </div>
+                      <button type="submit" disabled={loading} className="w-full py-3.5 bg-gradient-to-r from-[#65e0ff] to-[#1a9cff] text-[#031019] font-extrabold text-xs rounded-xl hover:brightness-110 transition-all disabled:opacity-50">{loading ? 'Réinitialisation...' : 'Réinitialiser le mot de passe'}</button>
+                      <button type="button" onClick={() => setAuthTab('login')} className="w-full text-center text-xs text-slate-400 hover:text-white font-medium">← Retour à la connexion</button>
+                    </form>
+                  ) : (
+                    <>
+                      <form onSubmit={handleAuthSubmit} className="space-y-5">
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-300 mb-2">Adresse email</label>
+                          <div className="relative">
+                            <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-[18px] text-slate-500">mail</span>
+                            <input type="email" required value={authForm.email} onChange={e => setAuthForm({ ...authForm, email: e.target.value })} className="w-full bg-[#080d15] border border-white/10 rounded-xl pl-12 pr-4 py-3.5 text-sm text-white focus:border-[#00c2ff] outline-none placeholder-slate-600" placeholder="nom@exemple.com" />
+                          </div>
+                        </div>
+                        <div>
+                          <div className="flex items-center justify-between mb-2">
+                            <label className="block text-[11px] font-bold text-slate-300">Mot de passe</label>
+                            {authTab === 'login' && <button type="button" onClick={() => { setForgotForm({ email: authForm.email, newPassword: '' }); setAuthTab('forgot'); }} className="text-[10px] text-[#42d2ff] hover:underline font-bold">Mot de passe oublié ?</button>}
+                          </div>
+                          <div className="relative">
+                            <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-[18px] text-slate-500">lock</span>
+                            <input type={showAuthPassword ? 'text' : 'password'} required minLength={authTab === 'register' ? 4 : undefined} value={authForm.password} onChange={e => setAuthForm({ ...authForm, password: e.target.value })} className="w-full bg-[#080d15] border border-white/10 rounded-xl pl-12 pr-12 py-3.5 text-sm text-white focus:border-[#00c2ff] outline-none" placeholder="••••••••" />
+                            <button type="button" onClick={() => setShowAuthPassword(!showAuthPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white" tabIndex={-1}><span className="material-symbols-outlined text-[18px]">{showAuthPassword ? 'visibility_off' : 'visibility'}</span></button>
+                          </div>
+                        </div>
+                        <button type="submit" disabled={loading} className="w-full py-3.5 bg-gradient-to-r from-[#65e0ff] to-[#1a9cff] text-[#031019] font-extrabold text-xs rounded-xl hover:brightness-110 transition-all shadow-lg shadow-[#00c2ff]/10 disabled:opacity-50 flex items-center justify-center gap-2">
+                          {loading ? 'Chargement...' : authTab === 'register' ? 'Créer mon Agent' : 'Se connecter'} <span className="material-symbols-outlined text-[17px]">arrow_forward</span>
                         </button>
-                      )}
-                    </div>
-                    <div className="relative">
-                      <input
-                        type={showAuthPassword ? "text" : "password"}
-                        required
-                        value={authForm.password}
-                        onChange={e => setAuthForm({ ...authForm, password: e.target.value })}
-                        className="w-full bg-[#1b2230] border border-[#2b374d] rounded-xl p-3 pr-10 text-xs text-white focus:border-[#00c2ff] outline-none"
-                        placeholder="••••••••"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowAuthPassword(!showAuthPassword)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
-                        tabIndex={-1}
-                      >
-                        <span className="material-symbols-outlined text-[18px]">{showAuthPassword ? "visibility_off" : "visibility"}</span>
-                      </button>
-                    </div>
-                  </div>
-                  <button
-                    type="submit"
-                    className="w-full py-3 bg-[#00c2ff] text-slate-950 font-bold text-xs rounded-xl hover:bg-[#38d0ff] transition-all mt-4"
-                  >
-                    {authTab === 'register' ? "Créer mon compte" : "Se connecter"}
-                  </button>
-                </form>
-              </>
-            )}
+                      </form>
+
+                      <div className="flex items-center gap-3 my-6"><div className="h-px bg-white/10 flex-1" /><span className="text-[9px] text-slate-600 font-bold tracking-widest">OU CONTINUER AVEC</span><div className="h-px bg-white/10 flex-1" /></div>
+                      {GOOGLE_CLIENT_ID ? <div ref={googleButtonRef} className="w-full max-w-full flex justify-center items-center min-h-[44px] overflow-hidden rounded-xl" /> : <div className="w-full py-3 bg-[#080d15] text-slate-600 font-bold text-xs rounded-xl flex items-center justify-center border border-white/10">Connexion Google indisponible</div>}
+
+                      <p className="text-center text-xs text-slate-500 mt-6 mb-0">
+                        {authTab === 'login' ? 'Pas encore de compte ?' : 'Tu as déjà un compte ?'}{' '}
+                        <button type="button" onClick={() => setAuthTab(authTab === 'login' ? 'register' : 'login')} className="text-[#55d8ff] font-bold hover:underline">{authTab === 'login' ? 'Activer ton Agent' : 'Se connecter'}</button>
+                      </p>
+                    </>
+                  )}
+                </div>
+                <p className="text-center text-[9px] leading-5 text-slate-600 mt-5 px-6">En continuant, tu acceptes les conditions d’utilisation et la politique de confidentialité de NicheCut.</p>
+              </div>
+            </section>
           </div>
         </div>
       )}
