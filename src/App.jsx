@@ -1213,12 +1213,12 @@ export default function App() {
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [generatingAutoVideo, setGeneratingAutoVideo] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
-  const [showProfileModal, setShowProfileModal] = useState(false);
   const [showChannelPickerModal, setShowChannelPickerModal] = useState(false);
   const [showLanguageModal, setShowLanguageModal] = useState(false);
   const [showScriptStructureModal, setShowScriptStructureModal] = useState(false);
   const [languageSearch, setLanguageSearch] = useState('');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [openChannelMenuId, setOpenChannelMenuId] = useState(null);
   const [openVideoMenuId, setOpenVideoMenuId] = useState(null);
   const [publishingVideoId, setPublishingVideoId] = useState(null);
@@ -3619,7 +3619,6 @@ export default function App() {
                   { id: 'home', label: 'Home', icon: 'home', active: view === 'home' || view === 'dashboard' },
                   { id: 'channels', label: 'Mes Chaînes', icon: 'subscriptions', active: view === 'channels' || view === 'channel_detail' },
                   { id: 'videos', label: 'Mes Vidéos', icon: 'movie', active: view === 'videos' },
-                  { id: 'settings', label: 'Paramètres', icon: 'settings', active: view === 'settings' },
                 ].map(({ id, label, icon, active }) => (
                   <button
                     key={id}
@@ -3741,18 +3740,6 @@ export default function App() {
               <span className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: view === 'videos' ? "'FILL' 1" : "'FILL' 0" }}>movie</span>
               Mes Vidéos
             </button>
-
-            <button
-              onClick={() => setView('settings')}
-              className={`w-full flex items-center gap-3.5 px-4 py-3 cursor-pointer rounded-xl transition-all font-medium text-sm ${
-                view === 'settings'
-                  ? 'bg-gradient-to-r from-[#00c2ff] to-[#0099ff] text-slate-950 font-bold shadow-md shadow-[#00c2ff]/20'
-                  : 'text-slate-300 hover:bg-[#1f2838] hover:text-white'
-              }`}
-            >
-              <span className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: view === 'settings' ? "'FILL' 1" : "'FILL' 0" }}>settings</span>
-              Paramètres
-            </button>
           </div>
         </div>
 
@@ -3807,17 +3794,44 @@ export default function App() {
 
             {/* Profile widget — top right */}
             {currentUser ? (
-              <div
-                onClick={() => setView('settings')}
-                className="w-9 h-9 rounded-full cursor-pointer transition-all shadow-sm ring-2 ring-transparent hover:ring-[#00c2ff]/50 flex-shrink-0 overflow-hidden"
-                title="Paramètres"
-              >
-                {currentUser.picture_url ? (
-                  <img src={currentUser.picture_url} alt={currentUser.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                ) : (
-                  <div className="w-full h-full bg-[#00c2ff] text-slate-950 flex items-center justify-center font-bold text-sm">
-                    {currentUser.name.slice(0, 1).toUpperCase()}
-                  </div>
+              <div className="relative flex-shrink-0">
+                <div
+                  onClick={() => setProfileMenuOpen(o => !o)}
+                  className="w-9 h-9 rounded-full cursor-pointer transition-all shadow-sm ring-2 ring-transparent hover:ring-[#00c2ff]/50 flex-shrink-0 overflow-hidden"
+                  title="Mon compte"
+                >
+                  {currentUser.picture_url ? (
+                    <img src={currentUser.picture_url} alt={currentUser.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                  ) : (
+                    <div className="w-full h-full bg-[#00c2ff] text-slate-950 flex items-center justify-center font-bold text-sm">
+                      {currentUser.name.slice(0, 1).toUpperCase()}
+                    </div>
+                  )}
+                </div>
+                {profileMenuOpen && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setProfileMenuOpen(false)} />
+                    <div className="absolute right-0 top-full mt-2 w-56 bg-[#161b22] border border-[#263042] rounded-2xl shadow-2xl z-50 overflow-hidden py-1.5">
+                      <div className="px-3.5 py-2.5 border-b border-[#263042]">
+                        <p className="text-xs font-bold text-white truncate">{currentUser.name}</p>
+                        <p className="text-[11px] text-slate-400 truncate">{currentUser.email}</p>
+                      </div>
+                      <button
+                        onClick={() => { setView('settings'); setProfileMenuOpen(false); }}
+                        className="w-full text-left px-3.5 py-2.5 text-xs font-bold flex items-center gap-2 text-slate-300 hover:bg-[#1b2230] hover:text-white transition-all"
+                      >
+                        <span className="material-symbols-outlined text-[16px]">settings</span>
+                        Paramètres
+                      </button>
+                      <button
+                        onClick={() => { handleLogout(); setProfileMenuOpen(false); }}
+                        className="w-full text-left px-3.5 py-2.5 text-xs font-bold flex items-center gap-2 text-rose-400 hover:bg-rose-950/50 transition-all"
+                      >
+                        <span className="material-symbols-outlined text-[16px]">logout</span>
+                        Déconnexion
+                      </button>
+                    </div>
+                  </>
                 )}
               </div>
             ) : (
@@ -6575,6 +6589,296 @@ export default function App() {
                 </div>
               </div>
             )}
+      {/* SETTINGS — dedicated page (view === 'settings'), not a popup */}
+      {view === 'settings' && currentUser && (
+        <div className="max-w-[980px] mx-auto">
+          <div className="flex items-center gap-4 mb-6">
+            <div className="w-14 h-14 rounded-2xl overflow-hidden bg-[#00c2ff] text-slate-950 flex items-center justify-center font-extrabold text-xl shadow-md flex-shrink-0">
+              {currentUser.picture_url ? (
+                <img src={currentUser.picture_url} alt={currentUser.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+              ) : (
+                currentUser.name.slice(0, 1).toUpperCase()
+              )}
+            </div>
+            <div>
+              <h2 className="text-xl font-extrabold text-white">{currentUser.name}</h2>
+              <p className="text-xs text-slate-400">{currentUser.email}</p>
+            </div>
+          </div>
+
+          <div className="flex flex-col md:flex-row gap-6 items-start">
+            {/* Settings side nav */}
+            <div className="w-full md:w-[220px] flex-shrink-0 bg-[#161b22] border border-[#263042] rounded-2xl p-3 space-y-1 md:sticky md:top-8">
+              {[
+                { id: 'profile', label: 'Profil', icon: 'person' },
+                { id: 'security', label: 'Sécurité', icon: 'lock' },
+                { id: 'izivoice', label: 'Izivoice', icon: 'record_voice_over' },
+                { id: 'api', label: 'Clés API', icon: 'key' },
+              ].map(tab => (
+                <button
+                  key={tab.id}
+                  onClick={() => setSettingsTab(tab.id)}
+                  className={`w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition-all ${
+                    settingsTab === tab.id ? 'bg-[#00c2ff]/10 text-[#00c2ff]' : 'text-slate-400 hover:bg-[#1b2230] hover:text-white'
+                  }`}
+                >
+                  <span className="material-symbols-outlined text-[16px]">{tab.icon}</span>
+                  {tab.label}
+                </button>
+              ))}
+              <div className="pt-2 mt-2 border-t border-[#263042]">
+                <button
+                  onClick={handleLogout}
+                  className="w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 text-rose-400 hover:bg-rose-950/50 transition-all"
+                >
+                  <span className="material-symbols-outlined text-[16px]">logout</span>
+                  Déconnexion
+                </button>
+              </div>
+            </div>
+
+            {/* Settings content */}
+            <div className="flex-1 min-w-0 bg-[#161b22] border border-[#263042] rounded-2xl p-6 space-y-5">
+              {settingsTab === 'profile' && (
+                  <form onSubmit={handleUpdateProfile} className="space-y-4">
+                    <div className="flex items-center gap-4">
+                      <div className="w-16 h-16 rounded-2xl overflow-hidden bg-[#00c2ff] text-slate-950 flex items-center justify-center font-extrabold text-2xl shadow-md flex-shrink-0">
+                        {currentUser.picture_url ? (
+                          <img src={currentUser.picture_url} alt={currentUser.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                        ) : (
+                          currentUser.name.slice(0, 1).toUpperCase()
+                        )}
+                      </div>
+                      <div className="text-[11px] text-slate-400">
+                        {currentUser.auth_provider === 'google'
+                          ? "Photo synchronisée depuis votre compte Google."
+                          : "Connectez-vous avec Google pour une photo de profil automatique."}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-300 mb-1">Nom complet</label>
+                      <input
+                        value={profileForm.name}
+                        onChange={e => setProfileForm({ ...profileForm, name: e.target.value })}
+                        className="w-full bg-[#1b2230] border border-[#2b374d] rounded-xl p-3 text-xs text-white focus:border-[#00c2ff] outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-300 mb-1">Adresse Email</label>
+                      <input
+                        value={currentUser.email}
+                        disabled
+                        className="w-full bg-[#11151c] border border-[#2b374d] rounded-xl p-3 text-xs text-slate-500 outline-none cursor-not-allowed"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-300 mb-1">Numéro de téléphone</label>
+                      <input
+                        value={profileForm.phone}
+                        onChange={e => setProfileForm({ ...profileForm, phone: e.target.value })}
+                        placeholder="+33 6 12 34 56 78"
+                        className="w-full bg-[#1b2230] border border-[#2b374d] rounded-xl p-3 text-xs text-white focus:border-[#00c2ff] outline-none"
+                      />
+                    </div>
+                    <button
+                      type="submit"
+                      disabled={loading}
+                      className="py-2.5 px-5 bg-[#00c2ff] text-slate-950 font-bold text-xs rounded-xl hover:bg-[#38d0ff] transition-all"
+                    >
+                      Enregistrer les modifications
+                    </button>
+                  </form>
+                )}
+
+                {settingsTab === 'security' && (
+                  <div className="space-y-5">
+                    {currentUser.auth_provider === 'google' ? (
+                      <div className="bg-[#11151c] border border-[#202938] rounded-xl p-4 flex items-start gap-3">
+                        <span className="material-symbols-outlined text-[#00c2ff] text-[20px]">verified_user</span>
+                        <div>
+                          <p className="text-xs font-bold text-white">Connecté via Google</p>
+                          <p className="text-[11px] text-slate-400 mt-1">Votre mot de passe est géré par Google. La double authentification et la sécurité du compte se configurent directement dans les paramètres de votre compte Google.</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <form onSubmit={handleChangePasswordSettings} className="space-y-4">
+                        <h4 className="text-xs font-bold text-white">Changer le mot de passe</h4>
+                        <div>
+                          <label className="block text-xs font-bold text-slate-300 mb-1">Mot de passe actuel</label>
+                          <input
+                            type="password"
+                            required
+                            value={passwordForm.oldPassword}
+                            onChange={e => setPasswordForm({ ...passwordForm, oldPassword: e.target.value })}
+                            className="w-full bg-[#1b2230] border border-[#2b374d] rounded-xl p-3 text-xs text-white focus:border-[#00c2ff] outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-slate-300 mb-1">Nouveau mot de passe</label>
+                          <div className="relative">
+                            <input
+                              type={showSettingsPassword ? "text" : "password"}
+                              required
+                              minLength={4}
+                              value={passwordForm.newPassword}
+                              onChange={e => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
+                              className="w-full bg-[#1b2230] border border-[#2b374d] rounded-xl p-3 pr-10 text-xs text-white focus:border-[#00c2ff] outline-none"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowSettingsPassword(!showSettingsPassword)}
+                              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                              tabIndex={-1}
+                            >
+                              <span className="material-symbols-outlined text-[18px]">{showSettingsPassword ? "visibility_off" : "visibility"}</span>
+                            </button>
+                          </div>
+                        </div>
+                        <button
+                          type="submit"
+                          disabled={loading}
+                          className="py-2.5 px-5 bg-[#00c2ff] text-slate-950 font-bold text-xs rounded-xl hover:bg-[#38d0ff] transition-all"
+                        >
+                          Mettre à jour le mot de passe
+                        </button>
+                      </form>
+                    )}
+
+                    <div className="pt-5 border-t border-[#263042]">
+                      <h4 className="text-xs font-bold text-white mb-1">Authentification à deux facteurs</h4>
+                      <p className="text-[11px] text-slate-400 mb-3">
+                        {currentUser.auth_provider === 'google'
+                          ? "Activez la validation en 2 étapes depuis votre compte Google — elle protège aussi votre connexion à NicheCut."
+                          : "Bientôt disponible pour les comptes email/mot de passe."}
+                      </p>
+                      {currentUser.auth_provider === 'google' && (
+                        <a
+                          href="https://myaccount.google.com/security"
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1.5 text-xs font-bold text-[#00c2ff] hover:underline"
+                        >
+                          Gérer la sécurité Google <span className="material-symbols-outlined text-[14px]">open_in_new</span>
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {settingsTab === 'api' && (
+                  <div className="space-y-5">
+                    <div>
+                      <h4 className="text-xs font-bold text-white mb-1">Clés API</h4>
+                      <p className="text-[11px] text-slate-400">Utilisez une clé API pour intégrer NicheCut à vos propres outils (génération programmatique de vidéos).</p>
+                    </div>
+
+                    {justCreatedApiKey && (
+                      <div className="bg-emerald-950/40 border border-emerald-800 rounded-xl p-3 space-y-2">
+                        <p className="text-[11px] text-emerald-300 font-bold">Copiez cette clé maintenant — elle ne sera plus jamais affichée.</p>
+                        <div className="flex items-center gap-2">
+                          <code className="flex-1 text-[11px] font-mono text-white bg-black/40 rounded-lg p-2 overflow-x-auto whitespace-nowrap">{justCreatedApiKey.key}</code>
+                          <button
+                            type="button"
+                            onClick={() => { navigator.clipboard.writeText(justCreatedApiKey.key); showToast("Clé copiée.", "success"); }}
+                            className="p-2 bg-[#1b2230] hover:bg-[#252f42] rounded-lg text-white flex-shrink-0"
+                          >
+                            <span className="material-symbols-outlined text-[16px]">content_copy</span>
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="flex items-center gap-2">
+                      <input
+                        value={newApiKeyName}
+                        onChange={e => setNewApiKeyName(e.target.value)}
+                        placeholder="Nom de la clé (ex: Zapier, Script perso...)"
+                        className="flex-1 bg-[#1b2230] border border-[#2b374d] rounded-xl p-2.5 text-xs text-white focus:border-[#00c2ff] outline-none"
+                      />
+                      <button
+                        onClick={handleCreateApiKey}
+                        className="py-2.5 px-4 bg-[#00c2ff] text-slate-950 font-bold text-xs rounded-xl hover:bg-[#38d0ff] transition-all flex items-center gap-1.5 flex-shrink-0"
+                      >
+                        <span className="material-symbols-outlined text-[16px]">add</span> Créer
+                      </button>
+                    </div>
+
+                    <div className="space-y-2">
+                      {apiKeys.length === 0 ? (
+                        <p className="text-[11px] text-slate-500 text-center py-6">Aucune clé API créée pour le moment.</p>
+                      ) : (
+                        apiKeys.map(key => (
+                          <div key={key.id} className="flex items-center justify-between bg-[#11151c] border border-[#202938] rounded-xl p-3">
+                            <div>
+                              <p className="text-xs font-bold text-white">{key.name}</p>
+                              <p className="text-[10px] text-slate-500 font-mono mt-0.5">{key.key_prefix}••••••••••••••••••••</p>
+                            </div>
+                            <button
+                              onClick={() => handleRevokeApiKey(key.id)}
+                              className="text-rose-400 hover:text-rose-300 p-1.5"
+                              title="Révoquer"
+                            >
+                              <span className="material-symbols-outlined text-[16px]">delete</span>
+                            </button>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {settingsTab === 'izivoice' && (
+                  <div className="space-y-5">
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="material-symbols-outlined text-[#59d8ff]">record_voice_over</span>
+                        <h4 className="text-sm font-extrabold text-white">Synchronisation Izivoice</h4>
+                      </div>
+                      <p className="text-[11px] leading-5 text-slate-400">
+                        Sans connexion, NicheCut utilise automatiquement son propre moteur Izivoice. En connectant ta clé, tu retrouves dans NicheCut tes voix, tes clones et les ressources liées à ton compte Izivoice.
+                      </p>
+                    </div>
+
+                    {izivoiceConnection.connected ? (
+                      <div className="bg-emerald-950/25 border border-emerald-700/40 rounded-2xl p-4 space-y-4">
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex gap-3">
+                            <span className="material-symbols-outlined text-emerald-400">cloud_done</span>
+                            <div>
+                              <p className="text-xs font-bold text-white">Compte Izivoice connecté</p>
+                              <p className="text-[10px] text-emerald-300 mt-1 font-mono">{izivoiceConnection.key_prefix}</p>
+                              <p className="text-[10px] text-slate-400 mt-2">Les prochaines générations utilisent ton compte et tes propres voix.</p>
+                            </div>
+                          </div>
+                          <span className="px-2 py-1 rounded-full bg-emerald-500/10 text-emerald-300 text-[9px] font-bold uppercase tracking-wider">Synchronisé</span>
+                        </div>
+                        <button type="button" onClick={handleDisconnectIzivoice} className="text-[11px] font-bold text-rose-400 hover:text-rose-300">Déconnecter mon compte Izivoice</button>
+                      </div>
+                    ) : (
+                      <form onSubmit={handleConnectIzivoice} className="bg-[#11151c] border border-[#263042] rounded-2xl p-4 space-y-4">
+                        <div className="flex gap-3">
+                          <span className="material-symbols-outlined text-[#00c2ff]">hub</span>
+                          <div>
+                            <p className="text-xs font-bold text-white">Moteur NicheCut actif</p>
+                            <p className="text-[10px] text-slate-400 mt-1">Tu peux créer tes vidéos normalement. La connexion Izivoice ajoute la synchronisation de ton espace personnel.</p>
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-300 mb-2">Clé API Izivoice</label>
+                          <input type="password" autoComplete="off" value={izivoiceApiKey} onChange={e => setIzivoiceApiKey(e.target.value)} placeholder="Colle ta clé API Izivoice" className="w-full bg-[#080d15] border border-[#2b374d] rounded-xl p-3 text-xs text-white focus:border-[#00c2ff] outline-none" />
+                          <p className="text-[9px] leading-4 text-slate-500 mt-2">La clé est vérifiée auprès d’Izivoice, chiffrée côté serveur et n’est jamais réaffichée.</p>
+                        </div>
+                        <button type="submit" disabled={izivoiceConnecting || !izivoiceApiKey.trim()} className="w-full py-3 bg-gradient-to-r from-[#65e0ff] to-[#1a9cff] text-[#031019] font-extrabold text-xs rounded-xl disabled:opacity-50">
+                          {izivoiceConnecting ? 'Vérification…' : 'Connecter et synchroniser'}
+                        </button>
+                      </form>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+      )}
           </div>
         </div>
       </main>
@@ -7522,296 +7826,6 @@ export default function App() {
         </div>
       )}
 
-      {/* SETTINGS — dedicated page (view === 'settings'), not a popup */}
-      {view === 'settings' && currentUser && (
-        <div className="max-w-[980px] mx-auto">
-          <div className="flex items-center gap-4 mb-6">
-            <div className="w-14 h-14 rounded-2xl overflow-hidden bg-[#00c2ff] text-slate-950 flex items-center justify-center font-extrabold text-xl shadow-md flex-shrink-0">
-              {currentUser.picture_url ? (
-                <img src={currentUser.picture_url} alt={currentUser.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-              ) : (
-                currentUser.name.slice(0, 1).toUpperCase()
-              )}
-            </div>
-            <div>
-              <h2 className="text-xl font-extrabold text-white">{currentUser.name}</h2>
-              <p className="text-xs text-slate-400">{currentUser.email}</p>
-            </div>
-          </div>
-
-          <div className="flex flex-col md:flex-row gap-6 items-start">
-            {/* Settings side nav */}
-            <div className="w-full md:w-[220px] flex-shrink-0 bg-[#161b22] border border-[#263042] rounded-2xl p-3 space-y-1 md:sticky md:top-8">
-              {[
-                { id: 'profile', label: 'Profil', icon: 'person' },
-                { id: 'security', label: 'Sécurité', icon: 'lock' },
-                { id: 'izivoice', label: 'Izivoice', icon: 'record_voice_over' },
-                { id: 'api', label: 'Clés API', icon: 'key' },
-              ].map(tab => (
-                <button
-                  key={tab.id}
-                  onClick={() => setSettingsTab(tab.id)}
-                  className={`w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition-all ${
-                    settingsTab === tab.id ? 'bg-[#00c2ff]/10 text-[#00c2ff]' : 'text-slate-400 hover:bg-[#1b2230] hover:text-white'
-                  }`}
-                >
-                  <span className="material-symbols-outlined text-[16px]">{tab.icon}</span>
-                  {tab.label}
-                </button>
-              ))}
-              <div className="pt-2 mt-2 border-t border-[#263042]">
-                <button
-                  onClick={handleLogout}
-                  className="w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 text-rose-400 hover:bg-rose-950/50 transition-all"
-                >
-                  <span className="material-symbols-outlined text-[16px]">logout</span>
-                  Déconnexion
-                </button>
-              </div>
-            </div>
-
-            {/* Settings content */}
-            <div className="flex-1 min-w-0 bg-[#161b22] border border-[#263042] rounded-2xl p-6 space-y-5">
-              {settingsTab === 'profile' && (
-                  <form onSubmit={handleUpdateProfile} className="space-y-4">
-                    <div className="flex items-center gap-4">
-                      <div className="w-16 h-16 rounded-2xl overflow-hidden bg-[#00c2ff] text-slate-950 flex items-center justify-center font-extrabold text-2xl shadow-md flex-shrink-0">
-                        {currentUser.picture_url ? (
-                          <img src={currentUser.picture_url} alt={currentUser.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                        ) : (
-                          currentUser.name.slice(0, 1).toUpperCase()
-                        )}
-                      </div>
-                      <div className="text-[11px] text-slate-400">
-                        {currentUser.auth_provider === 'google'
-                          ? "Photo synchronisée depuis votre compte Google."
-                          : "Connectez-vous avec Google pour une photo de profil automatique."}
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-slate-300 mb-1">Nom complet</label>
-                      <input
-                        value={profileForm.name}
-                        onChange={e => setProfileForm({ ...profileForm, name: e.target.value })}
-                        className="w-full bg-[#1b2230] border border-[#2b374d] rounded-xl p-3 text-xs text-white focus:border-[#00c2ff] outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-slate-300 mb-1">Adresse Email</label>
-                      <input
-                        value={currentUser.email}
-                        disabled
-                        className="w-full bg-[#11151c] border border-[#2b374d] rounded-xl p-3 text-xs text-slate-500 outline-none cursor-not-allowed"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-slate-300 mb-1">Numéro de téléphone</label>
-                      <input
-                        value={profileForm.phone}
-                        onChange={e => setProfileForm({ ...profileForm, phone: e.target.value })}
-                        placeholder="+33 6 12 34 56 78"
-                        className="w-full bg-[#1b2230] border border-[#2b374d] rounded-xl p-3 text-xs text-white focus:border-[#00c2ff] outline-none"
-                      />
-                    </div>
-                    <button
-                      type="submit"
-                      disabled={loading}
-                      className="py-2.5 px-5 bg-[#00c2ff] text-slate-950 font-bold text-xs rounded-xl hover:bg-[#38d0ff] transition-all"
-                    >
-                      Enregistrer les modifications
-                    </button>
-                  </form>
-                )}
-
-                {settingsTab === 'security' && (
-                  <div className="space-y-5">
-                    {currentUser.auth_provider === 'google' ? (
-                      <div className="bg-[#11151c] border border-[#202938] rounded-xl p-4 flex items-start gap-3">
-                        <span className="material-symbols-outlined text-[#00c2ff] text-[20px]">verified_user</span>
-                        <div>
-                          <p className="text-xs font-bold text-white">Connecté via Google</p>
-                          <p className="text-[11px] text-slate-400 mt-1">Votre mot de passe est géré par Google. La double authentification et la sécurité du compte se configurent directement dans les paramètres de votre compte Google.</p>
-                        </div>
-                      </div>
-                    ) : (
-                      <form onSubmit={handleChangePasswordSettings} className="space-y-4">
-                        <h4 className="text-xs font-bold text-white">Changer le mot de passe</h4>
-                        <div>
-                          <label className="block text-xs font-bold text-slate-300 mb-1">Mot de passe actuel</label>
-                          <input
-                            type="password"
-                            required
-                            value={passwordForm.oldPassword}
-                            onChange={e => setPasswordForm({ ...passwordForm, oldPassword: e.target.value })}
-                            className="w-full bg-[#1b2230] border border-[#2b374d] rounded-xl p-3 text-xs text-white focus:border-[#00c2ff] outline-none"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-bold text-slate-300 mb-1">Nouveau mot de passe</label>
-                          <div className="relative">
-                            <input
-                              type={showSettingsPassword ? "text" : "password"}
-                              required
-                              minLength={4}
-                              value={passwordForm.newPassword}
-                              onChange={e => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
-                              className="w-full bg-[#1b2230] border border-[#2b374d] rounded-xl p-3 pr-10 text-xs text-white focus:border-[#00c2ff] outline-none"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => setShowSettingsPassword(!showSettingsPassword)}
-                              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
-                              tabIndex={-1}
-                            >
-                              <span className="material-symbols-outlined text-[18px]">{showSettingsPassword ? "visibility_off" : "visibility"}</span>
-                            </button>
-                          </div>
-                        </div>
-                        <button
-                          type="submit"
-                          disabled={loading}
-                          className="py-2.5 px-5 bg-[#00c2ff] text-slate-950 font-bold text-xs rounded-xl hover:bg-[#38d0ff] transition-all"
-                        >
-                          Mettre à jour le mot de passe
-                        </button>
-                      </form>
-                    )}
-
-                    <div className="pt-5 border-t border-[#263042]">
-                      <h4 className="text-xs font-bold text-white mb-1">Authentification à deux facteurs</h4>
-                      <p className="text-[11px] text-slate-400 mb-3">
-                        {currentUser.auth_provider === 'google'
-                          ? "Activez la validation en 2 étapes depuis votre compte Google — elle protège aussi votre connexion à NicheCut."
-                          : "Bientôt disponible pour les comptes email/mot de passe."}
-                      </p>
-                      {currentUser.auth_provider === 'google' && (
-                        <a
-                          href="https://myaccount.google.com/security"
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex items-center gap-1.5 text-xs font-bold text-[#00c2ff] hover:underline"
-                        >
-                          Gérer la sécurité Google <span className="material-symbols-outlined text-[14px]">open_in_new</span>
-                        </a>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {settingsTab === 'api' && (
-                  <div className="space-y-5">
-                    <div>
-                      <h4 className="text-xs font-bold text-white mb-1">Clés API</h4>
-                      <p className="text-[11px] text-slate-400">Utilisez une clé API pour intégrer NicheCut à vos propres outils (génération programmatique de vidéos).</p>
-                    </div>
-
-                    {justCreatedApiKey && (
-                      <div className="bg-emerald-950/40 border border-emerald-800 rounded-xl p-3 space-y-2">
-                        <p className="text-[11px] text-emerald-300 font-bold">Copiez cette clé maintenant — elle ne sera plus jamais affichée.</p>
-                        <div className="flex items-center gap-2">
-                          <code className="flex-1 text-[11px] font-mono text-white bg-black/40 rounded-lg p-2 overflow-x-auto whitespace-nowrap">{justCreatedApiKey.key}</code>
-                          <button
-                            type="button"
-                            onClick={() => { navigator.clipboard.writeText(justCreatedApiKey.key); showToast("Clé copiée.", "success"); }}
-                            className="p-2 bg-[#1b2230] hover:bg-[#252f42] rounded-lg text-white flex-shrink-0"
-                          >
-                            <span className="material-symbols-outlined text-[16px]">content_copy</span>
-                          </button>
-                        </div>
-                      </div>
-                    )}
-
-                    <div className="flex items-center gap-2">
-                      <input
-                        value={newApiKeyName}
-                        onChange={e => setNewApiKeyName(e.target.value)}
-                        placeholder="Nom de la clé (ex: Zapier, Script perso...)"
-                        className="flex-1 bg-[#1b2230] border border-[#2b374d] rounded-xl p-2.5 text-xs text-white focus:border-[#00c2ff] outline-none"
-                      />
-                      <button
-                        onClick={handleCreateApiKey}
-                        className="py-2.5 px-4 bg-[#00c2ff] text-slate-950 font-bold text-xs rounded-xl hover:bg-[#38d0ff] transition-all flex items-center gap-1.5 flex-shrink-0"
-                      >
-                        <span className="material-symbols-outlined text-[16px]">add</span> Créer
-                      </button>
-                    </div>
-
-                    <div className="space-y-2">
-                      {apiKeys.length === 0 ? (
-                        <p className="text-[11px] text-slate-500 text-center py-6">Aucune clé API créée pour le moment.</p>
-                      ) : (
-                        apiKeys.map(key => (
-                          <div key={key.id} className="flex items-center justify-between bg-[#11151c] border border-[#202938] rounded-xl p-3">
-                            <div>
-                              <p className="text-xs font-bold text-white">{key.name}</p>
-                              <p className="text-[10px] text-slate-500 font-mono mt-0.5">{key.key_prefix}••••••••••••••••••••</p>
-                            </div>
-                            <button
-                              onClick={() => handleRevokeApiKey(key.id)}
-                              className="text-rose-400 hover:text-rose-300 p-1.5"
-                              title="Révoquer"
-                            >
-                              <span className="material-symbols-outlined text-[16px]">delete</span>
-                            </button>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {settingsTab === 'izivoice' && (
-                  <div className="space-y-5">
-                    <div>
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="material-symbols-outlined text-[#59d8ff]">record_voice_over</span>
-                        <h4 className="text-sm font-extrabold text-white">Synchronisation Izivoice</h4>
-                      </div>
-                      <p className="text-[11px] leading-5 text-slate-400">
-                        Sans connexion, NicheCut utilise automatiquement son propre moteur Izivoice. En connectant ta clé, tu retrouves dans NicheCut tes voix, tes clones et les ressources liées à ton compte Izivoice.
-                      </p>
-                    </div>
-
-                    {izivoiceConnection.connected ? (
-                      <div className="bg-emerald-950/25 border border-emerald-700/40 rounded-2xl p-4 space-y-4">
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="flex gap-3">
-                            <span className="material-symbols-outlined text-emerald-400">cloud_done</span>
-                            <div>
-                              <p className="text-xs font-bold text-white">Compte Izivoice connecté</p>
-                              <p className="text-[10px] text-emerald-300 mt-1 font-mono">{izivoiceConnection.key_prefix}</p>
-                              <p className="text-[10px] text-slate-400 mt-2">Les prochaines générations utilisent ton compte et tes propres voix.</p>
-                            </div>
-                          </div>
-                          <span className="px-2 py-1 rounded-full bg-emerald-500/10 text-emerald-300 text-[9px] font-bold uppercase tracking-wider">Synchronisé</span>
-                        </div>
-                        <button type="button" onClick={handleDisconnectIzivoice} className="text-[11px] font-bold text-rose-400 hover:text-rose-300">Déconnecter mon compte Izivoice</button>
-                      </div>
-                    ) : (
-                      <form onSubmit={handleConnectIzivoice} className="bg-[#11151c] border border-[#263042] rounded-2xl p-4 space-y-4">
-                        <div className="flex gap-3">
-                          <span className="material-symbols-outlined text-[#00c2ff]">hub</span>
-                          <div>
-                            <p className="text-xs font-bold text-white">Moteur NicheCut actif</p>
-                            <p className="text-[10px] text-slate-400 mt-1">Tu peux créer tes vidéos normalement. La connexion Izivoice ajoute la synchronisation de ton espace personnel.</p>
-                          </div>
-                        </div>
-                        <div>
-                          <label className="block text-[11px] font-bold text-slate-300 mb-2">Clé API Izivoice</label>
-                          <input type="password" autoComplete="off" value={izivoiceApiKey} onChange={e => setIzivoiceApiKey(e.target.value)} placeholder="Colle ta clé API Izivoice" className="w-full bg-[#080d15] border border-[#2b374d] rounded-xl p-3 text-xs text-white focus:border-[#00c2ff] outline-none" />
-                          <p className="text-[9px] leading-4 text-slate-500 mt-2">La clé est vérifiée auprès d’Izivoice, chiffrée côté serveur et n’est jamais réaffichée.</p>
-                        </div>
-                        <button type="submit" disabled={izivoiceConnecting || !izivoiceApiKey.trim()} className="w-full py-3 bg-gradient-to-r from-[#65e0ff] to-[#1a9cff] text-[#031019] font-extrabold text-xs rounded-xl disabled:opacity-50">
-                          {izivoiceConnecting ? 'Vérification…' : 'Connecter et synchroniser'}
-                        </button>
-                      </form>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-      )}
 
       {/* CHANNEL PICKER MODAL (when Nouvelle Vidéo clicked without active channel preset) */}
       {showChannelPickerModal && (
