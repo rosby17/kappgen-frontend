@@ -1179,6 +1179,7 @@ function viewFromPath(path) {
   if (path === '/channels/new') return 'wizard';
   if (/^\/channels\/[^/]+\/edit$/.test(path)) return 'wizard';
   if (/^\/channels\/[^/]+$/.test(path)) return 'channel_detail';
+  if (path === '/settings') return 'settings';
   return 'home';
 }
 
@@ -1834,6 +1835,7 @@ export default function App() {
       case 'videos': return '/videos';
       case 'channel_detail': return activeChannel ? `/channels/${slugifyChannelName(activeChannel.name)}` : '/channels';
       case 'wizard': return wizardMode === 'edit' && editingChannel ? `/channels/${slugifyChannelName(editingChannel.name)}/edit` : '/channels/new';
+      case 'settings': return '/settings';
       case 'home':
       default: return '/dashboard';
     }
@@ -1866,6 +1868,7 @@ export default function App() {
     if (path === '/signup' || path === '/signin') { setShowAuthModal(true); setAuthTab('register'); return; }
     if (path === '/channels') { setView('channels'); return; }
     if (path === '/videos') { setView('videos'); return; }
+    if (path === '/settings') { setView('settings'); return; }
     if (path === '/channels/new') {
       // Guard against re-running on every `channels` refetch — only (re)reset the
       // form the first time we land here, not on every poll while the user is
@@ -2111,21 +2114,20 @@ export default function App() {
     setActiveChannel(null);
     setWizardMode('create');
     setEditingChannelId(null);
-    setShowProfileModal(false);
     setView('home');
     setAuthTab('login');
     setShowAuthModal(true);
   };
 
   useEffect(() => {
-    if (showProfileModal && currentUser) {
+    if (view === 'settings' && currentUser) {
       setProfileForm({ name: currentUser.name || '', phone: currentUser.phone || '' });
       setSettingsTab('profile');
       setJustCreatedApiKey(null);
       fetchApiKeys();
       fetchIzivoiceConnection();
     }
-  }, [showProfileModal, currentUser]);
+  }, [view, currentUser]);
 
   const fetchApiKeys = async () => {
     if (!currentUser) return;
@@ -3580,7 +3582,7 @@ export default function App() {
           <span className="font-title-sm text-sm font-black text-white tracking-wide">NicheCut</span>
         </div>
         {currentUser ? (
-          <button onClick={() => setShowProfileModal(true)} className="w-8 h-8 rounded-full overflow-hidden border border-[#2b374d] flex-shrink-0">
+          <button onClick={() => setView('settings')} className="w-8 h-8 rounded-full overflow-hidden border border-[#2b374d] flex-shrink-0">
             {currentUser.picture_url ? (
               <img src={currentUser.picture_url} alt={currentUser.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
             ) : (
@@ -3617,6 +3619,7 @@ export default function App() {
                   { id: 'home', label: 'Home', icon: 'home', active: view === 'home' || view === 'dashboard' },
                   { id: 'channels', label: 'Mes Chaînes', icon: 'subscriptions', active: view === 'channels' || view === 'channel_detail' },
                   { id: 'videos', label: 'Mes Vidéos', icon: 'movie', active: view === 'videos' },
+                  { id: 'settings', label: 'Paramètres', icon: 'settings', active: view === 'settings' },
                 ].map(({ id, label, icon, active }) => (
                   <button
                     key={id}
@@ -3738,6 +3741,18 @@ export default function App() {
               <span className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: view === 'videos' ? "'FILL' 1" : "'FILL' 0" }}>movie</span>
               Mes Vidéos
             </button>
+
+            <button
+              onClick={() => setView('settings')}
+              className={`w-full flex items-center gap-3.5 px-4 py-3 cursor-pointer rounded-xl transition-all font-medium text-sm ${
+                view === 'settings'
+                  ? 'bg-gradient-to-r from-[#00c2ff] to-[#0099ff] text-slate-950 font-bold shadow-md shadow-[#00c2ff]/20'
+                  : 'text-slate-300 hover:bg-[#1f2838] hover:text-white'
+              }`}
+            >
+              <span className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: view === 'settings' ? "'FILL' 1" : "'FILL' 0" }}>settings</span>
+              Paramètres
+            </button>
           </div>
         </div>
 
@@ -3774,6 +3789,7 @@ export default function App() {
             {view === 'videos' && 'Bibliothèque de Vidéos'}
             {view === 'wizard' && (wizardMode === 'edit' ? 'Modifier le Pipeline' : 'Assistant de Création de Chaîne')}
             {view === 'channel_detail' && (activeChannel ? `Chaîne: ${activeChannel.name}` : 'Détail Chaîne')}
+            {view === 'settings' && 'Paramètres'}
           </h1>
 
           <div className="flex items-center gap-4">
@@ -3792,7 +3808,7 @@ export default function App() {
             {/* Profile widget — top right */}
             {currentUser ? (
               <div
-                onClick={() => setShowProfileModal(true)}
+                onClick={() => setView('settings')}
                 className="w-9 h-9 rounded-full cursor-pointer transition-all shadow-sm ring-2 ring-transparent hover:ring-[#00c2ff]/50 flex-shrink-0 overflow-hidden"
                 title="Paramètres"
               >
@@ -6322,22 +6338,28 @@ export default function App() {
                   const musicLabel = musicFiles[0]?.name
                     || newChannel.music_preference?.tracks?.[0]?.split('/').pop()?.replace(/^[0-9a-f]{8}_/, '')
                     || (newChannel.music_preference?.mode === 'ai_generate' ? 'Musique générée par IA' : null);
+                  const hasThumbnailStyle = !!newChannel.thumbnail_style?.style_prompt;
                   const recapItems = [
                     { id: 'logo', label: 'Logo de la chaîne', icon: 'workspace_premium', available: !!resolvedLogoUrl },
                     { id: 'subtitles', label: 'Sous-titres', icon: 'subtitles', available: true },
                     { id: 'effects', label: 'Effets visuels', icon: 'auto_awesome', available: stepHasGrain || stepHasVignette || (newChannel.effects_config.color_grade && newChannel.effects_config.color_grade !== 'none') },
                     { id: 'visual', label: 'Visuel de fond', icon: 'image', available: !!(userImagePreview || (wizardMode === 'edit' && activeChannel)) },
                     { id: 'music', label: 'Musique de fond', icon: 'music_note', available: !!musicLabel },
+                    { id: 'thumbnail', label: hasThumbnailStyle ? 'Miniature YouTube (style perso)' : 'Miniature YouTube (défaut)', icon: 'photo_camera', available: true, info: true },
                   ];
                   // Logo/sous-titres/effets/musique are real, saved settings — toggling them
                   // here actually edits `newChannel` (persisted on save), same as any other
-                  // field in the wizard. Only "visual" has no real off-switch (a video always
-                  // needs a background), so it stays a local, cosmetic preview-only toggle.
+                  // field in the wizard. "visual" has no real off-switch (a video always needs
+                  // a background), so it stays a local, cosmetic preview-only toggle. "thumbnail"
+                  // isn't part of the video composite at all (it's generated separately at
+                  // publish time) — it's shown here read-only, just to surface whether a
+                  // dedicated thumbnail reference style is configured for this channel.
                   const isRecapChecked = (id) => {
                     if (id === 'logo') return newChannel.branding.logo_enabled ?? true;
                     if (id === 'subtitles') return newChannel.subtitle_style.enabled ?? true;
                     if (id === 'effects') return newChannel.effects_config.enabled ?? true;
                     if (id === 'music') return newChannel.music_preference.enabled ?? true;
+                    if (id === 'thumbnail') return hasThumbnailStyle;
                     return recapVisible.visual;
                   };
                   const toggleRecap = (id) => {
@@ -6345,6 +6367,7 @@ export default function App() {
                     if (id === 'subtitles') return setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, enabled: !isRecapChecked('subtitles') } });
                     if (id === 'effects') return setNewChannel({ ...newChannel, effects_config: { ...newChannel.effects_config, enabled: !isRecapChecked('effects') } });
                     if (id === 'music') return setNewChannel({ ...newChannel, music_preference: { ...newChannel.music_preference, enabled: !isRecapChecked('music') } });
+                    if (id === 'thumbnail') return setWizardStep(5);
                     setRecapVisible(prev => ({ ...prev, visual: !prev.visual }));
                   };
                   return (
@@ -7499,63 +7522,57 @@ export default function App() {
         </div>
       )}
 
-      {/* USER PROFILE & SETTINGS MODAL (INTEGRATED PARAMÈTRES & PROFIL) */}
-      {showProfileModal && currentUser && (
-        <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-center justify-center p-6">
-          <div className="bg-[#161b22] border border-[#263042] rounded-3xl max-w-[720px] w-full max-h-[90vh] shadow-2xl flex flex-col overflow-hidden">
-            <div className="flex justify-between items-center border-b border-[#263042] p-6 pb-4 flex-shrink-0">
-              <div className="flex items-center gap-3">
-                <div className="w-11 h-11 rounded-2xl overflow-hidden bg-[#00c2ff] text-slate-950 flex items-center justify-center font-extrabold text-lg shadow-md flex-shrink-0">
-                  {currentUser.picture_url ? (
-                    <img src={currentUser.picture_url} alt={currentUser.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                  ) : (
-                    currentUser.name.slice(0, 1).toUpperCase()
-                  )}
-                </div>
-                <div>
-                  <h3 className="text-lg font-extrabold text-white">Paramètres</h3>
-                  <p className="text-xs text-slate-400">{currentUser.email}</p>
-                </div>
+      {/* SETTINGS — dedicated page (view === 'settings'), not a popup */}
+      {view === 'settings' && currentUser && (
+        <div className="max-w-[980px] mx-auto">
+          <div className="flex items-center gap-4 mb-6">
+            <div className="w-14 h-14 rounded-2xl overflow-hidden bg-[#00c2ff] text-slate-950 flex items-center justify-center font-extrabold text-xl shadow-md flex-shrink-0">
+              {currentUser.picture_url ? (
+                <img src={currentUser.picture_url} alt={currentUser.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+              ) : (
+                currentUser.name.slice(0, 1).toUpperCase()
+              )}
+            </div>
+            <div>
+              <h2 className="text-xl font-extrabold text-white">{currentUser.name}</h2>
+              <p className="text-xs text-slate-400">{currentUser.email}</p>
+            </div>
+          </div>
+
+          <div className="flex flex-col md:flex-row gap-6 items-start">
+            {/* Settings side nav */}
+            <div className="w-full md:w-[220px] flex-shrink-0 bg-[#161b22] border border-[#263042] rounded-2xl p-3 space-y-1 md:sticky md:top-8">
+              {[
+                { id: 'profile', label: 'Profil', icon: 'person' },
+                { id: 'security', label: 'Sécurité', icon: 'lock' },
+                { id: 'izivoice', label: 'Izivoice', icon: 'record_voice_over' },
+                { id: 'api', label: 'Clés API', icon: 'key' },
+              ].map(tab => (
+                <button
+                  key={tab.id}
+                  onClick={() => setSettingsTab(tab.id)}
+                  className={`w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition-all ${
+                    settingsTab === tab.id ? 'bg-[#00c2ff]/10 text-[#00c2ff]' : 'text-slate-400 hover:bg-[#1b2230] hover:text-white'
+                  }`}
+                >
+                  <span className="material-symbols-outlined text-[16px]">{tab.icon}</span>
+                  {tab.label}
+                </button>
+              ))}
+              <div className="pt-2 mt-2 border-t border-[#263042]">
+                <button
+                  onClick={handleLogout}
+                  className="w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 text-rose-400 hover:bg-rose-950/50 transition-all"
+                >
+                  <span className="material-symbols-outlined text-[16px]">logout</span>
+                  Déconnexion
+                </button>
               </div>
-              <button onClick={() => setShowProfileModal(false)} className="text-slate-400 hover:text-white p-1">
-                <span className="material-symbols-outlined">close</span>
-              </button>
             </div>
 
-            <div className="flex flex-1 min-h-0">
-              {/* Settings side nav */}
-              <div className="w-[180px] border-r border-[#263042] p-3 space-y-1 flex-shrink-0">
-                {[
-                  { id: 'profile', label: 'Profil', icon: 'person' },
-                  { id: 'security', label: 'Sécurité', icon: 'lock' },
-                  { id: 'izivoice', label: 'Izivoice', icon: 'record_voice_over' },
-                  { id: 'api', label: 'Clés API', icon: 'key' },
-                ].map(tab => (
-                  <button
-                    key={tab.id}
-                    onClick={() => setSettingsTab(tab.id)}
-                    className={`w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition-all ${
-                      settingsTab === tab.id ? 'bg-[#00c2ff]/10 text-[#00c2ff]' : 'text-slate-400 hover:bg-[#1b2230] hover:text-white'
-                    }`}
-                  >
-                    <span className="material-symbols-outlined text-[16px]">{tab.icon}</span>
-                    {tab.label}
-                  </button>
-                ))}
-                <div className="pt-2 mt-2 border-t border-[#263042]">
-                  <button
-                    onClick={handleLogout}
-                    className="w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 text-rose-400 hover:bg-rose-950/50 transition-all"
-                  >
-                    <span className="material-symbols-outlined text-[16px]">logout</span>
-                    Déconnexion
-                  </button>
-                </div>
-              </div>
-
-              {/* Settings content */}
-              <div className="flex-1 overflow-y-auto p-6 space-y-5">
-                {settingsTab === 'profile' && (
+            {/* Settings content */}
+            <div className="flex-1 min-w-0 bg-[#161b22] border border-[#263042] rounded-2xl p-6 space-y-5">
+              {settingsTab === 'profile' && (
                   <form onSubmit={handleUpdateProfile} className="space-y-4">
                     <div className="flex items-center gap-4">
                       <div className="w-16 h-16 rounded-2xl overflow-hidden bg-[#00c2ff] text-slate-950 flex items-center justify-center font-extrabold text-2xl shadow-md flex-shrink-0">
@@ -7794,7 +7811,6 @@ export default function App() {
               </div>
             </div>
           </div>
-        </div>
       )}
 
       {/* CHANNEL PICKER MODAL (when Nouvelle Vidéo clicked without active channel preset) */}
