@@ -7,7 +7,7 @@ import {
 import './landing.css';
 import freedomSunrise from './assets/dashboard/freedom-sunrise.png';
 
-const APP_ORIGIN = import.meta.env.VITE_APP_ORIGIN || 'https://appnichecut.tools-cl.com';
+const APP_ORIGIN = import.meta.env.VITE_APP_ORIGIN || 'https://app.kappgen.com';
 const isLocal = typeof window !== 'undefined' && ['localhost', '127.0.0.1'].includes(window.location.hostname);
 const appUrl = (path = '/signup') => `${isLocal ? `${window.location.origin}/app` : APP_ORIGIN}${path}`;
 
@@ -57,7 +57,7 @@ function ProductPreview() {
       <div className="preview-window">
         <div className="preview-topbar">
           <div className="window-dots"><i /><i /><i /></div>
-          <span>appnichecut.tools-cl.com/dashboard</span>
+          <span>app.kappgen.com/dashboard</span>
           <div className="preview-avatar">R</div>
         </div>
         <div className="preview-body">
@@ -155,7 +155,7 @@ export default function LandingPage() {
           <div className="network-plan">
             <div><div className="section-kicker">RÉSEAUX MULTICHAÎNES</div><h3>Une infrastructure adaptée à ton réseau.</h3><p>Plusieurs chaînes, accès équipe, volume personnalisé et accompagnement prioritaire.</p></div>
             <div className="network-price"><span>À partir de</span><strong>299 $</strong><small>/ mois · sur devis</small></div>
-            <a className="button button-ghost" href="mailto:contact@nichecut.tools-cl.com?subject=Offre%20Réseau%20multichaîne">Nous contacter <ArrowRight size={16} /></a>
+            <a className="button button-ghost" href="mailto:contact@kappgen.com?subject=Offre%20Réseau%20multichaîne">Nous contacter <ArrowRight size={16} /></a>
           </div>
           <p className="pricing-note">Les quotas correspondent aux générations incluses par cycle mensuel. Les besoins supérieurs peuvent être adaptés sur devis.</p>
         </section>
