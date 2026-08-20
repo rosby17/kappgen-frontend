@@ -992,6 +992,34 @@ export default function App() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [openChannelMenuId, setOpenChannelMenuId] = useState(null);
   const [openVideoMenuId, setOpenVideoMenuId] = useState(null);
+  const [videoSelectionMode, setVideoSelectionMode] = useState(false);
+  const [selectedVideoIds, setSelectedVideoIds] = useState(new Set());
+  const toggleVideoSelected = (id) => {
+    setSelectedVideoIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+  const exitVideoSelectionMode = () => {
+    setVideoSelectionMode(false);
+    setSelectedVideoIds(new Set());
+  };
+  const handleBulkDeleteVideos = async () => {
+    if (selectedVideoIds.size === 0) return;
+    const ok = await askConfirm(`Supprimer définitivement ${selectedVideoIds.size} vidéo(s) et leurs fichiers rendus ?`, { title: `Supprimer ${selectedVideoIds.size} vidéo(s) ?`, danger: true });
+    if (!ok) return;
+    try {
+      await Promise.all(Array.from(selectedVideoIds).map(id => fetch(`${API_BASE}/videos/${id}`, { method: 'DELETE' })));
+      showToast(`${selectedVideoIds.size} vidéo(s) supprimée(s).`, 'success');
+    } catch (err) {
+      showToast('Certaines suppressions ont échoué.', 'error');
+    } finally {
+      exitVideoSelectionMode();
+      fetchAllVideos();
+      if (activeChannel) fetchChannelVideos(activeChannel.id);
+    }
+  };
   const [editingTitleId, setEditingTitleId] = useState(null);
   const [editingTitleValue, setEditingTitleValue] = useState("");
   const [nowTick, setNowTick] = useState(Date.now());
@@ -3216,6 +3244,15 @@ export default function App() {
                     </select>
 
                     <button
+                      onClick={() => videoSelectionMode ? exitVideoSelectionMode() : setVideoSelectionMode(true)}
+                      className={`px-4 py-2 font-bold text-xs rounded-xl transition-all flex items-center gap-2 flex-shrink-0 border ${
+                        videoSelectionMode ? 'bg-[#00c2ff]/10 text-[#00c2ff] border-[#00c2ff]' : 'bg-[#1b2230] text-slate-300 hover:text-white border-[#2b374d]'
+                      }`}
+                    >
+                      <span className="material-symbols-outlined text-[18px]">{videoSelectionMode ? 'close' : 'checklist'}</span>
+                      {videoSelectionMode ? 'Annuler' : 'Sélectionner'}
+                    </button>
+                    <button
                       onClick={openNewVideoFlow}
                       className="px-4 py-2 bg-[#00c2ff] hover:bg-[#38d0ff] text-slate-950 font-bold text-xs rounded-xl transition-all flex items-center gap-2 shadow-md shadow-[#00c2ff]/20 flex-shrink-0"
                     >
@@ -3224,6 +3261,33 @@ export default function App() {
                     </button>
                   </div>
                 </div>
+
+                {videoSelectionMode && (
+                  <div className="sticky top-0 z-10 bg-[#0f1621] border border-[#00c2ff]/30 rounded-xl px-4 py-2.5 flex items-center justify-between gap-3 shadow-lg">
+                    <span className="text-xs font-bold text-white">{selectedVideoIds.size} vidéo(s) sélectionnée(s)</span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setSelectedVideoIds(new Set(
+                          allVideos
+                            .filter(v => videoFilterChannelId === 'all' || v.channel_id === videoFilterChannelId)
+                            .filter(v => videoFilterFolderId === 'all' || v.folder_id === videoFilterFolderId)
+                            .map(v => v.id)
+                        ))}
+                        className="text-xs font-bold text-slate-300 hover:text-white px-2"
+                      >
+                        Tout sélectionner
+                      </button>
+                      <button
+                        onClick={handleBulkDeleteVideos}
+                        disabled={selectedVideoIds.size === 0}
+                        className="px-3.5 py-1.5 bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 border border-rose-500/30 rounded-lg font-bold text-xs flex items-center gap-1.5 disabled:opacity-40 disabled:pointer-events-none"
+                      >
+                        <span className="material-symbols-outlined text-[16px]">delete</span>
+                        Supprimer ({selectedVideoIds.size})
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 {/* Folder chips — organize videos into folders as the library grows */}
                 <div className="flex items-center gap-2 flex-wrap">
@@ -3285,14 +3349,23 @@ export default function App() {
                       .filter(v => videoFilterFolderId === 'all' || v.folder_id === videoFilterFolderId)
                       .map(vid => {
                         const channelObj = channels.find(c => c.id === vid.channel_id);
+                        const isSelected = selectedVideoIds.has(vid.id);
                         return (
                           <div
                             key={vid.id}
-                            className="bg-[#161b22] hover:bg-[#1c232e] border border-[#263042] hover:border-[#00c2ff]/40 rounded-2xl p-4 transition-all group flex flex-col justify-between shadow-lg relative card-warm-hover video-menu-container"
+                            onClick={() => videoSelectionMode && toggleVideoSelected(vid.id)}
+                            className={`bg-[#161b22] hover:bg-[#1c232e] border rounded-2xl p-4 transition-all group flex flex-col justify-between shadow-lg relative card-warm-hover video-menu-container ${
+                              videoSelectionMode ? 'cursor-pointer ' + (isSelected ? 'border-[#00c2ff]' : 'border-[#263042]') : 'border-[#263042] hover:border-[#00c2ff]/40'
+                            }`}
                           >
+                            {videoSelectionMode && (
+                              <div className={`absolute top-2.5 left-2.5 z-10 w-5 h-5 rounded-md border-2 flex items-center justify-center ${isSelected ? 'bg-[#00c2ff] border-[#00c2ff]' : 'bg-slate-950/70 border-slate-500'}`}>
+                                {isSelected && <span className="material-symbols-outlined text-[14px] text-slate-950">check</span>}
+                              </div>
+                            )}
                             {/* Video Poster Frame — click opens the big preview player directly */}
                             <div
-                              onClick={() => vid.status === 'done' && setSelectedVideo(vid)}
+                              onClick={(e) => { if (videoSelectionMode) { e.stopPropagation(); toggleVideoSelected(vid.id); return; } vid.status === 'done' && setSelectedVideo(vid); }}
                               className={`aspect-[16/9] bg-slate-950 rounded-xl relative overflow-hidden border border-[#2b374d] flex items-center justify-center ${vid.status === 'done' ? 'cursor-pointer group' : ''}`}
                             >
                               {vid.status === 'done' && vid.output_path ? (
@@ -3622,7 +3695,38 @@ export default function App() {
                 </section>
 
                 <section className="space-y-4">
-                  <h3 className="text-lg font-bold text-white">Vidéos de la Chaîne ({channelVideos.length})</h3>
+                  <div className="flex items-center justify-between gap-3">
+                    <h3 className="text-lg font-bold text-white">Vidéos de la Chaîne ({channelVideos.length})</h3>
+                    {channelVideos.length > 0 && (
+                      <button
+                        onClick={() => videoSelectionMode ? exitVideoSelectionMode() : setVideoSelectionMode(true)}
+                        className={`px-3.5 py-1.5 font-bold text-xs rounded-xl transition-all flex items-center gap-1.5 flex-shrink-0 border ${
+                          videoSelectionMode ? 'bg-[#00c2ff]/10 text-[#00c2ff] border-[#00c2ff]' : 'bg-[#1b2230] text-slate-300 hover:text-white border-[#2b374d]'
+                        }`}
+                      >
+                        <span className="material-symbols-outlined text-[16px]">{videoSelectionMode ? 'close' : 'checklist'}</span>
+                        {videoSelectionMode ? 'Annuler' : 'Sélectionner'}
+                      </button>
+                    )}
+                  </div>
+                  {videoSelectionMode && (
+                    <div className="sticky top-0 z-10 bg-[#0f1621] border border-[#00c2ff]/30 rounded-xl px-4 py-2.5 flex items-center justify-between gap-3 shadow-lg">
+                      <span className="text-xs font-bold text-white">{selectedVideoIds.size} vidéo(s) sélectionnée(s)</span>
+                      <div className="flex items-center gap-2">
+                        <button onClick={() => setSelectedVideoIds(new Set(channelVideos.map(v => v.id)))} className="text-xs font-bold text-slate-300 hover:text-white px-2">
+                          Tout sélectionner
+                        </button>
+                        <button
+                          onClick={handleBulkDeleteVideos}
+                          disabled={selectedVideoIds.size === 0}
+                          className="px-3.5 py-1.5 bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 border border-rose-500/30 rounded-lg font-bold text-xs flex items-center gap-1.5 disabled:opacity-40 disabled:pointer-events-none"
+                        >
+                          <span className="material-symbols-outlined text-[16px]">delete</span>
+                          Supprimer ({selectedVideoIds.size})
+                        </button>
+                      </div>
+                    </div>
+                  )}
                   {channelVideos.length === 0 ? (
                     <div className="bg-[#161b22] border border-[#263042] rounded-2xl p-10 text-center">
                       <span className="material-symbols-outlined text-[40px] text-slate-500 mb-2">description</span>
@@ -3637,14 +3741,24 @@ export default function App() {
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                      {channelVideos.map(vid => (
+                      {channelVideos.map(vid => {
+                        const isSelected = selectedVideoIds.has(vid.id);
+                        return (
                         <div
                           key={vid.id}
-                          className="bg-[#161b22] hover:bg-[#1c232e] border border-[#263042] hover:border-[#00c2ff]/40 rounded-2xl p-4 transition-all group flex flex-col justify-between shadow-lg relative card-warm-hover video-menu-container"
+                          onClick={() => videoSelectionMode && toggleVideoSelected(vid.id)}
+                          className={`bg-[#161b22] hover:bg-[#1c232e] border rounded-2xl p-4 transition-all group flex flex-col justify-between shadow-lg relative card-warm-hover video-menu-container ${
+                            videoSelectionMode ? 'cursor-pointer ' + (isSelected ? 'border-[#00c2ff]' : 'border-[#263042]') : 'border-[#263042] hover:border-[#00c2ff]/40'
+                          }`}
                         >
+                          {videoSelectionMode && (
+                            <div className={`absolute top-2.5 left-2.5 z-10 w-5 h-5 rounded-md border-2 flex items-center justify-center ${isSelected ? 'bg-[#00c2ff] border-[#00c2ff]' : 'bg-slate-950/70 border-slate-500'}`}>
+                              {isSelected && <span className="material-symbols-outlined text-[14px] text-slate-950">check</span>}
+                            </div>
+                          )}
                           {/* Thumbnail Poster — click opens the big preview player directly */}
                           <div
-                            onClick={() => vid.status === 'done' && setSelectedVideo(vid)}
+                            onClick={(e) => { if (videoSelectionMode) { e.stopPropagation(); toggleVideoSelected(vid.id); return; } vid.status === 'done' && setSelectedVideo(vid); }}
                             className={`aspect-[16/9] bg-slate-950 rounded-xl relative overflow-hidden border border-[#2b374d] flex items-center justify-center ${vid.status === 'done' ? 'cursor-pointer group' : ''}`}
                           >
                             {vid.status === 'done' && vid.output_path ? (
@@ -3777,7 +3891,7 @@ export default function App() {
                             )}
                           </div>
                         </div>
-                      ))}
+                      );})}
                     </div>
                   )}
                 </section>
