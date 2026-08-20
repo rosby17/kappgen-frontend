@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate, useLocation, useParams } from 'react-router-dom';
+import { Navigate, useNavigate, useLocation, useParams } from 'react-router-dom';
 
 const getOrigin = () => (typeof window !== 'undefined' ? window.location.origin : '');
 const isLocalhost = getOrigin().includes('localhost') || getOrigin().includes('127.0.0.1');
@@ -9,6 +9,7 @@ if (rawApiBase.startsWith("http://api-nichecut.tools-cl.com")) {
   rawApiBase = rawApiBase.replace("http://", "https://");
 }
 const API_BASE = rawApiBase;
+const AUTH_PATHS = new Set(['/login', '/signup', '/signin']);
 
 let rawStorageBase = import.meta.env.VITE_STORAGE_BASE || (isLocalhost ? `${getOrigin()}/storage` : "https://api-nichecut.tools-cl.com/storage");
 if (rawStorageBase.startsWith("http://api-nichecut.tools-cl.com")) {
@@ -1127,7 +1128,7 @@ export default function App() {
     const saved = localStorage.getItem("nichecut_user");
     return saved ? JSON.parse(saved) : null;
   });
-  const [authTab, setAuthTab] = useState('login'); // 'login' | 'register' | 'forgot'
+  const [authTab, setAuthTab] = useState(() => window.location.pathname.endsWith('/signup') || window.location.pathname.endsWith('/signin') ? 'register' : 'login'); // 'login' | 'register' | 'forgot'
   const [authForm, setAuthForm] = useState({ email: '', password: '' });
   const [showAuthPassword, setShowAuthPassword] = useState(false);
   const [forgotForm, setForgotForm] = useState({ email: '', newPassword: '' });
@@ -1493,7 +1494,7 @@ export default function App() {
 
   // state -> URL
   useEffect(() => {
-    if (showAuthModal) return; // auth modal owns the URL while open (see next effect)
+    if (showAuthModal || AUTH_PATHS.has(location.pathname)) return; // auth routes own their URL
     // On first mount, `view`/`wizardMode`/`editingChannelId` still hold their bare
     // useState defaults for one render — before the URL -> state effect below has
     // run even once to hydrate them from the actual URL. Firing this effect in
@@ -1509,16 +1510,6 @@ export default function App() {
     const target = pathForState();
     if (location.pathname !== target) navigate(target);
   }, [view, activeChannel, wizardMode, editingChannelId, showAuthModal]);
-
-  // auth modal <-> /login, /signup
-  useEffect(() => {
-    if (showAuthModal) {
-      const authPath = authTab === 'register' ? '/signup' : '/login';
-      if (location.pathname !== authPath) navigate(authPath);
-    } else if (location.pathname === '/login' || location.pathname === '/signup' || location.pathname === '/signin') {
-      navigate(pathForState());
-    }
-  }, [showAuthModal, authTab]);
 
   // URL -> state (initial load, refresh, direct link, back/forward)
   useEffect(() => {
@@ -1625,12 +1616,6 @@ export default function App() {
     }, 6000);
     return () => clearInterval(interval);
   }, [activeChannel, currentUser?.id]);
-
-  // Mandatory auth gate: an unauthenticated visitor always sees the login/signup
-  // modal, with no way to dismiss it, instead of the dashboard behind it.
-  useEffect(() => {
-    if (!currentUser) setShowAuthModal(true);
-  }, [currentUser]);
 
   const handleAuthSubmit = async (e) => {
     e.preventDefault();
@@ -2656,8 +2641,21 @@ export default function App() {
     { text: "esprit", highlight: previewWordIndex === 5 },
   ];
 
+  // Real route guard: protected URLs never render the dashboard for anonymous
+  // visitors. Keep the requested path so a successful sign-in can return there.
+  const isAuthRoute = AUTH_PATHS.has(location.pathname);
+  if (!currentUser && !isAuthRoute) {
+    return <Navigate to="/login" replace state={{ from: `${location.pathname}${location.search}` }} />;
+  }
+  if (currentUser && isAuthRoute) {
+    const requestedPath = typeof location.state?.from === 'string' ? location.state.from : '/dashboard';
+    const safeDestination = requestedPath.startsWith('/') && !AUTH_PATHS.has(requestedPath.split('?')[0]) ? requestedPath : '/dashboard';
+    return <Navigate to={safeDestination} replace />;
+  }
+
   return (
     <div className="font-body-md antialiased overflow-hidden flex h-screen bg-[#0f1217] text-[#e5e8f0]">
+      {!isAuthRoute && (<>
 
       {/* MOBILE TOP BAR — the desktop sidenav + header below are both `hidden`
           under md, so mobile needs its own always-visible bar with a hamburger
@@ -5812,8 +5810,10 @@ export default function App() {
         </div>
       )}
 
+      </>)}
+
       {/* FULL-PAGE AUTHENTICATION */}
-      {showAuthModal && (
+      {(showAuthModal || isAuthRoute) && (
         <div className="fixed inset-0 z-50 overflow-y-auto bg-[#070b12] text-white">
           <div className="absolute inset-0 bg-[url('/assets/backgrounds/nichecut-abstract-tech.webp')] bg-cover bg-center opacity-40" />
           <div className="absolute inset-0 bg-gradient-to-r from-[#070b12] via-[#070b12]/90 to-[#070b12]/70" />
@@ -5882,8 +5882,8 @@ export default function App() {
 
                   {authTab !== 'forgot' && (
                     <div className="grid grid-cols-2 bg-[#080d15] p-1 rounded-xl border border-white/10 mb-6">
-                      <button type="button" onClick={() => setAuthTab('login')} className={`py-2.5 text-xs font-bold rounded-lg transition-all ${authTab === 'login' ? 'bg-[#1d2a38] text-white shadow-sm' : 'text-slate-500 hover:text-white'}`}>Connexion</button>
-                      <button type="button" onClick={() => setAuthTab('register')} className={`py-2.5 text-xs font-bold rounded-lg transition-all ${authTab === 'register' ? 'bg-[#1d2a38] text-white shadow-sm' : 'text-slate-500 hover:text-white'}`}>Inscription</button>
+                      <button type="button" onClick={() => navigate('/login', { replace: true, state: location.state })} className={`py-2.5 text-xs font-bold rounded-lg transition-all ${authTab === 'login' ? 'bg-[#1d2a38] text-white shadow-sm' : 'text-slate-500 hover:text-white'}`}>Connexion</button>
+                      <button type="button" onClick={() => navigate('/signup', { replace: true, state: location.state })} className={`py-2.5 text-xs font-bold rounded-lg transition-all ${authTab === 'register' ? 'bg-[#1d2a38] text-white shadow-sm' : 'text-slate-500 hover:text-white'}`}>Inscription</button>
                     </div>
                   )}
 
@@ -5938,7 +5938,7 @@ export default function App() {
 
                       <p className="text-center text-xs text-slate-500 mt-6 mb-0">
                         {authTab === 'login' ? 'Pas encore de compte ?' : 'Tu as déjà un compte ?'}{' '}
-                        <button type="button" onClick={() => setAuthTab(authTab === 'login' ? 'register' : 'login')} className="text-[#55d8ff] font-bold hover:underline">{authTab === 'login' ? 'Activer ton Agent' : 'Se connecter'}</button>
+                        <button type="button" onClick={() => navigate(authTab === 'login' ? '/signup' : '/login', { replace: true, state: location.state })} className="text-[#55d8ff] font-bold hover:underline">{authTab === 'login' ? 'Activer ton Agent' : 'Se connecter'}</button>
                       </p>
                     </>
                   )}
