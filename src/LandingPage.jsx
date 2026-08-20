@@ -26,6 +26,29 @@ const steps = [
   ['04', 'Retrouve tes vidéos publiées', 'NicheCut programme et publie sur ta chaîne. Tu gardes la visibilité, pas la charge de travail.'],
 ];
 
+const pricingPlans = [
+  {
+    name: 'Découverte', price: 'Gratuit', description: 'Découvre la qualité NicheCut avant de lancer ton Agent.',
+    features: ['1 vidéo test', 'Export avec filigrane', 'Création assistée', 'Sans publication automatique'],
+    cta: 'Tester NicheCut', featured: false,
+  },
+  {
+    name: 'Créateur', price: '29 $', localPrice: '≈ 18 000 FCFA / mois', description: 'Pour créer régulièrement tout en gardant la validation finale.',
+    features: ['1 chaîne YouTube', '20 vidéos assistées / mois', '10 à 15 min par vidéo', 'Identité visuelle personnalisée'],
+    cta: 'Choisir Créateur', featured: false,
+  },
+  {
+    name: 'Automatique', price: '69 $', localPrice: '≈ 42 000 FCFA / mois', description: 'L’expérience NicheCut complète : tu configures, l’Agent exécute.',
+    features: ['1 chaîne YouTube', '12 vidéos autonomes / mois', 'Programmation automatique', 'Publication automatique YouTube'],
+    cta: 'Activer mon Agent', featured: true,
+  },
+  {
+    name: 'Scale', price: '149 $', localPrice: '≈ 90 000 FCFA / mois', description: 'Pour piloter plusieurs chaînes avec un volume de production élevé.',
+    features: ['Jusqu’à 10 chaînes', 'Jusqu’à 300 vidéos / mois', 'Rendu prioritaire', 'Gestion multi-chaînes'],
+    cta: 'Passer à Scale', featured: false,
+  },
+];
+
 function ProductPreview() {
   return (
     <div className="product-preview" aria-label="Aperçu de l’interface NicheCut">
@@ -127,8 +150,25 @@ export default function LandingPage() {
         <section className="section audience"><div className="audience-card"><div><div className="section-kicker">ENTRAÎNÉ POUR LA RÉALITÉ DE YOUTUBE</div><h2>Autonome ne veut pas dire générique.</h2><p>Nous maîtrisons les réalités du terrain YouTube et avons travaillé l’Agent autour de ce qui compte vraiment : originalité, rétention, identité éditoriale, droits et règles de monétisation. NicheCut ne produit pas à la chaîne ; il crée selon ton univers et applique ces exigences à chaque vidéo pour réduire les risques de démonétisation, de suppression ou de sanction.</p></div><div className="audience-list">{['Originalité à chaque vidéo', 'Rétention pensée dès le script', 'Identité de chaîne préservée', 'Règles YouTube intégrées'].map((item) => <span key={item}><BadgeCheck /> {item}</span>)}</div></div></section>
 
         <section className="section pricing" id="tarifs">
-          <div className="section-intro centered"><div className="section-kicker">ACCÈS ANTICIPÉ</div><h2>Construis une chaîne qui publie<br /><span>même quand tu dors.</span></h2><p>Rejoins l’accès anticipé et configure ton premier Agent NicheCut.</p></div>
-          <div className="early-card"><div className="early-badge"><Zap size={16} fill="currentColor" /> ACCÈS FONDATEUR</div><h3>Active ton Agent NicheCut</h3><p>Configure le style de ta chaîne une fois, connecte YouTube et laisse l’Agent gérer la production.</p><ul><li><Check /> Recherche autonome des idées</li><li><Check /> Écriture et production complètes</li><li><Check /> Style propre à chaque chaîne</li><li><Check /> Publication automatique YouTube</li></ul><a className="button button-primary full" href={appUrl('/signup')}>Automatiser ma chaîne <ArrowRight size={18} /></a><small>Aucune carte bancaire demandée pour l’accès actuel.</small></div>
+          <div className="section-intro centered"><div className="section-kicker">DES TARIFS QUI SUIVENT TON AMBITION</div><h2>Commence avec une vidéo.<br /><span>Puis automatise toute ta chaîne.</span></h2><p>Choisis le niveau d’autonomie et le volume adaptés à tes objectifs. Tu peux changer d’offre lorsque ta chaîne grandit.</p></div>
+          <div className="pricing-grid">
+            {pricingPlans.map((plan) => (
+              <article className={`pricing-card ${plan.featured ? 'featured' : ''}`} key={plan.name}>
+                {plan.featured && <div className="pricing-badge"><Zap size={13} fill="currentColor" /> RECOMMANDÉE</div>}
+                <div className="pricing-card-head"><h3>{plan.name}</h3><p>{plan.description}</p></div>
+                <div className="pricing-price"><strong>{plan.price}</strong>{plan.price !== 'Gratuit' && <span>/ mois</span>}</div>
+                {plan.localPrice && <div className="pricing-local">{plan.localPrice}</div>}
+                <ul>{plan.features.map((feature) => <li key={feature}><Check /> {feature}</li>)}</ul>
+                <a className={`button full ${plan.featured ? 'button-primary' : 'button-ghost'}`} href={appUrl('/signup')}>{plan.cta} <ArrowRight size={16} /></a>
+              </article>
+            ))}
+          </div>
+          <div className="network-plan">
+            <div><div className="section-kicker">RÉSEAUX MULTICHAÎNES</div><h3>Une infrastructure adaptée à ton réseau.</h3><p>Plusieurs chaînes, accès équipe, volume personnalisé et accompagnement prioritaire.</p></div>
+            <div className="network-price"><span>À partir de</span><strong>299 $</strong><small>/ mois · sur devis</small></div>
+            <a className="button button-ghost" href="mailto:contact@nichecut.tools-cl.com?subject=Offre%20Réseau%20multichaîne">Nous contacter <ArrowRight size={16} /></a>
+          </div>
+          <p className="pricing-note">Les quotas correspondent aux générations incluses par cycle mensuel. Les besoins supérieurs peuvent être adaptés sur devis.</p>
         </section>
 
         <section className="section faq" id="faq"><div><div className="section-kicker">QUESTIONS FRÉQUENTES</div><h2>Avant d’activer<br />ton Agent.</h2></div><div className="faq-list">{[
