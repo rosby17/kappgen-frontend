@@ -5630,9 +5630,27 @@ export default function App() {
                 {/* STEP 4: MUSIQUE DE FOND & AUDIO */}
                 {wizardStep === 4 && (
                   <div className="space-y-6">
-                    <h3 className="text-base font-bold text-white">4. Musique de Fond Ambiante & Auto-Ducking</h3>
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-base font-bold text-white">4. Musique de Fond Ambiante & Auto-Ducking</h3>
+                      <label className="inline-flex items-center gap-2 cursor-pointer select-none">
+                        <span className="text-[11px] font-bold text-slate-400">Pas de musique</span>
+                        <button
+                          type="button"
+                          onClick={() => setNewChannel({ ...newChannel, music_preference: { ...newChannel.music_preference, enabled: !(newChannel.music_preference.enabled ?? true) } })}
+                          className={`relative w-9 h-5 rounded-full transition-colors ${(newChannel.music_preference.enabled ?? true) ? 'bg-[#00c2ff]' : 'bg-[#2b374d]'}`}
+                        >
+                          <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${(newChannel.music_preference.enabled ?? true) ? 'translate-x-[18px]' : 'translate-x-0.5'}`} />
+                        </button>
+                        <span className="text-[11px] font-bold text-slate-400">Musique activée</span>
+                      </label>
+                    </div>
+                    {!(newChannel.music_preference.enabled ?? true) && (
+                      <p className="text-[11px] text-amber-300 bg-amber-950/40 border border-amber-700/40 rounded-xl px-3 py-2">
+                        Musique désactivée — tes vidéos n'auront aucun fond sonore, seulement la voix off.
+                      </p>
+                    )}
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className={`grid grid-cols-1 md:grid-cols-2 gap-6 transition-opacity ${(newChannel.music_preference.enabled ?? true) ? '' : 'opacity-40 pointer-events-none'}`}>
                       {/* OPTION A: MES PROPRES MUSIQUES */}
                       <div
                         onClick={() => setNewChannel({ ...newChannel, music_preference: { ...newChannel.music_preference, mode: 'library' } })}
