@@ -2958,7 +2958,9 @@ export default function App() {
     setLibraryUploadProgress(0);
     setLibraryUploadMessage('');
     setStagedLibraryToken(null);
-    setLogoPreviewUrl(channel.branding?.logo_path ? `${STORAGE_BASE}/${channel.branding.logo_path}` : null);
+    setLogoPreviewUrl(channel.branding?.logo_path
+      ? `${STORAGE_BASE}/${channel.branding.logo_path}`
+      : (channel.youtube_channel_thumbnail_url || null));
     setWizardStep(startStep);
     setView('wizard');
   };
@@ -5646,9 +5648,9 @@ export default function App() {
                         <button
                           type="button"
                           onClick={() => setNewChannel({ ...newChannel, automation_mode: (newChannel.automation_mode || 'manual') === 'auto' ? 'manual' : 'auto' })}
-                          className={`relative w-9 h-5 rounded-full transition-colors ${(newChannel.automation_mode || 'manual') === 'auto' ? 'bg-[#00c2ff]' : 'bg-[#2b374d]'}`}
+                          className={`relative w-9 h-5 rounded-full overflow-hidden transition-colors ${(newChannel.automation_mode || 'manual') === 'auto' ? 'bg-[#00c2ff]' : 'bg-[#2b374d]'}`}
                         >
-                          <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${(newChannel.automation_mode || 'manual') === 'auto' ? 'translate-x-[18px]' : 'translate-x-0.5'}`} />
+                          <span className={`absolute left-0.5 top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${(newChannel.automation_mode || 'manual') === 'auto' ? 'translate-x-4' : 'translate-x-0'}`} />
                         </button>
                         <span className="text-[11px] font-bold text-slate-400">Automatique</span>
                       </label>
