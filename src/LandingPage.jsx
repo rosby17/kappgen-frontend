@@ -101,8 +101,8 @@ export default function LandingPage() {
         <section className="hero" id="accueil">
           <div className="hero-grid" /><div className="hero-orb orb-one" /><div className="hero-orb orb-two" />
           <div className="hero-copy">
-            <h1>Configure ta chaîne.<br /><span>Va dormir.</span></h1>
-            <p>L’Agent NicheCut prend le relais : il trouve les idées, écrit les scripts, crée les vidéos et les publie sur YouTube. Tu ne lèves plus le petit doigt.</p>
+            <h1>Tu dors.<br /><span>NicheCut travaille pour toi sur YouTube.</span></h1>
+            <p>L’Agent trouve les idées, crée les vidéos et les publie automatiquement pour transformer ta chaîne en actif générateur de revenus.</p>
             <div className="hero-actions">
               <a className="button button-primary" href={appUrl('/signup')}>Automatiser ma chaîne <ArrowRight size={18} /></a>
               <a className="button button-ghost" href="#fonctionnement"><Play size={17} fill="currentColor" /> Découvrir l’Agent</a>
