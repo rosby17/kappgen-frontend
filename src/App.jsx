@@ -6099,8 +6099,8 @@ export default function App() {
                             {/* Mini mockup of a YouTube video card — makes it obvious at a
                                 glance that this section is about the clickable thumbnail
                                 image, not the video content itself. */}
-                            <div className="w-16 h-10 rounded-md bg-[#0f1217] border border-[#2b374d] flex-shrink-0 relative overflow-hidden flex items-center justify-center">
-                              <span className="material-symbols-outlined text-slate-500 text-[18px]">image</span>
+                            <div className="w-16 h-10 rounded-md bg-[#0f1217] border border-[#2b374d] flex-shrink-0 relative overflow-hidden">
+                              <img src={STABLE_EFFECT_PREVIEW_IMAGES[0]} alt="" className="absolute inset-0 w-full h-full object-cover" />
                               <span className="absolute inset-0 flex items-center justify-center">
                                 <span className="w-4 h-4 rounded-full bg-black/60 flex items-center justify-center">
                                   <span className="material-symbols-outlined text-white text-[10px]">play_arrow</span>
