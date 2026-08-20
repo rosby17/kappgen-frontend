@@ -21,7 +21,7 @@ const features = [
 
 const steps = [
   ['01', 'Configure ta chaîne une fois', 'Définis sa niche, son ton, son identité visuelle, son rythme et sa fréquence de publication.'],
-  ['02', 'Active l’Agent NicheCut', 'Connecte ta chaîne YouTube et donne à l’Agent les règles qu’il doit respecter.'],
+  ['02', 'Laisse NicheCut prendre le relais', 'Connecte ta chaîne YouTube et définis une fois les règles à respecter.'],
   ['03', 'Va vivre. Ou va dormir.', 'L’Agent cherche les idées, écrit, crée la voix, monte et prépare chaque nouvelle vidéo.'],
   ['04', 'Retrouve tes vidéos publiées', 'NicheCut programme et publie sur ta chaîne. Tu gardes la visibilité, pas la charge de travail.'],
 ];
@@ -30,22 +30,22 @@ const pricingPlans = [
   {
     name: 'Découverte', price: 'Gratuit', description: 'Découvre la qualité NicheCut avant de lancer ton Agent.',
     features: ['1 vidéo test', 'Export avec filigrane', 'Création assistée', 'Sans publication automatique'],
-    cta: 'Tester NicheCut', featured: false,
+    cta: 'Tester sans pression', featured: false,
   },
   {
     name: 'Créateur', price: '29 $', localPrice: '≈ 18 000 FCFA / mois', description: 'Pour créer régulièrement tout en gardant la validation finale.',
     features: ['1 chaîne YouTube', '20 vidéos assistées / mois', '10 à 15 min par vidéo', 'Identité visuelle personnalisée'],
-    cta: 'Choisir Créateur', featured: false,
+    cta: 'Créer à mon rythme', featured: false,
   },
   {
     name: 'Automatique', price: '69 $', localPrice: '≈ 42 000 FCFA / mois', description: 'L’expérience NicheCut complète : tu configures, l’Agent exécute.',
     features: ['1 chaîne YouTube', '12 vidéos autonomes / mois', 'Programmation automatique', 'Publication automatique YouTube'],
-    cta: 'Activer mon Agent', featured: true,
+    cta: 'Dormir l’esprit tranquille', featured: true,
   },
   {
     name: 'Scale', price: '149 $', localPrice: '≈ 90 000 FCFA / mois', description: 'Pour piloter plusieurs chaînes avec un volume de production élevé.',
     features: ['Jusqu’à 10 chaînes', 'Jusqu’à 300 vidéos / mois', 'Rendu prioritaire', 'Gestion multi-chaînes'],
-    cta: 'Passer à Scale', featured: false,
+    cta: 'Libérer toute mon équipe', featured: false,
   },
 ];
 
@@ -116,7 +116,7 @@ export default function LandingPage() {
           <a href="#tarifs" onClick={() => setMenuOpen(false)}>Tarifs</a>
           <a href="#faq" onClick={() => setMenuOpen(false)}>FAQ</a>
         </nav>
-        <div className="header-actions"><a className="login-link" href={appUrl('/login')}>Se connecter</a><a className="button button-small" href={appUrl('/signup')}>Activer mon Agent <ArrowRight size={15} /></a></div>
+        <div className="header-actions"><a className="login-link" href={appUrl('/login')}>Se connecter</a><a className="button button-small" href={appUrl('/signup')}>Reprendre mon temps <ArrowRight size={15} /></a></div>
         <button className="menu-toggle" onClick={() => setMenuOpen(!menuOpen)} aria-label="Ouvrir le menu">{menuOpen ? <X /> : <Menu />}</button>
       </header>
 
@@ -127,15 +127,15 @@ export default function LandingPage() {
             <h1>Sors des écrans.<br /><span>NicheCut reste au travail.</span></h1>
             <p>Tu vis, tu voyages, tu dors. L’Agent imagine, crée et publie des vidéos originales dans le style de ta chaîne, avec les réalités du terrain YouTube intégrées à chaque étape.</p>
             <div className="hero-actions">
-              <a className="button button-primary" href={appUrl('/signup')}>Automatiser ma chaîne <ArrowRight size={18} /></a>
-              <a className="button button-ghost" href="#fonctionnement"><Play size={17} fill="currentColor" /> Découvrir l’Agent</a>
+              <a className="button button-primary" href={appUrl('/signup')}>Sors des écrans <ArrowRight size={18} /></a>
+              <a className="button button-ghost" href="#fonctionnement"><Play size={17} fill="currentColor" /> Voir comment gagner du temps</a>
             </div>
             <div className="hero-trust"><span><Check size={15} /> De l’idée à la publication</span><span><Check size={15} /> Zéro montage manuel</span><span><Check size={15} /> Agent actif 24 h/24</span></div>
           </div>
           <ProductPreview />
         </section>
 
-        <section className="proof-strip"><span>UNE CHAÎNE YOUTUBE EN PILOTE AUTOMATIQUE</span><div><span>Recherche d’idées</span><ChevronRight /><span>Script</span><ChevronRight /><span>Production</span><ChevronRight /><span>Publication</span></div></section>
+        <section className="proof-strip"><span>UNE CHAÎNE QUI AVANCE SANS TE RETENIR</span><div><span>Recherche d’idées</span><ChevronRight /><span>Script</span><ChevronRight /><span>Production</span><ChevronRight /><span>Publication</span></div></section>
 
         <section className="section features" id="fonctionnalites">
           <div className="section-intro"><div className="section-kicker">UN AGENT, TOUTE TA CHAÎNE</div><h2>Tu définis la direction.<br /><span>Il exécute tout le reste.</span></h2><p>NicheCut ne s’arrête pas au montage. Son Agent orchestre toute la chaîne de création, de la première idée jusqu’à la publication sur YouTube.</p></div>
@@ -143,14 +143,14 @@ export default function LandingPage() {
         </section>
 
         <section className="section workflow" id="fonctionnement">
-          <div className="workflow-copy"><div className="section-kicker">CONFIGURE. ACTIVE. VIS.</div><h2>Tu dors.<br /><span>Ta chaîne avance.</span></h2><p>Tu ne dois plus nourrir l’outil à chaque vidéo. Une fois activé, l’Agent poursuit ton calendrier de contenu sans te ramener constamment devant un écran.</p><a className="text-link" href={appUrl('/signup')}>Activer mon Agent <ArrowRight size={17} /></a></div>
+          <div className="workflow-copy"><div className="section-kicker">CONFIGURE. ACTIVE. VIS.</div><h2>Tu dors.<br /><span>Ta chaîne avance.</span></h2><p>Tu ne dois plus nourrir l’outil à chaque vidéo. Une fois activé, l’Agent poursuit ton calendrier de contenu sans te ramener constamment devant un écran.</p><a className="text-link" href={appUrl('/signup')}>Va vivre. On s’occupe du reste. <ArrowRight size={17} /></a></div>
           <div className="steps">{steps.map(([number, title, text]) => <article className="step" key={number}><span>{number}</span><div><h3>{title}</h3><p>{text}</p></div></article>)}</div>
         </section>
 
         <section className="section audience"><div className="audience-card"><div><div className="section-kicker">ENTRAÎNÉ POUR LA RÉALITÉ DE YOUTUBE</div><h2>Autonome ne veut pas dire générique.</h2><p>Nous maîtrisons les réalités du terrain YouTube et avons travaillé l’Agent autour de ce qui compte vraiment : originalité, rétention, identité éditoriale, droits et règles de monétisation. NicheCut ne produit pas à la chaîne ; il crée selon ton univers et applique ces exigences à chaque vidéo pour réduire les risques de démonétisation, de suppression ou de sanction.</p></div><div className="audience-list">{['Originalité à chaque vidéo', 'Rétention pensée dès le script', 'Identité de chaîne préservée', 'Règles YouTube intégrées'].map((item) => <span key={item}><BadgeCheck /> {item}</span>)}</div></div></section>
 
         <section className="section pricing" id="tarifs">
-          <div className="section-intro centered"><div className="section-kicker">DES TARIFS QUI SUIVENT TON AMBITION</div><h2>Commence avec une vidéo.<br /><span>Puis automatise toute ta chaîne.</span></h2><p>Choisis le niveau d’autonomie et le volume adaptés à tes objectifs. Tu peux changer d’offre lorsque ta chaîne grandit.</p></div>
+          <div className="section-intro centered"><div className="section-kicker">DES OFFRES POUR REPRENDRE TON TEMPS</div><h2>Commence avec une vidéo.<br /><span>Puis libère-toi des écrans.</span></h2><p>Choisis le rythme qui laisse ta chaîne avancer sans sacrifier tes journées, tes nuits ou tes vacances.</p></div>
           <div className="pricing-grid">
             {pricingPlans.map((plan) => (
               <article className={`pricing-card ${plan.featured ? 'featured' : ''}`} key={plan.name}>
@@ -179,7 +179,7 @@ export default function LandingPage() {
           ['Où se trouve l’application ?', `L’espace de production est séparé de ce site et accessible sur ${APP_ORIGIN.replace('https://', '')}.`],
         ].map(([q, a]) => <details key={q}><summary>{q}<span>+</span></summary><p>{a}</p></details>)}</div></section>
 
-        <section className="final-cta"><div className="cta-icon"><WandSparkles /></div><h2>Tu vis. NicheCut travaille.</h2><p>Configure ton univers une fois, puis récupère le temps que la création te prenait.</p><a className="button button-primary" href={appUrl('/signup')}>Activer mon Agent NicheCut <ArrowRight size={18} /></a></section>
+        <section className="final-cta"><div className="cta-icon"><WandSparkles /></div><h2>Tu vis. NicheCut travaille.</h2><p>Configure ton univers une fois, puis récupère le temps que la création te prenait.</p><a className="button button-primary" href={appUrl('/signup')}>Je reprends mon temps <ArrowRight size={18} /></a></section>
       </main>
 
       <footer className="landing-footer"><a className="brand" href="#accueil"><img src="/assets/logo/logo-nichecut.png" alt="" /><span>NicheCut</span></a><p>L’Agent autonome qui gère ta chaîne YouTube de l’idée à la publication.</p><div><a href="#fonctionnalites">Fonctionnalités</a><a href="#faq">FAQ</a><a href={appUrl('/login')}>Connexion</a></div><span>© {new Date().getFullYear()} NicheCut. Tous droits réservés.</span></footer>

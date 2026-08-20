@@ -6580,7 +6580,7 @@ export default function App() {
                           </div>
                         </div>
                         <button type="submit" disabled={loading} className="w-full py-3.5 bg-gradient-to-r from-[#65e0ff] to-[#1a9cff] text-[#031019] font-extrabold text-xs rounded-xl hover:brightness-110 transition-all shadow-lg shadow-[#00c2ff]/10 disabled:opacity-50 flex items-center justify-center gap-2">
-                          {loading ? 'Chargement...' : authTab === 'register' ? 'Créer mon Agent' : 'Se connecter'} <span className="material-symbols-outlined text-[17px]">arrow_forward</span>
+                          {loading ? 'Chargement...' : authTab === 'register' ? 'Reprendre mon temps' : 'Se connecter'} <span className="material-symbols-outlined text-[17px]">arrow_forward</span>
                         </button>
                       </form>
 
@@ -6589,7 +6589,7 @@ export default function App() {
 
                       <p className="text-center text-xs text-slate-500 mt-6 mb-0">
                         {authTab === 'login' ? 'Pas encore de compte ?' : 'Tu as déjà un compte ?'}{' '}
-                        <button type="button" onClick={() => navigate(authTab === 'login' ? '/signup' : '/login', { replace: true, state: location.state })} className="text-[#55d8ff] font-bold hover:underline">{authTab === 'login' ? 'Activer ton Agent' : 'Se connecter'}</button>
+                        <button type="button" onClick={() => navigate(authTab === 'login' ? '/signup' : '/login', { replace: true, state: location.state })} className="text-[#55d8ff] font-bold hover:underline">{authTab === 'login' ? 'Commencer à vivre autrement' : 'Se connecter'}</button>
                       </p>
                     </>
                   )}
