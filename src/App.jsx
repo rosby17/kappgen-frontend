@@ -4913,6 +4913,9 @@ export default function App() {
               <>
                 <div className="pt-1">
                   <p className="text-[10px] font-bold uppercase tracking-[.18em] text-[#55d8ff] mb-2">Ton espace KappGen</p>
+                  <h1 className="text-xl sm:text-2xl font-extrabold text-white tracking-[-.02em]">
+                    Salut {currentUser?.name?.split(' ')[0] || ''}, vas te détendre
+                  </h1>
                 </div>
 
                 {/* A single quiet promise card, integrated into the existing dashboard language. */}
