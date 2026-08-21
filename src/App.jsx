@@ -4961,7 +4961,13 @@ export default function App() {
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                      {channels.slice(0, 3).map(chan => {
+                      {[...channels]
+                        .sort((a, b) =>
+                          ((b.queued_count || 0) + (b.rendering_count || 0) + (b.done_count || 0)) -
+                          ((a.queued_count || 0) + (a.rendering_count || 0) + (a.done_count || 0))
+                        )
+                        .slice(0, 3)
+                        .map(chan => {
                         const statusInfo = getChannelStatusInfo(chan);
                         return (
                           <div 
