@@ -7284,6 +7284,7 @@ export default function App() {
                               <div className="flex items-center gap-2.5">
                                 <span className="material-symbols-outlined text-[#00c2ff] text-[24px]">auto_awesome</span>
                                 <h4 className="font-bold text-white text-xs">Option B: Génération IA Automatique</h4>
+                                <span className="shrink-0 text-[9px] font-extrabold uppercase tracking-wide px-1.5 py-0.5 rounded bg-gradient-to-r from-[#00c2ff] to-[#0088ff] text-slate-950">Pro</span>
                               </div>
                               <input 
                                 type="checkbox"
@@ -7295,6 +7296,16 @@ export default function App() {
                             <p className="text-[11px] text-slate-400">
                               L'IA génère automatiquement les visuels pour chaque scène, dans le style que tu décris ci-dessous.
                             </p>
+                            {!hasActiveSubscription && (
+                              <button
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); setView('settings'); setSettingsTab('billing'); }}
+                                className="text-[10px] font-bold text-[#56d9ff] hover:underline flex items-center gap-1"
+                              >
+                                <span className="material-symbols-outlined text-[13px]">workspace_premium</span>
+                                Réservé aux abonnés Pro — passer à l'abonnement
+                              </button>
+                            )}
                           </div>
 
                           <div>
