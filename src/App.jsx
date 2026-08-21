@@ -3725,8 +3725,14 @@ export default function App() {
   };
 
   useEffect(() => {
-    if (view === 'settings' && settingsTab === 'billing' && currentUser) fetchBillingData();
-  }, [view, settingsTab, currentUser?.id]);
+    if (currentUser) fetchBillingData();
+  }, [currentUser?.id]);
+
+  // rooseveltmkr@gmail.com is the KappGen owner account — exempt from the
+  // subscription gate everywhere a paid feature (like watermark removal) is
+  // otherwise locked behind an active subscription.
+  const isSubscriptionExempt = currentUser?.email === 'rooseveltmkr@gmail.com';
+  const hasActiveSubscription = isSubscriptionExempt || !!billingSubscription?.active;
 
   const startCheckout = async (planId, provider) => {
     setCheckoutPlanId(planId);
@@ -7373,16 +7379,24 @@ export default function App() {
                           <div className="pt-2 border-t border-[var(--border-soft)] flex items-center justify-between gap-3">
                             <div>
                               <label className="block text-xs font-bold text-slate-300">Filigrane KappGen</label>
-                              <p className="text-[11px] text-slate-500 mt-0.5">Logo officiel centré à faible opacité. Le désactiver sera une option payante une fois les paiements en place.</p>
+                              <p className="text-[11px] text-slate-500 mt-0.5">
+                                {hasActiveSubscription
+                                  ? 'Logo officiel centré à faible opacité.'
+                                  : 'Logo officiel centré à faible opacité. Un abonnement actif est requis pour le désactiver.'}
+                              </p>
                             </div>
                             <div className="flex items-center gap-2 shrink-0">
-                              <span className="px-2 py-1 rounded-lg bg-amber-400/10 border border-amber-400/25 text-amber-300 text-[9px] font-bold uppercase tracking-wide">
-                                Premium
-                              </span>
+                              {!hasActiveSubscription && (
+                                <span className="px-2 py-1 rounded-lg bg-amber-400/10 border border-amber-400/25 text-amber-300 text-[9px] font-bold uppercase tracking-wide">
+                                  Premium
+                                </span>
+                              )}
                               <button
                                 type="button"
-                                onClick={() => setNewChannel({ ...newChannel, effects_config: { ...newChannel.effects_config, watermark_enabled: !(newChannel.effects_config.watermark_enabled ?? true) } })}
-                                className={`w-11 h-6 rounded-full relative overflow-hidden transition-colors ${(newChannel.effects_config.watermark_enabled ?? true) ? 'bg-[#00c2ff]' : 'bg-[var(--border)]'}`}
+                                disabled={!hasActiveSubscription}
+                                title={hasActiveSubscription ? undefined : 'Un abonnement actif est requis pour retirer le filigrane KappGen'}
+                                onClick={() => hasActiveSubscription && setNewChannel({ ...newChannel, effects_config: { ...newChannel.effects_config, watermark_enabled: !(newChannel.effects_config.watermark_enabled ?? true) } })}
+                                className={`w-11 h-6 rounded-full relative overflow-hidden transition-colors ${(newChannel.effects_config.watermark_enabled ?? true) ? 'bg-[#00c2ff]' : 'bg-[var(--border)]'} ${hasActiveSubscription ? '' : 'opacity-50 cursor-not-allowed'}`}
                               >
                                 <span className={`absolute left-0.5 top-0.5 w-5 h-5 rounded-full bg-white transition-transform ${(newChannel.effects_config.watermark_enabled ?? true) ? 'translate-x-5' : 'translate-x-0'}`} />
                               </button>
