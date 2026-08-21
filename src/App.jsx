@@ -948,16 +948,6 @@ function VoiceCloneModal({ onClose, onSubmit, submitting }) {
   const timerRef = useRef(null);
   const fileInputRef = useRef(null);
 
-  // Object URL for the <audio> preview player — recreated whenever a new
-  // file/recording is picked, revoked on cleanup to avoid leaking blobs.
-  const [audioPreviewUrl, setAudioPreviewUrl] = useState(null);
-  useEffect(() => {
-    if (!file) { setAudioPreviewUrl(null); return; }
-    const url = URL.createObjectURL(file);
-    setAudioPreviewUrl(url);
-    return () => URL.revokeObjectURL(url);
-  }, [file]);
-
   const selectFile = (f) => {
     setFile(f);
     if (!nameTouched) {
@@ -9730,7 +9720,7 @@ export default function App() {
                     </div>
                     <div>
                       <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Audio</div>
-                      <audio controls src={`${API_BASE}/videos/${studioVideo.id}/audio`} className="w-full h-8" style={{ filter: 'invert(0.85)' }} />
+                      <ServerAudioPreview src={`${API_BASE}/videos/${studioVideo.id}/audio`} name="Voix off" />
                     </div>
                   </div>
                   <div className="px-4 py-3 overflow-y-auto flex-1 min-h-0">
