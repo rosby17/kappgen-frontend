@@ -1863,6 +1863,14 @@ export default function App() {
   const [showScriptStructureModal, setShowScriptStructureModal] = useState(false);
   const [languageSearch, setLanguageSearch] = useState('');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    try { return localStorage.getItem('kappgen_sidebar_collapsed') === '1'; } catch { return false; }
+  });
+  const toggleSidebarCollapsed = () => setSidebarCollapsed(prev => {
+    const next = !prev;
+    try { localStorage.setItem('kappgen_sidebar_collapsed', next ? '1' : '0'); } catch {}
+    return next;
+  });
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const profileMenuRef = useRef(null);
   const [openChannelMenuId, setOpenChannelMenuId] = useState(null);
@@ -2098,8 +2106,12 @@ export default function App() {
       // A missing/expired/invalid cookie (session lifetime is 30 days) means
       // every authenticated call fails the same way forever until the person
       // re-logs-in — bounce them to the login screen automatically instead of
-      // leaving every screen stuck on a generic loading error.
-      if (res.status === 401 && localStorage.getItem("nichecut_user")) {
+      // leaving every screen stuck on a generic loading error. Not gated on
+      // localStorage still holding nichecut_user: if that ever falls out of
+      // sync with in-memory currentUser (e.g. cleared by another tab), the
+      // stale guard would silently skip the bounce and every authenticated
+      // poll would 401 forever instead of ever reaching the login screen.
+      if (res.status === 401) {
         handleLogout();
       }
       return res;
@@ -2494,11 +2506,23 @@ export default function App() {
   const [draggedVideoId, setDraggedVideoId] = useState(null);
   const [draggedFolderId, setDraggedFolderId] = useState(null);
   const [dragOverFolderId, setDragOverFolderId] = useState(null);
+  const [openFolderMenuId, setOpenFolderMenuId] = useState(null);
+  const [folderSidebarCollapsed, setFolderSidebarCollapsed] = useState(() => {
+    try { return localStorage.getItem('kappgen_folder_sidebar_collapsed') === '1'; } catch { return false; }
+  });
+  const toggleFolderSidebarCollapsed = () => setFolderSidebarCollapsed(prev => {
+    const next = !prev;
+    try { localStorage.setItem('kappgen_folder_sidebar_collapsed', next ? '1' : '0'); } catch {}
+    return next;
+  });
+  const [renamingFolder, setRenamingFolder] = useState(null); // { id, name } while the rename modal is open
+  const [renameFolderValue, setRenameFolderValue] = useState('');
+  const [renamingFolderBusy, setRenamingFolderBusy] = useState(false);
 
   // Vertical folder tree — recurses into sub-folders, indenting each level.
   const renderFolderTree = (parentId, depth) => (
     folders.filter(f => f.parent_id === parentId).map(f => (
-      <div key={f.id}>
+      <div key={f.id} className="relative group/folder">
         <button
           onClick={() => openFolder(f.id)}
           draggable
@@ -2519,15 +2543,49 @@ export default function App() {
             setDraggedVideoId(null);
             if (videoId) moveVideoToFolder(videoId, f.id);
           }}
-          style={{ paddingLeft: `${8 + depth * 16}px` }}
-          className={`w-full text-left pr-2 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+          style={folderSidebarCollapsed ? {} : { paddingLeft: `${8 + depth * 16}px` }}
+          title={f.name}
+          className={`w-full text-left py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${folderSidebarCollapsed ? 'px-0 justify-center' : 'pr-7'} ${
             videoFilterFolderId === f.id ? 'bg-[#00c2ff] text-slate-950' : 'text-slate-300 hover:text-white hover:bg-[var(--bg-hover)]'
           } ${dragOverFolderId === f.id ? 'ring-2 ring-[#00c2ff] ring-offset-1 ring-offset-[var(--bg-page)]' : ''} ${draggedFolderId === f.id ? 'opacity-40' : ''}`}
         >
           <span className="material-symbols-outlined text-[15px] flex-shrink-0">folder</span>
-          <span className="truncate flex-1">{f.name}</span>
-          <span className={`flex-shrink-0 ${videoFilterFolderId === f.id ? 'text-slate-950/60' : 'text-slate-500'}`}>({f.video_count})</span>
+          {!folderSidebarCollapsed && (
+            <>
+              <span className="truncate flex-1">{f.name}</span>
+              <span className={`flex-shrink-0 ${videoFilterFolderId === f.id ? 'text-slate-950/60' : 'text-slate-500'}`}>({f.video_count})</span>
+            </>
+          )}
         </button>
+
+        {/* Folder actions (rename/delete) — shown on hover, or always when its menu is open */}
+        {!folderSidebarCollapsed && (
+          <button
+            onClick={(e) => { e.stopPropagation(); setOpenFolderMenuId(id => id === f.id ? null : f.id); }}
+            className={`absolute right-1 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center rounded-md transition-opacity ${
+              openFolderMenuId === f.id ? 'opacity-100' : 'opacity-0 group-hover/folder:opacity-100'
+            } ${videoFilterFolderId === f.id ? 'text-slate-950/70 hover:bg-slate-950/10' : 'text-slate-400 hover:text-white hover:bg-[var(--bg-dropdown)]'}`}
+          >
+            <span className="material-symbols-outlined text-[15px]">more_vert</span>
+          </button>
+        )}
+        {openFolderMenuId === f.id && (
+          <div className="absolute right-1 top-full mt-1 w-36 bg-[var(--bg-dropdown)] border border-[var(--border-dropdown)] rounded-xl shadow-2xl z-20 py-1 text-left">
+            <button
+              onClick={(e) => { e.stopPropagation(); setOpenFolderMenuId(null); setRenamingFolder(f); setRenameFolderValue(f.name); }}
+              className="w-full text-left px-3 py-1.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium"
+            >
+              <span className="material-symbols-outlined text-[15px] text-[#00c2ff]">edit</span> Renommer
+            </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); deleteFolder(f); }}
+              className="w-full text-left px-3 py-1.5 text-xs text-rose-400 hover:bg-rose-950/50 flex items-center gap-2 font-medium"
+            >
+              <span className="material-symbols-outlined text-[15px]">delete</span> Supprimer
+            </button>
+          </div>
+        )}
+
         {folders.some(sub => sub.parent_id === f.id) && renderFolderTree(f.id, depth + 1)}
       </div>
     ))
@@ -2578,6 +2636,46 @@ export default function App() {
     } catch (e) {
       console.error("Erreur déplacement dossier:", e);
       alert("Impossible de déplacer le dossier : " + e.message);
+    }
+  };
+
+  const submitRenameFolder = async () => {
+    if (!renamingFolder) return;
+    const name = renameFolderValue.trim();
+    if (!name) return;
+    setRenamingFolderBusy(true);
+    try {
+      const res = await authFetch(`${API_BASE}/folders/${renamingFolder.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name }),
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || 'Échec du renommage');
+      setRenamingFolder(null);
+      fetchFolders();
+      showToast('Dossier renommé.', 'success');
+    } catch (e) {
+      showToast('Impossible de renommer le dossier : ' + e.message, 'error');
+    } finally {
+      setRenamingFolderBusy(false);
+    }
+  };
+
+  const deleteFolder = async (folder) => {
+    setOpenFolderMenuId(null);
+    const ok = await askConfirm(
+      `Supprimer le dossier "${folder.name}" ? Les vidéos qu'il contient ne seront pas supprimées — elles reviendront simplement en dehors de tout dossier.`,
+      { title: 'Supprimer le dossier', danger: true }
+    );
+    if (!ok) return;
+    try {
+      const res = await authFetch(`${API_BASE}/folders/${folder.id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || 'Échec de la suppression');
+      if (currentFolderId === folder.id) openFolder(null);
+      fetchFolders();
+      showToast('Dossier supprimé.', 'success');
+    } catch (e) {
+      showToast('Impossible de supprimer le dossier : ' + e.message, 'error');
     }
   };
 
@@ -4925,48 +5023,72 @@ export default function App() {
       )}
 
       {/* SIDE NAVBAR */}
-      <nav className="hidden md:flex flex-col bg-[var(--bg-surface-soft)] text-primary font-label-bold text-label-bold fixed left-0 top-0 h-screen w-[240px] z-40 border-r border-[var(--border-soft)] py-6 justify-between">
+      <nav className={`hidden md:flex flex-col bg-[var(--bg-surface-soft)] text-primary font-label-bold text-label-bold fixed left-0 top-0 h-screen z-40 border-r border-[var(--border-soft)] py-6 justify-between transition-[width] duration-200 ${sidebarCollapsed ? 'w-[72px]' : 'w-[240px]'}`}>
 
         <div>
+          {/* Collapse/expand toggle — same idea as iziVoice's rail-mode sidebar */}
+          <div className={`px-3 mb-2 flex ${sidebarCollapsed ? 'justify-center' : 'justify-end'}`}>
+            <button
+              onClick={toggleSidebarCollapsed}
+              title={sidebarCollapsed ? 'Agrandir le menu' : 'Réduire le menu'}
+              className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-white hover:bg-[var(--bg-dropdown)] transition-colors"
+            >
+              <span className="material-symbols-outlined text-[18px]">{sidebarCollapsed ? 'dock_to_right' : 'dock_to_left'}</span>
+            </button>
+          </div>
+
           {/* Brand Logo Header — swaps to an "Admin / Back Office" identity
               while in the admin view, same idea as iziVoice's admin panel,
               so it visually reads as a distinct back office rather than the
               regular app shell with an extra tab bolted on. */}
           {view === 'admin' ? (
-            <div className="px-6 mb-6 flex items-center gap-3">
+            <div className={`mb-6 flex items-center gap-3 ${sidebarCollapsed ? 'px-3 justify-center' : 'px-6'}`} title="KappGen Admin">
               <div className="w-9 h-9 rounded-xl bg-[#00c2ff]/15 border border-[#00c2ff]/30 flex items-center justify-center flex-shrink-0">
                 <span className="material-symbols-outlined text-[#00c2ff] text-[20px]">shield_person</span>
               </div>
-              <div>
-                <div className="font-title-sm text-base font-black text-white tracking-wide">KappGen Admin</div>
-                <div className="text-slate-400 text-xs font-normal">Back Office</div>
-              </div>
+              {!sidebarCollapsed && (
+                <div>
+                  <div className="font-title-sm text-base font-black text-white tracking-wide">KappGen Admin</div>
+                  <div className="text-slate-400 text-xs font-normal">Back Office</div>
+                </div>
+              )}
             </div>
           ) : (
             <>
-              <div className="px-6 mb-3 flex items-center gap-3 cursor-pointer" onClick={() => { window.location.href = 'https://kappgen.com'; }}>
-                <img src="/assets/logo/logo-kappgen.png" alt="KappGen" className="w-9 h-9 rounded-xl shadow-lg shadow-[#00c2ff]/20 object-cover" />
-                <div>
-                  <div className="font-title-sm text-base font-black text-white tracking-wide">KappGen</div>
-                  <div className="text-slate-400 text-xs font-normal">Video Automation</div>
-                </div>
+              <div
+                className={`mb-3 flex items-center gap-3 cursor-pointer ${sidebarCollapsed ? 'px-3 justify-center' : 'px-6'}`}
+                onClick={() => { window.location.href = 'https://kappgen.com'; }}
+                title="KappGen — Video Automation"
+              >
+                <img src="/assets/logo/logo-kappgen.png" alt="KappGen" className="w-9 h-9 rounded-xl shadow-lg shadow-[#00c2ff]/20 object-cover flex-shrink-0" />
+                {!sidebarCollapsed && (
+                  <div>
+                    <div className="font-title-sm text-base font-black text-white tracking-wide">KappGen</div>
+                    <div className="text-slate-400 text-xs font-normal">Video Automation</div>
+                  </div>
+                )}
               </div>
 
               {/* Product Switcher */}
-              <div className="px-3 mb-8 relative">
+              <div className={`mb-8 relative ${sidebarCollapsed ? 'px-3' : 'px-3'}`}>
                 <button
                   onClick={() => setProductMenuOpen(o => !o)}
-                  className="w-full px-3 py-2 flex items-center gap-2 rounded-xl bg-[var(--bg-surface-alt)] hover:bg-[var(--bg-dropdown)] border border-[var(--border)] transition-colors text-left"
+                  title={NICHECUT_PRODUCTS.find(p => p.id === activeProduct)?.label}
+                  className={`w-full py-2 flex items-center gap-2 rounded-xl bg-[var(--bg-surface-alt)] hover:bg-[var(--bg-dropdown)] border border-[var(--border)] transition-colors text-left ${sidebarCollapsed ? 'px-0 justify-center' : 'px-3'}`}
                 >
                   <span className="material-symbols-outlined text-[16px] text-[#00c2ff] flex-shrink-0">{NICHECUT_PRODUCTS.find(p => p.id === activeProduct)?.icon}</span>
-                  <span className="min-w-0 flex-1 text-xs font-bold text-white truncate">
-                    {NICHECUT_PRODUCTS.find(p => p.id === activeProduct)?.label}
-                  </span>
-                  <span className={`material-symbols-outlined text-[16px] text-slate-400 transition-transform ${productMenuOpen ? 'rotate-180' : ''}`}>expand_more</span>
+                  {!sidebarCollapsed && (
+                    <>
+                      <span className="min-w-0 flex-1 text-xs font-bold text-white truncate">
+                        {NICHECUT_PRODUCTS.find(p => p.id === activeProduct)?.label}
+                      </span>
+                      <span className={`material-symbols-outlined text-[16px] text-slate-400 transition-transform ${productMenuOpen ? 'rotate-180' : ''}`}>expand_more</span>
+                    </>
+                  )}
                 </button>
 
                 {productMenuOpen && (
-                  <div className="absolute left-3 right-3 top-full mt-1.5 bg-[var(--bg-dropdown)] border border-[var(--border-dropdown)] rounded-xl shadow-2xl z-50 py-1.5 overflow-hidden">
+                  <div className={`absolute top-full mt-1.5 bg-[var(--bg-dropdown)] border border-[var(--border-dropdown)] rounded-xl shadow-2xl z-50 py-1.5 overflow-hidden ${sidebarCollapsed ? 'left-0 w-56' : 'left-3 right-3'}`}>
                     {NICHECUT_PRODUCTS.map(p => (
                       <button
                         key={p.id}
@@ -4992,111 +5114,58 @@ export default function App() {
             <div className="px-3 space-y-1.5">
               <button
                 onClick={() => setView('home')}
-                className="w-full flex items-center gap-3.5 px-4 py-3 cursor-pointer rounded-xl transition-all font-medium text-sm text-slate-300 hover:bg-[var(--bg-dropdown)] hover:text-white mb-2"
+                title="Retour à l'app"
+                className={`w-full flex items-center gap-3.5 py-3 cursor-pointer rounded-xl transition-all font-medium text-sm text-slate-300 hover:bg-[var(--bg-dropdown)] hover:text-white mb-2 ${sidebarCollapsed ? 'px-0 justify-center' : 'px-4'}`}
               >
                 <span className="material-symbols-outlined text-[20px]">arrow_back</span>
-                Retour à l'app
+                {!sidebarCollapsed && "Retour à l'app"}
               </button>
 
-              <div className="px-4 pb-1 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Administration</div>
+              {!sidebarCollapsed && <div className="px-4 pb-1 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Administration</div>}
 
-              <button
-                onClick={() => setAdminTab('overview')}
-                className={`w-full flex items-center gap-3.5 px-4 py-3 cursor-pointer rounded-xl transition-all font-medium text-sm ${
-                  adminTab === 'overview'
-                    ? 'bg-gradient-to-r from-[#00c2ff] to-[#0099ff] text-slate-950 font-bold shadow-md shadow-[#00c2ff]/20'
-                    : 'text-slate-300 hover:bg-[var(--bg-dropdown)] hover:text-white'
-                }`}
-              >
-                <span className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: adminTab === 'overview' ? "'FILL' 1" : "'FILL' 0" }}>dashboard</span>
-                Vue d'ensemble
-              </button>
-
-              <button
-                onClick={() => setAdminTab('users')}
-                className={`w-full flex items-center gap-3.5 px-4 py-3 cursor-pointer rounded-xl transition-all font-medium text-sm ${
-                  adminTab === 'users'
-                    ? 'bg-gradient-to-r from-[#00c2ff] to-[#0099ff] text-slate-950 font-bold shadow-md shadow-[#00c2ff]/20'
-                    : 'text-slate-300 hover:bg-[var(--bg-dropdown)] hover:text-white'
-                }`}
-              >
-                <span className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: adminTab === 'users' ? "'FILL' 1" : "'FILL' 0" }}>group</span>
-                Utilisateurs
-              </button>
-
-              <button
-                onClick={() => setAdminTab('plans')}
-                className={`w-full flex items-center gap-3.5 px-4 py-3 cursor-pointer rounded-xl transition-all font-medium text-sm ${
-                  adminTab === 'plans'
-                    ? 'bg-gradient-to-r from-[#00c2ff] to-[#0099ff] text-slate-950 font-bold shadow-md shadow-[#00c2ff]/20'
-                    : 'text-slate-300 hover:bg-[var(--bg-dropdown)] hover:text-white'
-                }`}
-              >
-                <span className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: adminTab === 'plans' ? "'FILL' 1" : "'FILL' 0" }}>sell</span>
-                Offres
-              </button>
-
-              <button
-                onClick={() => setAdminTab('videos')}
-                className={`w-full flex items-center gap-3.5 px-4 py-3 cursor-pointer rounded-xl transition-all font-medium text-sm ${
-                  adminTab === 'videos'
-                    ? 'bg-gradient-to-r from-[#00c2ff] to-[#0099ff] text-slate-950 font-bold shadow-md shadow-[#00c2ff]/20'
-                    : 'text-slate-300 hover:bg-[var(--bg-dropdown)] hover:text-white'
-                }`}
-              >
-                <span className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: adminTab === 'videos' ? "'FILL' 1" : "'FILL' 0" }}>movie</span>
-                Vidéos
-              </button>
-
-              <button
-                onClick={() => setAdminTab('transactions')}
-                className={`w-full flex items-center gap-3.5 px-4 py-3 cursor-pointer rounded-xl transition-all font-medium text-sm ${
-                  adminTab === 'transactions'
-                    ? 'bg-gradient-to-r from-[#00c2ff] to-[#0099ff] text-slate-950 font-bold shadow-md shadow-[#00c2ff]/20'
-                    : 'text-slate-300 hover:bg-[var(--bg-dropdown)] hover:text-white'
-                }`}
-              >
-                <span className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: adminTab === 'transactions' ? "'FILL' 1" : "'FILL' 0" }}>payments</span>
-                Transactions
-              </button>
+              {[
+                { id: 'overview', label: "Vue d'ensemble", icon: 'dashboard' },
+                { id: 'users', label: 'Utilisateurs', icon: 'group' },
+                { id: 'plans', label: 'Offres', icon: 'sell' },
+                { id: 'videos', label: 'Vidéos', icon: 'movie' },
+                { id: 'transactions', label: 'Transactions', icon: 'payments' },
+              ].map(t => (
+                <button
+                  key={t.id}
+                  onClick={() => setAdminTab(t.id)}
+                  title={t.label}
+                  className={`w-full flex items-center gap-3.5 py-3 cursor-pointer rounded-xl transition-all font-medium text-sm ${sidebarCollapsed ? 'px-0 justify-center' : 'px-4'} ${
+                    adminTab === t.id
+                      ? 'bg-gradient-to-r from-[#00c2ff] to-[#0099ff] text-slate-950 font-bold shadow-md shadow-[#00c2ff]/20'
+                      : 'text-slate-300 hover:bg-[var(--bg-dropdown)] hover:text-white'
+                  }`}
+                >
+                  <span className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: adminTab === t.id ? "'FILL' 1" : "'FILL' 0" }}>{t.icon}</span>
+                  {!sidebarCollapsed && t.label}
+                </button>
+              ))}
             </div>
           ) : (
             <div className="px-3 space-y-1.5">
-              <button
-                onClick={() => setView('home')}
-                className={`w-full flex items-center gap-3.5 px-4 py-3 cursor-pointer rounded-xl transition-all font-medium text-sm ${
-                  (view === 'home' || view === 'dashboard')
-                    ? 'bg-gradient-to-r from-[#00c2ff] to-[#0099ff] text-slate-950 font-bold shadow-md shadow-[#00c2ff]/20'
-                    : 'text-slate-300 hover:bg-[var(--bg-dropdown)] hover:text-white'
-                }`}
-              >
-                <span className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: (view === 'home' || view === 'dashboard') ? "'FILL' 1" : "'FILL' 0" }}>home</span>
-                Home
-              </button>
-
-              <button
-                onClick={() => setView('channels')}
-                className={`w-full flex items-center gap-3.5 px-4 py-3 cursor-pointer rounded-xl transition-all font-medium text-sm ${
-                  (view === 'channels' || view === 'channel_detail')
-                    ? 'bg-gradient-to-r from-[#00c2ff] to-[#0099ff] text-slate-950 font-bold shadow-md shadow-[#00c2ff]/20'
-                    : 'text-slate-300 hover:bg-[var(--bg-dropdown)] hover:text-white'
-                }`}
-              >
-                <span className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: (view === 'channels' || view === 'channel_detail') ? "'FILL' 1" : "'FILL' 0" }}>subscriptions</span>
-                Mes Chaînes
-              </button>
-
-              <button
-                onClick={() => setView('videos')}
-                className={`w-full flex items-center gap-3.5 px-4 py-3 cursor-pointer rounded-xl transition-all font-medium text-sm ${
-                  view === 'videos'
-                    ? 'bg-gradient-to-r from-[#00c2ff] to-[#0099ff] text-slate-950 font-bold shadow-md shadow-[#00c2ff]/20'
-                    : 'text-slate-300 hover:bg-[var(--bg-dropdown)] hover:text-white'
-                }`}
-              >
-                <span className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: view === 'videos' ? "'FILL' 1" : "'FILL' 0" }}>movie</span>
-                Mes Vidéos
-              </button>
+              {[
+                { id: 'home', label: 'Home', icon: 'home', active: view === 'home' || view === 'dashboard', onClick: () => setView('home') },
+                { id: 'channels', label: 'Mes Chaînes', icon: 'subscriptions', active: view === 'channels' || view === 'channel_detail', onClick: () => setView('channels') },
+                { id: 'videos', label: 'Mes Vidéos', icon: 'movie', active: view === 'videos', onClick: () => setView('videos') },
+              ].map(t => (
+                <button
+                  key={t.id}
+                  onClick={t.onClick}
+                  title={t.label}
+                  className={`w-full flex items-center gap-3.5 py-3 cursor-pointer rounded-xl transition-all font-medium text-sm ${sidebarCollapsed ? 'px-0 justify-center' : 'px-4'} ${
+                    t.active
+                      ? 'bg-gradient-to-r from-[#00c2ff] to-[#0099ff] text-slate-950 font-bold shadow-md shadow-[#00c2ff]/20'
+                      : 'text-slate-300 hover:bg-[var(--bg-dropdown)] hover:text-white'
+                  }`}
+                >
+                  <span className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: t.active ? "'FILL' 1" : "'FILL' 0" }}>{t.icon}</span>
+                  {!sidebarCollapsed && t.label}
+                </button>
+              ))}
             </div>
           )}
         </div>
@@ -5105,10 +5174,11 @@ export default function App() {
           <div className="px-3">
             <button
               onClick={() => { setView('settings'); setSettingsTab('billing'); }}
-              className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold bg-gradient-to-r from-[#00c2ff] to-[#0099ff] text-slate-950 shadow-md shadow-[#00c2ff]/20 hover:opacity-90 transition-opacity"
+              title="Passer à l'abonnement"
+              className={`w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold bg-gradient-to-r from-[#00c2ff] to-[#0099ff] text-slate-950 shadow-md shadow-[#00c2ff]/20 hover:opacity-90 transition-opacity ${sidebarCollapsed ? 'px-0' : 'px-4'}`}
             >
               <span className="material-symbols-outlined text-[18px]">workspace_premium</span>
-              Passer à l'abonnement
+              {!sidebarCollapsed && "Passer à l'abonnement"}
             </button>
           </div>
         )}
@@ -5116,7 +5186,7 @@ export default function App() {
       </nav>
 
       {/* MAIN CONTENT AREA */}
-      <main className="relative flex-1 flex flex-col pt-14 md:pt-0 md:ml-[240px] h-screen overflow-hidden bg-[var(--bg-input-alt)]">
+      <main className={`relative flex-1 flex flex-col pt-14 md:pt-0 h-screen overflow-hidden bg-[var(--bg-input-alt)] transition-[margin] duration-200 ${sidebarCollapsed ? 'md:ml-[72px]' : 'md:ml-[240px]'}`}>
         {activeProduct === 'avatar' && (
           <div className="absolute inset-0 z-30 bg-[var(--bg-input-alt)] flex flex-col items-center justify-center gap-4 text-center p-8">
             <div className="w-20 h-20 rounded-2xl bg-[#00c2ff]/10 flex items-center justify-center">
@@ -5533,7 +5603,14 @@ export default function App() {
                 </div>
 
                 <div className="flex items-start gap-6">
-                <aside className="w-60 flex-shrink-0 space-y-1">
+                <aside className={`flex-shrink-0 space-y-1 transition-[width] duration-200 ${folderSidebarCollapsed ? 'w-10' : 'w-48'}`}>
+                  <button
+                    onClick={toggleFolderSidebarCollapsed}
+                    title={folderSidebarCollapsed ? 'Agrandir les dossiers' : 'Réduire les dossiers'}
+                    className={`w-full flex items-center py-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-[var(--bg-hover)] transition-colors mb-1 ${folderSidebarCollapsed ? 'justify-center' : 'justify-end px-1'}`}
+                  >
+                    <span className="material-symbols-outlined text-[16px]">{folderSidebarCollapsed ? 'dock_to_right' : 'dock_to_left'}</span>
+                  </button>
                   <button
                     onClick={() => { setCurrentFolderId(null); setVideoFilterFolderId('all'); }}
                     onDragOver={(e) => { if (draggedVideoId) { e.preventDefault(); setDragOverFolderId('all'); } }}
@@ -5545,18 +5622,20 @@ export default function App() {
                       setDraggedVideoId(null);
                       if (videoId) moveVideoToFolder(videoId, null);
                     }}
-                    className={`w-full text-left px-2 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                    title={`Toutes (${allVideos.length})`}
+                    className={`w-full text-left py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${folderSidebarCollapsed ? 'px-0 justify-center' : 'px-2'} ${
                       videoFilterFolderId === 'all' ? 'bg-[#00c2ff] text-slate-950' : 'text-slate-300 hover:text-white hover:bg-[var(--bg-hover)]'
                     } ${dragOverFolderId === 'all' ? 'ring-2 ring-[#00c2ff] ring-offset-1 ring-offset-[var(--bg-page)]' : ''}`}
                   >
-                    <span className="material-symbols-outlined text-[15px]">apps</span> Toutes ({allVideos.length})
+                    <span className="material-symbols-outlined text-[15px]">apps</span> {!folderSidebarCollapsed && `Toutes (${allVideos.length})`}
                   </button>
                   {renderFolderTree(null, 0)}
                   <button
                     onClick={() => setShowNewFolderModal(true)}
-                    className="w-full text-left px-2 py-1.5 rounded-lg text-xs font-bold text-[#00c2ff] hover:bg-[#00c2ff]/10 border border-dashed border-[#00c2ff]/40 flex items-center gap-1.5 transition-all"
+                    title="Nouveau dossier"
+                    className={`w-full text-left py-1.5 rounded-lg text-xs font-bold text-[#00c2ff] hover:bg-[#00c2ff]/10 border border-dashed border-[#00c2ff]/40 flex items-center gap-1.5 transition-all ${folderSidebarCollapsed ? 'px-0 justify-center' : 'px-2'}`}
                   >
-                    <span className="material-symbols-outlined text-[15px]">create_new_folder</span> Nouveau dossier
+                    <span className="material-symbols-outlined text-[15px]">create_new_folder</span> {!folderSidebarCollapsed && 'Nouveau dossier'}
                   </button>
                 </aside>
 
