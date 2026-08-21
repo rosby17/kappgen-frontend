@@ -6858,7 +6858,7 @@ export default function App() {
 
                           <p className="text-[10px] text-slate-500 px-1">
                             {hasFixedHour
-                              ? `KappGen AI commence à écrire le script à partir de ${String(newChannel.script_generation_hour).padStart(2, '0')}h${String(newChannel.script_generation_minute ?? 0).padStart(2, '0')} (fuseau de la chaîne, vérifié toutes les ~10 min) — pratique pour vérifier que l'automatisation se déclenche bien.`
+                              ? `KappGen AI commence à écrire le script à partir de ${String(newChannel.script_generation_hour).padStart(2, '0')}:${String(newChannel.script_generation_minute ?? 0).padStart(2, '0')} (fuseau de la chaîne, vérifié toutes les ~10 min — les secondes ne sont pas prises en compte) — pratique pour vérifier que l'automatisation se déclenche bien.`
                               : "Le script est écrit dès qu'un créneau du jour est libre, sans heure fixe."} Dès que le script est prêt, la vidéo part automatiquement en rendu.
                           </p>
                         </div>
