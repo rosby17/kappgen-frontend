@@ -5172,7 +5172,7 @@ export default function App() {
                               <div className="relative shrink-0">
                                 <ChannelAvatar channel={chan} logoUrl={logoUrl} sizeClass="w-12 h-12" textClass="text-lg" />
                                 <span
-                                  className={`absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full ${getChannelStatusDotColor(chan)} ring-2 ring-[var(--bg-surface)]`}
+                                  className={`absolute top-0.5 right-0.5 w-2.5 h-2.5 rounded-full ${getChannelStatusDotColor(chan)} ring-2 ring-[var(--bg-surface)]`}
                                   title={chan.is_render_ready ? (chan.failed_count > 0 ? 'Échec de rendu à corriger' : 'Chaîne active') : 'Configuration incomplète'}
                                 />
                               </div>

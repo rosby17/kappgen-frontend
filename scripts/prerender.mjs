@@ -10,6 +10,13 @@ const { render } = await import(path.join(root, '..', 'dist-ssr', 'entry-server.
 
 const routes = ['/', '/privacy', '/terms']
 
+// dist/index.html is the SPA fallback vercel.json routes EVERY unmatched
+// path to, on BOTH kappgen.com (marketing) and app.kappgen.com (the app) —
+// so it must stay the plain, empty-#root shell. Baking the marketing
+// homepage's HTML into it (as this used to do) made app.kappgen.com flash
+// the landing page on every refresh before React replaced it. The
+// prerendered homepage now goes to its own file (marketing-home.html) that
+// vercel.json rewrites to explicitly, only for kappgen.com's "/".
 for (const route of routes) {
   const result = render(route)
   if (!result) continue
@@ -20,7 +27,12 @@ for (const route of routes) {
     .replace(/<meta name="description" content=".*?"\s*\/>/s, `<meta name="description" content="${description}" />`)
     .replace('<div id="root">', `<div id="root">${html}`)
 
-  const outDir = route === '/' ? distDir : path.join(distDir, route)
+  if (route === '/') {
+    fs.writeFileSync(path.join(distDir, 'marketing-home.html'), page)
+    console.log(`Prerendered ${route} -> marketing-home.html`)
+    continue
+  }
+  const outDir = path.join(distDir, route)
   fs.mkdirSync(outDir, { recursive: true })
   fs.writeFileSync(path.join(outDir, 'index.html'), page)
   console.log(`Prerendered ${route} -> ${path.relative(distDir, path.join(outDir, 'index.html'))}`)
