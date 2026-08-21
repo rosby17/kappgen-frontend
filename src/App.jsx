@@ -4463,12 +4463,15 @@ export default function App() {
     }
   };
 
-  const [regeneratingCardThumbnailId, setRegeneratingCardThumbnailId] = useState(null);
+  // A Set (not a single id) so regenerating several videos' thumbnails at once
+  // shows/clears each card's own spinner independently instead of the last
+  // click's finally-block wiping every other card's in-flight indicator.
+  const [regeneratingCardThumbnailIds, setRegeneratingCardThumbnailIds] = useState(() => new Set());
   const [thumbnailBust, setThumbnailBust] = useState({});
   const handleRegenerateCardThumbnail = async (vid, e) => {
     if (e) e.stopPropagation();
     setOpenVideoMenuId(null);
-    setRegeneratingCardThumbnailId(vid.id);
+    setRegeneratingCardThumbnailIds(prev => new Set(prev).add(vid.id));
     try {
       const res = await authFetch(`${API_BASE}/videos/${vid.id}/thumbnail/regenerate`, { method: 'POST' });
       if (!res.ok) {
@@ -4482,7 +4485,11 @@ export default function App() {
     } catch (err) {
       showToast(err.message, 'error');
     } finally {
-      setRegeneratingCardThumbnailId(null);
+      setRegeneratingCardThumbnailIds(prev => {
+        const next = new Set(prev);
+        next.delete(vid.id);
+        return next;
+      });
     }
   };
 
@@ -4940,7 +4947,7 @@ export default function App() {
                   <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-[#0f141c]/65 to-transparent pointer-events-none" />
                   <div className="relative z-10 min-h-[420px] flex flex-col justify-center p-6 md:p-8 max-w-xl">
                     <h3 className="text-3xl md:text-4xl font-extrabold text-white leading-tight">Tu vis. KappGen travaille.</h3>
-                    <p className="text-sm text-slate-400 leading-6 mt-3 max-w-md">Ton Agent prépare tes vidéos et veille sur tes publications. Voyage, repose-toi ou profite simplement de ton temps.</p>
+                    <p className="text-sm text-slate-400 leading-6 mt-3 max-w-md">KappGen AI prépare tes vidéos et veille sur tes publications. Voyage, repose-toi ou profite simplement de ton temps.</p>
                     <div className="flex items-center gap-3 mt-6">
                       <button onClick={channels.length ? () => setView('channels') : openCreateWizard} className="px-5 py-2.5 bg-[#00c2ff] hover:bg-[#38d0ff] text-slate-950 font-bold text-xs rounded-xl transition-colors">
                         {channels.length ? 'Voir mes chaînes' : 'Configurer une chaîne'}
@@ -5297,7 +5304,7 @@ export default function App() {
                               onClick={(e) => { if (videoSelectionMode) { e.stopPropagation(); toggleVideoSelected(vid.id); return; } vid.status === 'done' && setSelectedVideo(vid); }}
                               className={`aspect-[16/9] bg-slate-950 rounded-xl relative overflow-hidden border border-[var(--border)] flex items-center justify-center ${vid.status === 'done' ? 'cursor-pointer group' : ''}`}
                             >
-                              {regeneratingCardThumbnailId === vid.id && (
+                              {regeneratingCardThumbnailIds.has(vid.id) && (
                                 <div className="absolute inset-0 z-20 bg-black/75 backdrop-blur-sm flex flex-col items-center justify-center gap-2">
                                   <span className="material-symbols-outlined text-[32px] text-[#00c2ff] animate-spin">progress_activity</span>
                                   <span className="text-[10px] font-bold text-white">Régénération de la miniature…</span>
@@ -5383,8 +5390,8 @@ export default function App() {
                                     </button>
                                   )}
                                   {vid.status === 'done' && (
-                                    <button disabled={regeneratingCardThumbnailId === vid.id} onClick={(e) => handleRegenerateCardThumbnail(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium disabled:opacity-50">
-                                      <span className={`material-symbols-outlined text-[16px] text-[#00c2ff] ${regeneratingCardThumbnailId === vid.id ? 'animate-spin' : ''}`}>{regeneratingCardThumbnailId === vid.id ? 'progress_activity' : 'photo_camera'}</span> {regeneratingCardThumbnailId === vid.id ? 'Régénération…' : 'Régénérer la miniature'}
+                                    <button disabled={regeneratingCardThumbnailIds.has(vid.id)} onClick={(e) => handleRegenerateCardThumbnail(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium disabled:opacity-50">
+                                      <span className={`material-symbols-outlined text-[16px] text-[#00c2ff] ${regeneratingCardThumbnailIds.has(vid.id) ? 'animate-spin' : ''}`}>{regeneratingCardThumbnailIds.has(vid.id) ? 'progress_activity' : 'photo_camera'}</span> {regeneratingCardThumbnailIds.has(vid.id) ? 'Régénération…' : 'Régénérer la miniature'}
                                     </button>
                                   )}
                                   {vid.status === 'done' && vid.editable && (
@@ -5739,7 +5746,7 @@ export default function App() {
                       <h4 className="text-base font-bold text-white mb-1">Aucune vidéo soumise</h4>
                       <p className="text-xs text-slate-400 mb-5">
                         {activeChannel.automation_mode === 'auto'
-                          ? "Lance la génération : l'Agent choisit le sujet et écrit le script lui-même."
+                          ? "Lance la génération : KappGen AI choisit le sujet et écrit le script lui-même."
                           : 'Soumettez votre premier sujet (texte de script ou fichiers audio).'}
                       </p>
                       <button
@@ -5772,7 +5779,7 @@ export default function App() {
                             onClick={(e) => { if (videoSelectionMode) { e.stopPropagation(); toggleVideoSelected(vid.id); return; } vid.status === 'done' && setSelectedVideo(vid); }}
                             className={`aspect-[16/9] bg-slate-950 rounded-xl relative overflow-hidden border border-[var(--border)] flex items-center justify-center ${vid.status === 'done' ? 'cursor-pointer group' : ''}`}
                           >
-                            {regeneratingCardThumbnailId === vid.id && (
+                            {regeneratingCardThumbnailIds.has(vid.id) && (
                               <div className="absolute inset-0 z-20 bg-black/75 backdrop-blur-sm flex flex-col items-center justify-center gap-2">
                                 <span className="material-symbols-outlined text-[32px] text-[#00c2ff] animate-spin">progress_activity</span>
                                 <span className="text-[10px] font-bold text-white">Régénération de la miniature…</span>
@@ -5857,8 +5864,8 @@ export default function App() {
                                   </button>
                                 )}
                                 {vid.status === 'done' && (
-                                  <button disabled={regeneratingCardThumbnailId === vid.id} onClick={(e) => handleRegenerateCardThumbnail(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium disabled:opacity-50">
-                                    <span className={`material-symbols-outlined text-[16px] text-[#00c2ff] ${regeneratingCardThumbnailId === vid.id ? 'animate-spin' : ''}`}>{regeneratingCardThumbnailId === vid.id ? 'progress_activity' : 'photo_camera'}</span> {regeneratingCardThumbnailId === vid.id ? 'Régénération…' : 'Régénérer la miniature'}
+                                  <button disabled={regeneratingCardThumbnailIds.has(vid.id)} onClick={(e) => handleRegenerateCardThumbnail(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium disabled:opacity-50">
+                                    <span className={`material-symbols-outlined text-[16px] text-[#00c2ff] ${regeneratingCardThumbnailIds.has(vid.id) ? 'animate-spin' : ''}`}>{regeneratingCardThumbnailIds.has(vid.id) ? 'progress_activity' : 'photo_camera'}</span> {regeneratingCardThumbnailIds.has(vid.id) ? 'Régénération…' : 'Régénérer la miniature'}
                                   </button>
                                 )}
                                 {vid.status === 'done' && vid.editable && (
@@ -6067,7 +6074,7 @@ export default function App() {
                         value={newChannel.description}
                         onChange={e => setNewChannel({ ...newChannel, description: e.target.value })}
                         className="w-full bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-4 py-3 text-xs text-white focus:border-[#00c2ff] outline-none placeholder-slate-500"
-                        placeholder="De quoi parle ta chaîne ? (sujets, ton, public visé...) — aide à détecter la niche et donne du contexte à l'Agent pour l'écriture automatique."
+                        placeholder="De quoi parle ta chaîne ? (sujets, ton, public visé...) — aide à détecter la niche et donne du contexte à KappGen AI pour l'écriture automatique."
                       />
                       <p className="text-[10px] text-slate-500 mt-1.5">Se remplit automatiquement depuis la description YouTube si tu connectes la chaîne, tant que tu n'as pas déjà écrit la tienne.</p>
                     </div>
@@ -6119,7 +6126,7 @@ export default function App() {
                     </div>
                     <p className="text-xs text-slate-400 -mt-4">
                       {(newChannel.automation_mode || 'manual') === 'auto'
-                        ? "L'Agent choisit le sujet et écrit le script pour toi."
+                        ? "KappGen AI choisit le sujet et écrit le script pour toi."
                         : 'Tu écris ou colles le script toi-même à chaque vidéo.'}
                     </p>
 
@@ -9114,7 +9121,7 @@ export default function App() {
                                   </button>
                                 ) : (
                                   <div className="bg-[#00c2ff]/5 border border-[#00c2ff]/30 rounded-xl p-3 space-y-2">
-                                    <p className="text-[11px] text-slate-300">L’Agent régénérera uniquement la voix de la scène {scene.index + 1} et ajustera sa durée. Confirmer ?</p>
+                                    <p className="text-[11px] text-slate-300">KappGen AI régénérera uniquement la voix de la scène {scene.index + 1} et ajustera sa durée. Confirmer ?</p>
                                     <div className="flex gap-2">
                                       <button onClick={() => setStudioConfirmRegen(false)} className="flex-1 py-1.5 bg-[var(--bg-dropdown)] text-white rounded-lg text-[11px] font-bold">Annuler</button>
                                       <button onClick={() => regenerateSceneAudio(scene.index)} disabled={studioRegeneratingAudio} className="flex-1 py-1.5 bg-[#00c2ff] text-slate-950 rounded-lg text-[11px] font-bold disabled:opacity-50">
@@ -9400,13 +9407,13 @@ export default function App() {
 
               <div className="max-w-[650px] py-16">
                 <div className="inline-flex items-center gap-2 rounded-full border border-[#00c2ff]/20 bg-[#00c2ff]/5 px-3 py-2 text-[10px] font-bold tracking-[.14em] text-[#65dcff] mb-7">
-                  <span className="material-symbols-outlined text-[15px]">smart_toy</span> AGENT YOUTUBE AUTONOME
+                  <span className="material-symbols-outlined text-[15px]">smart_toy</span> KAPPGEN AI · AUTOMATION YOUTUBE
                 </div>
                 <h1 className="text-[clamp(3.2rem,5.6vw,6.2rem)] leading-[.96] tracking-[-.06em] font-extrabold m-0">
                   Tu dors.<br /><span className="text-transparent bg-clip-text bg-gradient-to-r from-[#67e1ff] via-[#22bfff] to-[#8484ff]">Ta chaîne avance.</span>
                 </h1>
                 <p className="mt-7 max-w-xl text-base xl:text-lg leading-8 text-slate-400">
-                  Configure le style de ta chaîne une fois. Nous avons travaillé l’Agent à partir des réalités du terrain YouTube pour créer des vidéos originales, authentiques et pensées pour respecter les règles de la plateforme.
+                  Configure le style de ta chaîne une fois. Nous avons travaillé KappGen AI à partir des réalités du terrain YouTube pour créer des vidéos originales, authentiques et pensées pour respecter les règles de la plateforme.
                 </p>
                 <div className="mt-9 grid sm:grid-cols-3 gap-3 max-w-2xl">
                   {[
@@ -9442,10 +9449,10 @@ export default function App() {
                       {authTab === 'register' ? 'Créer ton espace' : authTab === 'forgot' ? 'Récupérer ton accès' : 'Content de te revoir'}
                     </p>
                     <h2 className="text-3xl sm:text-4xl font-extrabold tracking-[-.04em] m-0">
-                      {authTab === 'register' ? 'Lance ton Agent.' : authTab === 'forgot' ? 'Nouveau mot de passe.' : 'Content de te revoir.'}
+                      {authTab === 'register' ? 'Lance KappGen AI.' : authTab === 'forgot' ? 'Nouveau mot de passe.' : 'Content de te revoir.'}
                     </h2>
                     <p className="text-sm text-slate-400 mt-3 mb-0">
-                      {authTab === 'register' ? 'Configure ta première chaîne, puis va vivre. KappGen reste au travail.' : authTab === 'forgot' ? 'Choisis un nouveau mot de passe pour ton compte.' : 'Ton Agent a continué pendant ton absence.'}
+                      {authTab === 'register' ? 'Configure ta première chaîne, puis va vivre. KappGen reste au travail.' : authTab === 'forgot' ? 'Choisis un nouveau mot de passe pour ton compte.' : 'KappGen AI a continué pendant ton absence.'}
                     </p>
                   </div>
 
