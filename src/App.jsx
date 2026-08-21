@@ -997,7 +997,6 @@ function VoiceCloneModal({ onClose, onSubmit, submitting }) {
   const [name, setName] = useState('Ma voix');
   const [nameTouched, setNameTouched] = useState(false);
   const [file, setFile] = useState(null);
-  const [consent, setConsent] = useState(false);
   const [recording, setRecording] = useState(false);
   const [recordSeconds, setRecordSeconds] = useState(0);
   const mediaRecorderRef = useRef(null);
@@ -1045,7 +1044,7 @@ function VoiceCloneModal({ onClose, onSubmit, submitting }) {
     clearInterval(timerRef.current);
   };
 
-  const canSubmit = file && name.trim() && consent && !submitting;
+  const canSubmit = file && name.trim() && !submitting;
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm" onClick={onClose}>
@@ -1106,10 +1105,6 @@ function VoiceCloneModal({ onClose, onSubmit, submitting }) {
             />
           </div>
 
-          <label className="flex items-start gap-2.5 cursor-pointer">
-            <input type="checkbox" checked={consent} onChange={e => setConsent(e.target.checked)} className="mt-0.5 accent-[#00c2ff]" />
-            <span className="text-[11px] text-slate-400">Je confirme être propriétaire de cette voix ou disposer du consentement explicite de son propriétaire.</span>
-          </label>
         </div>
 
         <div className="flex items-center gap-3 px-5 py-4 border-t border-[var(--border-subtle)]">
@@ -1736,6 +1731,44 @@ function HourDropdown({ value, onChange }) {
 
 function MinuteDropdown({ value, onChange }) {
   return <NumberDropdown value={value} onChange={onChange} max={59} suffix=" min" width="w-20" />;
+}
+
+// Plain "HH:MM" text field, styled to match the rest of the app instead of
+// the browser's native <input type="time"> popup (unstyled, light-background
+// on most browsers, clashing with the dark UI) — typing "08:23" and tabbing
+// away commits it directly, no picker to open at all.
+function ScriptTimeInput({ hour, minute, onChange }) {
+  const formatted = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+  const [draft, setDraft] = useState(formatted);
+  useEffect(() => { setDraft(formatted); }, [formatted]);
+
+  const commit = () => {
+    // Seconds are accepted (e.g. "08:23:17") for a familiar HH:MM:SS format,
+    // but only hour/minute are ever stored — the daily automation check runs
+    // every ~10 min, so a specific second isn't something it can honor.
+    const match = draft.trim().match(/^(\d{1,2}):(\d{1,2})(?::\d{1,2})?$/);
+    if (match) {
+      const h = Math.max(0, Math.min(23, parseInt(match[1], 10)));
+      const m = Math.max(0, Math.min(59, parseInt(match[2], 10)));
+      onChange(h, m);
+      setDraft(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`);
+    } else {
+      setDraft(formatted);
+    }
+  };
+
+  return (
+    <input
+      type="text"
+      inputMode="numeric"
+      placeholder="HH:MM:SS"
+      value={draft}
+      onChange={e => setDraft(e.target.value)}
+      onBlur={commit}
+      onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); }}
+      className="w-24 bg-[var(--bg-surface-alt)] border border-[var(--border)] hover:border-slate-500 focus:border-[#00c2ff] rounded-lg px-2.5 py-1.5 text-[11px] font-bold text-white outline-none text-center"
+    />
+  );
 }
 
 // Ordered pipeline steps shown to the creator while a video renders (and, for
@@ -4382,7 +4415,6 @@ export default function App() {
     try {
       const form = new FormData();
       form.append('name', name.trim());
-      form.append('consent_confirmed', 'true');
       if (currentUser) form.append('user_id', currentUser.id);
       form.append('audio', file);
       const res = await authFetch(`${API_BASE}/channels/${targetChannelId}/voice/clone`, { method: 'POST', body: form });
@@ -6808,17 +6840,10 @@ export default function App() {
                               </button>
                             </div>
                             {hasFixedHour && (
-                              <input
-                                type="time"
-                                step={1}
-                                value={`${String(newChannel.script_generation_hour).padStart(2, '0')}:${String(newChannel.script_generation_minute ?? 0).padStart(2, '0')}:00`}
-                                onChange={e => {
-                                  const [h, m] = e.target.value.split(':').map(n => parseInt(n, 10));
-                                  if (Number.isFinite(h)) {
-                                    setNewChannel({ ...newChannel, script_generation_hour: h, script_generation_minute: Number.isFinite(m) ? m : 0 });
-                                  }
-                                }}
-                                className="bg-[var(--bg-surface-alt)] border border-[var(--border)] hover:border-slate-500 focus:border-[#00c2ff] rounded-lg px-2.5 py-1.5 text-[11px] font-bold text-white outline-none [color-scheme:dark]"
+                              <ScriptTimeInput
+                                hour={newChannel.script_generation_hour}
+                                minute={newChannel.script_generation_minute ?? 0}
+                                onChange={(h, m) => setNewChannel({ ...newChannel, script_generation_hour: h, script_generation_minute: m })}
                               />
                             )}
                           </div>
