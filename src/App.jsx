@@ -1043,17 +1043,8 @@ function VoiceCloneModal({ onClose, onSubmit, submitting }) {
               </button>
             </div>
             {file && (
-              <div className="mt-2 space-y-1.5">
-                <div className="flex items-center gap-2 text-[11px] text-slate-400 bg-[#0b0f16] border border-[var(--border-subtle)] rounded-lg px-3 py-2">
-                  <span className="material-symbols-outlined text-[14px] text-[#00c2ff]">graphic_eq</span>
-                  <span className="truncate flex-1">{file.name}</span>
-                  <button type="button" onClick={() => setFile(null)} className="text-slate-500 hover:text-rose-400">
-                    <span className="material-symbols-outlined text-[14px]">close</span>
-                  </button>
-                </div>
-                {audioPreviewUrl && (
-                  <audio controls src={audioPreviewUrl} className="w-full h-9" style={{ filter: 'invert(0.9)' }} />
-                )}
+              <div className="mt-2">
+                <AudioFilePreview file={file} onRemove={() => setFile(null)} />
               </div>
             )}
           </div>
@@ -1658,6 +1649,46 @@ function HourDropdown({ value, onChange }) {
             >
               {String(h).padStart(2, '0')}h00
               {h === value && <span className="material-symbols-outlined text-[13px] shrink-0">check</span>}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MinuteDropdown({ value, onChange }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  useEffect(() => {
+    if (!open) return;
+    const onClickOutside = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', onClickOutside);
+    return () => document.removeEventListener('mousedown', onClickOutside);
+  }, [open]);
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        className="flex items-center gap-1 bg-[var(--bg-surface-alt)] border border-[var(--border)] hover:border-slate-500 rounded-lg px-2.5 py-1.5 text-[11px] font-bold text-white transition-colors"
+      >
+        {String(value).padStart(2, '0')} min
+        <span className={`material-symbols-outlined text-[14px] text-slate-400 transition-transform ${open ? 'rotate-180' : ''}`}>expand_more</span>
+      </button>
+      {open && (
+        <div className="absolute left-0 top-full mt-1.5 w-20 max-h-56 overflow-y-auto bg-[var(--bg-dropdown)] border border-[var(--border-dropdown)] rounded-xl shadow-2xl z-50 py-1">
+          {Array.from({ length: 60 }, (_, m) => (
+            <button
+              key={m}
+              type="button"
+              onClick={() => { onChange(m); setOpen(false); }}
+              className={`w-full text-left px-3 py-1.5 text-[11px] transition-colors flex items-center justify-between gap-2 ${
+                m === value ? 'text-[#00c2ff] font-bold bg-[#00c2ff]/10' : 'text-slate-300 hover:bg-[var(--bg-hover)]'
+              }`}
+            >
+              {String(m).padStart(2, '0')}
+              {m === value && <span className="material-symbols-outlined text-[13px] shrink-0">check</span>}
             </button>
           ))}
         </div>
@@ -2448,6 +2479,7 @@ export default function App() {
     automation_window_end_hour: 11,
     active_days: null,
     script_generation_hour: -1, // -1 = "as soon as possible" (sent explicitly so an edit can clear a previously-set hour)
+    script_generation_minute: 0,
     script_generation_days: null,
     publish_mode: 'manual',
     publish_time_mode: 'range',
@@ -3370,6 +3402,7 @@ export default function App() {
       automation_window_end_hour: channel.automation_window_end_hour ?? 11,
       active_days: channel.active_days || null,
       script_generation_hour: channel.script_generation_hour ?? -1,
+      script_generation_minute: channel.script_generation_minute ?? 0,
       script_generation_days: channel.script_generation_days || null,
       timezone: channel.timezone || defaultChannelForm.timezone,
       publish_mode: channel.publish_mode || 'manual',
@@ -6713,10 +6746,16 @@ export default function App() {
                               </button>
                             </div>
                             {hasFixedHour && (
-                              <HourDropdown
-                                value={newChannel.script_generation_hour}
-                                onChange={h => setNewChannel({ ...newChannel, script_generation_hour: h })}
-                              />
+                              <>
+                                <HourDropdown
+                                  value={newChannel.script_generation_hour}
+                                  onChange={h => setNewChannel({ ...newChannel, script_generation_hour: h })}
+                                />
+                                <MinuteDropdown
+                                  value={newChannel.script_generation_minute ?? 0}
+                                  onChange={m => setNewChannel({ ...newChannel, script_generation_minute: m })}
+                                />
+                              </>
                             )}
                           </div>
 
@@ -6755,7 +6794,7 @@ export default function App() {
 
                           <p className="text-[10px] text-slate-500 px-1">
                             {hasFixedHour
-                              ? `KappGen AI commence à écrire le script à partir de ${String(newChannel.script_generation_hour).padStart(2, '0')}h (fuseau de la chaîne) — pratique pour vérifier que l'automatisation se déclenche bien.`
+                              ? `KappGen AI commence à écrire le script à partir de ${String(newChannel.script_generation_hour).padStart(2, '0')}h${String(newChannel.script_generation_minute ?? 0).padStart(2, '0')} (fuseau de la chaîne, vérifié toutes les ~10 min) — pratique pour vérifier que l'automatisation se déclenche bien.`
                               : "Le script est écrit dès qu'un créneau du jour est libre, sans heure fixe."} Dès que le script est prêt, la vidéo part automatiquement en rendu.
                           </p>
                         </div>
