@@ -616,14 +616,14 @@ function stopVoicePreview() {
   __voicePreviewOnStop = null;
 }
 
-function VoiceAvatar({ voice, size = 40, playable = false, playing = false, onTogglePlay }) {
+function VoiceAvatar({ voice, size = 40, playable = false, playing = false, generating = false, onTogglePlay }) {
   const seed = voice?.id || voice?.name || 'voice';
   return (
     <div
       className={`group relative shrink-0 rounded-full overflow-hidden bg-[var(--bg-surface-alt)] ${playable ? 'cursor-pointer' : ''}`}
       style={{ width: size, height: size }}
-      onClick={playable ? (e) => { e.stopPropagation(); onTogglePlay(); } : undefined}
-      title={playable ? (playing ? 'Mettre en pause' : 'Écouter un extrait') : undefined}
+      onClick={playable && !generating ? (e) => { e.stopPropagation(); onTogglePlay(); } : undefined}
+      title={playable ? (generating ? 'Génération de l’aperçu…' : playing ? 'Mettre en pause' : 'Écouter un extrait') : undefined}
     >
       <img
         src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(seed)}&backgroundColor=1b2230,11151c`}
@@ -632,16 +632,17 @@ function VoiceAvatar({ voice, size = 40, playable = false, playing = false, onTo
         loading="lazy"
       />
       {playable && (
-        <div className={`absolute inset-0 flex items-center justify-center bg-black/55 transition-opacity ${playing ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
-          <span className="material-symbols-outlined text-white" style={{ fontSize: Math.max(14, size * 0.4) }}>{playing ? 'pause' : 'play_arrow'}</span>
+        <div className={`absolute inset-0 flex items-center justify-center bg-black/55 transition-opacity ${playing || generating ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
+          <span className={`material-symbols-outlined text-white ${generating ? 'animate-spin' : ''}`} style={{ fontSize: Math.max(14, size * 0.4) }}>{generating ? 'progress_activity' : playing ? 'pause' : 'play_arrow'}</span>
         </div>
       )}
     </div>
   );
 }
 
-function VoiceCard({ voice, active, saved, mine, playingId, onSelect, onToggleSave, onPlayPreview }) {
+function VoiceCard({ voice, active, saved, mine, playingId, generatingPreviewId, onSelect, onToggleSave, onPlayPreview }) {
   const playing = playingId === voice.id;
+  const generating = generatingPreviewId === voice.id;
   return (
     <div
       onClick={() => onSelect(voice)}
@@ -652,9 +653,10 @@ function VoiceCard({ voice, active, saved, mine, playingId, onSelect, onToggleSa
       <VoiceAvatar
         voice={voice}
         size={32}
-        playable={!!voice.preview_url}
+        playable={!!voice.preview_url || mine}
         playing={playing}
-        onTogglePlay={() => onPlayPreview(voice)}
+        generating={generating}
+        onTogglePlay={() => onPlayPreview(mine ? { ...voice, cloned: true } : voice)}
       />
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5">
@@ -785,14 +787,34 @@ function VoiceLibraryModal({
     if (el.scrollTop + el.clientHeight >= el.scrollHeight - 400) onLoadMore();
   };
 
-  const handlePlayPreview = (voice) => {
-    if (!voice.preview_url) return;
+  const [generatingPreviewId, setGeneratingPreviewId] = useState(null);
+
+  const handlePlayPreview = async (voice) => {
     if (playingId === voice.id) {
       stopVoicePreview();
       setPlayingId(null);
       return;
     }
-    playVoicePreviewExclusive(voice.preview_url, () => setPlayingId(null));
+    let url = voice.preview_url;
+    if (!url && voice.cloned) {
+      // Voices cloned before on-demand preview generation existed (or whose
+      // best-effort generation failed right after cloning) have no sample
+      // yet — generate one now instead of leaving the play button dead.
+      setGeneratingPreviewId(voice.id);
+      try {
+        const res = await authFetch(`${API_BASE}/channels/voice/${voice.id}/preview/generate`, { method: 'POST' });
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(body.detail || "Impossible de générer l'aperçu.");
+        url = `${API_BASE}${body.preview_url}`;
+      } catch (err) {
+        showToast(err.message, 'error');
+        setGeneratingPreviewId(null);
+        return;
+      }
+      setGeneratingPreviewId(null);
+    }
+    if (!url) return;
+    playVoicePreviewExclusive(url, () => setPlayingId(null));
     setPlayingId(voice.id);
   };
 
@@ -966,6 +988,7 @@ function VoiceLibraryModal({
                   saved={savedIds.includes(v.id)}
                   mine={clonedIds.includes(v.id)}
                   playingId={playingId}
+                  generatingPreviewId={generatingPreviewId}
                   onSelect={(voice) => { onSelect(voice); onClose(); }}
                   onToggleSave={onToggleSave}
                   onPlayPreview={handlePlayPreview}
