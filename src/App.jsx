@@ -2432,11 +2432,30 @@ export default function App() {
 
   const [folders, setFolders] = useState([]);
   const [videoFilterFolderId, setVideoFilterFolderId] = useState('all');
+  // Which folder we're browsing inside of, file-explorer style — null is the
+  // root (top-level folders + videos with no folder). Distinct from
+  // videoFilterFolderId ('all' | folder id | null) which decides what the
+  // video grid actually shows; navigating folders keeps the two in sync.
+  const [currentFolderId, setCurrentFolderId] = useState(null);
+  const folderPath = (() => {
+    const path = [];
+    let id = currentFolderId;
+    const byId = new Map(folders.map(f => [f.id, f]));
+    while (id) {
+      const f = byId.get(id);
+      if (!f) break;
+      path.unshift(f);
+      id = f.parent_id;
+    }
+    return path;
+  })();
+  const openFolder = (folderId) => { setCurrentFolderId(folderId); setVideoFilterFolderId(folderId ?? null); };
   const [showNewFolderModal, setShowNewFolderModal] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
   const [creatingFolder, setCreatingFolder] = useState(false);
   const [movingVideoId, setMovingVideoId] = useState(null);
   const [draggedVideoId, setDraggedVideoId] = useState(null);
+  const [draggedFolderId, setDraggedFolderId] = useState(null);
   const [dragOverFolderId, setDragOverFolderId] = useState(null);
 
   const fetchFolders = async () => {
@@ -2458,7 +2477,7 @@ export default function App() {
       const res = await authFetch(`${API_BASE}/folders`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name }),
+        body: JSON.stringify({ name, parent_id: currentFolderId }),
       });
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || 'Échec de création');
       setNewFolderName('');
@@ -2469,6 +2488,21 @@ export default function App() {
       alert("Impossible de créer le dossier : " + e.message);
     } finally {
       setCreatingFolder(false);
+    }
+  };
+
+  const moveFolderInto = async (folderId, parentId) => {
+    try {
+      const res = await authFetch(`${API_BASE}/folders/${folderId}/move`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ parent_id: parentId }),
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || 'Échec du déplacement');
+      fetchFolders();
+    } catch (e) {
+      console.error("Erreur déplacement dossier:", e);
+      alert("Impossible de déplacer le dossier : " + e.message);
     }
   };
 
@@ -3226,6 +3260,8 @@ export default function App() {
       const xhr = new XMLHttpRequest();
       libraryUploadXhrRef.current = xhr;
       xhr.open('POST', url);
+      const token = localStorage.getItem("nichecut_token");
+      if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
       xhr.upload.onprogress = (event) => {
         if (!event.lengthComputable) return;
         onBatchProgress(event.loaded / event.total);
@@ -4434,13 +4470,57 @@ export default function App() {
     try {
       const res = await authFetch(`${API_BASE}/videos/${vid.id}/youtube-metadata/regenerate`, { method: 'POST' });
       if (!res.ok) throw new Error();
+      const updated = await res.json();
       fetchAllVideos();
       if (activeChannel) fetchChannelVideos(activeChannel.id);
       showToast('Titre régénéré.', 'success');
+      return updated;
     } catch {
       showToast('Impossible de régénérer le titre.', 'error');
+      return null;
     } finally {
       setRegeneratingTitleId(null);
+    }
+  };
+
+  // Rename modal: lets the creator either type their own title or ask the AI
+  // to propose one, instead of only ever getting a one-click AI regeneration
+  // with no way to pick the exact wording themselves.
+  const [renameModalVideo, setRenameModalVideo] = useState(null);
+  const [renameTitleDraft, setRenameTitleDraft] = useState('');
+  const [renameSaving, setRenameSaving] = useState(false);
+  const openRenameModal = (vid, e) => {
+    if (e) e.stopPropagation();
+    setOpenVideoMenuId(null);
+    setRenameModalVideo(vid);
+    setRenameTitleDraft(vid.title || '');
+  };
+  const closeRenameModal = () => { setRenameModalVideo(null); setRenameTitleDraft(''); };
+  const regenerateTitleInModal = async () => {
+    if (!renameModalVideo) return;
+    const updated = await handleRegenerateTitle(renameModalVideo);
+    if (updated) setRenameTitleDraft(updated.title || '');
+  };
+  const saveRenameTitle = async () => {
+    if (!renameModalVideo) return;
+    const title = renameTitleDraft.trim();
+    if (!title) return showToast('Le titre ne peut pas être vide.', 'error');
+    setRenameSaving(true);
+    try {
+      const res = await authFetch(`${API_BASE}/videos/${renameModalVideo.id}/youtube-metadata`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title }),
+      });
+      if (!res.ok) throw new Error();
+      fetchAllVideos();
+      if (activeChannel) fetchChannelVideos(activeChannel.id);
+      showToast('Titre enregistré.', 'success');
+      closeRenameModal();
+    } catch {
+      showToast("Impossible d'enregistrer le titre.", 'error');
+    } finally {
+      setRenameSaving(false);
     }
   };
 
@@ -4468,6 +4548,14 @@ export default function App() {
   // click's finally-block wiping every other card's in-flight indicator.
   const [regeneratingCardThumbnailIds, setRegeneratingCardThumbnailIds] = useState(() => new Set());
   const [thumbnailBust, setThumbnailBust] = useState({});
+  // Full-size thumbnail preview modal, with a regenerate action right there
+  // instead of only a blind one-click "Régénérer" in the kebab menu.
+  const [thumbnailModalVideo, setThumbnailModalVideo] = useState(null);
+  const openThumbnailModal = (vid, e) => {
+    if (e) e.stopPropagation();
+    setOpenVideoMenuId(null);
+    setThumbnailModalVideo(vid);
+  };
   const handleRegenerateCardThumbnail = async (vid, e) => {
     if (e) e.stopPropagation();
     setOpenVideoMenuId(null);
@@ -5225,10 +5313,32 @@ export default function App() {
                   </div>
                 )}
 
-                {/* Folder chips — organize videos into folders as the library grows */}
+                {/* Folder navigation — file-explorer style: breadcrumb for the
+                    current path, then the folders and "Toutes" reset live as
+                    drop targets right below it. */}
+                <div className="flex items-center gap-1.5 flex-wrap text-xs">
+                  <button
+                    onClick={() => openFolder(null)}
+                    className={`px-2 py-1 rounded-lg font-bold flex items-center gap-1 transition-colors ${currentFolderId === null ? 'text-white' : 'text-slate-400 hover:text-white'}`}
+                  >
+                    <span className="material-symbols-outlined text-[16px]">home</span>
+                  </button>
+                  {folderPath.map((f, i) => (
+                    <span key={f.id} className="flex items-center gap-1.5">
+                      <span className="material-symbols-outlined text-[14px] text-slate-600">chevron_right</span>
+                      <button
+                        onClick={() => openFolder(f.id)}
+                        className={`px-2 py-1 rounded-lg font-bold transition-colors ${i === folderPath.length - 1 ? 'text-white' : 'text-slate-400 hover:text-white'}`}
+                      >
+                        {f.name}
+                      </button>
+                    </span>
+                  ))}
+                </div>
+
                 <div className="flex items-center gap-2 flex-wrap">
                   <button
-                    onClick={() => setVideoFilterFolderId('all')}
+                    onClick={() => { setCurrentFolderId(null); setVideoFilterFolderId('all'); }}
                     onDragOver={(e) => { if (draggedVideoId) { e.preventDefault(); setDragOverFolderId('all'); } }}
                     onDragLeave={() => setDragOverFolderId(id => id === 'all' ? null : id)}
                     onDrop={(e) => {
@@ -5244,24 +5354,34 @@ export default function App() {
                   >
                     <span className="material-symbols-outlined text-[15px]">apps</span> Toutes ({allVideos.length})
                   </button>
-                  {folders.map(f => (
+                  {folders.filter(f => f.parent_id === currentFolderId).map(f => (
                     <button
                       key={f.id}
-                      onClick={() => setVideoFilterFolderId(f.id)}
-                      onDragOver={(e) => { if (draggedVideoId) { e.preventDefault(); setDragOverFolderId(f.id); } }}
+                      onClick={() => openFolder(f.id)}
+                      draggable
+                      onDragStart={(e) => { e.stopPropagation(); setDraggedFolderId(f.id); e.dataTransfer.setData('text/plain', ''); e.dataTransfer.effectAllowed = 'move'; }}
+                      onDragEnd={() => setDraggedFolderId(null)}
+                      onDragOver={(e) => { if (draggedVideoId || (draggedFolderId && draggedFolderId !== f.id)) { e.preventDefault(); setDragOverFolderId(f.id); } }}
                       onDragLeave={() => setDragOverFolderId(id => id === f.id ? null : id)}
                       onDrop={(e) => {
                         e.preventDefault();
                         setDragOverFolderId(null);
+                        if (draggedFolderId && draggedFolderId !== f.id) {
+                          const movedId = draggedFolderId;
+                          setDraggedFolderId(null);
+                          moveFolderInto(movedId, f.id);
+                          return;
+                        }
                         const videoId = draggedVideoId || e.dataTransfer.getData('text/plain');
                         setDraggedVideoId(null);
                         if (videoId) moveVideoToFolder(videoId, f.id);
                       }}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
-                        videoFilterFolderId === f.id ? 'bg-[#00c2ff] text-slate-950' : 'bg-[var(--bg-surface-alt)] text-slate-300 hover:text-white border border-[var(--border)]'
-                      } ${dragOverFolderId === f.id ? 'ring-2 ring-[#00c2ff] ring-offset-1 ring-offset-[var(--bg-page)]' : ''}`}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                        'bg-[var(--bg-surface-alt)] text-slate-300 hover:text-white border border-[var(--border)]'
+                      } ${dragOverFolderId === f.id ? 'ring-2 ring-[#00c2ff] ring-offset-1 ring-offset-[var(--bg-page)]' : ''} ${draggedFolderId === f.id ? 'opacity-40' : ''}`}
                     >
                       <span className="material-symbols-outlined text-[15px]">folder</span> {f.name} ({f.video_count})
+                      {folders.some(sub => sub.parent_id === f.id) && <span className="material-symbols-outlined text-[13px] text-slate-500">chevron_right</span>}
                     </button>
                   ))}
                   <button
@@ -5406,13 +5526,13 @@ export default function App() {
                               {openVideoMenuId === vid.id && (
                                 <div className="absolute right-0 top-9 w-44 bg-[var(--bg-dropdown)] border border-[var(--border-dropdown)] rounded-xl shadow-2xl z-50 py-1.5">
                                   {vid.status === 'done' && (
-                                    <button disabled={regeneratingTitleId === vid.id} onClick={(e) => handleRegenerateTitle(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium disabled:opacity-50">
-                                      <span className={`material-symbols-outlined text-[16px] text-[#00c2ff] ${regeneratingTitleId === vid.id ? 'animate-spin' : ''}`}>{regeneratingTitleId === vid.id ? 'progress_activity' : 'auto_awesome'}</span> {regeneratingTitleId === vid.id ? 'Régénération…' : 'Régénérer le titre'}
+                                    <button onClick={(e) => openRenameModal(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium">
+                                      <span className="material-symbols-outlined text-[16px] text-[#00c2ff]">drive_file_rename_outline</span> Renommer
                                     </button>
                                   )}
                                   {vid.status === 'done' && (
-                                    <button disabled={regeneratingCardThumbnailIds.has(vid.id)} onClick={(e) => handleRegenerateCardThumbnail(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium disabled:opacity-50">
-                                      <span className={`material-symbols-outlined text-[16px] text-[#00c2ff] ${regeneratingCardThumbnailIds.has(vid.id) ? 'animate-spin' : ''}`}>{regeneratingCardThumbnailIds.has(vid.id) ? 'progress_activity' : 'photo_camera'}</span> {regeneratingCardThumbnailIds.has(vid.id) ? 'Régénération…' : 'Régénérer la miniature'}
+                                    <button onClick={(e) => openThumbnailModal(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium">
+                                      <span className="material-symbols-outlined text-[16px] text-[#00c2ff]">photo_camera</span> Voir la miniature
                                     </button>
                                   )}
                                   {vid.status === 'done' && vid.editable && (
@@ -9296,6 +9416,92 @@ export default function App() {
                 {savingIzivoiceKey ? 'Connexion…' : 'Connecter'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {renameModalVideo && (
+        <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-[60] flex items-center justify-center p-6">
+          <div className="bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-3xl p-6 max-w-[480px] w-full shadow-2xl space-y-5">
+            <div className="flex justify-between items-center">
+              <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                <span className="material-symbols-outlined text-[18px] text-[#00c2ff]">drive_file_rename_outline</span> Renommer la vidéo
+              </h3>
+              <button onClick={closeRenameModal} className="text-slate-400 hover:text-white">
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+            <p className="text-xs text-slate-400">
+              Tape ton propre titre, ou laisse l'IA t'en proposer un basé sur le script.
+            </p>
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-xs font-bold text-slate-300">Titre</label>
+                <span className={`text-[10px] font-mono ${renameTitleDraft.length > 100 ? 'text-rose-400' : 'text-slate-500'}`}>{renameTitleDraft.length}/100</span>
+              </div>
+              <input
+                value={renameTitleDraft}
+                onChange={e => setRenameTitleDraft(e.target.value.slice(0, 100))}
+                maxLength={100}
+                autoFocus
+                className="w-full bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-3 py-2.5 text-sm text-white focus:border-[#00c2ff] outline-none"
+                placeholder="Titre de la vidéo (100 caractères max)"
+              />
+            </div>
+            <button
+              onClick={regenerateTitleInModal}
+              disabled={regeneratingTitleId === renameModalVideo.id}
+              className="w-full flex items-center justify-center gap-2 py-2.5 bg-[#00c2ff]/10 text-[#00c2ff] rounded-xl font-bold text-xs hover:bg-[#00c2ff]/20 transition-colors disabled:opacity-50"
+            >
+              <span className={`material-symbols-outlined text-[16px] ${regeneratingTitleId === renameModalVideo.id ? 'animate-spin' : ''}`}>{regeneratingTitleId === renameModalVideo.id ? 'progress_activity' : 'auto_awesome'}</span>
+              {regeneratingTitleId === renameModalVideo.id ? 'Génération…' : "Générer un titre avec l'IA"}
+            </button>
+            <div className="flex gap-3">
+              <button
+                onClick={closeRenameModal}
+                disabled={renameSaving}
+                className="flex-1 py-2.5 bg-[var(--bg-surface-alt)] text-slate-300 rounded-xl font-bold text-xs hover:bg-[var(--border-soft)] transition-colors border border-[var(--border)] disabled:opacity-50"
+              >
+                Annuler
+              </button>
+              <button
+                onClick={saveRenameTitle}
+                disabled={renameSaving || !renameTitleDraft.trim()}
+                className="flex-1 py-2.5 bg-[#00c2ff] text-slate-950 rounded-xl font-bold text-xs hover:brightness-110 transition-all disabled:opacity-50"
+              >
+                {renameSaving ? 'Enregistrement…' : 'Enregistrer'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {thumbnailModalVideo && (
+        <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-[60] flex items-center justify-center p-6">
+          <div className="bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-3xl p-6 max-w-[640px] w-full shadow-2xl space-y-4">
+            <div className="flex justify-between items-center">
+              <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                <span className="material-symbols-outlined text-[18px] text-[#00c2ff]">photo_camera</span> Miniature
+              </h3>
+              <button onClick={() => setThumbnailModalVideo(null)} className="text-slate-400 hover:text-white">
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+            <div className="rounded-2xl overflow-hidden border border-[var(--border)] bg-[var(--bg-input)]">
+              <img
+                src={getVideoThumbnailUrl(thumbnailModalVideo, thumbnailBust[thumbnailModalVideo.id])}
+                alt="Miniature"
+                className="w-full aspect-video object-cover"
+              />
+            </div>
+            <button
+              onClick={(e) => handleRegenerateCardThumbnail(thumbnailModalVideo, e)}
+              disabled={regeneratingCardThumbnailIds.has(thumbnailModalVideo.id)}
+              className="w-full flex items-center justify-center gap-2 py-2.5 bg-[#00c2ff] text-slate-950 rounded-xl font-bold text-xs hover:brightness-110 transition-all disabled:opacity-50"
+            >
+              <span className={`material-symbols-outlined text-[16px] ${regeneratingCardThumbnailIds.has(thumbnailModalVideo.id) ? 'animate-spin' : ''}`}>{regeneratingCardThumbnailIds.has(thumbnailModalVideo.id) ? 'progress_activity' : 'refresh'}</span>
+              {regeneratingCardThumbnailIds.has(thumbnailModalVideo.id) ? 'Régénération…' : 'Régénérer la miniature'}
+            </button>
           </div>
         </div>
       )}
