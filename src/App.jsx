@@ -4085,6 +4085,9 @@ export default function App() {
   const [adminVideoSearch, setAdminVideoSearch] = useState('');
   const [adminOrders, setAdminOrders] = useState([]);
   const [adminOrdersLoading, setAdminOrdersLoading] = useState(false);
+  const [adminCosts, setAdminCosts] = useState(null);
+  const [adminCostsLoading, setAdminCostsLoading] = useState(false);
+  const [adminCostsDays, setAdminCostsDays] = useState(30);
 
   // Billing (subscription) tab, under Paramètres — public plan list + this
   // user's current subscription status + checkout kickoff.
@@ -4233,6 +4236,22 @@ export default function App() {
   useEffect(() => {
     if (view === 'admin' && currentUser?.is_admin && adminTab === 'transactions') fetchAdminOrders();
   }, [view, currentUser?.is_admin, adminTab]);
+
+  const fetchAdminCosts = async () => {
+    setAdminCostsLoading(true);
+    try {
+      const res = await authFetch(`${API_BASE}/admin/costs?days=${adminCostsDays}`);
+      if (res.ok) setAdminCosts(await res.json());
+    } catch (err) {
+      console.error("Erreur chargement des coûts admin:", err);
+    } finally {
+      setAdminCostsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (view === 'admin' && currentUser?.is_admin && adminTab === 'costs') fetchAdminCosts();
+  }, [view, currentUser?.is_admin, adminTab, adminCostsDays]);
 
   const openAdminUser = async (userId) => {
     try {
@@ -5376,6 +5395,7 @@ export default function App() {
                 { id: 'plans', label: 'Offres', icon: 'sell' },
                 { id: 'videos', label: 'Vidéos', icon: 'movie' },
                 { id: 'transactions', label: 'Transactions', icon: 'payments' },
+                { id: 'costs', label: 'Coûts', icon: 'monitoring' },
               ].map(t => (
                 <button
                   key={t.id}
@@ -9116,7 +9136,7 @@ export default function App() {
               <span className="material-symbols-outlined text-[#00c2ff]">
                 {{ overview: 'dashboard', users: 'group', plans: 'sell', videos: 'movie', transactions: 'payments' }[adminTab]}
               </span>
-              {{ overview: "Vue d'ensemble", users: 'Utilisateurs', plans: 'Offres', videos: 'Vidéos', transactions: 'Transactions' }[adminTab]}
+              {{ overview: "Vue d'ensemble", users: 'Utilisateurs', plans: 'Offres', videos: 'Vidéos', transactions: 'Transactions', costs: 'Coûts' }[adminTab]}
             </h2>
             <p className="text-xs text-slate-400 mt-1">
               {{
@@ -9358,6 +9378,98 @@ export default function App() {
                   </tbody>
                 </table>
               </div>
+            </div>
+          )}
+
+          {adminTab === 'costs' && (
+            <div className="space-y-5">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-[11px] text-slate-500 max-w-lg">
+                  Coûts estimés à partir du nombre de tokens/caractères/images réellement consommés par chaque appel, selon la grille tarifaire publiée des fournisseurs — pas un solde de compte en direct (Anthropic, notamment, n'expose aucune API de solde).
+                </p>
+                <select
+                  value={adminCostsDays}
+                  onChange={e => setAdminCostsDays(Number(e.target.value))}
+                  className="bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-3 py-2 text-xs text-white focus:outline-none flex-shrink-0"
+                >
+                  <option value={7}>7 derniers jours</option>
+                  <option value={30}>30 derniers jours</option>
+                  <option value={90}>90 derniers jours</option>
+                  <option value={365}>12 derniers mois</option>
+                </select>
+              </div>
+
+              {adminCostsLoading || !adminCosts ? (
+                <div className="text-center text-slate-500 text-xs py-10">Chargement...</div>
+              ) : (
+                <>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-2xl p-5">
+                      <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Coût total estimé</div>
+                      <div className="text-2xl font-extrabold text-white">${adminCosts.total_cost_usd.toFixed(2)}</div>
+                      <div className="text-[11px] text-slate-500 mt-1">{adminCosts.total_calls} appel(s) sur {adminCosts.days} jour(s)</div>
+                    </div>
+                    <div className="bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-2xl p-5">
+                      <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Coût moyen / appel</div>
+                      <div className="text-2xl font-extrabold text-white">
+                        ${adminCosts.total_calls ? (adminCosts.total_cost_usd / adminCosts.total_calls).toFixed(4) : '0.0000'}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                    <div className="bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-2xl p-5">
+                      <div className="text-xs font-bold text-white mb-3">Par fournisseur</div>
+                      {Object.keys(adminCosts.by_provider).length === 0 ? (
+                        <p className="text-xs text-slate-500">Aucune donnée pour cette période.</p>
+                      ) : (
+                        <div className="space-y-2.5">
+                          {Object.entries(adminCosts.by_provider).sort((a, b) => b[1].cost_usd - a[1].cost_usd).map(([provider, v]) => (
+                            <div key={provider} className="flex items-center justify-between text-xs">
+                              <span className="text-slate-300 capitalize">{provider.replace(/_/g, ' ')}</span>
+                              <span className="text-slate-500">{v.calls} appel(s)</span>
+                              <span className="text-white font-bold">${v.cost_usd.toFixed(4)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-2xl p-5">
+                      <div className="text-xs font-bold text-white mb-3">Par fonctionnalité</div>
+                      {Object.keys(adminCosts.by_operation).length === 0 ? (
+                        <p className="text-xs text-slate-500">Aucune donnée pour cette période.</p>
+                      ) : (
+                        <div className="space-y-2.5">
+                          {Object.entries(adminCosts.by_operation).sort((a, b) => b[1].cost_usd - a[1].cost_usd).map(([op, v]) => (
+                            <div key={op} className="flex items-center justify-between text-xs">
+                              <span className="text-slate-300 capitalize">{op.replace(/_/g, ' ')}</span>
+                              <span className="text-slate-500">{v.calls} appel(s)</span>
+                              <span className="text-white font-bold">${v.cost_usd.toFixed(4)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-2xl p-5">
+                    <div className="text-xs font-bold text-white mb-3">Vidéos les plus coûteuses</div>
+                    {adminCosts.top_videos.length === 0 ? (
+                      <p className="text-xs text-slate-500">Aucune donnée pour cette période.</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {adminCosts.top_videos.map(v => (
+                          <div key={v.video_id} className="flex items-center justify-between text-xs border-b border-[var(--border-subtle)] last:border-0 pb-2 last:pb-0">
+                            <span className="text-slate-300 truncate flex-1 mr-3">{v.title || v.video_id}</span>
+                            <span className="text-white font-bold">${v.cost_usd.toFixed(4)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
             </div>
           )}
         </div>
