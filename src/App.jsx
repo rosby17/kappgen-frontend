@@ -2505,7 +2505,7 @@ export default function App() {
       const url = imagePath
         ? `${API_BASE}/channels/${editingChannelId}/thumbnail-style?image_path=${encodeURIComponent(imagePath)}`
         : `${API_BASE}/channels/${editingChannelId}/thumbnail-style`;
-      const res = await fetch(url, { method: 'DELETE' });
+      const res = await authFetch(url, { method: 'DELETE' });
       if (!res.ok) throw new Error("Suppression impossible.");
       const data = await res.json();
       setNewChannel(prev => ({ ...prev, thumbnail_style: data.thumbnail_style || null }));
@@ -3855,13 +3855,15 @@ export default function App() {
         // yet configured, including the name — that's exactly what the real
         // YouTube channel name will overwrite once connected) so the OAuth
         // callback has a real id to attach to.
-        const url = currentUser ? `${API_BASE}/channels?user_id=${currentUser.id}` : `${API_BASE}/channels`;
-        const res = await fetch(url, {
+        const res = await authFetch(`${API_BASE}/channels`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ ...newChannel, name: newChannel.name.trim() || 'Nouvelle chaîne' }),
         });
-        if (!res.ok) throw new Error("Impossible de créer la chaîne avant la connexion YouTube.");
+        if (!res.ok) {
+          const detail = await res.json().catch(() => ({}));
+          throw new Error(detail.detail || "Impossible de créer la chaîne avant la connexion YouTube.");
+        }
         const created = await res.json();
         channelId = created.id;
         setWizardMode('edit');
