@@ -4093,6 +4093,8 @@ export default function App() {
   const [adminCosts, setAdminCosts] = useState(null);
   const [adminCostsLoading, setAdminCostsLoading] = useState(false);
   const [adminCostsDays, setAdminCostsDays] = useState(30);
+  const [adminProviders, setAdminProviders] = useState(null);
+  const [adminProvidersLoading, setAdminProvidersLoading] = useState(false);
 
   // Billing (subscription) tab, under Paramètres — public plan list + this
   // user's current subscription status + checkout kickoff.
@@ -4257,6 +4259,22 @@ export default function App() {
   useEffect(() => {
     if (view === 'admin' && currentUser?.is_admin && adminTab === 'costs') fetchAdminCosts();
   }, [view, currentUser?.is_admin, adminTab, adminCostsDays]);
+
+  const fetchAdminProviders = async () => {
+    setAdminProvidersLoading(true);
+    try {
+      const res = await authFetch(`${API_BASE}/admin/providers/status`);
+      if (res.ok) setAdminProviders((await res.json()).providers);
+    } catch (err) {
+      console.error("Erreur vérification des fournisseurs:", err);
+    } finally {
+      setAdminProvidersLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (view === 'admin' && currentUser?.is_admin && adminTab === 'resources') fetchAdminProviders();
+  }, [view, currentUser?.is_admin, adminTab]);
 
   const openAdminUser = async (userId) => {
     try {
@@ -5422,6 +5440,7 @@ export default function App() {
                 { id: 'videos', label: 'Vidéos', icon: 'movie' },
                 { id: 'transactions', label: 'Transactions', icon: 'payments' },
                 { id: 'costs', label: 'Coûts', icon: 'monitoring' },
+                { id: 'resources', label: 'Ressources', icon: 'dns' },
               ].map(t => (
                 <button
                   key={t.id}
@@ -9173,7 +9192,7 @@ export default function App() {
               <span className="material-symbols-outlined text-[#00c2ff]">
                 {{ overview: 'dashboard', users: 'group', plans: 'sell', videos: 'movie', transactions: 'payments' }[adminTab]}
               </span>
-              {{ overview: "Vue d'ensemble", users: 'Utilisateurs', plans: 'Offres', videos: 'Vidéos', transactions: 'Transactions', costs: 'Coûts' }[adminTab]}
+              {{ overview: "Vue d'ensemble", users: 'Utilisateurs', plans: 'Offres', videos: 'Vidéos', transactions: 'Transactions', costs: 'Coûts', resources: 'Ressources' }[adminTab]}
             </h2>
             <p className="text-xs text-slate-400 mt-1">
               {{
@@ -9506,6 +9525,52 @@ export default function App() {
                     )}
                   </div>
                 </>
+              )}
+            </div>
+          )}
+
+          {adminTab === 'resources' && (
+            <div className="space-y-5">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-[11px] text-slate-500 max-w-xl">
+                  Vérification en direct que chaque clé fonctionne — pas un solde de compte en temps réel. La plupart des fournisseurs (Anthropic, Izivoice, fal.ai) n'exposent aucune API de solde ; seul OpenRouter en renvoie un vrai.
+                </p>
+                <button
+                  onClick={fetchAdminProviders}
+                  disabled={adminProvidersLoading}
+                  className="shrink-0 px-4 py-2 rounded-xl bg-[var(--bg-surface-alt)] border border-[var(--border)] text-slate-300 hover:text-white text-xs font-bold flex items-center gap-1.5 disabled:opacity-50 transition-all"
+                >
+                  <span className={`material-symbols-outlined text-[16px] ${adminProvidersLoading ? 'animate-spin' : ''}`}>{adminProvidersLoading ? 'progress_activity' : 'refresh'}</span>
+                  {adminProvidersLoading ? 'Vérification…' : 'Revérifier'}
+                </button>
+              </div>
+
+              {!adminProviders ? (
+                <div className="text-center text-slate-500 text-xs py-10">Chargement...</div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {adminProviders.map(p => {
+                    const dotColor = p.status === 'ok' ? 'bg-emerald-500' : p.status === 'error' ? 'bg-red-500' : p.status === 'unknown' ? 'bg-amber-500' : 'bg-slate-600';
+                    const statusLabel = { ok: 'Actif', error: 'Erreur', unknown: 'Non vérifiable', not_configured: 'Non configuré' }[p.status] || p.status;
+                    return (
+                      <div key={p.id} className="bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-2xl p-5">
+                        <div className="flex items-center justify-between gap-3 mb-2">
+                          <div className="flex items-center gap-2">
+                            <span className={`w-2.5 h-2.5 rounded-full ${dotColor}`} />
+                            <span className="text-sm font-bold text-white">{p.label}</span>
+                          </div>
+                          <span className={`text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full ${
+                            p.status === 'ok' ? 'bg-emerald-950/60 text-emerald-400' :
+                            p.status === 'error' ? 'bg-rose-950/60 text-rose-400' :
+                            p.status === 'unknown' ? 'bg-amber-950/60 text-amber-400' :
+                            'bg-[var(--bg-surface-alt)] text-slate-500'
+                          }`}>{statusLabel}</span>
+                        </div>
+                        <p className="text-[11px] text-slate-400">{p.detail}</p>
+                      </div>
+                    );
+                  })}
+                </div>
               )}
             </div>
           )}
