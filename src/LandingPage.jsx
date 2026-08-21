@@ -9,6 +9,7 @@ import './landing.css';
 import freedomSunrise from './assets/dashboard/freedom-sunrise.png';
 
 const APP_ORIGIN = import.meta.env.VITE_APP_ORIGIN || 'https://app.kappgen.com';
+const API_DOCS_URL = import.meta.env.VITE_API_ORIGIN ? `${import.meta.env.VITE_API_ORIGIN}/docs` : 'https://api.kappgen.com/docs';
 const isLocal = typeof window !== 'undefined' && ['localhost', '127.0.0.1'].includes(window.location.hostname);
 const appUrl = (path = '/signup') => `${isLocal ? `${window.location.origin}/app` : APP_ORIGIN}${path}`;
 
@@ -113,7 +114,7 @@ export default function LandingPage() {
       <header className="landing-header">
         <a className="brand" href="#accueil" aria-label="KappGen — Accueil"><img src="/assets/logo/logo-kappgen.png" alt="" /><span>KappGen</span></a>
         <nav className={menuOpen ? 'open' : ''}>
-          <a href="#fonctionnalites" onClick={() => setMenuOpen(false)}>Fonctionnalités</a>
+          <a href="#pipeline" onClick={() => setMenuOpen(false)}>Fonctionnalités</a>
           <a href="#fonctionnement" onClick={() => setMenuOpen(false)}>Comment ça marche</a>
           <a href="#tarifs" onClick={() => setMenuOpen(false)}>Tarifs</a>
           <a href="#faq" onClick={() => setMenuOpen(false)}>FAQ</a>
@@ -144,7 +145,7 @@ export default function LandingPage() {
           </span>
         ))}</div></section>
 
-        <section className="section features" id="fonctionnalites">
+        <section className="section features" id="fonctionnement">
           <div className="section-intro"><div className="section-kicker">TOUTES TES CHAÎNES, GÉRÉES PAR KAPPGEN</div><h2>Tu définis la direction.<br /><span>KappGen exécute tout le reste.</span></h2><p>KappGen ne s’arrête pas au montage. Il orchestre toute la chaîne de création, de la première idée jusqu’à la publication sur YouTube — jusqu’à décider lui-même les jours où produire du contenu. Configure une fois, oublie ensuite.</p></div>
           <div className="feature-grid">{features.map(({ icon: Icon, title, text }, index) => <article className={index === 0 || index === 5 ? 'feature-card featured' : 'feature-card'} key={title}><div className="feature-icon"><Icon /></div><h3>{title}</h3><p>{text}</p></article>)}</div>
         </section>
@@ -163,7 +164,7 @@ export default function LandingPage() {
           </div>
         </section>
 
-        <section className="section workflow" id="fonctionnement">
+        <section className="section workflow" id="etapes">
           <div className="workflow-copy"><div className="section-kicker">CONFIGURE. ACTIVE. VIS.</div><h2>Tu dors.<br /><span>Ta chaîne avance.</span></h2><p>Tu ne dois plus nourrir l’outil à chaque vidéo. Une fois activé, KappGen AI poursuit ton calendrier de contenu sans te ramener constamment devant un écran.</p><a className="text-link" href={appUrl('/signup')}>Va vivre. On s’occupe du reste. <ArrowRight size={17} /></a></div>
           <div className="steps">{steps.map(([number, title, text]) => <article className="step" key={number}><span>{number}</span><div><h3>{title}</h3><p>{text}</p></div></article>)}</div>
         </section>
@@ -203,7 +204,32 @@ export default function LandingPage() {
         <section className="final-cta"><div className="cta-icon"><WandSparkles /></div><h2>Tu vis. KappGen travaille.</h2><p>La création de contenu t’absorbe, t’enferme un peu plus chaque jour. Reprends le contrôle de ton temps — sans sacrifier un centime des revenus que tu as bâtis.</p><a className="button button-primary" href={appUrl('/signup')}>Je reprends mon temps <ArrowRight size={18} /></a></section>
       </main>
 
-      <footer className="landing-footer"><a className="brand" href="#accueil"><img src="/assets/logo/logo-kappgen.png" alt="" /><span>KappGen</span></a><p>La plateforme autonome qui gère ta chaîne YouTube de l’idée à la publication.</p><div><a href="#fonctionnalites">Fonctionnalités</a><a href="#faq">FAQ</a><a href={appUrl('/login')}>Connexion</a></div><span>© {new Date().getFullYear()} KappGen. Tous droits réservés.</span></footer>
+      <footer className="landing-footer">
+        <div className="footer-top">
+          <div className="footer-brand">
+            <a className="brand" href="#accueil"><img src="/assets/logo/logo-kappgen.png" alt="" /><span>KappGen</span></a>
+            <p>La plateforme autonome qui gère ta chaîne YouTube de l’idée à la publication.</p>
+          </div>
+          <div className="footer-col">
+            <h4>Produit</h4>
+            <a href="#pipeline">Fonctionnalités</a>
+            <a href="#fonctionnement">Comment ça marche</a>
+            <a href="#tarifs">Tarifs</a>
+          </div>
+          <div className="footer-col">
+            <h4>Ressources</h4>
+            <a href="#faq">FAQ</a>
+            <a href={API_DOCS_URL} target="_blank" rel="noopener">Doc API</a>
+            <a href="mailto:contact@kappgen.com">Contact</a>
+          </div>
+          <div className="footer-col">
+            <h4>Légal</h4>
+            <a href="/privacy">Politique de confidentialité</a>
+            <a href="/terms">Conditions d’utilisation</a>
+          </div>
+        </div>
+        <span>© {new Date().getFullYear()} KappGen. Tous droits réservés.</span>
+      </footer>
     </div>
   );
 }

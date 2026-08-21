@@ -9394,7 +9394,7 @@ export default function App() {
           <div className="absolute inset-0 bg-[url('/assets/backgrounds/nichecut-abstract-tech.webp')] bg-cover bg-center opacity-40" />
           <div className="absolute inset-0 bg-gradient-to-r from-[var(--bg-page)] via-[var(--bg-page)]/90 to-[var(--bg-page)]/70" />
           <div className="relative min-h-screen grid lg:grid-cols-[1.05fr_.95fr]">
-            <section className="hidden lg:flex min-h-screen flex-col justify-between px-12 xl:px-20 py-10 border-r border-white/10">
+            <section className="hidden lg:flex min-h-screen flex-col justify-between px-12 xl:px-20 py-10">
               <div className="flex items-center justify-between">
                 <a href={MARKETING_ORIGIN} className="flex items-center gap-3 text-white no-underline">
                   <img src="/assets/logo/logo-kappgen.png" alt="KappGen" className="w-10 h-10 object-contain" />
@@ -9415,7 +9415,7 @@ export default function App() {
                 <p className="mt-7 max-w-xl text-base xl:text-lg leading-8 text-slate-400">
                   Configure le style de ta chaîne une fois. Nous avons travaillé KappGen AI à partir des réalités du terrain YouTube pour créer des vidéos originales, authentiques et pensées pour respecter les règles de la plateforme.
                 </p>
-                <div className="mt-9 grid sm:grid-cols-3 gap-3 max-w-2xl">
+                <div className="mt-9 grid sm:grid-cols-3 gap-2 max-w-2xl">
                   {[
                     ['lightbulb', 'Idées trouvées'],
                     ['movie_edit', 'Vidéos créées'],
