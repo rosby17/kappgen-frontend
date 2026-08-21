@@ -1764,7 +1764,7 @@ function TimeSegmentInput({ value, max, onChange, onAdvance, fieldRef }) {
       }}
       onBlur={commit}
       onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); }}
-      className="w-5 bg-transparent text-center text-[11px] font-bold text-white outline-none"
+      className="w-5 bg-transparent text-center text-[11px] font-bold text-white outline-none border-0 ring-0 focus:ring-0 focus:outline-none appearance-none p-0"
     />
   );
 }
