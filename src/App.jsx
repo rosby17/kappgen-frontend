@@ -2080,7 +2080,7 @@ export default function App() {
   const [forgotStep, setForgotStep] = useState('request'); // 'request' | 'verify'
   const [resetCode, setResetCode] = useState('');
   const [settingsTab, setSettingsTab] = useState('profile'); // 'profile' | 'security' | 'api'
-  const [profileForm, setProfileForm] = useState({ name: '', phone: '' });
+  const [profileForm, setProfileForm] = useState({ name: '', phone: '', locale: 'fr' });
   const [passwordForm, setPasswordForm] = useState({ oldPassword: '', newPassword: '' });
   const [showSettingsPassword, setShowSettingsPassword] = useState(false);
   const [apiKeys, setApiKeys] = useState([]);
@@ -2845,7 +2845,7 @@ export default function App() {
 
   useEffect(() => {
     if (view === 'settings' && currentUser) {
-      setProfileForm({ name: currentUser.name || '', phone: currentUser.phone || '' });
+      setProfileForm({ name: currentUser.name || '', phone: currentUser.phone || '', locale: currentUser.locale || 'fr' });
       setSettingsTab('profile');
       setJustCreatedApiKey(null);
       fetchApiKeys();
@@ -2909,7 +2909,7 @@ export default function App() {
       const res = await authFetch(`${API_BASE}/auth/me/${currentUser.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: profileForm.name, phone: profileForm.phone })
+        body: JSON.stringify({ name: profileForm.name, phone: profileForm.phone, locale: profileForm.locale })
       });
       if (res.ok) {
         const updated = await res.json();
@@ -8045,6 +8045,18 @@ export default function App() {
                         placeholder="+33 6 12 34 56 78"
                         className="w-full bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl p-3 text-xs text-white focus:border-[#00c2ff] outline-none"
                       />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-300 mb-1">Langue de l'application</label>
+                      <select
+                        value={profileForm.locale}
+                        onChange={e => setProfileForm({ ...profileForm, locale: e.target.value })}
+                        className="w-full bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl p-3 text-xs text-white focus:border-[#00c2ff] outline-none"
+                      >
+                        <option value="fr">Français</option>
+                        <option value="en">English</option>
+                      </select>
+                      <p className="text-[11px] text-slate-500 mt-1">Détermine la langue des emails que KappGen vous envoie (bienvenue, récupération, factures).</p>
                     </div>
                     <button
                       type="submit"

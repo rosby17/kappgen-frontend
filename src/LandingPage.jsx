@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import {
   ArrowRight, BadgeCheck, Captions, Check, ChevronRight, CirclePlay, Clapperboard,
-  Clock3, Images, Layers3, Menu, Play, Sparkles,
+  Clock3, FileText, Image as ImageIcon, Images, Layers3, Menu, Mic, Music, Play,
+  Scissors, Search, Sparkles, Type, Upload,
   WandSparkles, X, Zap
 } from 'lucide-react';
 import './landing.css';
@@ -12,24 +13,36 @@ const isLocal = typeof window !== 'undefined' && ['localhost', '127.0.0.1'].incl
 const appUrl = (path = '/signup') => `${isLocal ? `${window.location.origin}/app` : APP_ORIGIN}${path}`;
 
 const features = [
-  { icon: Sparkles, title: 'Il trouve les idées', text: 'L’Agent analyse ta niche, détecte les sujets pertinents et choisit quoi produire pour ta chaîne.' },
+  { icon: Sparkles, title: 'Il trouve les idées', text: 'KappGen analyse ta niche, détecte les sujets pertinents et choisit quoi produire pour ta chaîne.' },
   { icon: Captions, title: 'Il écrit et raconte', text: 'Il construit le script, génère la voix off et crée des sous-titres adaptés à ton audience.' },
   { icon: Images, title: 'Il monte la vidéo', text: 'Visuels, rythme, musique, effets et identité de marque sont assemblés sans intervention.' },
-  { icon: Layers3, title: 'Il respecte ton style', text: 'Tu configures chaque chaîne une seule fois. L’Agent applique ensuite tes règles à chaque vidéo.' },
-  { icon: CirclePlay, title: 'Il publie sur YouTube', text: 'Une fois la vidéo prête, l’Agent la publie sur la bonne chaîne selon ton calendrier.' },
+  { icon: Layers3, title: 'Il respecte ton style', text: 'KappGen fait ce que tu faisais manuellement avant, dans ton style. Tu gardes le contrôle si tu veux, ou tu le laisses gérer en automatique — zéro dérapage, tout reste flexible.' },
+  { icon: CirclePlay, title: 'Il publie sur YouTube', text: 'Une fois la vidéo prête, KappGen la publie sur la bonne chaîne selon ton calendrier.' },
   { icon: Clock3, title: 'Il travaille pendant ton sommeil', text: 'Ta production continue en autonomie, même lorsque tu n’es pas devant ton ordinateur.' },
+];
+
+const pipelineSteps = [
+  { icon: Search, title: 'Recherche d’idées', text: 'KappGen explore ta niche et repère les sujets qui ont des chances de performer.' },
+  { icon: FileText, title: 'Rédaction du script', text: 'Il écrit le script complet, dans le ton et le style propres à ta chaîne.' },
+  { icon: Mic, title: 'Voix off', text: 'Génération d’une voix off naturelle à partir du script.' },
+  { icon: ImageIcon, title: 'Recherche d’images', text: 'Sélection des visuels qui correspondent à chaque séquence de la vidéo.' },
+  { icon: Music, title: 'Musique de fond', text: 'Une musique adaptée est choisie pour habiller la vidéo sans couvrir la voix.' },
+  { icon: Scissors, title: 'Montage', text: 'Assemblage du script, de la voix, des images et de la musique en une vidéo prête à l’emploi.' },
+  { icon: Sparkles, title: 'Miniature', text: 'Création d’une miniature pensée pour donner envie de cliquer.' },
+  { icon: Type, title: 'Titre et description', text: 'Rédaction du titre et de la description optimisés pour YouTube.' },
+  { icon: Upload, title: 'Publication YouTube', text: 'La vidéo est programmée et publiée directement sur ta chaîne.' },
 ];
 
 const steps = [
   ['01', 'Configure ta chaîne une fois', 'Définis sa niche, son ton, son identité visuelle, son rythme et sa fréquence de publication.'],
   ['02', 'Laisse KappGen prendre le relais', 'Connecte ta chaîne YouTube et définis une fois les règles à respecter.'],
-  ['03', 'Va vivre. Ou va dormir.', 'L’Agent cherche les idées, écrit, crée la voix, monte et prépare chaque nouvelle vidéo.'],
+  ['03', 'Va vivre. Ou va dormir.', 'KappGen cherche les idées, écrit, crée la voix, monte et prépare chaque nouvelle vidéo.'],
   ['04', 'Retrouve tes vidéos publiées', 'KappGen programme et publie sur ta chaîne. Tu gardes la visibilité, pas la charge de travail.'],
 ];
 
 const pricingPlans = [
   {
-    name: 'Découverte', price: 'Gratuit', description: 'Découvre la qualité KappGen avant de lancer ton Agent.',
+    name: 'Découverte', price: 'Gratuit', description: 'Découvre la qualité KappGen avant de lancer ta chaîne.',
     features: ['1 vidéo test', 'Export avec filigrane', 'Création assistée', 'Sans publication automatique'],
     cta: 'Tester sans pression', featured: false,
   },
@@ -39,7 +52,7 @@ const pricingPlans = [
     cta: 'Créer à mon rythme', featured: false,
   },
   {
-    name: 'Automatique', price: '69 $', localPrice: '≈ 42 000 FCFA / mois', description: 'L’expérience KappGen complète : tu configures, l’Agent exécute.',
+    name: 'Automatique', price: '69 $', localPrice: '≈ 42 000 FCFA / mois', description: 'L’expérience KappGen complète : tu configures, KappGen exécute.',
     features: ['1 chaîne YouTube', '12 vidéos autonomes / mois', 'Jusqu’à 1h par vidéo', 'Programmation automatique', 'Publication automatique YouTube'],
     cta: 'Dormir l’esprit tranquille', featured: true,
   },
@@ -114,29 +127,48 @@ export default function LandingPage() {
           <div className="hero-grid" /><div className="hero-orb orb-one" /><div className="hero-orb orb-two" />
           <div className="hero-copy">
             <h1>Tu dors.<br /><span>KappGen travaille pour toi sur YouTube.</span></h1>
-            <p>Tu vis, tu voyages, tu dors. L’Agent imagine, crée et publie des vidéos originales dans le style de ta chaîne, avec les réalités du terrain YouTube intégrées à chaque étape.</p>
+            <p>Tu vis, tu voyages, tu dors. KappGen imagine, crée et publie des vidéos originales dans le style de ta chaîne, avec les réalités du terrain YouTube intégrées à chaque étape.</p>
             <div className="hero-actions">
               <a className="button button-primary" href={appUrl('/signup')}>Sors des écrans <ArrowRight size={18} /></a>
               <a className="button button-ghost" href="#fonctionnement"><Play size={17} fill="currentColor" /> Voir comment gagner du temps</a>
             </div>
-            <div className="hero-trust"><span><Check size={15} /> De l’idée à la publication</span><span><Check size={15} /> Zéro montage manuel</span><span><Check size={15} /> Agent actif 24 h/24</span></div>
+            <div className="hero-trust"><span><Check size={15} /> De l’idée à la publication</span><span><Check size={15} /> Zéro montage manuel</span><span><Check size={15} /> KappGen actif 24 h/24</span></div>
           </div>
           <ProductPreview />
         </section>
 
-        <section className="proof-strip"><span>UNE CHAÎNE QUI AVANCE SANS TE RETENIR</span><div><span>Recherche d’idées</span><ChevronRight /><span>Script</span><ChevronRight /><span>Production</span><ChevronRight /><span>Publication</span></div></section>
+        <section className="proof-strip"><span>TOUT TON RÉSEAU DE CHAÎNES AVANCE SANS TE RETENIR</span><div>{['Idées', 'Script', 'Voix off', 'Images', 'Musique', 'Montage', 'Miniature', 'Titre & description', 'Publication'].map((label, index, arr) => (
+          <span key={label} style={{ display: 'contents' }}>
+            <span>{label}</span>
+            {index < arr.length - 1 && <ChevronRight />}
+          </span>
+        ))}</div></section>
 
         <section className="section features" id="fonctionnalites">
-          <div className="section-intro"><div className="section-kicker">UN AGENT, TOUTE TA CHAÎNE</div><h2>Tu définis la direction.<br /><span>Il exécute tout le reste.</span></h2><p>KappGen ne s’arrête pas au montage. Son Agent orchestre toute la chaîne de création, de la première idée jusqu’à la publication sur YouTube.</p></div>
+          <div className="section-intro"><div className="section-kicker">TOUTE TA CHAÎNE, GÉRÉE PAR KAPPGEN</div><h2>Tu définis la direction.<br /><span>KappGen exécute tout le reste.</span></h2><p>KappGen ne s’arrête pas au montage. Il orchestre toute la chaîne de création, de la première idée jusqu’à la publication sur YouTube.</p></div>
           <div className="feature-grid">{features.map(({ icon: Icon, title, text }, index) => <article className={index === 0 || index === 5 ? 'feature-card featured' : 'feature-card'} key={title}><div className="feature-icon"><Icon /></div><h3>{title}</h3><p>{text}</p></article>)}</div>
         </section>
 
+        <section className="section pipeline" id="pipeline">
+          <div className="section-intro"><div className="section-kicker">DE L’IDÉE À LA PUBLICATION</div><h2>Neuf étapes.<br /><span>Tu choisis lesquelles déléguer.</span></h2><p>Rien n’est tout-ou-rien. Chaque étape de production peut rester sous ton contrôle ou être confiée à KappGen — tu automatises exactement ce que tu veux, à ton rythme.</p></div>
+          <div className="feature-grid pipeline-grid">
+            {pipelineSteps.map(({ icon: Icon, title, text }, index) => (
+              <article className="feature-card" key={title}>
+                <div className="feature-icon"><Icon /></div>
+                <span className="pipeline-badge">Étape {String(index + 1).padStart(2, '0')} · Optionnelle</span>
+                <h3>{title}</h3>
+                <p>{text}</p>
+              </article>
+            ))}
+          </div>
+        </section>
+
         <section className="section workflow" id="fonctionnement">
-          <div className="workflow-copy"><div className="section-kicker">CONFIGURE. ACTIVE. VIS.</div><h2>Tu dors.<br /><span>Ta chaîne avance.</span></h2><p>Tu ne dois plus nourrir l’outil à chaque vidéo. Une fois activé, l’Agent poursuit ton calendrier de contenu sans te ramener constamment devant un écran.</p><a className="text-link" href={appUrl('/signup')}>Va vivre. On s’occupe du reste. <ArrowRight size={17} /></a></div>
+          <div className="workflow-copy"><div className="section-kicker">CONFIGURE. ACTIVE. VIS.</div><h2>Tu dors.<br /><span>Ta chaîne avance.</span></h2><p>Tu ne dois plus nourrir l’outil à chaque vidéo. Une fois activé, KappGen poursuit ton calendrier de contenu sans te ramener constamment devant un écran.</p><a className="text-link" href={appUrl('/signup')}>Va vivre. On s’occupe du reste. <ArrowRight size={17} /></a></div>
           <div className="steps">{steps.map(([number, title, text]) => <article className="step" key={number}><span>{number}</span><div><h3>{title}</h3><p>{text}</p></div></article>)}</div>
         </section>
 
-        <section className="section audience"><div className="audience-card"><div><div className="section-kicker">ENTRAÎNÉ POUR LA RÉALITÉ DE YOUTUBE</div><h2>Autonome ne veut pas dire générique.</h2><p>Nous maîtrisons les réalités du terrain YouTube et avons travaillé l’Agent autour de ce qui compte vraiment : originalité, rétention, identité éditoriale, droits et règles de monétisation. KappGen ne produit pas à la chaîne ; il crée selon ton univers et applique ces exigences à chaque vidéo pour réduire les risques de démonétisation, de suppression ou de sanction.</p></div><div className="audience-list">{['Originalité à chaque vidéo', 'Rétention pensée dès le script', 'Identité de chaîne préservée', 'Règles YouTube intégrées'].map((item) => <span key={item}><BadgeCheck /> {item}</span>)}</div></div></section>
+        <section className="section audience"><div className="audience-card"><div><div className="section-kicker">ENTRAÎNÉ POUR LA RÉALITÉ DE YOUTUBE</div><h2>Autonome ne veut pas dire générique.</h2><p>Nous maîtrisons les réalités du terrain YouTube et avons conçu KappGen autour de ce qui compte vraiment : originalité, rétention, identité éditoriale, droits et règles de monétisation. KappGen ne produit pas à la chaîne ; il crée selon ton univers et applique ces exigences à chaque vidéo pour réduire les risques de démonétisation, de suppression ou de sanction.</p></div><div className="audience-list">{['Originalité à chaque vidéo', 'Rétention pensée dès le script', 'Identité de chaîne préservée', 'Règles YouTube intégrées'].map((item) => <span key={item}><BadgeCheck /> {item}</span>)}</div></div></section>
 
         <section className="section pricing" id="tarifs">
           <div className="section-intro centered"><div className="section-kicker">DES OFFRES POUR REPRENDRE TON TEMPS</div><h2>Commence avec une vidéo.<br /><span>Puis libère-toi des écrans.</span></h2><p>Choisis le rythme qui laisse ta chaîne avancer sans sacrifier tes journées, tes nuits ou tes vacances.</p></div>
@@ -160,18 +192,18 @@ export default function LandingPage() {
           <p className="pricing-note">Les quotas correspondent aux générations incluses par cycle mensuel. Les besoins supérieurs peuvent être adaptés sur devis.</p>
         </section>
 
-        <section className="section faq" id="faq"><div><div className="section-kicker">QUESTIONS FRÉQUENTES</div><h2>Avant d’activer<br />ton Agent.</h2></div><div className="faq-list">{[
-          ['Dois-je fournir les idées ou les scripts ?', 'Non. En mode autonome, l’Agent recherche les sujets, choisit l’angle et rédige lui-même les scripts.'],
-          ['Dois-je valider chaque vidéo ?', 'Non. Tu peux laisser l’Agent aller jusqu’à la publication automatique. Tu gardes néanmoins une vue complète sur son activité.'],
-          ['Est-ce du contenu générique produit en masse ?', 'Non. Nous avons conçu l’Agent à partir des réalités du terrain YouTube : une chaîne doit être originale, cohérente, capable de retenir son audience et respecter les règles de la plateforme. Chaque vidéo possède donc son propre angle, son script et son rendu, tout en restant fidèle à l’identité de ta chaîne.'],
-          ['Puis-je gérer plusieurs chaînes ?', 'Oui. Chaque chaîne possède son propre Agent, son style, sa niche et son calendrier de publication.'],
+        <section className="section faq" id="faq"><div><div className="section-kicker">QUESTIONS FRÉQUENTES</div><h2>Avant d’activer<br />KappGen.</h2></div><div className="faq-list">{[
+          ['Dois-je fournir les idées ou les scripts ?', 'Non. En mode autonome, KappGen recherche les sujets, choisit l’angle et rédige lui-même les scripts.'],
+          ['Dois-je valider chaque vidéo ?', 'Non. Tu peux laisser KappGen aller jusqu’à la publication automatique. Tu gardes néanmoins une vue complète sur son activité.'],
+          ['Est-ce du contenu générique produit en masse ?', 'Non. Nous avons conçu KappGen à partir des réalités du terrain YouTube : une chaîne doit être originale, cohérente, capable de retenir son audience et respecter les règles de la plateforme. Chaque vidéo possède donc son propre angle, son script et son rendu, tout en restant fidèle à l’identité de ta chaîne.'],
+          ['Puis-je gérer plusieurs chaînes ?', 'Oui. Chaque chaîne dispose de son propre style, sa niche et son calendrier de publication.'],
           ['Où se trouve l’application ?', `L’espace de production est séparé de ce site et accessible sur ${APP_ORIGIN.replace('https://', '')}.`],
         ].map(([q, a]) => <details key={q}><summary>{q}<span>+</span></summary><p>{a}</p></details>)}</div></section>
 
         <section className="final-cta"><div className="cta-icon"><WandSparkles /></div><h2>Tu vis. KappGen travaille.</h2><p>La création de contenu t’absorbe, t’enferme un peu plus chaque jour. Reprends le contrôle de ton temps — sans sacrifier un centime des revenus que tu as bâtis.</p><a className="button button-primary" href={appUrl('/signup')}>Je reprends mon temps <ArrowRight size={18} /></a></section>
       </main>
 
-      <footer className="landing-footer"><a className="brand" href="#accueil"><img src="/assets/logo/logo-kappgen.png" alt="" /><span>KappGen</span></a><p>L’Agent autonome qui gère ta chaîne YouTube de l’idée à la publication.</p><div><a href="#fonctionnalites">Fonctionnalités</a><a href="#faq">FAQ</a><a href={appUrl('/login')}>Connexion</a></div><span>© {new Date().getFullYear()} KappGen. Tous droits réservés.</span></footer>
+      <footer className="landing-footer"><a className="brand" href="#accueil"><img src="/assets/logo/logo-kappgen.png" alt="" /><span>KappGen</span></a><p>La plateforme autonome qui gère ta chaîne YouTube de l’idée à la publication.</p><div><a href="#fonctionnalites">Fonctionnalités</a><a href="#faq">FAQ</a><a href={appUrl('/login')}>Connexion</a></div><span>© {new Date().getFullYear()} KappGen. Tous droits réservés.</span></footer>
     </div>
   );
 }
