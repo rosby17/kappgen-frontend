@@ -4464,7 +4464,17 @@ export default function App() {
         if (statusBody.status === 'error') throw new Error(statusBody.detail || 'Clonage impossible.');
         if (attempt > 100) throw new Error("Le clonage prend trop de temps, réessaie plus tard.");
       }
-      const voice = { id: body.voice_id, name: body.name, desc: 'Voix personnelle clonée', cloned: true };
+      const voice = {
+        id: body.voice_id,
+        name: body.name,
+        desc: 'Voix personnelle clonée',
+        cloned: true,
+        // Relative to our own API (unlike catalog voices' preview_url, which
+        // Izivoice already returns as an absolute URL) — prefix with
+        // API_BASE so it resolves against api.kappgen.com, not the
+        // frontend's own origin.
+        preview_url: body.preview_url ? `${API_BASE}${body.preview_url}` : null,
+      };
       setAvailableVoices(prev => [voice, ...prev.filter(v => v.id !== voice.id)]);
       setSelectedVoice(voice.id);
       setClonedVoiceIds(prev => {
