@@ -10650,9 +10650,11 @@ export default function App() {
                   }}
                   className="p-4 bg-[var(--bg-surface-alt)] hover:bg-[var(--border-soft)] border border-[var(--border)] rounded-2xl cursor-pointer flex items-center gap-4 transition-all"
                 >
-                  <div className="w-10 h-10 rounded-xl bg-[#00c2ff] text-slate-950 flex items-center justify-center font-bold text-sm">
-                    {chan.name.slice(0, 2).toUpperCase()}
-                  </div>
+                  <img
+                    src={getChannelLogoUrl(chan)}
+                    alt=""
+                    className="w-10 h-10 rounded-xl object-cover shrink-0 bg-[var(--bg-surface-alt)]"
+                  />
                   <div>
                     <h4 className="text-sm font-bold text-white">{chan.name}</h4>
                     <p className="text-xs text-slate-400">{chan.niche}</p>
