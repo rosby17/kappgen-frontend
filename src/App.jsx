@@ -736,7 +736,7 @@ function VoiceLibrarySelect({ label, value, onChange, options }) {
 function VoiceLibraryModal({
   voices, selectedId, savedIds, clonedIds,
   searchQuery, onSearchChange, searching,
-  onSelect, onToggleSave, onClose, onOpenCloner, cloningEnabled,
+  onSelect, onToggleSave, onClose, onOpenCloner, cloningEnabled, onAddVoiceById,
   onLoadMore, loadingMore, hasMore
 }) {
   const [tab, setTab] = useState('library');
@@ -746,6 +746,26 @@ function VoiceLibraryModal({
   const [filterAccent, setFilterAccent] = useState('');
   const [sortBy, setSortBy] = useState('recommended');
   const scrollRef = useRef(null);
+  const [addByIdOpen, setAddByIdOpen] = useState(false);
+  const [addByIdValue, setAddByIdValue] = useState('');
+  const [addByIdLoading, setAddByIdLoading] = useState(false);
+  const [addByIdError, setAddByIdError] = useState('');
+
+  const submitAddById = async () => {
+    const id = addByIdValue.trim();
+    if (!id) return;
+    setAddByIdLoading(true);
+    setAddByIdError('');
+    try {
+      await onAddVoiceById(id);
+      setAddByIdValue('');
+      setAddByIdOpen(false);
+    } catch (e) {
+      setAddByIdError(e.message);
+    } finally {
+      setAddByIdLoading(false);
+    }
+  };
 
   useEffect(() => {
     document.body.style.overflow = 'hidden';
@@ -839,18 +859,55 @@ function VoiceLibraryModal({
             ))}
           </div>
           {cloningEnabled ? (
-            <button
-              type="button"
-              onClick={onOpenCloner}
-              className="shrink-0 px-4 py-2 rounded-lg bg-gradient-to-r from-[#65e0ff] to-[#1a9cff] text-[var(--bg-deep)] text-[11px] font-extrabold flex items-center gap-1.5 shadow-md shadow-[#00c2ff]/20 hover:brightness-110 transition-all"
-            >
-              <span className="material-symbols-outlined text-[16px]">fingerprint</span>
-              Cloner ma voix
-            </button>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => setAddByIdOpen(o => !o)}
+                className="px-3 py-2 rounded-lg border border-[var(--border)] text-slate-300 hover:text-white hover:border-slate-500 text-[11px] font-bold flex items-center gap-1.5 transition-all"
+              >
+                <span className="material-symbols-outlined text-[16px]">tag</span>
+                Ajouter par ID
+              </button>
+              <button
+                type="button"
+                onClick={onOpenCloner}
+                className="px-4 py-2 rounded-lg bg-gradient-to-r from-[#65e0ff] to-[#1a9cff] text-[var(--bg-deep)] text-[11px] font-extrabold flex items-center gap-1.5 shadow-md shadow-[#00c2ff]/20 hover:brightness-110 transition-all"
+              >
+                <span className="material-symbols-outlined text-[16px]">fingerprint</span>
+                Cloner ma voix
+              </button>
+            </div>
           ) : (
             <span className="shrink-0 text-[10px] text-slate-600">Clonage disponible après la création</span>
           )}
         </div>
+
+        {addByIdOpen && (
+          <div className="px-5 pt-3">
+            <div className="bg-[#0b0f16] border border-[var(--border-subtle)] rounded-xl p-3 space-y-2">
+              <p className="text-[11px] text-slate-400">Tu as déjà une voix clonée directement sur Izivoice ? Colle son identifiant (voice_id) pour l'utiliser ici sans la recloner.</p>
+              <div className="flex items-center gap-2">
+                <input
+                  autoFocus
+                  value={addByIdValue}
+                  onChange={e => setAddByIdValue(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') submitAddById(); }}
+                  placeholder="Ex : 6f2b1a9e-..."
+                  className="flex-1 bg-[var(--bg-input)] border border-[var(--border)] rounded-lg px-3 py-2 text-xs text-white focus:border-[#00c2ff] outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={submitAddById}
+                  disabled={!addByIdValue.trim() || addByIdLoading}
+                  className="shrink-0 px-4 py-2 rounded-lg bg-[#00c2ff] text-slate-950 text-xs font-bold hover:bg-[#38d0ff] disabled:opacity-50 transition-all"
+                >
+                  {addByIdLoading ? 'Vérification…' : 'Ajouter'}
+                </button>
+              </div>
+              {addByIdError && <p className="text-[11px] text-rose-400">{addByIdError}</p>}
+            </div>
+          </div>
+        )}
 
         {tab === 'library' && (
           <div className="px-5 pt-3 space-y-2">
@@ -4292,6 +4349,27 @@ export default function App() {
     });
   };
 
+  // Lets someone attach a voice they already cloned directly on Izivoice
+  // (outside KappGen) by pasting its voice_id — a fallback path around the
+  // in-app clone flow above, and the fastest option for anyone who already
+  // knows their id. Throws on failure so the caller (the inline form) can
+  // show the error next to the input instead of a toast.
+  const handleAddVoiceById = async (voiceId) => {
+    const res = await authFetch(`${API_BASE}/channels/voice/lookup/${encodeURIComponent(voiceId)}`);
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.detail || 'Identifiant introuvable.');
+    const voice = { id: body.voice_id, name: body.name, language: body.language, gender: body.gender, desc: 'Voix personnelle (Izivoice)', cloned: true };
+    setAvailableVoices(prev => [voice, ...prev.filter(v => v.id !== voice.id)]);
+    setSelectedVoice(voice.id);
+    setClonedVoiceIds(prev => {
+      const next = [voice.id, ...prev.filter(id => id !== voice.id)];
+      writeVoiceIdList(CLONED_VOICE_IDS_KEY, next);
+      return next;
+    });
+    if (view === 'wizard') setNewChannel(prev => ({ ...prev, voice_id: voice.id, voice_name: voice.name }));
+    showToast('Voix ajoutée et sélectionnée.', 'success');
+  };
+
   const handleCloneVoice = async (file, name) => {
     // Voice is a channel-level setting: cloned either from the "Nouvelle
     // vidéo" modal (activeChannel already saved) or from the wizard's voice
@@ -6730,16 +6808,18 @@ export default function App() {
                               </button>
                             </div>
                             {hasFixedHour && (
-                              <>
-                                <HourDropdown
-                                  value={newChannel.script_generation_hour}
-                                  onChange={h => setNewChannel({ ...newChannel, script_generation_hour: h })}
-                                />
-                                <MinuteDropdown
-                                  value={newChannel.script_generation_minute ?? 0}
-                                  onChange={m => setNewChannel({ ...newChannel, script_generation_minute: m })}
-                                />
-                              </>
+                              <input
+                                type="time"
+                                step={1}
+                                value={`${String(newChannel.script_generation_hour).padStart(2, '0')}:${String(newChannel.script_generation_minute ?? 0).padStart(2, '0')}:00`}
+                                onChange={e => {
+                                  const [h, m] = e.target.value.split(':').map(n => parseInt(n, 10));
+                                  if (Number.isFinite(h)) {
+                                    setNewChannel({ ...newChannel, script_generation_hour: h, script_generation_minute: Number.isFinite(m) ? m : 0 });
+                                  }
+                                }}
+                                className="bg-[var(--bg-surface-alt)] border border-[var(--border)] hover:border-slate-500 focus:border-[#00c2ff] rounded-lg px-2.5 py-1.5 text-[11px] font-bold text-white outline-none [color-scheme:dark]"
+                              />
                             )}
                           </div>
 
@@ -9937,6 +10017,7 @@ export default function App() {
           onToggleSave={toggleSavedVoice}
           onClose={() => setShowVoiceLibrary(false)}
           onOpenCloner={() => setShowVoiceCloner(true)}
+          onAddVoiceById={handleAddVoiceById}
           cloningEnabled={wizardMode === 'edit' && !!editingChannelId}
           onLoadMore={loadMoreVoices}
           loadingMore={loadingMoreVoices}
