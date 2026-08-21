@@ -6502,7 +6502,15 @@ export default function App() {
                                 glance that this section is about the clickable thumbnail
                                 image, not the video content itself. */}
                             <div className="w-16 h-10 rounded-md bg-[var(--bg-input-alt)] border border-[var(--border)] flex-shrink-0 relative overflow-hidden">
-                              <img src={STABLE_EFFECT_PREVIEW_IMAGES[0]} alt="" className="absolute inset-0 w-full h-full object-cover" />
+                              <img
+                                src={
+                                  newChannel.thumbnail_style?.reference_image_paths?.[0]
+                                    ? `${STORAGE_BASE}/${newChannel.thumbnail_style.reference_image_paths[0]}`
+                                    : STABLE_EFFECT_PREVIEW_IMAGES[0]
+                                }
+                                alt=""
+                                className="absolute inset-0 w-full h-full object-cover"
+                              />
                               <span className="absolute inset-0 flex items-center justify-center">
                                 <span className="w-4 h-4 rounded-full bg-black/60 flex items-center justify-center">
                                   <span className="material-symbols-outlined text-white text-[10px]">play_arrow</span>
