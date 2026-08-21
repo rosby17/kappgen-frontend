@@ -11,6 +11,12 @@ if (rawApiBase.startsWith("http://api.kappgen.com")) {
   rawApiBase = rawApiBase.replace("http://", "https://");
 }
 const API_BASE = rawApiBase;
+
+// Mirrors SERVICE_UNAVAILABLE_MESSAGE in backend/src/worker/queue_runner.py —
+// a render failure with exactly this text means an underlying paid-provider
+// outage, not something the creator did wrong; used to offer "switch this
+// channel to manual" instead of just "Relancer" (which would just fail again).
+const SERVICE_UNAVAILABLE_MESSAGE = "Les serveurs de KappGen sont temporairement indisponibles. Veuillez réessayer plus tard.";
 const AUTH_PATHS = new Set(['/login', '/signup', '/signin']);
 
 // Broad coverage of the languages with established YouTube audiences. Values
@@ -4567,6 +4573,27 @@ export default function App() {
     }
   };
 
+  // One-click escape hatch from a channel-wide outage (e.g. every paid AI
+  // provider out of credits at once): automation_mode "auto" hides the
+  // manual script/voice form, so a creator stuck behind a SERVICE_UNAVAILABLE
+  // failure has no way to keep producing videos by hand until this flips
+  // them back to "manual" — never leaves them fully blocked on our own outage.
+  const handleDisableChannelAutomation = async (channelId) => {
+    try {
+      const res = await authFetch(`${API_BASE}/channels/${channelId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ automation_mode: 'manual' }),
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || 'Échec de la désactivation.');
+      showToast("Automatisation désactivée — tu peux maintenant soumettre une vidéo manuellement.", 'success');
+      fetchChannels();
+      if (activeChannel?.id === channelId) setActiveChannel(prev => prev ? { ...prev, automation_mode: 'manual' } : prev);
+    } catch (e) {
+      showToast(e.message, 'error');
+    }
+  };
+
   const handleDeleteVideo = async (videoId, e) => {
     if (e) e.stopPropagation();
     setOpenVideoMenuId(null);
@@ -6658,6 +6685,17 @@ export default function App() {
                                   className="flex-1 py-1.5 bg-[var(--bg-dropdown)] text-white rounded-xl font-bold text-xs hover:bg-[var(--border)] transition-all flex items-center justify-center gap-1 border border-[var(--border)]"
                                 >
                                   <span className="material-symbols-outlined text-[16px]">refresh</span> Relancer
+                                </button>
+                              </div>
+                            )}
+                            {vid.status === 'failed' && vid.error_message === SERVICE_UNAVAILABLE_MESSAGE && activeChannel?.automation_mode === 'auto' && (
+                              <div className="pt-2 flex items-center gap-2">
+                                <button
+                                  onClick={() => handleDisableChannelAutomation(activeChannel.id)}
+                                  className="flex-1 py-1.5 bg-amber-500/10 text-amber-300 border border-amber-500/30 rounded-xl font-bold text-xs hover:bg-amber-500/20 transition-all flex items-center justify-center gap-1"
+                                  title="Passe cette chaîne en manuel pour continuer à créer des vidéos toi-même pendant l'incident."
+                                >
+                                  <span className="material-symbols-outlined text-[16px]">pause_circle</span> Désactiver l'automatisation
                                 </button>
                               </div>
                             )}
