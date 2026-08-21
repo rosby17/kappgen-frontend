@@ -4800,7 +4800,7 @@ export default function App() {
         >
           <span className="material-symbols-outlined text-[24px]">menu</span>
         </button>
-        <div className="flex items-center gap-2" onClick={() => setView('home')}>
+        <div className="flex items-center gap-2 cursor-pointer" onClick={() => { window.location.href = 'https://kappgen.com'; }}>
           <img src="/assets/logo/logo-kappgen.png" alt="KappGen" className="w-7 h-7 rounded-lg object-cover" />
           <span className="font-title-sm text-sm font-black text-white tracking-wide">KappGen</span>
         </div>
@@ -4826,7 +4826,7 @@ export default function App() {
           <nav className="relative w-[260px] max-w-[80vw] h-full bg-[var(--bg-surface-soft)] border-r border-[var(--border-soft)] py-6 flex flex-col justify-between overflow-y-auto">
             <div>
               <div className="px-6 mb-8 flex items-center justify-between">
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 cursor-pointer" onClick={() => { window.location.href = 'https://kappgen.com'; }}>
                   <img src="/assets/logo/logo-kappgen.png" alt="KappGen" className="w-9 h-9 rounded-xl shadow-lg shadow-[#00c2ff]/20 object-cover" />
                   <div>
                     <div className="font-title-sm text-base font-black text-white tracking-wide">KappGen</div>
@@ -4900,7 +4900,7 @@ export default function App() {
             </div>
           ) : (
             <>
-              <div className="px-6 mb-3 flex items-center gap-3 cursor-pointer" onClick={() => setView('home')}>
+              <div className="px-6 mb-3 flex items-center gap-3 cursor-pointer" onClick={() => { window.location.href = 'https://kappgen.com'; }}>
                 <img src="/assets/logo/logo-kappgen.png" alt="KappGen" className="w-9 h-9 rounded-xl shadow-lg shadow-[#00c2ff]/20 object-cover" />
                 <div>
                   <div className="font-title-sm text-base font-black text-white tracking-wide">KappGen</div>
