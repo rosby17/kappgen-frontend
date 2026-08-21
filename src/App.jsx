@@ -2788,7 +2788,7 @@ export default function App() {
       const measured = Math.floor(googleButtonRef.current.getBoundingClientRect().width);
       const containerWidth = Math.max(200, Math.min(400, (measured || 300) - 4));
       window.google.accounts.id.renderButton(googleButtonRef.current, {
-        theme: "filled_black",
+        theme: "filled_blue",
         size: "large",
         width: containerWidth,
         text: "continue_with",
