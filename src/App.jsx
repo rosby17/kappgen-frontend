@@ -5496,9 +5496,9 @@ export default function App() {
             {/* VIEW 4: CHANNEL DETAIL VIEW */}
             {view === 'channel_detail' && activeChannel && (
               <div className="space-y-8">
-                <section className="relative overflow-hidden bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-3xl p-5 sm:p-6 shadow-[0_24px_70px_rgba(0,0,0,.10)]">
+                <section className="relative overflow-hidden bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-3xl p-6 sm:p-8 shadow-[0_24px_70px_rgba(0,0,0,.10)]">
                   <div className="absolute -top-24 -left-16 w-72 h-72 rounded-full bg-[#00c2ff]/[.055] blur-3xl pointer-events-none" />
-                  <div className="relative flex flex-col xl:flex-row xl:items-center justify-between gap-6">
+                  <div className="relative flex flex-col xl:flex-row xl:items-center justify-between gap-7">
                   {/* xl:contents makes this wrapper disappear from the layout at xl+ (its
                       two children rejoin the row above as before); below xl it's a real
                       row so "Nouvelle Vidéo" sits next to the channel name instead of
@@ -5507,7 +5507,7 @@ export default function App() {
                   <div
                     onClick={(e) => openEditWizard(activeChannel, e)}
                     title="Modifier la configuration de la chaîne"
-                    className="flex items-center gap-4 sm:gap-5 min-w-0 cursor-pointer -m-2 p-2 rounded-2xl hover:bg-white/[.03] transition-colors"
+                    className="flex items-center gap-5 sm:gap-6 min-w-0 cursor-pointer -m-2 p-2 rounded-2xl hover:bg-white/[.03] transition-colors"
                   >
                     <div className="relative flex-shrink-0">
                       <div className="absolute -inset-1 rounded-full bg-gradient-to-br from-[#36d5ff]/35 to-[#6b7dff]/10 blur-sm" />
@@ -5518,7 +5518,7 @@ export default function App() {
                           return (
                             <span
                               title={s.label}
-                              className={`absolute -top-1 -right-1 w-3 h-3 rounded-full ${getChannelStatusDotColor(activeChannel)} ring-2 ring-[var(--bg-surface)]`}
+                              className={`absolute -bottom-0.5 -left-0.5 w-3.5 h-3.5 rounded-full ${getChannelStatusDotColor(activeChannel)} ring-[3px] ring-[var(--bg-surface)]`}
                             />
                           );
                         })()}
@@ -5541,7 +5541,7 @@ export default function App() {
                             rel="noopener noreferrer"
                             onClick={(e) => e.stopPropagation()}
                             title="Ouvrir la chaîne sur YouTube"
-                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[9px] font-bold uppercase tracking-[.1em] bg-emerald-950/80 text-emerald-300 border border-emerald-700/60 hover:bg-emerald-900/80 transition-colors"
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[9px] font-bold uppercase tracking-[.1em] bg-[#00c2ff]/10 text-[#00c2ff] border border-[#00c2ff]/30 hover:bg-[#00c2ff]/20 transition-colors"
                           >
                             <YouTubeIcon className="w-3.5 h-2.5" />
                             Voir la chaîne
