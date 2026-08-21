@@ -2089,22 +2089,16 @@ export default function App() {
     const saved = localStorage.getItem("nichecut_user");
     return saved ? JSON.parse(saved) : null;
   });
-  const [authToken, setAuthToken] = useState(() => localStorage.getItem("nichecut_token") || null);
-
-  // Every /api/* call goes through this instead of raw fetch() so the session
-  // token is always attached — the backend derives "who is calling" from
-  // this token now instead of trusting a client-supplied user_id param.
-  // Reads localStorage directly (not the authToken state) so it never runs
-  // on a stale closure inside this large component's many callbacks.
+  // The session token itself lives only in an httpOnly cookie set by the
+  // backend (src/utils/auth.py: set_session_cookie) — never in localStorage
+  // or JS-readable state, so a hypothetical XSS bug can't exfiltrate it.
+  // `credentials: 'include'` makes fetch send that cookie automatically.
   const authFetch = (url, options = {}) => {
-    const token = localStorage.getItem("nichecut_token");
-    const headers = { ...(options.headers || {}) };
-    if (token) headers['Authorization'] = `Bearer ${token}`;
-    return fetch(url, { ...options, headers }).then(res => {
-      // A missing/expired/invalid token (session token lifetime is 30 days)
-      // means every authenticated call fails the same way forever until the
-      // person re-logs-in — bounce them to the login screen automatically
-      // instead of leaving every screen stuck on a generic loading error.
+    return fetch(url, { ...options, credentials: 'include' }).then(res => {
+      // A missing/expired/invalid cookie (session lifetime is 30 days) means
+      // every authenticated call fails the same way forever until the person
+      // re-logs-in — bounce them to the login screen automatically instead of
+      // leaving every screen stuck on a generic loading error.
       if (res.status === 401 && localStorage.getItem("nichecut_user")) {
         handleLogout();
       }
@@ -2112,13 +2106,9 @@ export default function App() {
     });
   };
 
-  const storeAuthSession = (loggedUser, token) => {
+  const storeAuthSession = (loggedUser) => {
     setCurrentUser(loggedUser);
     localStorage.setItem("nichecut_user", JSON.stringify(loggedUser));
-    if (token) {
-      setAuthToken(token);
-      localStorage.setItem("nichecut_token", token);
-    }
   };
   const [authTab, setAuthTab] = useState(() => window.location.pathname.endsWith('/signup') || window.location.pathname.endsWith('/signin') ? 'register' : 'login'); // 'login' | 'register' | 'forgot'
   const [authForm, setAuthForm] = useState({ email: '', password: '' });
@@ -2505,6 +2495,44 @@ export default function App() {
   const [draggedFolderId, setDraggedFolderId] = useState(null);
   const [dragOverFolderId, setDragOverFolderId] = useState(null);
 
+  // Vertical folder tree — recurses into sub-folders, indenting each level.
+  const renderFolderTree = (parentId, depth) => (
+    folders.filter(f => f.parent_id === parentId).map(f => (
+      <div key={f.id}>
+        <button
+          onClick={() => openFolder(f.id)}
+          draggable
+          onDragStart={(e) => { e.stopPropagation(); setDraggedFolderId(f.id); e.dataTransfer.setData('text/plain', ''); e.dataTransfer.effectAllowed = 'move'; }}
+          onDragEnd={() => setDraggedFolderId(null)}
+          onDragOver={(e) => { if (draggedVideoId || (draggedFolderId && draggedFolderId !== f.id)) { e.preventDefault(); setDragOverFolderId(f.id); } }}
+          onDragLeave={() => setDragOverFolderId(id => id === f.id ? null : id)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setDragOverFolderId(null);
+            if (draggedFolderId && draggedFolderId !== f.id) {
+              const movedId = draggedFolderId;
+              setDraggedFolderId(null);
+              moveFolderInto(movedId, f.id);
+              return;
+            }
+            const videoId = draggedVideoId || e.dataTransfer.getData('text/plain');
+            setDraggedVideoId(null);
+            if (videoId) moveVideoToFolder(videoId, f.id);
+          }}
+          style={{ paddingLeft: `${8 + depth * 16}px` }}
+          className={`w-full text-left pr-2 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+            videoFilterFolderId === f.id ? 'bg-[#00c2ff] text-slate-950' : 'text-slate-300 hover:text-white hover:bg-[var(--bg-hover)]'
+          } ${dragOverFolderId === f.id ? 'ring-2 ring-[#00c2ff] ring-offset-1 ring-offset-[var(--bg-page)]' : ''} ${draggedFolderId === f.id ? 'opacity-40' : ''}`}
+        >
+          <span className="material-symbols-outlined text-[15px] flex-shrink-0">folder</span>
+          <span className="truncate flex-1">{f.name}</span>
+          <span className={`flex-shrink-0 ${videoFilterFolderId === f.id ? 'text-slate-950/60' : 'text-slate-500'}`}>({f.video_count})</span>
+        </button>
+        {folders.some(sub => sub.parent_id === f.id) && renderFolderTree(f.id, depth + 1)}
+      </div>
+    ))
+  );
+
   const fetchFolders = async () => {
     if (!currentUser) return;
     try {
@@ -2640,6 +2668,19 @@ export default function App() {
       setSettingsTab('billing');
       return;
     }
+    if (path === '/verify-email') {
+      const token = new URLSearchParams(location.search).get('token');
+      if (token) {
+        fetch(`${API_BASE}/auth/verify-email?token=${encodeURIComponent(token)}`, { method: 'POST' })
+          .then(res => res.json().then(data => ({ ok: res.ok, data })))
+          .then(({ ok, data }) => {
+            showToast(ok ? "Adresse email confirmée !" : (data.detail || "Lien de vérification invalide."), ok ? "success" : "error");
+          })
+          .catch(() => showToast("Erreur réseau pendant la vérification.", "error"));
+      }
+      navigate(currentUser ? '/settings' : '/login');
+      return;
+    }
     if (path === '/channels/new') {
       // Guard against re-running on every `channels` refetch — only (re)reset the
       // form the first time we land here, not on every poll while the user is
@@ -2753,11 +2794,12 @@ export default function App() {
       const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify(authForm)
       });
       if (res.ok) {
         const data = await res.json();
-        storeAuthSession(data.user, data.token);
+        storeAuthSession(data.user);
         setShowAuthModal(false);
       } else {
         const err = await res.json();
@@ -2815,7 +2857,7 @@ export default function App() {
       });
       if (res.ok) {
         const data = await res.json();
-        storeAuthSession(data.user, data.token);
+        storeAuthSession(data.user);
         setShowAuthModal(false);
         showToast(`Bienvenue, ${data.user.name} !`, "success");
       } else {
@@ -2899,9 +2941,9 @@ export default function App() {
 
   const handleLogout = () => {
     setCurrentUser(null);
-    setAuthToken(null);
     localStorage.removeItem("nichecut_user");
-    localStorage.removeItem("nichecut_token");
+    localStorage.removeItem("nichecut_token"); // cleanup for sessions created before the httpOnly-cookie migration
+    fetch(`${API_BASE}/auth/logout`, { method: 'POST', credentials: 'include' }).catch(() => {});
     sessionStorage.removeItem('nichecut_view');
     sessionStorage.removeItem('nichecut_active_channel_id');
     setActiveChannel(null);
@@ -2912,17 +2954,11 @@ export default function App() {
     setShowAuthModal(true);
   };
 
-  // Sessions saved before the backend started requiring a bearer token have
-  // a currentUser but no nichecut_token — every authFetch call for them now
-  // gets a silent 401, which just looked like "Chargement impossible"
-  // forever with no way out. Force those sessions back to the login screen
-  // once, so re-authenticating (which does issue a token) is the obvious
-  // next step instead of a dead end.
-  useEffect(() => {
-    if (currentUser && !authToken) {
-      handleLogout();
-    }
-  }, []);
+  // Sessions saved before the httpOnly-cookie migration may have a
+  // currentUser but no valid cookie yet (old token was only in localStorage,
+  // now removed) — authFetch's 401 interceptor above already bounces those
+  // back to the login screen the moment any authenticated call is made, so
+  // no separate check is needed here.
 
   useEffect(() => {
     if (view === 'settings' && currentUser) {
@@ -3307,8 +3343,7 @@ export default function App() {
       const xhr = new XMLHttpRequest();
       libraryUploadXhrRef.current = xhr;
       xhr.open('POST', url);
-      const token = localStorage.getItem("nichecut_token");
-      if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+      xhr.withCredentials = true;
       xhr.upload.onprogress = (event) => {
         if (!event.lengthComputable) return;
         onBatchProgress(event.loaded / event.total);
@@ -4858,7 +4893,16 @@ export default function App() {
                 ))}
               </div>
             </div>
-            <div className="px-3">
+            <div className="px-3 space-y-1.5">
+              {currentUser && !hasActiveSubscription && (
+                <button
+                  onClick={() => { setView('settings'); setSettingsTab('billing'); setMobileMenuOpen(false); }}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold bg-gradient-to-r from-[#00c2ff] to-[#0099ff] text-slate-950"
+                >
+                  <span className="material-symbols-outlined text-[18px]">workspace_premium</span>
+                  Passer à l'abonnement
+                </button>
+              )}
               {currentUser ? (
                 <button
                   onClick={() => { handleLogout(); setMobileMenuOpen(false); }}
@@ -5056,6 +5100,18 @@ export default function App() {
             </div>
           )}
         </div>
+
+        {view !== 'admin' && currentUser && !hasActiveSubscription && (
+          <div className="px-3">
+            <button
+              onClick={() => { setView('settings'); setSettingsTab('billing'); }}
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold bg-gradient-to-r from-[#00c2ff] to-[#0099ff] text-slate-950 shadow-md shadow-[#00c2ff]/20 hover:opacity-90 transition-opacity"
+            >
+              <span className="material-symbols-outlined text-[18px]">workspace_premium</span>
+              Passer à l'abonnement
+            </button>
+          </div>
+        )}
 
       </nav>
 
@@ -5476,6 +5532,36 @@ export default function App() {
                   </div>
                 </div>
 
+                <div className="flex items-start gap-6">
+                <aside className="w-60 flex-shrink-0 space-y-1">
+                  <button
+                    onClick={() => { setCurrentFolderId(null); setVideoFilterFolderId('all'); }}
+                    onDragOver={(e) => { if (draggedVideoId) { e.preventDefault(); setDragOverFolderId('all'); } }}
+                    onDragLeave={() => setDragOverFolderId(id => id === 'all' ? null : id)}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      setDragOverFolderId(null);
+                      const videoId = draggedVideoId || e.dataTransfer.getData('text/plain');
+                      setDraggedVideoId(null);
+                      if (videoId) moveVideoToFolder(videoId, null);
+                    }}
+                    className={`w-full text-left px-2 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                      videoFilterFolderId === 'all' ? 'bg-[#00c2ff] text-slate-950' : 'text-slate-300 hover:text-white hover:bg-[var(--bg-hover)]'
+                    } ${dragOverFolderId === 'all' ? 'ring-2 ring-[#00c2ff] ring-offset-1 ring-offset-[var(--bg-page)]' : ''}`}
+                  >
+                    <span className="material-symbols-outlined text-[15px]">apps</span> Toutes ({allVideos.length})
+                  </button>
+                  {renderFolderTree(null, 0)}
+                  <button
+                    onClick={() => setShowNewFolderModal(true)}
+                    className="w-full text-left px-2 py-1.5 rounded-lg text-xs font-bold text-[#00c2ff] hover:bg-[#00c2ff]/10 border border-dashed border-[#00c2ff]/40 flex items-center gap-1.5 transition-all"
+                  >
+                    <span className="material-symbols-outlined text-[15px]">create_new_folder</span> Nouveau dossier
+                  </button>
+                </aside>
+
+                <div className="flex-1 min-w-0 space-y-6">
+
                 {videoSelectionMode && (
                   <div className="sticky top-0 z-10 bg-[#0f1621] border border-[#00c2ff]/30 rounded-xl px-4 py-2.5 flex items-center justify-between gap-3 shadow-lg">
                     <span className="text-xs font-bold text-white">{selectedVideoIds.size} vidéo(s) sélectionnée(s)</span>
@@ -5524,62 +5610,6 @@ export default function App() {
                       </button>
                     </span>
                   ))}
-                </div>
-
-                <div className="flex items-center gap-2 flex-wrap">
-                  <button
-                    onClick={() => { setCurrentFolderId(null); setVideoFilterFolderId('all'); }}
-                    onDragOver={(e) => { if (draggedVideoId) { e.preventDefault(); setDragOverFolderId('all'); } }}
-                    onDragLeave={() => setDragOverFolderId(id => id === 'all' ? null : id)}
-                    onDrop={(e) => {
-                      e.preventDefault();
-                      setDragOverFolderId(null);
-                      const videoId = draggedVideoId || e.dataTransfer.getData('text/plain');
-                      setDraggedVideoId(null);
-                      if (videoId) moveVideoToFolder(videoId, null);
-                    }}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
-                      videoFilterFolderId === 'all' ? 'bg-[#00c2ff] text-slate-950' : 'bg-[var(--bg-surface-alt)] text-slate-300 hover:text-white border border-[var(--border)]'
-                    } ${dragOverFolderId === 'all' ? 'ring-2 ring-[#00c2ff] ring-offset-1 ring-offset-[var(--bg-page)]' : ''}`}
-                  >
-                    <span className="material-symbols-outlined text-[15px]">apps</span> Toutes ({allVideos.length})
-                  </button>
-                  {folders.filter(f => f.parent_id === currentFolderId).map(f => (
-                    <button
-                      key={f.id}
-                      onClick={() => openFolder(f.id)}
-                      draggable
-                      onDragStart={(e) => { e.stopPropagation(); setDraggedFolderId(f.id); e.dataTransfer.setData('text/plain', ''); e.dataTransfer.effectAllowed = 'move'; }}
-                      onDragEnd={() => setDraggedFolderId(null)}
-                      onDragOver={(e) => { if (draggedVideoId || (draggedFolderId && draggedFolderId !== f.id)) { e.preventDefault(); setDragOverFolderId(f.id); } }}
-                      onDragLeave={() => setDragOverFolderId(id => id === f.id ? null : id)}
-                      onDrop={(e) => {
-                        e.preventDefault();
-                        setDragOverFolderId(null);
-                        if (draggedFolderId && draggedFolderId !== f.id) {
-                          const movedId = draggedFolderId;
-                          setDraggedFolderId(null);
-                          moveFolderInto(movedId, f.id);
-                          return;
-                        }
-                        const videoId = draggedVideoId || e.dataTransfer.getData('text/plain');
-                        setDraggedVideoId(null);
-                        if (videoId) moveVideoToFolder(videoId, f.id);
-                      }}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                        'bg-[var(--bg-surface-alt)] text-slate-300 hover:text-white border border-[var(--border)]'
-                      } ${dragOverFolderId === f.id ? 'ring-2 ring-[#00c2ff] ring-offset-1 ring-offset-[var(--bg-page)]' : ''} ${draggedFolderId === f.id ? 'opacity-40' : ''}`}
-                    >
-                      <span className="material-symbols-outlined text-[15px]">folder</span> {f.name} ({f.video_count})
-                      {folders.some(sub => sub.parent_id === f.id) && <span className="material-symbols-outlined text-[13px] text-slate-500">chevron_right</span>}
-                    </button>
-                  ))}
-                  <button
-                    onClick={() => setShowNewFolderModal(true)}
-                    className="px-3 py-1.5 rounded-lg text-xs font-bold text-[#00c2ff] hover:bg-[#00c2ff]/10 border border-dashed border-[#00c2ff]/40 flex items-center gap-1.5 transition-all"
-                  >
-                    <span className="material-symbols-outlined text-[15px]">create_new_folder</span> Nouveau dossier
-                  </button>
                 </div>
 
                 {/* Visual Video Cards Grid */}
@@ -5850,6 +5880,9 @@ export default function App() {
                       })}
                   </div>
                 )}
+
+                </div>
+                </div>
               </section>
             )}
 
@@ -5878,7 +5911,7 @@ export default function App() {
                           return (
                             <span
                               title={s.label}
-                              className={`absolute -bottom-0.5 -left-0.5 w-3.5 h-3.5 rounded-full ${getChannelStatusDotColor(activeChannel)} ring-[3px] ring-[var(--bg-surface)]`}
+                              className={`absolute top-0.5 right-0.5 w-3.5 h-3.5 rounded-full ${getChannelStatusDotColor(activeChannel)} ring-[3px] ring-[var(--bg-surface)]`}
                             />
                           );
                         })()}

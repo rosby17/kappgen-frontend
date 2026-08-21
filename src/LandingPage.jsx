@@ -10,6 +10,7 @@ import freedomSunrise from './assets/dashboard/freedom-sunrise.png';
 
 const APP_ORIGIN = import.meta.env.VITE_APP_ORIGIN || 'https://app.kappgen.com';
 const API_DOCS_URL = import.meta.env.VITE_API_ORIGIN ? `${import.meta.env.VITE_API_ORIGIN}/docs` : 'https://api.kappgen.com/docs';
+const API_BASE = import.meta.env.VITE_API_BASE || 'https://api.kappgen.com/api';
 const isLocal = typeof window !== 'undefined' && ['localhost', '127.0.0.1'].includes(window.location.hostname);
 const appUrl = (path = '/signup') => `${isLocal ? `${window.location.origin}/app` : APP_ORIGIN}${path}`;
 
@@ -103,10 +104,18 @@ function ProductPreview() {
 
 export default function LandingPage() {
   const [menuOpen, setMenuOpen] = useState(false);
+  // The session cookie is scoped to .kappgen.com (see backend/src/utils/auth.py),
+  // so it's sent here too even though this page lives on the root marketing
+  // domain rather than app.kappgen.com — lets an already-logged-in visitor
+  // skip straight to "Accéder à KappGen" instead of being shown login/signup.
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   useEffect(() => {
     document.title = 'KappGen — Tu vis. KappGen travaille.';
     const description = document.querySelector('meta[name="description"]');
     if (description) description.content = 'Sors des écrans. KappGen AI trouve les idées, crée les vidéos et les publie sur YouTube pendant que tu vis, voyages ou dors.';
+    fetch(`${API_BASE}/auth/session`, { credentials: 'include' })
+      .then(res => setIsLoggedIn(res.ok))
+      .catch(() => setIsLoggedIn(false));
   }, []);
 
   return (
@@ -119,7 +128,16 @@ export default function LandingPage() {
           <a href="#tarifs" onClick={() => setMenuOpen(false)}>Tarifs</a>
           <a href="#faq" onClick={() => setMenuOpen(false)}>FAQ</a>
         </nav>
-        <div className="header-actions"><a className="login-link" href={appUrl('/login')}>Se connecter</a><a className="button button-small" href={appUrl('/signup')}>Reprendre mon temps <ArrowRight size={15} /></a></div>
+        <div className="header-actions">
+          {isLoggedIn ? (
+            <a className="button button-small" href={appUrl('/dashboard')}>Accéder à KappGen <ArrowRight size={15} /></a>
+          ) : (
+            <>
+              <a className="login-link" href={appUrl('/login')}>Se connecter</a>
+              <a className="button button-small" href={appUrl('/signup')}>Reprendre mon temps <ArrowRight size={15} /></a>
+            </>
+          )}
+        </div>
         <button className="menu-toggle" onClick={() => setMenuOpen(!menuOpen)} aria-label="Ouvrir le menu">{menuOpen ? <X /> : <Menu />}</button>
       </header>
 
@@ -130,7 +148,7 @@ export default function LandingPage() {
             <h1>Tu dors.<br /><span>KappGen travaille pour toi sur YouTube.</span></h1>
             <p>Tu vis, tu voyages, tu dors. KappGen imagine, crée et publie des vidéos originales dans le style de ta chaîne, avec les réalités du terrain YouTube intégrées à chaque étape.</p>
             <div className="hero-actions">
-              <a className="button button-primary" href={appUrl('/signup')}>Sors des écrans <ArrowRight size={18} /></a>
+              <a className="button button-primary" href={isLoggedIn ? appUrl('/dashboard') : appUrl('/signup')}>{isLoggedIn ? 'Accéder à KappGen' : 'Sors des écrans'} <ArrowRight size={18} /></a>
               <a className="button button-ghost" href="#fonctionnement"><Play size={17} fill="currentColor" /> Voir comment gagner du temps</a>
             </div>
             <div className="hero-trust"><span><Check size={15} /> De l’idée à la publication</span><span><Check size={15} /> Zéro montage manuel</span><span><Check size={15} /> KappGen actif 24 h/24</span></div>
@@ -201,7 +219,7 @@ export default function LandingPage() {
           ['Où se trouve l’application ?', `L’espace de production est séparé de ce site et accessible sur ${APP_ORIGIN.replace('https://', '')}.`],
         ].map(([q, a]) => <details key={q}><summary>{q}<span>+</span></summary><p>{a}</p></details>)}</div></section>
 
-        <section className="final-cta"><div className="cta-icon"><WandSparkles /></div><h2>Tu vis. KappGen travaille.</h2><p>La création de contenu t’absorbe, t’enferme un peu plus chaque jour. Reprends le contrôle de ton temps — sans sacrifier un centime des revenus que tu as bâtis.</p><a className="button button-primary" href={appUrl('/signup')}>Je reprends mon temps <ArrowRight size={18} /></a></section>
+        <section className="final-cta"><div className="cta-icon"><WandSparkles /></div><h2>Tu vis. KappGen travaille.</h2><p>La création de contenu t’absorbe, t’enferme un peu plus chaque jour. Reprends le contrôle de ton temps — sans sacrifier un centime des revenus que tu as bâtis.</p><a className="button button-primary" href={isLoggedIn ? appUrl('/dashboard') : appUrl('/signup')}>{isLoggedIn ? 'Accéder à KappGen' : 'Je reprends mon temps'} <ArrowRight size={18} /></a></section>
       </main>
 
       <footer className="landing-footer">
