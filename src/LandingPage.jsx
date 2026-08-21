@@ -226,7 +226,7 @@ export default function LandingPage() {
         <div className="footer-top">
           <div className="footer-brand">
             <a className="brand" href="#accueil"><img src="/assets/logo/logo-kappgen.png" alt="" /><span>KappGen</span></a>
-            <p>La plateforme autonome qui gère ta chaîne YouTube de l’idée à la publication.</p>
+            <p>L’assistant autonome qui gère ton réseau de chaînes YouTube, de l’idée à la publication.</p>
           </div>
           <div className="footer-col">
             <h4>Produit</h4>

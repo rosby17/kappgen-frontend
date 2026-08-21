@@ -275,7 +275,7 @@ export default function LegalPage({ type }) {
         </div>
       </main>
 
-      <footer className="landing-footer"><a className="brand" href="/"><img src="/assets/logo/logo-kappgen.png" alt="" /><span>KappGen</span></a><p>L’Agent autonome qui gère ta chaîne YouTube de l’idée à la publication.</p><div><a href="/privacy">Confidentialité</a><a href="/terms">Conditions</a><a href={appUrl('/login')}>Connexion</a></div><span>© {new Date().getFullYear()} KappGen. Tous droits réservés.</span></footer>
+      <footer className="landing-footer"><a className="brand" href="/"><img src="/assets/logo/logo-kappgen.png" alt="" /><span>KappGen</span></a><p>L’assistant autonome qui gère ton réseau de chaînes YouTube, de l’idée à la publication.</p><div><a href="/privacy">Confidentialité</a><a href="/terms">Conditions</a><a href={appUrl('/login')}>Connexion</a></div><span>© {new Date().getFullYear()} KappGen. Tous droits réservés.</span></footer>
     </div>
   );
 }
