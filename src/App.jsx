@@ -4473,12 +4473,12 @@ export default function App() {
       const res = await authFetch(`${API_BASE}/videos/${vid.id}/thumbnail/regenerate`, { method: 'POST' });
       if (!res.ok) {
         const detail = await res.json().catch(() => ({}));
-        throw new Error(detail.detail || "Échec de la régénération de la vignette.");
+        throw new Error(detail.detail || "Échec de la régénération de la miniature.");
       }
       // thumbnail.jpg is overwritten in place — vid.finished_at doesn't change,
       // so the <img>/poster would keep serving the old cached file without this.
       setThumbnailBust(prev => ({ ...prev, [vid.id]: Date.now() }));
-      showToast('Vignette régénérée.', 'success');
+      showToast('Miniature régénérée.', 'success');
     } catch (err) {
       showToast(err.message, 'error');
     } finally {
@@ -5297,6 +5297,12 @@ export default function App() {
                               onClick={(e) => { if (videoSelectionMode) { e.stopPropagation(); toggleVideoSelected(vid.id); return; } vid.status === 'done' && setSelectedVideo(vid); }}
                               className={`aspect-[16/9] bg-slate-950 rounded-xl relative overflow-hidden border border-[var(--border)] flex items-center justify-center ${vid.status === 'done' ? 'cursor-pointer group' : ''}`}
                             >
+                              {regeneratingCardThumbnailId === vid.id && (
+                                <div className="absolute inset-0 z-20 bg-black/75 backdrop-blur-sm flex flex-col items-center justify-center gap-2">
+                                  <span className="material-symbols-outlined text-[32px] text-[#00c2ff] animate-spin">progress_activity</span>
+                                  <span className="text-[10px] font-bold text-white">Régénération de la miniature…</span>
+                                </div>
+                              )}
                               {vid.status === 'done' && vid.output_path ? (
                                 <>
                                   <video
@@ -5378,7 +5384,7 @@ export default function App() {
                                   )}
                                   {vid.status === 'done' && (
                                     <button disabled={regeneratingCardThumbnailId === vid.id} onClick={(e) => handleRegenerateCardThumbnail(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium disabled:opacity-50">
-                                      <span className={`material-symbols-outlined text-[16px] text-[#00c2ff] ${regeneratingCardThumbnailId === vid.id ? 'animate-spin' : ''}`}>{regeneratingCardThumbnailId === vid.id ? 'progress_activity' : 'photo_camera'}</span> {regeneratingCardThumbnailId === vid.id ? 'Régénération…' : 'Régénérer la vignette'}
+                                      <span className={`material-symbols-outlined text-[16px] text-[#00c2ff] ${regeneratingCardThumbnailId === vid.id ? 'animate-spin' : ''}`}>{regeneratingCardThumbnailId === vid.id ? 'progress_activity' : 'photo_camera'}</span> {regeneratingCardThumbnailId === vid.id ? 'Régénération…' : 'Régénérer la miniature'}
                                     </button>
                                   )}
                                   {vid.status === 'done' && vid.editable && (
@@ -5766,6 +5772,12 @@ export default function App() {
                             onClick={(e) => { if (videoSelectionMode) { e.stopPropagation(); toggleVideoSelected(vid.id); return; } vid.status === 'done' && setSelectedVideo(vid); }}
                             className={`aspect-[16/9] bg-slate-950 rounded-xl relative overflow-hidden border border-[var(--border)] flex items-center justify-center ${vid.status === 'done' ? 'cursor-pointer group' : ''}`}
                           >
+                            {regeneratingCardThumbnailId === vid.id && (
+                              <div className="absolute inset-0 z-20 bg-black/75 backdrop-blur-sm flex flex-col items-center justify-center gap-2">
+                                <span className="material-symbols-outlined text-[32px] text-[#00c2ff] animate-spin">progress_activity</span>
+                                <span className="text-[10px] font-bold text-white">Régénération de la miniature…</span>
+                              </div>
+                            )}
                             {vid.status === 'done' && vid.output_path ? (
                               <>
                                 <video
@@ -5846,7 +5858,7 @@ export default function App() {
                                 )}
                                 {vid.status === 'done' && (
                                   <button disabled={regeneratingCardThumbnailId === vid.id} onClick={(e) => handleRegenerateCardThumbnail(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium disabled:opacity-50">
-                                    <span className={`material-symbols-outlined text-[16px] text-[#00c2ff] ${regeneratingCardThumbnailId === vid.id ? 'animate-spin' : ''}`}>{regeneratingCardThumbnailId === vid.id ? 'progress_activity' : 'photo_camera'}</span> {regeneratingCardThumbnailId === vid.id ? 'Régénération…' : 'Régénérer la vignette'}
+                                    <span className={`material-symbols-outlined text-[16px] text-[#00c2ff] ${regeneratingCardThumbnailId === vid.id ? 'animate-spin' : ''}`}>{regeneratingCardThumbnailId === vid.id ? 'progress_activity' : 'photo_camera'}</span> {regeneratingCardThumbnailId === vid.id ? 'Régénération…' : 'Régénérer la miniature'}
                                   </button>
                                 )}
                                 {vid.status === 'done' && vid.editable && (
