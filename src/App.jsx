@@ -9407,7 +9407,7 @@ export default function App() {
 
               <div className="max-w-[650px] py-16">
                 <div className="inline-flex items-center gap-2 rounded-full border border-[#00c2ff]/20 bg-[#00c2ff]/5 px-3 py-2 text-[10px] font-bold tracking-[.14em] text-[#65dcff] mb-7">
-                  <span className="material-symbols-outlined text-[15px]">smart_toy</span> KAPPGEN AI · AUTOMATION YOUTUBE
+                  <span className="material-symbols-outlined text-[15px]">smart_toy</span> KAPPGEN AI · ACTIF 24 H/24
                 </div>
                 <h1 className="text-[clamp(3.2rem,5.6vw,6.2rem)] leading-[.96] tracking-[-.06em] font-extrabold m-0">
                   Tu dors.<br /><span className="text-transparent bg-clip-text bg-gradient-to-r from-[#67e1ff] via-[#22bfff] to-[#8484ff]">Ta chaîne avance.</span>
