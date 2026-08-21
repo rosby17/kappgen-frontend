@@ -4832,7 +4832,12 @@ export default function App() {
     if (!studioVideo || !studioScenes || !studioScenes.length) return;
     const paragraphs = studioFullScriptDraft.split(/\n\s*\n/).map(p => p.replace(/\s+/g, ' ').trim()).filter(Boolean);
     if (paragraphs.length !== studioScenes.length) {
-      showToast(`Le script doit garder ${studioScenes.length} paragraphes (un par scène) — actuellement ${paragraphs.length}. Sépare chaque scène par une ligne vide, sans en ajouter ni en retirer.`, 'error');
+      // Finding the exact spot is more useful than just the count on a
+      // 40+ scene script — the first paragraph that no longer matches its
+      // original scene text is right where a blank line got merged or added.
+      const firstMismatch = studioScenes.findIndex((scene, i) => (paragraphs[i] || '') !== (scene.text || '').trim());
+      const hint = firstMismatch === -1 ? '' : ` Ça part en décalage à partir de la scène ${firstMismatch + 1} — vérifie la ligne vide juste avant/après ce paragraphe.`;
+      showToast(`Le script doit garder ${studioScenes.length} paragraphes (un par scène) — actuellement ${paragraphs.length}.${hint}`, 'error');
       return;
     }
     setStudioSavingFullScript(true);
