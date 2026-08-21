@@ -2436,13 +2436,13 @@ export default function App() {
   const [newFolderName, setNewFolderName] = useState('');
   const [creatingFolder, setCreatingFolder] = useState(false);
   const [movingVideoId, setMovingVideoId] = useState(null);
+  const [draggedVideoId, setDraggedVideoId] = useState(null);
+  const [dragOverFolderId, setDragOverFolderId] = useState(null);
 
   const fetchFolders = async () => {
+    if (!currentUser) return;
     try {
-      const url = currentUser
-        ? `${API_BASE}/folders?user_id=${encodeURIComponent(currentUser.id)}`
-        : `${API_BASE}/folders`;
-      const res = await fetch(url);
+      const res = await authFetch(`${API_BASE}/folders`);
       if (!res.ok) throw new Error(`API ${res.status}`);
       setFolders(await res.json());
     } catch (e) {
@@ -2458,7 +2458,7 @@ export default function App() {
       const res = await authFetch(`${API_BASE}/folders`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, user_id: currentUser?.id || null }),
+        body: JSON.stringify({ name }),
       });
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || 'Échec de création');
       setNewFolderName('');
@@ -2856,7 +2856,7 @@ export default function App() {
   const fetchApiKeys = async () => {
     if (!currentUser) return;
     try {
-      const res = await authFetch(`${API_BASE}/api-keys?user_id=${currentUser.id}`);
+      const res = await authFetch(`${API_BASE}/api-keys`);
       if (res.ok) setApiKeys(await res.json());
     } catch (e) {
       console.error("Erreur chargement clés API:", e);
@@ -2959,7 +2959,7 @@ export default function App() {
       const res = await authFetch(`${API_BASE}/api-keys`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id: currentUser.id, name: newApiKeyName.trim() || 'Clé API' })
+        body: JSON.stringify({ name: newApiKeyName.trim() || 'Clé API' })
       });
       if (res.ok) {
         const created = await res.json();
@@ -5229,9 +5229,18 @@ export default function App() {
                 <div className="flex items-center gap-2 flex-wrap">
                   <button
                     onClick={() => setVideoFilterFolderId('all')}
+                    onDragOver={(e) => { if (draggedVideoId) { e.preventDefault(); setDragOverFolderId('all'); } }}
+                    onDragLeave={() => setDragOverFolderId(id => id === 'all' ? null : id)}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      setDragOverFolderId(null);
+                      const videoId = draggedVideoId || e.dataTransfer.getData('text/plain');
+                      setDraggedVideoId(null);
+                      if (videoId) moveVideoToFolder(videoId, null);
+                    }}
                     className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
                       videoFilterFolderId === 'all' ? 'bg-[#00c2ff] text-slate-950' : 'bg-[var(--bg-surface-alt)] text-slate-300 hover:text-white border border-[var(--border)]'
-                    }`}
+                    } ${dragOverFolderId === 'all' ? 'ring-2 ring-[#00c2ff] ring-offset-1 ring-offset-[var(--bg-page)]' : ''}`}
                   >
                     <span className="material-symbols-outlined text-[15px]">apps</span> Toutes ({allVideos.length})
                   </button>
@@ -5239,9 +5248,18 @@ export default function App() {
                     <button
                       key={f.id}
                       onClick={() => setVideoFilterFolderId(f.id)}
+                      onDragOver={(e) => { if (draggedVideoId) { e.preventDefault(); setDragOverFolderId(f.id); } }}
+                      onDragLeave={() => setDragOverFolderId(id => id === f.id ? null : id)}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        setDragOverFolderId(null);
+                        const videoId = draggedVideoId || e.dataTransfer.getData('text/plain');
+                        setDraggedVideoId(null);
+                        if (videoId) moveVideoToFolder(videoId, f.id);
+                      }}
                       className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
                         videoFilterFolderId === f.id ? 'bg-[#00c2ff] text-slate-950' : 'bg-[var(--bg-surface-alt)] text-slate-300 hover:text-white border border-[var(--border)]'
-                      }`}
+                      } ${dragOverFolderId === f.id ? 'ring-2 ring-[#00c2ff] ring-offset-1 ring-offset-[var(--bg-page)]' : ''}`}
                     >
                       <span className="material-symbols-outlined text-[15px]">folder</span> {f.name} ({f.video_count})
                     </button>
@@ -5290,9 +5308,12 @@ export default function App() {
                           <div
                             key={vid.id}
                             onClick={() => videoSelectionMode && toggleVideoSelected(vid.id)}
+                            draggable={!videoSelectionMode}
+                            onDragStart={(e) => { setDraggedVideoId(vid.id); e.dataTransfer.setData('text/plain', vid.id); e.dataTransfer.effectAllowed = 'move'; }}
+                            onDragEnd={() => { setDraggedVideoId(null); setDragOverFolderId(null); }}
                             className={`bg-[var(--bg-surface)] hover:bg-[var(--bg-hover)] border rounded-2xl p-4 transition-all group flex flex-col justify-between shadow-lg relative card-warm-hover video-menu-container ${
-                              videoSelectionMode ? 'cursor-pointer ' + (isSelected ? 'border-[#00c2ff]' : 'border-[var(--border-soft)]') : 'border-[var(--border-soft)] hover:border-[#00c2ff]/40'
-                            }`}
+                              videoSelectionMode ? 'cursor-pointer ' + (isSelected ? 'border-[#00c2ff]' : 'border-[var(--border-soft)]') : 'border-[var(--border-soft)] hover:border-[#00c2ff]/40 cursor-grab active:cursor-grabbing'
+                            } ${draggedVideoId === vid.id ? 'opacity-40' : ''}`}
                           >
                             {videoSelectionMode && (
                               <div className={`absolute top-2.5 left-2.5 z-10 w-5 h-5 rounded-md border-2 flex items-center justify-center ${isSelected ? 'bg-[#00c2ff] border-[#00c2ff]' : 'bg-slate-950/70 border-slate-500'}`}>
