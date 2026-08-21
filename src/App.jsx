@@ -3925,8 +3925,7 @@ export default function App() {
         }
         saved = await res.json();
       } else {
-        const url = currentUser ? `${API_BASE}/channels?user_id=${currentUser.id}` : `${API_BASE}/channels`;
-        const res = await fetch(url, {
+        const res = await authFetch(`${API_BASE}/channels`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(newChannel)
