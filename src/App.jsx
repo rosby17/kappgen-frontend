@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { Navigate, useNavigate, useLocation, useParams } from 'react-router-dom';
 import freedomSunrise from './assets/dashboard/freedom-sunrise.png';
 
@@ -1776,6 +1777,39 @@ const resolveEffectiveTheme = (pref) => {
   return (typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) ? 'light' : 'dark';
 };
 
+// Dependency-free line chart for the admin overview — two series (new users,
+// new videos) over a day range, drawn as plain SVG paths so this doesn't need
+// a charting library for one dashboard graph.
+function AdminActivityChart({ series }) {
+  if (!series || series.length === 0) return <p className="text-xs text-slate-500 py-10 text-center">Aucune donnée.</p>;
+
+  const width = 100;
+  const height = 40;
+  const maxVal = Math.max(1, ...series.map(d => Math.max(d.new_users, d.new_videos)));
+  const stepX = series.length > 1 ? width / (series.length - 1) : 0;
+  const toPoints = (key) => series.map((d, i) => `${i * stepX},${height - (d[key] / maxVal) * height}`).join(' ');
+
+  const labelEvery = Math.max(1, Math.ceil(series.length / 7));
+
+  return (
+    <div>
+      <svg viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" className="w-full h-40">
+        <polyline points={toPoints('new_videos')} fill="none" stroke="#00c2ff" strokeWidth="1" vectorEffect="non-scaling-stroke" />
+        <polyline points={toPoints('new_users')} fill="none" stroke="#f59e0b" strokeWidth="1" vectorEffect="non-scaling-stroke" />
+      </svg>
+      <div className="flex justify-between mt-2 text-[10px] text-slate-500">
+        {series.map((d, i) => (i % labelEvery === 0 || i === series.length - 1) ? (
+          <span key={d.date}>{new Date(d.date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}</span>
+        ) : null)}
+      </div>
+      <div className="flex items-center gap-4 mt-3">
+        <div className="flex items-center gap-1.5 text-[11px] text-slate-400"><span className="w-2.5 h-2.5 rounded-full bg-[#00c2ff]" />Nouvelles vidéos</div>
+        <div className="flex items-center gap-1.5 text-[11px] text-slate-400"><span className="w-2.5 h-2.5 rounded-full bg-amber-500" />Nouveaux utilisateurs</div>
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -1833,6 +1867,19 @@ export default function App() {
   const profileMenuRef = useRef(null);
   const [openChannelMenuId, setOpenChannelMenuId] = useState(null);
   const [openVideoMenuId, setOpenVideoMenuId] = useState(null);
+  // The video-actions dropdown is portaled to <body> (see videoMenuAnchor
+  // below) so it isn't clipped by the scrollable video grid's overflow —
+  // fixed-position coordinates computed from the kebab button's own rect
+  // at click time, since a plain CSS dropdown gets cut off by any
+  // scrolling/overflow-hidden ancestor regardless of z-index.
+  const [videoMenuAnchor, setVideoMenuAnchor] = useState(null);
+  const openVideoMenu = (vidId, e) => {
+    e.stopPropagation();
+    if (openVideoMenuId === vidId) { setOpenVideoMenuId(null); return; }
+    const rect = e.currentTarget.getBoundingClientRect();
+    setVideoMenuAnchor({ top: rect.bottom + 6, right: window.innerWidth - rect.right });
+    setOpenVideoMenuId(vidId);
+  };
   const [publishingVideoId, setPublishingVideoId] = useState(null);
   const [publishReviewVideo, setPublishReviewVideo] = useState(null);
   const [publishTitleDraft, setPublishTitleDraft] = useState('');
@@ -3694,7 +3741,7 @@ export default function App() {
   // Admin dashboard state — all fetched/mutated via /api/admin/* (server-side
   // gated on is_admin; the client-side currentUser.is_admin check just hides
   // the nav entry, it isn't itself a security boundary).
-  const [adminTab, setAdminTab] = useState('users'); // 'users' | 'plans'
+  const [adminTab, setAdminTab] = useState('overview'); // 'overview' | 'users' | 'plans' | 'videos' | 'transactions'
   const [adminUsers, setAdminUsers] = useState([]);
   const [adminUsersLoading, setAdminUsersLoading] = useState(false);
   const [adminSearch, setAdminSearch] = useState('');
@@ -3705,6 +3752,12 @@ export default function App() {
   const [adminGranting, setAdminGranting] = useState(false);
   const [adminNewPlan, setAdminNewPlan] = useState({ name: '', price_fcfa: '', duration_days: 30 });
   const [adminCreatingPlan, setAdminCreatingPlan] = useState(false);
+  const [adminActivity, setAdminActivity] = useState(null);
+  const [adminVideos, setAdminVideos] = useState([]);
+  const [adminVideosLoading, setAdminVideosLoading] = useState(false);
+  const [adminVideoSearch, setAdminVideoSearch] = useState('');
+  const [adminOrders, setAdminOrders] = useState([]);
+  const [adminOrdersLoading, setAdminOrdersLoading] = useState(false);
 
   // Billing (subscription) tab, under Paramètres — public plan list + this
   // user's current subscription status + checkout kickoff.
@@ -3789,14 +3842,16 @@ export default function App() {
   const fetchAdminData = async () => {
     setAdminUsersLoading(true);
     try {
-      const [usersRes, plansRes, statsRes] = await Promise.all([
+      const [usersRes, plansRes, statsRes, activityRes] = await Promise.all([
         authFetch(`${API_BASE}/admin/users${adminSearch ? `?q=${encodeURIComponent(adminSearch)}` : ''}`),
         authFetch(`${API_BASE}/admin/plans`),
         authFetch(`${API_BASE}/admin/stats`),
+        authFetch(`${API_BASE}/admin/activity`),
       ]);
       if (usersRes.ok) setAdminUsers(await usersRes.json());
       if (plansRes.ok) setAdminPlans(await plansRes.json());
       if (statsRes.ok) setAdminStats(await statsRes.json());
+      if (activityRes.ok) setAdminActivity(await activityRes.json());
     } catch (err) {
       console.error("Erreur chargement admin:", err);
     } finally {
@@ -3804,9 +3859,53 @@ export default function App() {
     }
   };
 
+  const fetchAdminVideos = async () => {
+    setAdminVideosLoading(true);
+    try {
+      const res = await authFetch(`${API_BASE}/admin/videos${adminVideoSearch ? `?q=${encodeURIComponent(adminVideoSearch)}` : ''}`);
+      if (res.ok) setAdminVideos(await res.json());
+    } catch (err) {
+      console.error("Erreur chargement vidéos admin:", err);
+    } finally {
+      setAdminVideosLoading(false);
+    }
+  };
+
+  const deleteAdminVideo = async (videoId) => {
+    if (!window.confirm("Supprimer définitivement cette vidéo ?")) return;
+    try {
+      const res = await authFetch(`${API_BASE}/admin/videos/${videoId}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || 'Échec de la suppression');
+      setAdminVideos(prev => prev.filter(v => v.id !== videoId));
+      showToast('Vidéo supprimée.', 'success');
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  };
+
+  const fetchAdminOrders = async () => {
+    setAdminOrdersLoading(true);
+    try {
+      const res = await authFetch(`${API_BASE}/admin/orders`);
+      if (res.ok) setAdminOrders(await res.json());
+    } catch (err) {
+      console.error("Erreur chargement transactions admin:", err);
+    } finally {
+      setAdminOrdersLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (view === 'admin' && currentUser?.is_admin) fetchAdminData();
   }, [view, currentUser?.is_admin]);
+
+  useEffect(() => {
+    if (view === 'admin' && currentUser?.is_admin && adminTab === 'videos') fetchAdminVideos();
+  }, [view, currentUser?.is_admin, adminTab]);
+
+  useEffect(() => {
+    if (view === 'admin' && currentUser?.is_admin && adminTab === 'transactions') fetchAdminOrders();
+  }, [view, currentUser?.is_admin, adminTab]);
 
   const openAdminUser = async (userId) => {
     try {
@@ -4785,86 +4884,177 @@ export default function App() {
       <nav className="hidden md:flex flex-col bg-[var(--bg-surface-soft)] text-primary font-label-bold text-label-bold fixed left-0 top-0 h-screen w-[240px] z-40 border-r border-[var(--border-soft)] py-6 justify-between">
 
         <div>
-          {/* Brand Logo Header */}
-          <div className="px-6 mb-3 flex items-center gap-3 cursor-pointer" onClick={() => setView('home')}>
-            <img src="/assets/logo/logo-kappgen.png" alt="KappGen" className="w-9 h-9 rounded-xl shadow-lg shadow-[#00c2ff]/20 object-cover" />
-            <div>
-              <div className="font-title-sm text-base font-black text-white tracking-wide">KappGen</div>
-              <div className="text-slate-400 text-xs font-normal">Video Automation</div>
-            </div>
-          </div>
-
-          {/* Product Switcher */}
-          <div className="px-3 mb-8 relative">
-            <button
-              onClick={() => setProductMenuOpen(o => !o)}
-              className="w-full px-3 py-2 flex items-center gap-2 rounded-xl bg-[var(--bg-surface-alt)] hover:bg-[var(--bg-dropdown)] border border-[var(--border)] transition-colors text-left"
-            >
-              <span className="material-symbols-outlined text-[16px] text-[#00c2ff] flex-shrink-0">{NICHECUT_PRODUCTS.find(p => p.id === activeProduct)?.icon}</span>
-              <span className="min-w-0 flex-1 text-xs font-bold text-white truncate">
-                {NICHECUT_PRODUCTS.find(p => p.id === activeProduct)?.label}
-              </span>
-              <span className={`material-symbols-outlined text-[16px] text-slate-400 transition-transform ${productMenuOpen ? 'rotate-180' : ''}`}>expand_more</span>
-            </button>
-
-            {productMenuOpen && (
-              <div className="absolute left-3 right-3 top-full mt-1.5 bg-[var(--bg-dropdown)] border border-[var(--border-dropdown)] rounded-xl shadow-2xl z-50 py-1.5 overflow-hidden">
-                {NICHECUT_PRODUCTS.map(p => (
-                  <button
-                    key={p.id}
-                    onClick={() => { setActiveProduct(p.id); setProductMenuOpen(false); setView('home'); }}
-                    className="w-full text-left px-3.5 py-2.5 text-xs font-medium flex items-center gap-2.5 hover:bg-[var(--bg-hover)] transition-colors"
-                  >
-                    <span className={`material-symbols-outlined text-[18px] ${p.id === activeProduct ? 'text-[#00c2ff]' : 'text-slate-400'}`}>{p.icon}</span>
-                    <span className={`flex-1 ${p.id === activeProduct ? 'text-white font-bold' : 'text-slate-300'}`}>{p.label}</span>
-                    {!p.available && (
-                      <span className="text-[9px] font-bold uppercase tracking-wide text-amber-400 bg-amber-400/10 px-1.5 py-0.5 rounded">Bientôt</span>
-                    )}
-                    {p.id === activeProduct && <span className="material-symbols-outlined text-[16px] text-[#00c2ff]">check</span>}
-                  </button>
-                ))}
+          {/* Brand Logo Header — swaps to an "Admin / Back Office" identity
+              while in the admin view, same idea as iziVoice's admin panel,
+              so it visually reads as a distinct back office rather than the
+              regular app shell with an extra tab bolted on. */}
+          {view === 'admin' ? (
+            <div className="px-6 mb-6 flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-[#00c2ff]/15 border border-[#00c2ff]/30 flex items-center justify-center flex-shrink-0">
+                <span className="material-symbols-outlined text-[#00c2ff] text-[20px]">shield_person</span>
               </div>
-            )}
-          </div>
+              <div>
+                <div className="font-title-sm text-base font-black text-white tracking-wide">KappGen Admin</div>
+                <div className="text-slate-400 text-xs font-normal">Back Office</div>
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="px-6 mb-3 flex items-center gap-3 cursor-pointer" onClick={() => setView('home')}>
+                <img src="/assets/logo/logo-kappgen.png" alt="KappGen" className="w-9 h-9 rounded-xl shadow-lg shadow-[#00c2ff]/20 object-cover" />
+                <div>
+                  <div className="font-title-sm text-base font-black text-white tracking-wide">KappGen</div>
+                  <div className="text-slate-400 text-xs font-normal">Video Automation</div>
+                </div>
+              </div>
+
+              {/* Product Switcher */}
+              <div className="px-3 mb-8 relative">
+                <button
+                  onClick={() => setProductMenuOpen(o => !o)}
+                  className="w-full px-3 py-2 flex items-center gap-2 rounded-xl bg-[var(--bg-surface-alt)] hover:bg-[var(--bg-dropdown)] border border-[var(--border)] transition-colors text-left"
+                >
+                  <span className="material-symbols-outlined text-[16px] text-[#00c2ff] flex-shrink-0">{NICHECUT_PRODUCTS.find(p => p.id === activeProduct)?.icon}</span>
+                  <span className="min-w-0 flex-1 text-xs font-bold text-white truncate">
+                    {NICHECUT_PRODUCTS.find(p => p.id === activeProduct)?.label}
+                  </span>
+                  <span className={`material-symbols-outlined text-[16px] text-slate-400 transition-transform ${productMenuOpen ? 'rotate-180' : ''}`}>expand_more</span>
+                </button>
+
+                {productMenuOpen && (
+                  <div className="absolute left-3 right-3 top-full mt-1.5 bg-[var(--bg-dropdown)] border border-[var(--border-dropdown)] rounded-xl shadow-2xl z-50 py-1.5 overflow-hidden">
+                    {NICHECUT_PRODUCTS.map(p => (
+                      <button
+                        key={p.id}
+                        onClick={() => { setActiveProduct(p.id); setProductMenuOpen(false); setView('home'); }}
+                        className="w-full text-left px-3.5 py-2.5 text-xs font-medium flex items-center gap-2.5 hover:bg-[var(--bg-hover)] transition-colors"
+                      >
+                        <span className={`material-symbols-outlined text-[18px] ${p.id === activeProduct ? 'text-[#00c2ff]' : 'text-slate-400'}`}>{p.icon}</span>
+                        <span className={`flex-1 ${p.id === activeProduct ? 'text-white font-bold' : 'text-slate-300'}`}>{p.label}</span>
+                        {!p.available && (
+                          <span className="text-[9px] font-bold uppercase tracking-wide text-amber-400 bg-amber-400/10 px-1.5 py-0.5 rounded">Bientôt</span>
+                        )}
+                        {p.id === activeProduct && <span className="material-symbols-outlined text-[16px] text-[#00c2ff]">check</span>}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
 
           {/* Navigation Links - Single Active Item Highlighted */}
-          <div className="px-3 space-y-1.5">
-            <button 
-              onClick={() => setView('home')}
-              className={`w-full flex items-center gap-3.5 px-4 py-3 cursor-pointer rounded-xl transition-all font-medium text-sm ${
-                (view === 'home' || view === 'dashboard') 
-                  ? 'bg-gradient-to-r from-[#00c2ff] to-[#0099ff] text-slate-950 font-bold shadow-md shadow-[#00c2ff]/20' 
-                  : 'text-slate-300 hover:bg-[var(--bg-dropdown)] hover:text-white'
-              }`}
-            >
-              <span className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: (view === 'home' || view === 'dashboard') ? "'FILL' 1" : "'FILL' 0" }}>home</span>
-              Home
-            </button>
+          {view === 'admin' ? (
+            <div className="px-3 space-y-1.5">
+              <button
+                onClick={() => setView('home')}
+                className="w-full flex items-center gap-3.5 px-4 py-3 cursor-pointer rounded-xl transition-all font-medium text-sm text-slate-300 hover:bg-[var(--bg-dropdown)] hover:text-white mb-2"
+              >
+                <span className="material-symbols-outlined text-[20px]">arrow_back</span>
+                Retour à l'app
+              </button>
 
-            <button
-              onClick={() => setView('channels')}
-              className={`w-full flex items-center gap-3.5 px-4 py-3 cursor-pointer rounded-xl transition-all font-medium text-sm ${
-                (view === 'channels' || view === 'channel_detail') 
-                  ? 'bg-gradient-to-r from-[#00c2ff] to-[#0099ff] text-slate-950 font-bold shadow-md shadow-[#00c2ff]/20' 
-                  : 'text-slate-300 hover:bg-[var(--bg-dropdown)] hover:text-white'
-              }`}
-            >
-              <span className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: (view === 'channels' || view === 'channel_detail') ? "'FILL' 1" : "'FILL' 0" }}>subscriptions</span>
-              Mes Chaînes
-            </button>
+              <div className="px-4 pb-1 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Administration</div>
 
-            <button
-              onClick={() => setView('videos')}
-              className={`w-full flex items-center gap-3.5 px-4 py-3 cursor-pointer rounded-xl transition-all font-medium text-sm ${
-                view === 'videos' 
-                  ? 'bg-gradient-to-r from-[#00c2ff] to-[#0099ff] text-slate-950 font-bold shadow-md shadow-[#00c2ff]/20' 
-                  : 'text-slate-300 hover:bg-[var(--bg-dropdown)] hover:text-white'
-              }`}
-            >
-              <span className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: view === 'videos' ? "'FILL' 1" : "'FILL' 0" }}>movie</span>
-              Mes Vidéos
-            </button>
-          </div>
+              <button
+                onClick={() => setAdminTab('overview')}
+                className={`w-full flex items-center gap-3.5 px-4 py-3 cursor-pointer rounded-xl transition-all font-medium text-sm ${
+                  adminTab === 'overview'
+                    ? 'bg-gradient-to-r from-[#00c2ff] to-[#0099ff] text-slate-950 font-bold shadow-md shadow-[#00c2ff]/20'
+                    : 'text-slate-300 hover:bg-[var(--bg-dropdown)] hover:text-white'
+                }`}
+              >
+                <span className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: adminTab === 'overview' ? "'FILL' 1" : "'FILL' 0" }}>dashboard</span>
+                Vue d'ensemble
+              </button>
+
+              <button
+                onClick={() => setAdminTab('users')}
+                className={`w-full flex items-center gap-3.5 px-4 py-3 cursor-pointer rounded-xl transition-all font-medium text-sm ${
+                  adminTab === 'users'
+                    ? 'bg-gradient-to-r from-[#00c2ff] to-[#0099ff] text-slate-950 font-bold shadow-md shadow-[#00c2ff]/20'
+                    : 'text-slate-300 hover:bg-[var(--bg-dropdown)] hover:text-white'
+                }`}
+              >
+                <span className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: adminTab === 'users' ? "'FILL' 1" : "'FILL' 0" }}>group</span>
+                Utilisateurs
+              </button>
+
+              <button
+                onClick={() => setAdminTab('plans')}
+                className={`w-full flex items-center gap-3.5 px-4 py-3 cursor-pointer rounded-xl transition-all font-medium text-sm ${
+                  adminTab === 'plans'
+                    ? 'bg-gradient-to-r from-[#00c2ff] to-[#0099ff] text-slate-950 font-bold shadow-md shadow-[#00c2ff]/20'
+                    : 'text-slate-300 hover:bg-[var(--bg-dropdown)] hover:text-white'
+                }`}
+              >
+                <span className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: adminTab === 'plans' ? "'FILL' 1" : "'FILL' 0" }}>sell</span>
+                Offres
+              </button>
+
+              <button
+                onClick={() => setAdminTab('videos')}
+                className={`w-full flex items-center gap-3.5 px-4 py-3 cursor-pointer rounded-xl transition-all font-medium text-sm ${
+                  adminTab === 'videos'
+                    ? 'bg-gradient-to-r from-[#00c2ff] to-[#0099ff] text-slate-950 font-bold shadow-md shadow-[#00c2ff]/20'
+                    : 'text-slate-300 hover:bg-[var(--bg-dropdown)] hover:text-white'
+                }`}
+              >
+                <span className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: adminTab === 'videos' ? "'FILL' 1" : "'FILL' 0" }}>movie</span>
+                Vidéos
+              </button>
+
+              <button
+                onClick={() => setAdminTab('transactions')}
+                className={`w-full flex items-center gap-3.5 px-4 py-3 cursor-pointer rounded-xl transition-all font-medium text-sm ${
+                  adminTab === 'transactions'
+                    ? 'bg-gradient-to-r from-[#00c2ff] to-[#0099ff] text-slate-950 font-bold shadow-md shadow-[#00c2ff]/20'
+                    : 'text-slate-300 hover:bg-[var(--bg-dropdown)] hover:text-white'
+                }`}
+              >
+                <span className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: adminTab === 'transactions' ? "'FILL' 1" : "'FILL' 0" }}>payments</span>
+                Transactions
+              </button>
+            </div>
+          ) : (
+            <div className="px-3 space-y-1.5">
+              <button
+                onClick={() => setView('home')}
+                className={`w-full flex items-center gap-3.5 px-4 py-3 cursor-pointer rounded-xl transition-all font-medium text-sm ${
+                  (view === 'home' || view === 'dashboard')
+                    ? 'bg-gradient-to-r from-[#00c2ff] to-[#0099ff] text-slate-950 font-bold shadow-md shadow-[#00c2ff]/20'
+                    : 'text-slate-300 hover:bg-[var(--bg-dropdown)] hover:text-white'
+                }`}
+              >
+                <span className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: (view === 'home' || view === 'dashboard') ? "'FILL' 1" : "'FILL' 0" }}>home</span>
+                Home
+              </button>
+
+              <button
+                onClick={() => setView('channels')}
+                className={`w-full flex items-center gap-3.5 px-4 py-3 cursor-pointer rounded-xl transition-all font-medium text-sm ${
+                  (view === 'channels' || view === 'channel_detail')
+                    ? 'bg-gradient-to-r from-[#00c2ff] to-[#0099ff] text-slate-950 font-bold shadow-md shadow-[#00c2ff]/20'
+                    : 'text-slate-300 hover:bg-[var(--bg-dropdown)] hover:text-white'
+                }`}
+              >
+                <span className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: (view === 'channels' || view === 'channel_detail') ? "'FILL' 1" : "'FILL' 0" }}>subscriptions</span>
+                Mes Chaînes
+              </button>
+
+              <button
+                onClick={() => setView('videos')}
+                className={`w-full flex items-center gap-3.5 px-4 py-3 cursor-pointer rounded-xl transition-all font-medium text-sm ${
+                  view === 'videos'
+                    ? 'bg-gradient-to-r from-[#00c2ff] to-[#0099ff] text-slate-950 font-bold shadow-md shadow-[#00c2ff]/20'
+                    : 'text-slate-300 hover:bg-[var(--bg-dropdown)] hover:text-white'
+                }`}
+              >
+                <span className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: view === 'videos' ? "'FILL' 1" : "'FILL' 0" }}>movie</span>
+                Mes Vidéos
+              </button>
+            </div>
+          )}
         </div>
 
       </nav>
@@ -5517,14 +5707,14 @@ export default function App() {
                                 dropdown (incl. "Supprimer") is never clipped by its overflow-hidden */}
                             <div className="absolute top-6 right-6 z-20">
                               <button
-                                onClick={(e) => { e.stopPropagation(); setOpenVideoMenuId(openVideoMenuId === vid.id ? null : vid.id); }}
+                                onClick={(e) => openVideoMenu(vid.id, e)}
                                 className="p-1.5 rounded-lg bg-slate-950/80 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-700/80 transition-colors shadow-md"
                                 title="Actions vidéo"
                               >
                                 <span className="material-symbols-outlined text-[16px]">more_vert</span>
                               </button>
-                              {openVideoMenuId === vid.id && (
-                                <div className="absolute right-0 top-9 w-44 bg-[var(--bg-dropdown)] border border-[var(--border-dropdown)] rounded-xl shadow-2xl z-50 py-1.5">
+                              {openVideoMenuId === vid.id && videoMenuAnchor && createPortal(
+                                <div style={{ position: 'fixed', top: videoMenuAnchor.top, right: videoMenuAnchor.right }} className="video-menu-container w-44 bg-[var(--bg-dropdown)] border border-[var(--border-dropdown)] rounded-xl shadow-2xl z-[100] py-1.5">
                                   {vid.status === 'done' && (
                                     <button onClick={(e) => openRenameModal(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium">
                                       <span className="material-symbols-outlined text-[16px] text-[#00c2ff]">drive_file_rename_outline</span> Renommer
@@ -5601,7 +5791,8 @@ export default function App() {
                                   <button onClick={(e) => handleDeleteVideo(vid.id, e)} className="w-full text-left px-4 py-2.5 text-xs text-rose-400 hover:bg-rose-950/50 flex items-center gap-2 font-medium">
                                     <span className="material-symbols-outlined text-[16px]">delete</span> Supprimer
                                   </button>
-                                </div>
+                                </div>,
+                                document.body
                               )}
                             </div>
 
@@ -5991,14 +6182,14 @@ export default function App() {
                           {/* Kebab Menu — outside the poster's overflow-hidden so "Supprimer" is never clipped */}
                           <div className="absolute top-6 right-6 z-20">
                             <button
-                              onClick={(e) => { e.stopPropagation(); setOpenVideoMenuId(openVideoMenuId === vid.id ? null : vid.id); }}
+                              onClick={(e) => openVideoMenu(vid.id, e)}
                               className="p-1.5 rounded-lg bg-slate-950/80 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-700/80 transition-colors shadow-md"
                               title="Actions vidéo"
                             >
                               <span className="material-symbols-outlined text-[16px]">more_vert</span>
                             </button>
-                            {openVideoMenuId === vid.id && (
-                              <div className="absolute right-0 top-9 w-44 bg-[var(--bg-dropdown)] border border-[var(--border-dropdown)] rounded-xl shadow-2xl z-50 py-1.5">
+                            {openVideoMenuId === vid.id && videoMenuAnchor && createPortal(
+                              <div style={{ position: 'fixed', top: videoMenuAnchor.top, right: videoMenuAnchor.right }} className="video-menu-container w-44 bg-[var(--bg-dropdown)] border border-[var(--border-dropdown)] rounded-xl shadow-2xl z-[100] py-1.5">
                                 {vid.status === 'done' && (
                                   <button disabled={regeneratingTitleId === vid.id} onClick={(e) => handleRegenerateTitle(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium disabled:opacity-50">
                                     <span className={`material-symbols-outlined text-[16px] text-[#00c2ff] ${regeneratingTitleId === vid.id ? 'animate-spin' : ''}`}>{regeneratingTitleId === vid.id ? 'progress_activity' : 'auto_awesome'}</span> {regeneratingTitleId === vid.id ? 'Régénération…' : 'Régénérer le titre'}
@@ -6046,7 +6237,8 @@ export default function App() {
                                 <button onClick={(e) => handleDeleteVideo(vid.id, e)} className="w-full text-left px-4 py-2.5 text-xs text-rose-400 hover:bg-rose-950/50 flex items-center gap-2 font-medium">
                                   <span className="material-symbols-outlined text-[16px]">delete</span> Supprimer
                                 </button>
-                              </div>
+                              </div>,
+                              document.body
                             )}
                           </div>
 
@@ -8482,40 +8674,69 @@ export default function App() {
         <div className="max-w-[1200px] mx-auto space-y-6">
           <div>
             <h2 className="text-xl font-extrabold text-white flex items-center gap-2">
-              <span className="material-symbols-outlined text-[#00c2ff]">shield_person</span>
-              Administration
+              <span className="material-symbols-outlined text-[#00c2ff]">
+                {{ overview: 'dashboard', users: 'group', plans: 'sell', videos: 'movie', transactions: 'payments' }[adminTab]}
+              </span>
+              {{ overview: "Vue d'ensemble", users: 'Utilisateurs', plans: 'Offres', videos: 'Vidéos', transactions: 'Transactions' }[adminTab]}
             </h2>
-            <p className="text-xs text-slate-400 mt-1">Utilisateurs, abonnements et offres KappGen.</p>
+            <p className="text-xs text-slate-400 mt-1">
+              {{
+                overview: 'Tableau de bord administrateur KappGen.',
+                users: 'Gère les comptes, quotas et abonnements des créateurs.',
+                plans: "Configure les offres d'abonnement proposées à la vente.",
+                videos: 'Toutes les vidéos générées sur la plateforme.',
+                transactions: 'Historique des paiements Maketou et Tara Money.',
+              }[adminTab]}
+            </p>
           </div>
 
-          {adminStats && (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              {[
-                { label: 'Utilisateurs', value: adminStats.total_users, icon: 'group' },
-                { label: 'Abonnements actifs', value: adminStats.active_subscriptions, icon: 'workspace_premium' },
-                { label: 'Revenu total', value: `${adminStats.total_revenue_fcfa.toLocaleString()} FCFA`, icon: 'payments' },
-                { label: 'Vidéos aujourd\'hui', value: `${adminStats.videos_today} / ${adminStats.total_videos}`, icon: 'movie' },
-              ].map(s => (
-                <div key={s.label} className="bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-2xl p-4">
-                  <span className="material-symbols-outlined text-[#00c2ff] text-[20px]">{s.icon}</span>
-                  <div className="text-xl font-extrabold text-white mt-2">{s.value}</div>
-                  <div className="text-[11px] text-slate-400">{s.label}</div>
+          {adminTab === 'overview' && (
+            <div className="space-y-6">
+              {adminStats && (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  {[
+                    { label: 'Utilisateurs', value: adminStats.total_users, icon: 'group' },
+                    { label: 'Abonnements actifs', value: adminStats.active_subscriptions, icon: 'workspace_premium' },
+                    { label: 'Revenu total', value: `${adminStats.total_revenue_fcfa.toLocaleString()} FCFA`, icon: 'payments' },
+                    { label: 'Vidéos aujourd\'hui', value: `${adminStats.videos_today} / ${adminStats.total_videos}`, icon: 'movie' },
+                  ].map(s => (
+                    <div key={s.label} className="bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-2xl p-4">
+                      <span className="material-symbols-outlined text-[#00c2ff] text-[20px]">{s.icon}</span>
+                      <div className="text-xl font-extrabold text-white mt-2">{s.value}</div>
+                      <div className="text-[11px] text-slate-400">{s.label}</div>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              )}
+
+              <div className="grid grid-cols-1 lg:grid-cols-[1fr_260px] gap-4">
+                <div className="bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-2xl p-5">
+                  <div className="text-sm font-bold text-white mb-1">Activité des 28 derniers jours</div>
+                  <div className="text-[11px] text-slate-500 mb-4">Nouveaux utilisateurs et vidéos générées, par jour.</div>
+                  {adminActivity ? (
+                    <AdminActivityChart series={adminActivity.series} />
+                  ) : (
+                    <p className="text-xs text-slate-500 py-10 text-center">Chargement...</p>
+                  )}
+                </div>
+
+                <div className="bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-2xl p-5 space-y-5">
+                  <div className="flex items-center gap-1.5 text-[11px] font-bold text-emerald-400">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                    Temps réel
+                  </div>
+                  <div>
+                    <div className="text-2xl font-extrabold text-white">{adminActivity?.users_total ?? '—'}</div>
+                    <div className="text-[11px] text-slate-400">Utilisateurs inscrits</div>
+                  </div>
+                  <div>
+                    <div className="text-2xl font-extrabold text-white">{adminActivity?.videos_last_48h ?? '—'}</div>
+                    <div className="text-[11px] text-slate-400">Vidéos générées · dernières 48h</div>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
-
-          <div className="flex items-center gap-1 bg-[var(--bg-input-alt)] border border-[var(--border)] rounded-xl p-1 w-fit">
-            {[{ id: 'users', label: 'Utilisateurs' }, { id: 'plans', label: 'Offres' }].map(t => (
-              <button
-                key={t.id}
-                onClick={() => setAdminTab(t.id)}
-                className={`px-4 py-2 rounded-lg text-xs font-bold transition-colors ${adminTab === t.id ? 'bg-[#00c2ff] text-slate-950' : 'text-slate-400 hover:text-white'}`}
-              >
-                {t.label}
-              </button>
-            ))}
-          </div>
 
           {adminTab === 'users' && (
             <div className="bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-2xl overflow-hidden">
@@ -8603,6 +8824,100 @@ export default function App() {
                   </div>
                 ))}
                 {adminPlans.length === 0 && <p className="text-xs text-slate-500 text-center py-4">Aucune offre créée.</p>}
+              </div>
+            </div>
+          )}
+
+          {adminTab === 'videos' && (
+            <div className="bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-2xl overflow-hidden">
+              <div className="p-4 border-b border-[var(--border-soft)]">
+                <input
+                  value={adminVideoSearch}
+                  onChange={e => setAdminVideoSearch(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && fetchAdminVideos()}
+                  placeholder="Rechercher par titre, chaîne ou email..."
+                  className="w-full max-w-xs bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-3 py-2 text-xs text-white focus:border-[#00c2ff] outline-none"
+                />
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="text-left text-slate-500 border-b border-[var(--border-soft)]">
+                      <th className="px-4 py-2.5 font-bold">Titre</th>
+                      <th className="px-4 py-2.5 font-bold">Chaîne</th>
+                      <th className="px-4 py-2.5 font-bold">Propriétaire</th>
+                      <th className="px-4 py-2.5 font-bold">Statut</th>
+                      <th className="px-4 py-2.5 font-bold">Créée le</th>
+                      <th className="px-4 py-2.5"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {adminVideosLoading ? (
+                      <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-500">Chargement...</td></tr>
+                    ) : adminVideos.length === 0 ? (
+                      <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-500">Aucune vidéo.</td></tr>
+                    ) : adminVideos.map(v => (
+                      <tr key={v.id} className="border-b border-[var(--border-subtle)] hover:bg-[var(--bg-surface-alt)]/60">
+                        <td className="px-4 py-2.5 text-white font-medium max-w-[280px] truncate">{v.title || '(sans titre)'}</td>
+                        <td className="px-4 py-2.5 text-slate-300">{v.channel_name || '—'}</td>
+                        <td className="px-4 py-2.5 text-slate-400">{v.owner_email || '—'}</td>
+                        <td className="px-4 py-2.5">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                            v.status === 'done' ? 'bg-emerald-950/60 text-emerald-400' :
+                            v.status === 'failed' ? 'bg-rose-950/60 text-rose-400' :
+                            'bg-[var(--bg-surface-alt)] text-slate-400'
+                          }`}>{v.status}</span>
+                        </td>
+                        <td className="px-4 py-2.5 text-slate-400">{v.created_at ? new Date(v.created_at).toLocaleDateString('fr-FR') : '—'}</td>
+                        <td className="px-4 py-2.5 text-right">
+                          <button onClick={() => deleteAdminVideo(v.id)} className="text-rose-400 font-bold hover:underline">Supprimer</button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {adminTab === 'transactions' && (
+            <div className="bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-2xl overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="text-left text-slate-500 border-b border-[var(--border-soft)]">
+                      <th className="px-4 py-2.5 font-bold">Utilisateur</th>
+                      <th className="px-4 py-2.5 font-bold">Offre</th>
+                      <th className="px-4 py-2.5 font-bold">Montant</th>
+                      <th className="px-4 py-2.5 font-bold">Fournisseur</th>
+                      <th className="px-4 py-2.5 font-bold">Statut</th>
+                      <th className="px-4 py-2.5 font-bold">Date</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {adminOrdersLoading ? (
+                      <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-500">Chargement...</td></tr>
+                    ) : adminOrders.length === 0 ? (
+                      <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-500">Aucune transaction.</td></tr>
+                    ) : adminOrders.map(o => (
+                      <tr key={o.id} className="border-b border-[var(--border-subtle)] hover:bg-[var(--bg-surface-alt)]/60">
+                        <td className="px-4 py-2.5 text-white font-medium">{o.user_email || '—'}</td>
+                        <td className="px-4 py-2.5 text-slate-300">{o.plan_name || '—'}</td>
+                        <td className="px-4 py-2.5 text-slate-300">{o.amount_fcfa.toLocaleString()} FCFA</td>
+                        <td className="px-4 py-2.5 text-slate-400 capitalize">{o.provider}</td>
+                        <td className="px-4 py-2.5">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                            o.status === 'success' ? 'bg-emerald-950/60 text-emerald-400' :
+                            o.status === 'failed' ? 'bg-rose-950/60 text-rose-400' :
+                            o.status === 'flagged_underpaid' ? 'bg-amber-950/60 text-amber-400' :
+                            'bg-[var(--bg-surface-alt)] text-slate-400'
+                          }`}>{o.status}</span>
+                        </td>
+                        <td className="px-4 py-2.5 text-slate-400">{o.created_at ? new Date(o.created_at).toLocaleDateString('fr-FR') : '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </div>
           )}
