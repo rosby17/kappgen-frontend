@@ -4622,7 +4622,11 @@ export default function App() {
       });
       if (!metaRes.ok) throw new Error("Impossible d'enregistrer le titre/la description.");
 
-      showToast("Publication en cours (miniature, métadonnées)…", 'success');
+      // The actual YouTube upload runs in the background on the server (it
+      // can take minutes) — this call only kicks it off, so the modal closes
+      // right away instead of making the creator sit and wait. Progress from
+      // here on shows up on the video card itself (see the youtube_publish
+      // progress_stage badge), the same way auto/scheduled publishes do.
       const res = await authFetch(`${API_BASE}/videos/${vid.id}/youtube/publish`, { method: 'POST' });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -4634,11 +4638,15 @@ export default function App() {
         }
         throw new Error(typeof detail === 'string' ? detail : detail?.message || 'Publication impossible.');
       }
-      showToast('Vidéo publiée sur YouTube avec sa miniature et ses métadonnées.', 'success');
+      if (body.status === 'already_published') {
+        showToast('Cette vidéo est déjà publiée sur YouTube.', 'success');
+        if (body.youtube_url) window.open(body.youtube_url, '_blank', 'noopener,noreferrer');
+      } else {
+        showToast('Publication lancée — la vidéo continue de se publier en arrière-plan, tu peux continuer à travailler.', 'success');
+      }
       fetchAllVideos();
       if (activeChannel) fetchChannelVideos(activeChannel.id);
       setPublishReviewVideo(null);
-      if (body.youtube_url) window.open(body.youtube_url, '_blank', 'noopener,noreferrer');
     } catch (err) {
       showToast(err.message || 'Publication YouTube impossible.', 'error');
     } finally {
@@ -6895,7 +6903,11 @@ export default function App() {
                               </button>
                               <button
                                 type="button"
-                                onClick={() => setNewChannel({ ...newChannel, script_generation_hour: hasFixedHour ? newChannel.script_generation_hour : new Date().getHours() })}
+                                onClick={() => {
+                                  if (hasFixedHour) return;
+                                  const now = new Date();
+                                  setNewChannel({ ...newChannel, script_generation_hour: now.getHours(), script_generation_minute: now.getMinutes(), script_generation_second: now.getSeconds() });
+                                }}
                                 className={`px-2 py-1 rounded-md text-[10px] font-bold transition-colors ${hasFixedHour ? 'bg-[#00c2ff] text-slate-950' : 'text-slate-400 hover:text-white'}`}
                               >
                                 Heure fixe
