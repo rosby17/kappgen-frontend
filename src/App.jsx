@@ -1742,11 +1742,12 @@ function TimeSegmentInput({ value, max, onChange, onAdvance, fieldRef }) {
   const [draft, setDraft] = useState(String(value).padStart(2, '0'));
   useEffect(() => { setDraft(String(value).padStart(2, '0')); }, [value]);
 
-  const commit = () => {
-    const n = parseInt(draft, 10);
+  const commitValue = (raw) => {
+    const n = parseInt(raw, 10);
     const clamped = Number.isFinite(n) ? Math.max(0, Math.min(max, n)) : value;
     setDraft(String(clamped).padStart(2, '0'));
     if (clamped !== value) onChange(clamped);
+    return clamped;
   };
 
   return (
@@ -1759,10 +1760,19 @@ function TimeSegmentInput({ value, max, onChange, onAdvance, fieldRef }) {
       onFocus={e => e.target.select()}
       onChange={e => {
         const digits = e.target.value.replace(/\D/g, '').slice(0, 2);
-        setDraft(digits);
-        if (digits.length === 2) onAdvance?.();
+        if (digits.length === 2) {
+          // Commit with the just-typed digits directly instead of leaving it
+          // to onBlur: onAdvance() below moves focus to the next segment,
+          // which fires blur on this input in the same tick — before React
+          // has re-rendered with the new draft — so a blur-driven commit()
+          // would still be reading the previous, stale draft value.
+          commitValue(digits);
+          onAdvance?.();
+        } else {
+          setDraft(digits);
+        }
       }}
-      onBlur={commit}
+      onBlur={e => commitValue(e.target.value)}
       onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); }}
       className="w-5 bg-transparent text-center text-[11px] font-bold text-white outline-none border-0 ring-0 focus:ring-0 focus:outline-none appearance-none p-0"
     />
