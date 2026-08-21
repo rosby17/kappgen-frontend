@@ -1607,15 +1607,28 @@ function ModeDropdown({ value, options, onChange }) {
 // Compact hour-of-day picker ("07h00") — replaces the native <select> whose
 // unstyled browser popup (system font, no rounding, overflowing the card)
 // broke the rest of the app's design language.
-function HourDropdown({ value, onChange }) {
+// Shared by HourDropdown/MinuteDropdown — lets someone type the exact number
+// directly (e.g. typing "14" then Enter) instead of only scrolling a 24- or
+// 60-row list, same idea as the searchable language picker elsewhere.
+function NumberDropdown({ value, onChange, max, suffix, width }) {
   const [open, setOpen] = useState(false);
+  const [draft, setDraft] = useState('');
   const ref = useRef(null);
+  const inputRef = useRef(null);
   useEffect(() => {
     if (!open) return;
+    setDraft('');
+    inputRef.current?.focus();
     const onClickOutside = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
     document.addEventListener('mousedown', onClickOutside);
     return () => document.removeEventListener('mousedown', onClickOutside);
   }, [open]);
+
+  const commitDraft = () => {
+    const n = parseInt(draft, 10);
+    if (!Number.isNaN(n) && n >= 0 && n <= max) { onChange(n); setOpen(false); }
+  };
+
   return (
     <div className="relative" ref={ref}>
       <button
@@ -1623,68 +1636,49 @@ function HourDropdown({ value, onChange }) {
         onClick={() => setOpen(o => !o)}
         className="flex items-center gap-1 bg-[var(--bg-surface-alt)] border border-[var(--border)] hover:border-slate-500 rounded-lg px-2.5 py-1.5 text-[11px] font-bold text-white transition-colors"
       >
-        {String(value).padStart(2, '0')}h00
+        {String(value).padStart(2, '0')}{suffix}
         <span className={`material-symbols-outlined text-[14px] text-slate-400 transition-transform ${open ? 'rotate-180' : ''}`}>expand_more</span>
       </button>
       {open && (
-        <div className="absolute left-0 top-full mt-1.5 w-24 max-h-56 overflow-y-auto bg-[var(--bg-dropdown)] border border-[var(--border-dropdown)] rounded-xl shadow-2xl z-50 py-1">
-          {Array.from({ length: 24 }, (_, h) => (
-            <button
-              key={h}
-              type="button"
-              onClick={() => { onChange(h); setOpen(false); }}
-              className={`w-full text-left px-3 py-1.5 text-[11px] transition-colors flex items-center justify-between gap-2 ${
-                h === value ? 'text-[#00c2ff] font-bold bg-[#00c2ff]/10' : 'text-slate-300 hover:bg-[var(--bg-hover)]'
-              }`}
-            >
-              {String(h).padStart(2, '0')}h00
-              {h === value && <span className="material-symbols-outlined text-[13px] shrink-0">check</span>}
-            </button>
-          ))}
+        <div className={`absolute left-0 top-full mt-1.5 ${width} max-h-64 overflow-hidden flex flex-col bg-[var(--bg-dropdown)] border border-[var(--border-dropdown)] rounded-xl shadow-2xl z-50`}>
+          <input
+            ref={inputRef}
+            type="number"
+            min={0}
+            max={max}
+            value={draft}
+            onChange={e => setDraft(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') commitDraft(); }}
+            placeholder={`0-${max}`}
+            className="w-full px-3 py-1.5 text-[11px] font-bold text-white bg-[var(--bg-input)] border-b border-[var(--border-dropdown)] outline-none focus:border-[#00c2ff]"
+          />
+          <div className="overflow-y-auto py-1">
+            {Array.from({ length: max + 1 }, (_, n) => (
+              <button
+                key={n}
+                type="button"
+                onClick={() => { onChange(n); setOpen(false); }}
+                className={`w-full text-left px-3 py-1.5 text-[11px] transition-colors flex items-center justify-between gap-2 ${
+                  n === value ? 'text-[#00c2ff] font-bold bg-[#00c2ff]/10' : 'text-slate-300 hover:bg-[var(--bg-hover)]'
+                }`}
+              >
+                {String(n).padStart(2, '0')}{suffix}
+                {n === value && <span className="material-symbols-outlined text-[13px] shrink-0">check</span>}
+              </button>
+            ))}
+          </div>
         </div>
       )}
     </div>
   );
 }
 
+function HourDropdown({ value, onChange }) {
+  return <NumberDropdown value={value} onChange={onChange} max={23} suffix="h00" width="w-24" />;
+}
+
 function MinuteDropdown({ value, onChange }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef(null);
-  useEffect(() => {
-    if (!open) return;
-    const onClickOutside = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
-    document.addEventListener('mousedown', onClickOutside);
-    return () => document.removeEventListener('mousedown', onClickOutside);
-  }, [open]);
-  return (
-    <div className="relative" ref={ref}>
-      <button
-        type="button"
-        onClick={() => setOpen(o => !o)}
-        className="flex items-center gap-1 bg-[var(--bg-surface-alt)] border border-[var(--border)] hover:border-slate-500 rounded-lg px-2.5 py-1.5 text-[11px] font-bold text-white transition-colors"
-      >
-        {String(value).padStart(2, '0')} min
-        <span className={`material-symbols-outlined text-[14px] text-slate-400 transition-transform ${open ? 'rotate-180' : ''}`}>expand_more</span>
-      </button>
-      {open && (
-        <div className="absolute left-0 top-full mt-1.5 w-20 max-h-56 overflow-y-auto bg-[var(--bg-dropdown)] border border-[var(--border-dropdown)] rounded-xl shadow-2xl z-50 py-1">
-          {Array.from({ length: 60 }, (_, m) => (
-            <button
-              key={m}
-              type="button"
-              onClick={() => { onChange(m); setOpen(false); }}
-              className={`w-full text-left px-3 py-1.5 text-[11px] transition-colors flex items-center justify-between gap-2 ${
-                m === value ? 'text-[#00c2ff] font-bold bg-[#00c2ff]/10' : 'text-slate-300 hover:bg-[var(--bg-hover)]'
-              }`}
-            >
-              {String(m).padStart(2, '0')}
-              {m === value && <span className="material-symbols-outlined text-[13px] shrink-0">check</span>}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
+  return <NumberDropdown value={value} onChange={onChange} max={59} suffix=" min" width="w-20" />;
 }
 
 // Ordered pipeline steps shown to the creator while a video renders (and, for
