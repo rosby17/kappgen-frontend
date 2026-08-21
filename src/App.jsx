@@ -1733,39 +1733,58 @@ function MinuteDropdown({ value, onChange }) {
   return <NumberDropdown value={value} onChange={onChange} max={59} suffix=" min" width="w-20" />;
 }
 
-// Plain "HH:MM" text field, styled to match the rest of the app instead of
-// the browser's native <input type="time"> popup (unstyled, light-background
-// on most browsers, clashing with the dark UI) — typing "08:23" and tabbing
-// away commits it directly, no picker to open at all.
-function ScriptTimeInput({ hour, minute, second, onChange }) {
-  const formatted = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:${String(second).padStart(2, '0')}`;
-  const [draft, setDraft] = useState(formatted);
-  useEffect(() => { setDraft(formatted); }, [formatted]);
+// One HH/MM/SS digit-group of ScriptTimeInput below. Keeps its own draft so
+// typing or deleting in one group can only ever change that group's two
+// digits — it never touches, and can never blank out, the other groups or
+// the field as a whole. Losing focus with an empty/invalid draft snaps back
+// to the last committed value instead of leaving the box empty.
+function TimeSegmentInput({ value, max, onChange, onAdvance, fieldRef }) {
+  const [draft, setDraft] = useState(String(value).padStart(2, '0'));
+  useEffect(() => { setDraft(String(value).padStart(2, '0')); }, [value]);
 
   const commit = () => {
-    const match = draft.trim().match(/^(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?$/);
-    if (match) {
-      const h = Math.max(0, Math.min(23, parseInt(match[1], 10)));
-      const m = Math.max(0, Math.min(59, parseInt(match[2], 10)));
-      const s = Math.max(0, Math.min(59, parseInt(match[3] ?? '0', 10)));
-      onChange(h, m, s);
-      setDraft(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`);
-    } else {
-      setDraft(formatted);
-    }
+    const n = parseInt(draft, 10);
+    const clamped = Number.isFinite(n) ? Math.max(0, Math.min(max, n)) : value;
+    setDraft(String(clamped).padStart(2, '0'));
+    if (clamped !== value) onChange(clamped);
   };
 
   return (
     <input
+      ref={fieldRef}
       type="text"
       inputMode="numeric"
-      placeholder="HH:MM:SS"
+      maxLength={2}
       value={draft}
-      onChange={e => setDraft(e.target.value)}
+      onFocus={e => e.target.select()}
+      onChange={e => {
+        const digits = e.target.value.replace(/\D/g, '').slice(0, 2);
+        setDraft(digits);
+        if (digits.length === 2) onAdvance?.();
+      }}
       onBlur={commit}
       onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); }}
-      className="w-24 bg-[var(--bg-surface-alt)] border border-[var(--border)] hover:border-slate-500 focus:border-[#00c2ff] rounded-lg px-2.5 py-1.5 text-[11px] font-bold text-white outline-none text-center"
+      className="w-5 bg-transparent text-center text-[11px] font-bold text-white outline-none"
     />
+  );
+}
+
+// HH:MM:SS field, styled to match the rest of the app instead of the
+// browser's native <input type="time"> popup (unstyled, light-background on
+// most browsers, clashing with the dark UI). The ":" separators are plain
+// text, not part of any input, so they can never be typed over or deleted —
+// only the digit-groups around them are editable (see TimeSegmentInput).
+function ScriptTimeInput({ hour, minute, second, onChange }) {
+  const minuteRef = useRef(null);
+  const secondRef = useRef(null);
+  return (
+    <div className="flex items-center gap-0.5 bg-[var(--bg-surface-alt)] border border-[var(--border)] hover:border-slate-500 focus-within:border-[#00c2ff] rounded-lg px-2 py-1.5">
+      <TimeSegmentInput value={hour} max={23} onChange={h => onChange(h, minute, second)} onAdvance={() => minuteRef.current?.focus()} />
+      <span className="text-slate-500 text-[11px] font-bold">:</span>
+      <TimeSegmentInput fieldRef={minuteRef} value={minute} max={59} onChange={m => onChange(hour, m, second)} onAdvance={() => secondRef.current?.focus()} />
+      <span className="text-slate-500 text-[11px] font-bold">:</span>
+      <TimeSegmentInput fieldRef={secondRef} value={second} max={59} onChange={s => onChange(hour, minute, s)} />
+    </div>
   );
 }
 
