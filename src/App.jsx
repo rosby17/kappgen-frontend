@@ -586,7 +586,6 @@ function mapCatalogVoice(v) {
     usage: v.usage_character_count_1y || v.usage_count || 0,
     desc: [v.language, v.gender, v.accent].filter(Boolean).join(' · ') || 'Voix Izivoice',
     preview_url: v.preview_url || v.languages?.find(item => item.preview_url)?.preview_url || null,
-    cloned: v.category === 'cloned' || v.type === 'cloned' || v.source === 'clone' || v.is_cloned === true || v.cloned === true || undefined,
   };
 }
 
@@ -783,7 +782,7 @@ function VoiceLibraryModal({
     { id: 'saved', label: 'Enregistrées' },
   ];
   const baseList = tab === 'library' ? voices
-    : tab === 'cloned' ? voices.filter(v => clonedIds.includes(v.id) || v.cloned)
+    : tab === 'cloned' ? voices.filter(v => clonedIds.includes(v.id))
     : voices.filter(v => savedIds.includes(v.id));
 
   const { languages, genders, accents } = useMemo(() => {
@@ -929,8 +928,17 @@ function VoiceLibraryModal({
   );
 }
 
+// "hope-in-christ_daily.mp3" -> "Hope in christ daily" — just enough cleanup
+// (extension stripped, separators turned into spaces, first letter capitalized)
+// to make a usable default voice name, not a full title-case pass.
+const nameFromFilename = (filename) => {
+  const base = (filename || '').replace(/\.[^./]+$/, '').replace(/[-_]+/g, ' ').trim();
+  return base ? base[0].toUpperCase() + base.slice(1) : '';
+};
+
 function VoiceCloneModal({ onClose, onSubmit, submitting }) {
   const [name, setName] = useState('Ma voix');
+  const [nameTouched, setNameTouched] = useState(false);
   const [file, setFile] = useState(null);
   const [consent, setConsent] = useState(false);
   const [recording, setRecording] = useState(false);
@@ -939,6 +947,24 @@ function VoiceCloneModal({ onClose, onSubmit, submitting }) {
   const chunksRef = useRef([]);
   const timerRef = useRef(null);
   const fileInputRef = useRef(null);
+
+  // Object URL for the <audio> preview player — recreated whenever a new
+  // file/recording is picked, revoked on cleanup to avoid leaking blobs.
+  const [audioPreviewUrl, setAudioPreviewUrl] = useState(null);
+  useEffect(() => {
+    if (!file) { setAudioPreviewUrl(null); return; }
+    const url = URL.createObjectURL(file);
+    setAudioPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [file]);
+
+  const selectFile = (f) => {
+    setFile(f);
+    if (!nameTouched) {
+      const derived = nameFromFilename(f.name);
+      if (derived) setName(derived);
+    }
+  };
 
   useEffect(() => {
     document.body.style.overflow = 'hidden';
@@ -1002,7 +1028,7 @@ function VoiceCloneModal({ onClose, onSubmit, submitting }) {
                 <span className="text-[11px] font-bold text-white">Importer un fichier</span>
                 <span className="text-[10px] text-slate-500">MP3, WAV, M4A...</span>
               </button>
-              <input ref={fileInputRef} type="file" accept="audio/*" className="hidden" onChange={e => e.target.files?.[0] && setFile(e.target.files[0])} />
+              <input ref={fileInputRef} type="file" accept="audio/*" className="hidden" onChange={e => e.target.files?.[0] && selectFile(e.target.files[0])} />
 
               <button
                 type="button"
@@ -1017,12 +1043,17 @@ function VoiceCloneModal({ onClose, onSubmit, submitting }) {
               </button>
             </div>
             {file && (
-              <div className="mt-2 flex items-center gap-2 text-[11px] text-slate-400 bg-[#0b0f16] border border-[var(--border-subtle)] rounded-lg px-3 py-2">
-                <span className="material-symbols-outlined text-[14px] text-[#00c2ff]">graphic_eq</span>
-                <span className="truncate flex-1">{file.name}</span>
-                <button type="button" onClick={() => setFile(null)} className="text-slate-500 hover:text-rose-400">
-                  <span className="material-symbols-outlined text-[14px]">close</span>
-                </button>
+              <div className="mt-2 space-y-1.5">
+                <div className="flex items-center gap-2 text-[11px] text-slate-400 bg-[#0b0f16] border border-[var(--border-subtle)] rounded-lg px-3 py-2">
+                  <span className="material-symbols-outlined text-[14px] text-[#00c2ff]">graphic_eq</span>
+                  <span className="truncate flex-1">{file.name}</span>
+                  <button type="button" onClick={() => setFile(null)} className="text-slate-500 hover:text-rose-400">
+                    <span className="material-symbols-outlined text-[14px]">close</span>
+                  </button>
+                </div>
+                {audioPreviewUrl && (
+                  <audio controls src={audioPreviewUrl} className="w-full h-9" style={{ filter: 'invert(0.9)' }} />
+                )}
               </div>
             )}
           </div>
@@ -1031,7 +1062,7 @@ function VoiceCloneModal({ onClose, onSubmit, submitting }) {
             <label className="block text-xs font-bold text-slate-300 mb-1.5">Nom de cette voix</label>
             <input
               value={name}
-              onChange={e => setName(e.target.value)}
+              onChange={e => { setName(e.target.value); setNameTouched(true); }}
               placeholder="Ex : Ma voix"
               className="w-full bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-lg px-3 py-2 text-xs text-white focus:border-[#00c2ff] outline-none"
             />
@@ -2416,6 +2447,8 @@ export default function App() {
     automation_window_start_hour: 7,
     automation_window_end_hour: 11,
     active_days: null,
+    script_generation_hour: -1, // -1 = "as soon as possible" (sent explicitly so an edit can clear a previously-set hour)
+    script_generation_days: null,
     publish_mode: 'manual',
     publish_time_mode: 'range',
     publish_schedule_hour: 8,
@@ -3336,6 +3369,8 @@ export default function App() {
       automation_window_start_hour: channel.automation_window_start_hour ?? 7,
       automation_window_end_hour: channel.automation_window_end_hour ?? 11,
       active_days: channel.active_days || null,
+      script_generation_hour: channel.script_generation_hour ?? -1,
+      script_generation_days: channel.script_generation_days || null,
       timezone: channel.timezone || defaultChannelForm.timezone,
       publish_mode: channel.publish_mode || 'manual',
       publish_time_mode: channel.publish_time_mode || 'range',
@@ -4256,8 +4291,23 @@ export default function App() {
       if (currentUser) form.append('user_id', currentUser.id);
       form.append('audio', file);
       const res = await authFetch(`${API_BASE}/channels/${targetChannelId}/voice/clone`, { method: 'POST', body: form });
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(body.detail || 'Clonage impossible.');
+      const started = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(started.detail || 'Clonage impossible.');
+
+      // Izivoice's clone call can run well past Cloudflare's ~100s proxy
+      // timeout — the backend kicks it off in the background and returns a
+      // job_id right away instead of holding the request open, so poll for
+      // the real result here instead of expecting it in this response.
+      let body;
+      for (let attempt = 0; ; attempt++) {
+        if (attempt > 0) await new Promise(r => setTimeout(r, 3000));
+        const statusRes = await authFetch(`${API_BASE}/channels/voice/clone/status/${started.job_id}`);
+        const statusBody = await statusRes.json().catch(() => ({}));
+        if (!statusRes.ok) throw new Error(statusBody.detail || 'Clonage impossible.');
+        if (statusBody.status === 'done') { body = statusBody; break; }
+        if (statusBody.status === 'error') throw new Error(statusBody.detail || 'Clonage impossible.');
+        if (attempt > 100) throw new Error("Le clonage prend trop de temps, réessaie plus tard.");
+      }
       const voice = { id: body.voice_id, name: body.name, desc: 'Voix personnelle clonée', cloned: true };
       setAvailableVoices(prev => [voice, ...prev.filter(v => v.id !== voice.id)]);
       setSelectedVoice(voice.id);
@@ -6634,9 +6684,83 @@ export default function App() {
                             </button>
                           </div>
                         </div>
-                        <p className="text-[10px] text-slate-500 mt-1.5 px-1">Sans contrainte d'heure — la plage horaire, les jours et le fuseau de publication se règlent à l'étape « Publication ».</p>
+                        <p className="text-[10px] text-slate-500 mt-1.5 px-1">La plage horaire, les jours et le fuseau de publication de la vidéo finie se règlent à l'étape « Publication ».</p>
                       </div>
                     )}
+
+                    {newChannel.automation_mode === 'auto' && (() => {
+                      const hasFixedHour = (newChannel.script_generation_hour ?? -1) >= 0;
+                      const genDays = newChannel.script_generation_days;
+                      return (
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2 bg-[var(--bg-input)] border border-[var(--border-subtle)] rounded-xl px-3 py-2.5 flex-wrap">
+                            <span className="material-symbols-outlined text-[16px] text-slate-500 shrink-0">schedule</span>
+                            <span className="text-[11px] text-slate-400 shrink-0">Écriture du script :</span>
+                            <div className="flex items-center gap-1 bg-[var(--bg-input-alt)] border border-[var(--border)] rounded-lg p-0.5 shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => setNewChannel({ ...newChannel, script_generation_hour: -1 })}
+                                className={`px-2 py-1 rounded-md text-[10px] font-bold transition-colors ${!hasFixedHour ? 'bg-[#00c2ff] text-slate-950' : 'text-slate-400 hover:text-white'}`}
+                              >
+                                Dès que possible
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setNewChannel({ ...newChannel, script_generation_hour: hasFixedHour ? newChannel.script_generation_hour : new Date().getHours() })}
+                                className={`px-2 py-1 rounded-md text-[10px] font-bold transition-colors ${hasFixedHour ? 'bg-[#00c2ff] text-slate-950' : 'text-slate-400 hover:text-white'}`}
+                              >
+                                Heure fixe
+                              </button>
+                            </div>
+                            {hasFixedHour && (
+                              <HourDropdown
+                                value={newChannel.script_generation_hour}
+                                onChange={h => setNewChannel({ ...newChannel, script_generation_hour: h })}
+                              />
+                            )}
+                          </div>
+
+                          {hasFixedHour && (
+                            <div className="bg-[var(--bg-input)] border border-[var(--border-subtle)] rounded-xl px-3 py-2.5">
+                              <div className="flex items-center gap-2 mb-2">
+                                <span className="material-symbols-outlined text-[16px] text-slate-500 shrink-0">event_repeat</span>
+                                <span className="text-[11px] text-slate-400">Jours de génération</span>
+                              </div>
+                              <div className="flex gap-1.5">
+                                {[
+                                  { id: 0, label: 'L' }, { id: 1, label: 'M' }, { id: 2, label: 'M' },
+                                  { id: 3, label: 'J' }, { id: 4, label: 'V' }, { id: 5, label: 'S' }, { id: 6, label: 'D' },
+                                ].map(({ id, label }) => {
+                                  const isOn = !genDays || genDays.length === 0 || genDays.includes(id);
+                                  return (
+                                    <button
+                                      key={id}
+                                      type="button"
+                                      onClick={() => {
+                                        const current = (genDays && genDays.length > 0) ? genDays : [0, 1, 2, 3, 4, 5, 6];
+                                        const next = current.includes(id) ? current.filter(d => d !== id) : [...current, id].sort();
+                                        setNewChannel({ ...newChannel, script_generation_days: next.length === 7 ? null : next });
+                                      }}
+                                      className={`flex-1 py-2 rounded-lg text-[11px] font-bold border transition-colors ${
+                                        isOn ? 'bg-[#00c2ff] text-slate-950 border-[#00c2ff]' : 'bg-[var(--bg-surface-alt)] border-[var(--border)] text-slate-300 hover:border-slate-500'
+                                      }`}
+                                    >
+                                      {label}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
+
+                          <p className="text-[10px] text-slate-500 px-1">
+                            {hasFixedHour
+                              ? `KappGen AI commence à écrire le script à partir de ${String(newChannel.script_generation_hour).padStart(2, '0')}h (fuseau de la chaîne) — pratique pour vérifier que l'automatisation se déclenche bien.`
+                              : "Le script est écrit dès qu'un créneau du jour est libre, sans heure fixe."} Dès que le script est prêt, la vidéo part automatiquement en rendu.
+                          </p>
+                        </div>
+                      );
+                    })()}
                   </div>
                 )}
 
@@ -10270,6 +10394,8 @@ export default function App() {
               </div>
 
               <div className="overflow-y-auto p-5 sm:p-6 space-y-4">
+                <p className="text-[10px] text-slate-500 -mb-1">Renseigne l'un ou l'autre pour la longueur — les parties ci-dessous sont réparties automatiquement au prorata pour atteindre ce total.</p>
+                <div className="grid grid-cols-3 gap-3">
                 <div className="relative">
                   <label className="block text-[11px] font-bold text-slate-300 mb-1">Langue du script</label>
                   <button
@@ -10332,32 +10458,29 @@ export default function App() {
                   })()}
                 </div>
 
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-300 mb-1">Longueur totale du script</label>
-                  <p className="text-[10px] text-slate-500 mb-2">Renseigne l'un ou l'autre — les parties ci-dessous sont réparties automatiquement au prorata pour atteindre ce total.</p>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="relative">
-                      <input
-                        type="number"
-                        min="0"
-                        value={wordsToChars(totalWords)}
-                        onChange={e => updateStructure({ parts: redistributePartsToTotal(parts, charsToWords(parseInt(e.target.value) || 0)) })}
-                        className="w-full bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-lg px-3 py-2.5 pr-20 text-xs text-white focus:border-[#00c2ff] outline-none"
-                      />
-                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-slate-500 font-bold">caractères</span>
-                    </div>
-                    <div className="relative">
-                      <input
-                        type="number"
-                        min="0"
-                        step="0.5"
-                        value={Math.round(wordsToMinutes(totalWords) * 10) / 10}
-                        onChange={e => updateStructure({ parts: redistributePartsToTotal(parts, minutesToWords(parseFloat(e.target.value) || 0)) })}
-                        className="w-full bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-lg px-3 py-2.5 pr-16 text-xs text-white focus:border-[#00c2ff] outline-none"
-                      />
-                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-slate-500 font-bold">minutes</span>
-                    </div>
-                  </div>
+                <div className="relative">
+                  <label className="block text-[11px] font-bold text-slate-300 mb-1">Longueur (caractères)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={wordsToChars(totalWords)}
+                    onChange={e => updateStructure({ parts: redistributePartsToTotal(parts, charsToWords(parseInt(e.target.value) || 0)) })}
+                    className="w-full bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-lg px-3 py-2.5 pr-20 text-xs text-white focus:border-[#00c2ff] outline-none"
+                  />
+                  <span className="absolute right-3 bottom-2.5 text-[10px] text-slate-500 font-bold">caractères</span>
+                </div>
+                <div className="relative">
+                  <label className="block text-[11px] font-bold text-slate-300 mb-1">Longueur (minutes)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.5"
+                    value={Math.round(wordsToMinutes(totalWords) * 10) / 10}
+                    onChange={e => updateStructure({ parts: redistributePartsToTotal(parts, minutesToWords(parseFloat(e.target.value) || 0)) })}
+                    className="w-full bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-lg px-3 py-2.5 pr-16 text-xs text-white focus:border-[#00c2ff] outline-none"
+                  />
+                  <span className="absolute right-3 bottom-2.5 text-[10px] text-slate-500 font-bold">minutes</span>
+                </div>
                 </div>
 
                 <div className="space-y-3">
