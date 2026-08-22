@@ -1026,9 +1026,10 @@ const nameFromFilename = (filename) => {
 // (LandingPage.jsx) — same plan names, same promise, so a creator never sees
 // a different feature list depending on where they subscribe.
 const PLAN_DETAILS = {
-  'Créateur': { tagline: 'Pour créer régulièrement tout en gardant la validation finale.', features: ['1 chaîne YouTube', '20 vidéos assistées / mois', '10 à 15 min par vidéo', 'Identité visuelle personnalisée', 'Génération d’images IA débloquée'] },
-  'Automatique': { tagline: 'L’expérience KappGen complète : tu configures, KappGen exécute.', features: ['1 chaîne YouTube', '12 vidéos autonomes / mois', 'Jusqu’à 1h par vidéo', 'Programmation automatique', 'Publication automatique YouTube', 'Génération d’images IA débloquée'], featured: true },
-  'Scale': { tagline: 'Pour piloter plusieurs chaînes avec un volume de production élevé.', features: ['Jusqu’à 10 chaînes', 'Jusqu’à 300 vidéos / mois', 'Jusqu’à 10h par vidéo', 'Rendu prioritaire', 'Gestion multi-chaînes', 'Génération d’images IA débloquée'] },
+  'Starter': { tagline: 'Pour démarrer et tester la génération de vidéos.', features: ['100 000 crédits', 'Valable 30 jours', 'Voix off + transcription incluses', 'Génération d’images IA débloquée'] },
+  'Creator': { tagline: 'Pour créer régulièrement sans y penser.', features: ['350 000 crédits', 'Valable 30 jours', 'Voix off + transcription incluses', 'Génération d’images IA débloquée'] },
+  'Standard': { tagline: 'Le meilleur rapport crédits / prix.', features: ['1 000 000 crédits', 'Valable 30 jours', 'Voix off + transcription incluses', 'Génération d’images IA débloquée'], featured: true, badgeText: 'Le plus populaire' },
+  'Pro': { tagline: 'Pour un usage intensif et plusieurs chaînes.', features: ['5 000 000 crédits', 'Valable 6 mois', 'Voix off + transcription incluses', 'Génération d’images IA débloquée'], badgeText: 'Promo : valide 6 mois' },
 };
 
 // Bottom-sheet pricing popup — opened from the sidebar's "Offres & Tarifs"
@@ -1093,9 +1094,9 @@ function PricingModal({ onClose, plans, subscription, checkoutPlanId, onSelectPl
                       : 'bg-[var(--bg-surface-alt)] border-[var(--border-soft)]'
                   }`}
                 >
-                  {details.featured && (
-                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 flex items-center gap-1 px-3 py-1 rounded-full bg-gradient-to-r from-[#00c2ff] to-[#0088ff] text-slate-950 text-[10px] font-extrabold uppercase tracking-wide whitespace-nowrap">
-                      <span className="material-symbols-outlined text-[13px]">bolt</span> Recommandée
+                  {(details.featured || details.badgeText) && (
+                    <div className={`absolute -top-3 left-1/2 -translate-x-1/2 flex items-center gap-1 px-3 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wide whitespace-nowrap ${details.featured ? 'bg-gradient-to-r from-[#00c2ff] to-[#0088ff] text-slate-950' : 'bg-amber-500 text-slate-950'}`}>
+                      <span className="material-symbols-outlined text-[13px]">bolt</span> {details.badgeText || 'Recommandée'}
                     </div>
                   )}
                   <div>
@@ -1103,10 +1104,16 @@ function PricingModal({ onClose, plans, subscription, checkoutPlanId, onSelectPl
                     <p className="text-[11px] text-slate-400 mt-1 min-h-[28px]">{details.tagline}</p>
                   </div>
                   <div>
+                    {p.original_price_fcfa && (
+                      <div className="text-[11px] text-slate-500 line-through">{p.original_price_fcfa.toLocaleString()} FCFA</div>
+                    )}
                     <div className="flex items-baseline gap-1">
                       <span className="text-2xl font-extrabold text-white">{p.price_fcfa.toLocaleString()}</span>
                       <span className="text-xs font-bold text-slate-400">FCFA</span>
                     </div>
+                    {p.credits ? (
+                      <div className="text-[11px] text-[#00c2ff] font-bold mt-0.5">{p.credits.toLocaleString()} crédits</div>
+                    ) : null}
                     <div className="text-[11px] text-slate-500">/ {p.duration_days} jours</div>
                   </div>
                   <ul className="space-y-1.5 flex-1">
@@ -4310,6 +4317,7 @@ export default function App() {
   // user's current subscription status + checkout kickoff.
   const [billingPlans, setBillingPlans] = useState([]);
   const [billingSubscription, setBillingSubscription] = useState(null);
+  const [creditBalance, setCreditBalance] = useState(null);
   const [billingLoading, setBillingLoading] = useState(false);
   const [checkoutPlanId, setCheckoutPlanId] = useState(null);
   const [billingVerifyOrderId, setBillingVerifyOrderId] = useState(null);
@@ -4347,12 +4355,14 @@ export default function App() {
   const fetchBillingData = async () => {
     setBillingLoading(true);
     try {
-      const [plansRes, subRes] = await Promise.all([
+      const [plansRes, subRes, creditsRes] = await Promise.all([
         fetch(`${API_BASE}/billing/plans`),
         authFetch(`${API_BASE}/billing/subscription`),
+        authFetch(`${API_BASE}/billing/credits`),
       ]);
       if (plansRes.ok) setBillingPlans(await plansRes.json());
       if (subRes.ok) setBillingSubscription(await subRes.json());
+      if (creditsRes.ok) setCreditBalance((await creditsRes.json()).balance);
     } catch (err) {
       console.error("Erreur chargement abonnement:", err);
     } finally {
@@ -5517,13 +5527,18 @@ export default function App() {
               </div>
             </div>
             <div className="px-3 space-y-1.5">
-              {currentUser && !hasActiveSubscription && (
+              {currentUser && (
                 <button
-                  onClick={() => { setView('settings'); setSettingsTab('billing'); setMobileMenuOpen(false); }}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold bg-gradient-to-r from-[#00c2ff] to-[#0099ff] text-slate-950"
+                  onClick={() => { setShowPricingModal(true); setMobileMenuOpen(false); }}
+                  className="w-full flex items-center gap-2 px-4 py-3 rounded-xl text-sm hover:bg-[var(--bg-dropdown)]"
                 >
-                  <span className="material-symbols-outlined text-[18px]">workspace_premium</span>
-                  Passer à l'abonnement
+                  <span className="material-symbols-outlined text-[18px] text-[#00c2ff]">diamond</span>
+                  <span className="text-left">
+                    <span className="block text-xs font-bold text-white">
+                      {creditBalance != null ? `${creditBalance.toLocaleString()} crédits` : 'Offres & Tarifs'}
+                    </span>
+                    <span className="block text-[10px] text-slate-400">Recharger</span>
+                  </span>
                 </button>
               )}
               {currentUser ? (
@@ -5697,15 +5712,22 @@ export default function App() {
           )}
         </div>
 
-        {view !== 'admin' && currentUser && !hasActiveSubscription && (
-          <div className="px-3">
+        {view !== 'admin' && currentUser && (
+          <div className={`px-3 pt-4 mt-4 border-t border-[var(--border-soft)] space-y-2`}>
             <button
-              onClick={() => { setView('settings'); setSettingsTab('billing'); }}
-              title="Passer à l'abonnement"
-              className={`w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold bg-gradient-to-r from-[#00c2ff] to-[#0099ff] text-slate-950 shadow-md shadow-[#00c2ff]/20 hover:opacity-90 transition-opacity ${sidebarCollapsed ? 'px-0' : 'px-4'}`}
+              onClick={() => setShowPricingModal(true)}
+              title={creditBalance != null ? `${creditBalance.toLocaleString()} crédits — Recharger` : 'Offres & Tarifs'}
+              className={`w-full flex items-center gap-2 py-2.5 rounded-xl text-sm transition-colors hover:bg-[var(--bg-dropdown)] ${sidebarCollapsed ? 'justify-center px-0' : 'px-3'}`}
             >
-              <span className="material-symbols-outlined text-[18px]">workspace_premium</span>
-              {!sidebarCollapsed && "Passer à l'abonnement"}
+              <span className="material-symbols-outlined text-[20px] text-[#00c2ff]">diamond</span>
+              {!sidebarCollapsed && (
+                <span className="min-w-0 flex-1 text-left">
+                  <span className="block text-xs font-bold text-white">
+                    {creditBalance != null ? `${creditBalance.toLocaleString()} crédits` : 'Offres & Tarifs'}
+                  </span>
+                  <span className="block text-[10px] text-slate-400">Recharger</span>
+                </span>
+              )}
             </button>
           </div>
         )}
@@ -9391,9 +9413,9 @@ export default function App() {
                                     : 'bg-[var(--bg-surface)] border-[var(--border-soft)]'
                                 }`}
                               >
-                                {details.featured && (
-                                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 flex items-center gap-1 px-3 py-1 rounded-full bg-gradient-to-r from-[#00c2ff] to-[#0088ff] text-slate-950 text-[10px] font-extrabold uppercase tracking-wide whitespace-nowrap">
-                                    <span className="material-symbols-outlined text-[13px]">bolt</span> Recommandée
+                                {(details.featured || details.badgeText) && (
+                                  <div className={`absolute -top-3 left-1/2 -translate-x-1/2 flex items-center gap-1 px-3 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wide whitespace-nowrap ${details.featured ? 'bg-gradient-to-r from-[#00c2ff] to-[#0088ff] text-slate-950' : 'bg-amber-500 text-slate-950'}`}>
+                                    <span className="material-symbols-outlined text-[13px]">bolt</span> {details.badgeText || 'Recommandée'}
                                   </div>
                                 )}
                                 <div>
@@ -9401,10 +9423,16 @@ export default function App() {
                                   <p className="text-[11px] text-slate-400 mt-1 min-h-[28px]">{details.tagline}</p>
                                 </div>
                                 <div>
+                                  {p.original_price_fcfa && (
+                                    <div className="text-[11px] text-slate-500 line-through">{p.original_price_fcfa.toLocaleString()} FCFA</div>
+                                  )}
                                   <div className="flex items-baseline gap-1">
                                     <span className="text-2xl font-extrabold text-white">{p.price_fcfa.toLocaleString()}</span>
                                     <span className="text-xs font-bold text-slate-400">FCFA</span>
                                   </div>
+                                  {p.credits ? (
+                                    <div className="text-[11px] text-[#00c2ff] font-bold mt-0.5">{p.credits.toLocaleString()} crédits</div>
+                                  ) : null}
                                   <div className="text-[11px] text-slate-500">/ {p.duration_days} jours</div>
                                 </div>
                                 <ul className="space-y-1.5 flex-1">
