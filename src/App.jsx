@@ -1037,7 +1037,7 @@ const PLAN_DETAILS = {
 // open a tick later so the translate-y transition actually animates in,
 // same trick as any slide-up sheet (can't transition from the initial
 // render's own starting state).
-function PricingModal({ onClose, plans, subscription, checkoutPlanId, onCheckout, loading }) {
+function PricingModal({ onClose, plans, subscription, checkoutPlanId, onSelectPlan, loading }) {
   const [entered, setEntered] = useState(false);
   useEffect(() => {
     document.body.style.overflow = 'hidden';
@@ -1122,28 +1122,107 @@ function PricingModal({ onClose, plans, subscription, checkoutPlanId, onCheckout
                       Offre actuelle
                     </div>
                   ) : (
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => onCheckout(p.id, 'maketou')}
-                        disabled={checkoutPlanId === p.id}
-                        className="flex-1 py-2 bg-[var(--bg-dropdown)] hover:bg-[var(--border)] text-white rounded-xl font-bold text-[11px] disabled:opacity-50"
-                      >
-                        Maketou
-                      </button>
-                      <button
-                        onClick={() => onCheckout(p.id, 'tarapay')}
-                        disabled={checkoutPlanId === p.id}
-                        className={`flex-1 py-2 rounded-xl font-bold text-[11px] disabled:opacity-50 ${details.featured ? 'bg-gradient-to-r from-[#00c2ff] to-[#0088ff] text-slate-950' : 'bg-[#00c2ff] text-slate-950'}`}
-                      >
-                        Tara Money
-                      </button>
-                    </div>
+                    <button
+                      onClick={() => onSelectPlan(p)}
+                      disabled={checkoutPlanId === p.id}
+                      className={`py-2.5 rounded-xl font-bold text-[11px] disabled:opacity-50 ${details.featured ? 'bg-gradient-to-r from-[#00c2ff] to-[#0088ff] text-slate-950' : 'bg-[#00c2ff] text-slate-950'}`}
+                    >
+                      Recharger
+                    </button>
                   )}
                 </div>
               );
             })}
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+// Payment-method picker shown after choosing a plan — one focused screen
+// (plan summary + method list) instead of two raw provider-name buttons, so
+// a creator who's never heard of "Maketou" or "Tara Money" still recognizes
+// "Mobile Money" / "Carte Bancaire" as things they can actually pay with.
+// Both rows still settle through our two real processors underneath
+// (Tara Money handles mobile money in this market, Maketou handles cards) —
+// no method is shown here that we don't actually support.
+function PaymentModal({ plan, onClose, onCheckout, checkingOut }) {
+  const [entered, setEntered] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setEntered(true), 10);
+    return () => clearTimeout(t);
+  }, []);
+  const handleClose = () => { setEntered(false); setTimeout(onClose, 200); };
+  if (!plan) return null;
+
+  const methods = [
+    { id: 'tarapay', icon: 'smartphone', title: 'Mobile Money', subtitle: 'Orange, MTN, Moov, Wave...', badge: 'Populaire' },
+    { id: 'maketou', icon: 'credit_card', title: 'Carte Bancaire', subtitle: 'Visa, Mastercard sécurisé' },
+  ];
+
+  return (
+    <div
+      className={`fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-slate-950/70 backdrop-blur-sm transition-opacity duration-200 ${entered ? 'opacity-100' : 'opacity-0'}`}
+      onClick={handleClose}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className={`w-full sm:max-w-md bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-t-3xl sm:rounded-3xl p-6 space-y-5 transition-transform duration-300 ease-out ${
+          entered ? 'translate-y-0' : 'translate-y-full'
+        }`}
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h3 className="text-lg font-extrabold text-white">Paiement</h3>
+            <p className="text-xs text-slate-400 mt-1">Réglez votre <strong className="text-white">{plan.name}</strong> en toute sécurité.</p>
+          </div>
+          <button onClick={handleClose} className="text-slate-400 hover:text-white shrink-0">
+            <span className="material-symbols-outlined">close</span>
+          </button>
+        </div>
+
+        <div className="bg-[#00c2ff]/10 border border-[#00c2ff]/30 rounded-2xl px-4 py-3.5 flex items-center justify-between">
+          <div>
+            <div className="text-[10px] font-extrabold uppercase tracking-wide text-[#56d9ff]">{plan.name}</div>
+          </div>
+          <div className="text-right">
+            <div className="text-lg font-extrabold text-white">{plan.price_fcfa.toLocaleString()} FCFA</div>
+            <div className="text-[10px] text-slate-400">/ {plan.duration_days} jours</div>
+          </div>
+        </div>
+
+        <div className="space-y-2.5">
+          {methods.map(m => (
+            <button
+              key={m.id}
+              onClick={() => onCheckout(plan.id, m.id)}
+              disabled={checkingOut}
+              className="w-full flex items-center gap-3.5 p-3.5 bg-[var(--bg-surface-alt)] hover:bg-[var(--bg-dropdown)] border border-[var(--border)] hover:border-[#00c2ff]/50 rounded-2xl transition-all text-left disabled:opacity-50 relative"
+            >
+              {m.badge && (
+                <span className="absolute -top-2 right-3 text-[8px] font-extrabold uppercase tracking-wide px-1.5 py-0.5 rounded bg-gradient-to-r from-[#00c2ff] to-[#0088ff] text-slate-950">{m.badge}</span>
+              )}
+              <span className="w-10 h-10 rounded-xl bg-[#00c2ff]/10 flex items-center justify-center shrink-0">
+                <span className="material-symbols-outlined text-[#00c2ff] text-[20px]">{m.icon}</span>
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="text-xs font-bold text-white">{m.title}</div>
+                <div className="text-[10px] text-slate-400 truncate">{m.subtitle}</div>
+              </div>
+              {checkingOut ? (
+                <span className="material-symbols-outlined text-[16px] text-slate-500 animate-spin">progress_activity</span>
+              ) : (
+                <span className="material-symbols-outlined text-[16px] text-slate-500">chevron_right</span>
+              )}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex items-center justify-center gap-1.5 text-[10px] text-slate-500">
+          <span className="material-symbols-outlined text-[13px]">lock</span>
+          Paiement 100% sécurisé
+        </div>
       </div>
     </div>
   );
@@ -2179,6 +2258,7 @@ export default function App() {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showChannelPickerModal, setShowChannelPickerModal] = useState(false);
   const [showPricingModal, setShowPricingModal] = useState(false);
+  const [paymentPlan, setPaymentPlan] = useState(null);
   const [showLanguageModal, setShowLanguageModal] = useState(false);
   const [showScriptStructureModal, setShowScriptStructureModal] = useState(false);
   const [languageSearch, setLanguageSearch] = useState('');
@@ -5598,7 +5678,6 @@ export default function App() {
                 { id: 'home', label: 'Home', icon: 'home', active: view === 'home' || view === 'dashboard', onClick: () => setView('home') },
                 { id: 'channels', label: 'Mes Chaînes', icon: 'subscriptions', active: view === 'channels' || view === 'channel_detail', onClick: () => setView('channels') },
                 { id: 'videos', label: 'Mes Vidéos', icon: 'movie', active: view === 'videos', onClick: () => setView('videos') },
-                { id: 'pricing', label: 'Offres & Tarifs', icon: 'diamond', active: showPricingModal, onClick: () => setShowPricingModal(true) },
               ].map(t => (
                 <button
                   key={t.id}
@@ -9341,22 +9420,13 @@ export default function App() {
                                     Offre actuelle
                                   </div>
                                 ) : (
-                                  <div className="flex gap-2">
-                                    <button
-                                      onClick={() => startCheckout(p.id, 'maketou')}
-                                      disabled={checkoutPlanId === p.id}
-                                      className="flex-1 py-2 bg-[var(--bg-dropdown)] hover:bg-[var(--border)] text-white rounded-xl font-bold text-[11px] disabled:opacity-50"
-                                    >
-                                      Maketou
-                                    </button>
-                                    <button
-                                      onClick={() => startCheckout(p.id, 'tarapay')}
-                                      disabled={checkoutPlanId === p.id}
-                                      className={`flex-1 py-2 rounded-xl font-bold text-[11px] disabled:opacity-50 ${details.featured ? 'bg-gradient-to-r from-[#00c2ff] to-[#0088ff] text-slate-950' : 'bg-[#00c2ff] text-slate-950'}`}
-                                    >
-                                      Tara Money
-                                    </button>
-                                  </div>
+                                  <button
+                                    onClick={() => setPaymentPlan(p)}
+                                    disabled={checkoutPlanId === p.id}
+                                    className={`py-2.5 rounded-xl font-bold text-[11px] disabled:opacity-50 ${details.featured ? 'bg-gradient-to-r from-[#00c2ff] to-[#0088ff] text-slate-950' : 'bg-[#00c2ff] text-slate-950'}`}
+                                  >
+                                    Recharger
+                                  </button>
                                 )}
                               </div>
                             );
@@ -10924,8 +10994,17 @@ export default function App() {
           plans={billingPlans}
           subscription={billingSubscription}
           checkoutPlanId={checkoutPlanId}
-          onCheckout={startCheckout}
+          onSelectPlan={setPaymentPlan}
           loading={billingLoading}
+        />
+      )}
+
+      {paymentPlan && (
+        <PaymentModal
+          plan={paymentPlan}
+          onClose={() => setPaymentPlan(null)}
+          onCheckout={startCheckout}
+          checkingOut={checkoutPlanId === paymentPlan.id}
         />
       )}
 
