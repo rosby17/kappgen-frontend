@@ -1022,6 +1022,133 @@ const nameFromFilename = (filename) => {
   return base ? base[0].toUpperCase() + base.slice(1) : '';
 };
 
+// Feature checklists mirror the marketing landing page's #tarifs section
+// (LandingPage.jsx) — same plan names, same promise, so a creator never sees
+// a different feature list depending on where they subscribe.
+const PLAN_DETAILS = {
+  'Créateur': { tagline: 'Pour créer régulièrement tout en gardant la validation finale.', features: ['1 chaîne YouTube', '20 vidéos assistées / mois', '10 à 15 min par vidéo', 'Identité visuelle personnalisée', 'Génération d’images IA débloquée'] },
+  'Automatique': { tagline: 'L’expérience KappGen complète : tu configures, KappGen exécute.', features: ['1 chaîne YouTube', '12 vidéos autonomes / mois', 'Jusqu’à 1h par vidéo', 'Programmation automatique', 'Publication automatique YouTube', 'Génération d’images IA débloquée'], featured: true },
+  'Scale': { tagline: 'Pour piloter plusieurs chaînes avec un volume de production élevé.', features: ['Jusqu’à 10 chaînes', 'Jusqu’à 300 vidéos / mois', 'Jusqu’à 10h par vidéo', 'Rendu prioritaire', 'Gestion multi-chaînes', 'Génération d’images IA débloquée'] },
+};
+
+// Bottom-sheet pricing popup — opened from the sidebar's "Offres & Tarifs"
+// icon (diamond) so a creator can check/upgrade plans from anywhere in the
+// app without leaving to a full Paramètres page. Mounts closed and flips to
+// open a tick later so the translate-y transition actually animates in,
+// same trick as any slide-up sheet (can't transition from the initial
+// render's own starting state).
+function PricingModal({ onClose, plans, subscription, checkoutPlanId, onCheckout, loading }) {
+  const [entered, setEntered] = useState(false);
+  useEffect(() => {
+    document.body.style.overflow = 'hidden';
+    const t = setTimeout(() => setEntered(true), 10);
+    return () => { document.body.style.overflow = ''; clearTimeout(t); };
+  }, []);
+  const handleClose = () => {
+    setEntered(false);
+    setTimeout(onClose, 200);
+  };
+  const sortedPlans = [...plans].sort((a, b) => a.price_fcfa - b.price_fcfa);
+  const currentPlanName = subscription?.active ? subscription.subscription.plan_name : null;
+
+  return (
+    <div
+      className={`fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-950/70 backdrop-blur-sm transition-opacity duration-200 ${entered ? 'opacity-100' : 'opacity-0'}`}
+      onClick={handleClose}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className={`w-full sm:max-w-3xl max-h-[85vh] overflow-y-auto bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-t-3xl sm:rounded-3xl p-6 sm:p-8 space-y-5 transition-transform duration-300 ease-out ${
+          entered ? 'translate-y-0' : 'translate-y-full'
+        }`}
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h3 className="text-lg font-extrabold text-white flex items-center gap-2">
+              <span className="material-symbols-outlined text-[#00c2ff]">diamond</span>
+              Offres & Tarifs
+            </h3>
+            <p className="text-xs text-slate-400 mt-1">Génère plus de vidéos et débloque la génération d’images IA avec un abonnement actif.</p>
+          </div>
+          <button onClick={handleClose} className="text-slate-400 hover:text-white shrink-0">
+            <span className="material-symbols-outlined">close</span>
+          </button>
+        </div>
+
+        {loading ? (
+          <p className="text-xs text-slate-500">Chargement des offres...</p>
+        ) : sortedPlans.length === 0 ? (
+          <p className="text-xs text-slate-500">Aucune offre disponible pour le moment.</p>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-stretch">
+            {sortedPlans.map(p => {
+              const details = PLAN_DETAILS[p.name] || { tagline: '', features: [] };
+              const isCurrent = currentPlanName === p.name;
+              return (
+                <div
+                  key={p.id}
+                  className={`relative flex flex-col rounded-2xl p-5 space-y-4 border ${
+                    details.featured
+                      ? 'bg-gradient-to-b from-[#00c2ff]/10 to-[var(--bg-surface)] border-[#00c2ff] shadow-lg shadow-[#00c2ff]/10'
+                      : 'bg-[var(--bg-surface-alt)] border-[var(--border-soft)]'
+                  }`}
+                >
+                  {details.featured && (
+                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 flex items-center gap-1 px-3 py-1 rounded-full bg-gradient-to-r from-[#00c2ff] to-[#0088ff] text-slate-950 text-[10px] font-extrabold uppercase tracking-wide whitespace-nowrap">
+                      <span className="material-symbols-outlined text-[13px]">bolt</span> Recommandée
+                    </div>
+                  )}
+                  <div>
+                    <div className="text-sm font-extrabold text-white">{p.name}</div>
+                    <p className="text-[11px] text-slate-400 mt-1 min-h-[28px]">{details.tagline}</p>
+                  </div>
+                  <div>
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-2xl font-extrabold text-white">{p.price_fcfa.toLocaleString()}</span>
+                      <span className="text-xs font-bold text-slate-400">FCFA</span>
+                    </div>
+                    <div className="text-[11px] text-slate-500">/ {p.duration_days} jours</div>
+                  </div>
+                  <ul className="space-y-1.5 flex-1">
+                    {details.features.map(f => (
+                      <li key={f} className="flex items-start gap-1.5 text-[11px] text-slate-300">
+                        <span className="material-symbols-outlined text-[14px] text-emerald-400 shrink-0 mt-0.5">check</span>
+                        {f}
+                      </li>
+                    ))}
+                  </ul>
+                  {isCurrent ? (
+                    <div className="py-2 text-center bg-emerald-950/40 border border-emerald-800/60 text-emerald-300 rounded-xl font-bold text-[11px]">
+                      Offre actuelle
+                    </div>
+                  ) : (
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => onCheckout(p.id, 'maketou')}
+                        disabled={checkoutPlanId === p.id}
+                        className="flex-1 py-2 bg-[var(--bg-dropdown)] hover:bg-[var(--border)] text-white rounded-xl font-bold text-[11px] disabled:opacity-50"
+                      >
+                        Maketou
+                      </button>
+                      <button
+                        onClick={() => onCheckout(p.id, 'tarapay')}
+                        disabled={checkoutPlanId === p.id}
+                        className={`flex-1 py-2 rounded-xl font-bold text-[11px] disabled:opacity-50 ${details.featured ? 'bg-gradient-to-r from-[#00c2ff] to-[#0088ff] text-slate-950' : 'bg-[#00c2ff] text-slate-950'}`}
+                      >
+                        Tara Money
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function VoiceCloneModal({ onClose, onSubmit, submitting }) {
   const [name, setName] = useState('Ma voix');
   const [nameTouched, setNameTouched] = useState(false);
@@ -2051,6 +2178,7 @@ export default function App() {
   const [generatingAutoVideo, setGeneratingAutoVideo] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showChannelPickerModal, setShowChannelPickerModal] = useState(false);
+  const [showPricingModal, setShowPricingModal] = useState(false);
   const [showLanguageModal, setShowLanguageModal] = useState(false);
   const [showScriptStructureModal, setShowScriptStructureModal] = useState(false);
   const [languageSearch, setLanguageSearch] = useState('');
@@ -5470,6 +5598,7 @@ export default function App() {
                 { id: 'home', label: 'Home', icon: 'home', active: view === 'home' || view === 'dashboard', onClick: () => setView('home') },
                 { id: 'channels', label: 'Mes Chaînes', icon: 'subscriptions', active: view === 'channels' || view === 'channel_detail', onClick: () => setView('channels') },
                 { id: 'videos', label: 'Mes Vidéos', icon: 'movie', active: view === 'videos', onClick: () => setView('videos') },
+                { id: 'pricing', label: 'Offres & Tarifs', icon: 'diamond', active: showPricingModal, onClick: () => setShowPricingModal(true) },
               ].map(t => (
                 <button
                   key={t.id}
@@ -9167,15 +9296,6 @@ export default function App() {
                     ) : billingPlans.length === 0 ? (
                       <p className="text-xs text-slate-500">Aucune offre disponible pour le moment.</p>
                     ) : (() => {
-                      // Feature checklists mirror the marketing landing page's
-                      // #tarifs section (LandingPage.jsx) — same plan names,
-                      // same promise, so a creator never sees a different
-                      // feature list depending on where they subscribe.
-                      const PLAN_DETAILS = {
-                        'Créateur': { tagline: 'Pour créer régulièrement tout en gardant la validation finale.', features: ['1 chaîne YouTube', '20 vidéos assistées / mois', '10 à 15 min par vidéo', 'Identité visuelle personnalisée', 'Génération d’images IA débloquée'] },
-                        'Automatique': { tagline: 'L’expérience KappGen complète : tu configures, KappGen exécute.', features: ['1 chaîne YouTube', '12 vidéos autonomes / mois', 'Jusqu’à 1h par vidéo', 'Programmation automatique', 'Publication automatique YouTube', 'Génération d’images IA débloquée'], featured: true },
-                        'Scale': { tagline: 'Pour piloter plusieurs chaînes avec un volume de production élevé.', features: ['Jusqu’à 10 chaînes', 'Jusqu’à 300 vidéos / mois', 'Jusqu’à 10h par vidéo', 'Rendu prioritaire', 'Gestion multi-chaînes', 'Génération d’images IA débloquée'] },
-                      };
                       const sortedPlans = [...billingPlans].sort((a, b) => a.price_fcfa - b.price_fcfa);
                       const currentPlanName = billingSubscription?.active ? billingSubscription.subscription.plan_name : null;
                       return (
@@ -10797,6 +10917,17 @@ export default function App() {
         </div>
       )}
 
+
+      {showPricingModal && (
+        <PricingModal
+          onClose={() => setShowPricingModal(false)}
+          plans={billingPlans}
+          subscription={billingSubscription}
+          checkoutPlanId={checkoutPlanId}
+          onCheckout={startCheckout}
+          loading={billingLoading}
+        />
+      )}
 
       {/* CHANNEL PICKER MODAL (when Nouvelle Vidéo clicked without active channel preset) */}
       {showChannelPickerModal && (
