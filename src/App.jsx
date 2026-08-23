@@ -1026,10 +1026,9 @@ const nameFromFilename = (filename) => {
 // (LandingPage.jsx) — same plan names, same promise, so a creator never sees
 // a different feature list depending on where they subscribe.
 const PLAN_DETAILS = {
-  'Starter': { tagline: 'Pour démarrer et tester la génération de vidéos.', features: ['100 000 crédits', 'Valable 30 jours', 'Voix off + transcription incluses', 'Génération d’images IA débloquée'] },
-  'Creator': { tagline: 'Pour créer régulièrement sans y penser.', features: ['350 000 crédits', 'Valable 30 jours', 'Voix off + transcription incluses', 'Génération d’images IA débloquée'] },
-  'Standard': { tagline: 'Le meilleur rapport crédits / prix.', features: ['1 000 000 crédits', 'Valable 30 jours', 'Voix off + transcription incluses', 'Génération d’images IA débloquée'], featured: true, badgeText: 'Le plus populaire' },
-  'Pro': { tagline: 'Pour un usage intensif et plusieurs chaînes.', features: ['5 000 000 crédits', 'Valable 6 mois', 'Voix off + transcription incluses', 'Génération d’images IA débloquée'], badgeText: 'Promo : valide 6 mois' },
+  'Creator': { tagline: 'Pour créer régulièrement sans y penser.', features: ['350 000 crédits', 'Voix off + transcription incluses', 'Génération d’images IA débloquée', 'Validité au choix : 1 à 12 mois, ou à vie'] },
+  'Standard': { tagline: 'Le meilleur rapport crédits / prix.', features: ['1 000 000 crédits', 'Voix off + transcription incluses', 'Génération d’images IA débloquée', 'Validité au choix : 1 à 12 mois, ou à vie'], featured: true, badgeText: 'Le plus populaire' },
+  'Pro': { tagline: 'Pour un usage intensif et plusieurs chaînes.', features: ['5 000 000 crédits', 'Voix off + transcription incluses', 'Génération d’images IA débloquée', 'Validité au choix : 1 à 12 mois, ou à vie'] },
 };
 
 // Bottom-sheet pricing popup — opened from the sidebar's "Offres & Tarifs"
@@ -1114,7 +1113,7 @@ function PricingModal({ onClose, plans, subscription, checkoutPlanId, onSelectPl
                     {p.credits ? (
                       <div className="text-[11px] text-[#00c2ff] font-bold mt-0.5">{p.credits.toLocaleString()} crédits</div>
                     ) : null}
-                    <div className="text-[11px] text-slate-500">/ {p.duration_days} jours</div>
+                    <div className="text-[11px] text-slate-500">{p.credits ? '/ mois — validité au choix' : `/ ${p.duration_days} jours`}</div>
                   </div>
                   <ul className="space-y-1.5 flex-1">
                     {details.features.map(f => (
@@ -1154,14 +1153,36 @@ function PricingModal({ onClose, plans, subscription, checkoutPlanId, onSelectPl
 // Both rows still settle through our two real processors underneath
 // (Tara Money handles mobile money in this market, Maketou handles cards) —
 // no method is shown here that we don't actually support.
+// Same validity tiers as Izivoice's own credit packs (backend
+// src/utils/billing.py CREDIT_CYCLE_MARKUPS/CREDIT_CYCLE_DAYS) — the plan's
+// listed price is the monthly (30-day) rate; a longer commitment multiplies
+// both price and validity. Mirrored here only for display — the price
+// actually charged is always recomputed server-side from these same
+// constants, never trusted from the client.
+const BILLING_CYCLES = [
+  { id: 'monthly', label: 'Mensuel', days: 30, markup: 1.0 },
+  { id: 'quarterly', label: '3 mois', days: 90, markup: 1.1 },
+  { id: 'semiannual', label: '6 mois', days: 180, markup: 1.2 },
+  { id: 'yearly', label: '1 an', days: 365, markup: 1.25 },
+  { id: 'lifetime', label: 'À vie', days: null, markup: 1.3 },
+];
+const priceForCycle = (basePriceFcfa, markup) => Math.ceil((basePriceFcfa * markup) / 500) * 500;
+
 function PaymentModal({ plan, onClose, onCheckout, checkingOut }) {
   const [entered, setEntered] = useState(false);
+  const [selectedCycle, setSelectedCycle] = useState('monthly');
   useEffect(() => {
     const t = setTimeout(() => setEntered(true), 10);
     return () => clearTimeout(t);
   }, []);
   const handleClose = () => { setEntered(false); setTimeout(onClose, 200); };
   if (!plan) return null;
+
+  // Legacy subscription-style plans (no `credits`) don't have per-pot
+  // expiry to extend — only credit packs get the cycle choice.
+  const isCreditPack = !!plan.credits;
+  const cycle = BILLING_CYCLES.find(c => c.id === selectedCycle) || BILLING_CYCLES[0];
+  const displayPrice = isCreditPack ? priceForCycle(plan.price_fcfa, cycle.markup) : plan.price_fcfa;
 
   const methods = [
     { id: 'tarapay', icon: 'smartphone', title: 'Mobile Money', subtitle: 'Orange, MTN, Moov, Wave...', badge: 'Populaire' },
@@ -1192,18 +1213,41 @@ function PaymentModal({ plan, onClose, onCheckout, checkingOut }) {
         <div className="bg-[#00c2ff]/10 border border-[#00c2ff]/30 rounded-2xl px-4 py-3.5 flex items-center justify-between">
           <div>
             <div className="text-[10px] font-extrabold uppercase tracking-wide text-[#56d9ff]">{plan.name}</div>
+            {isCreditPack && <div className="text-[10px] text-slate-400 mt-0.5">{plan.credits.toLocaleString()} crédits</div>}
           </div>
           <div className="text-right">
-            <div className="text-lg font-extrabold text-white">{plan.price_fcfa.toLocaleString()} FCFA</div>
-            <div className="text-[10px] text-slate-400">/ {plan.duration_days} jours</div>
+            <div className="text-lg font-extrabold text-white">{displayPrice.toLocaleString()} FCFA</div>
+            <div className="text-[10px] text-slate-400">{isCreditPack ? `Valable ${cycle.label.toLowerCase()}` : `/ ${plan.duration_days} jours`}</div>
           </div>
         </div>
+
+        {isCreditPack && (
+          <div className="space-y-2">
+            <div className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Durée de validité des crédits</div>
+            <div className="grid grid-cols-3 sm:grid-cols-5 gap-1.5">
+              {BILLING_CYCLES.map(c => (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => setSelectedCycle(c.id)}
+                  className={`px-2 py-2 rounded-xl text-[10px] font-bold border transition-colors text-center ${
+                    selectedCycle === c.id
+                      ? 'bg-[#00c2ff] text-slate-950 border-[#00c2ff]'
+                      : 'bg-[var(--bg-surface-alt)] text-slate-300 border-[var(--border)] hover:border-[#00c2ff]/50'
+                  }`}
+                >
+                  {c.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="space-y-2.5">
           {methods.map(m => (
             <button
               key={m.id}
-              onClick={() => onCheckout(plan.id, m.id)}
+              onClick={() => onCheckout(plan.id, m.id, isCreditPack ? selectedCycle : 'monthly')}
               disabled={checkingOut}
               className="w-full flex items-center gap-3.5 p-3.5 bg-[var(--bg-surface-alt)] hover:bg-[var(--bg-dropdown)] border border-[var(--border)] hover:border-[#00c2ff]/50 rounded-2xl transition-all text-left disabled:opacity-50 relative"
             >
@@ -4380,12 +4424,12 @@ export default function App() {
   const isSubscriptionExempt = currentUser?.email === 'rooseveltmkr@gmail.com';
   const hasActiveSubscription = isSubscriptionExempt || !!billingSubscription?.active;
 
-  const startCheckout = async (planId, provider) => {
+  const startCheckout = async (planId, provider, billingCycle = 'monthly') => {
     setCheckoutPlanId(planId);
     try {
       const res = await authFetch(`${API_BASE}/billing/checkout`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plan_id: planId, provider }),
+        body: JSON.stringify({ plan_id: planId, provider, billing_cycle: billingCycle }),
       });
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || 'Échec du paiement');
       const data = await res.json();
@@ -9537,7 +9581,7 @@ export default function App() {
                                   {p.credits ? (
                                     <div className="text-[11px] text-[#00c2ff] font-bold mt-0.5">{p.credits.toLocaleString()} crédits</div>
                                   ) : null}
-                                  <div className="text-[11px] text-slate-500">/ {p.duration_days} jours</div>
+                                  <div className="text-[11px] text-slate-500">{p.credits ? '/ mois — validité au choix' : `/ ${p.duration_days} jours`}</div>
                                 </div>
                                 <ul className="space-y-1.5 flex-1">
                                   {details.features.map(f => (
@@ -10193,7 +10237,7 @@ export default function App() {
                     ))}
                   </div>
 
-                  {submitMode === 'audio_upload' && (
+                  {(submitMode === 'audio_upload' || submitMode === 'text') && (
                     <button
                       type="button"
                       onClick={() => setTranscribeAudio(prev => !prev)}
@@ -10202,10 +10246,12 @@ export default function App() {
                           ? 'bg-emerald-950/60 border-emerald-700 text-emerald-400'
                           : 'bg-[var(--bg-surface-alt)] border-[var(--border)] text-slate-500 hover:border-slate-500'
                       }`}
-                      title="Sans transcription, les sous-titres utiliseront le titre du fichier au lieu du texte réel parlé."
+                      title={submitMode === 'text'
+                        ? "Sans transcription, les sous-titres sont estimés en répartissant le script uniformément sur la durée — moins précis mais gratuit."
+                        : "Sans transcription, les sous-titres utiliseront le titre du fichier au lieu du texte réel parlé."}
                     >
                       <span className="material-symbols-outlined text-[16px] shrink-0">record_voice_over</span>
-                      <span className="flex-1 truncate">Transcrire l'audio pour des sous-titres précis (IA, facturable)</span>
+                      <span className="flex-1 truncate">Transcrire pour des sous-titres précis (IA, facturable)</span>
                       <span className="material-symbols-outlined text-[16px] shrink-0">{transcribeAudio ? 'check_box' : 'check_box_outline_blank'}</span>
                     </button>
                   )}
