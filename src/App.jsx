@@ -6700,6 +6700,15 @@ export default function App() {
                   </div>
                 </section>
 
+                {(() => {
+                  // Same folders as "Mes Vidéos", scoped to this channel — moving
+                  // a video into a folder here or there shows up in both, and old
+                  // videos stay tucked away in their folder instead of piling up
+                  // in one flat, ever-growing list.
+                  const channelFolderVideos = allVideos
+                    .filter(v => v.channel_id === activeChannel.id)
+                    .filter(v => videoFilterFolderId === 'all' || v.folder_id === videoFilterFolderId);
+                  return (
                 <section className="space-y-4">
                   <div className="flex items-center justify-between gap-3">
                     <h3 className="text-lg font-bold text-white">Vidéos de la Chaîne ({channelVideos.length})</h3>
@@ -6719,7 +6728,7 @@ export default function App() {
                     <div className="sticky top-0 z-10 bg-[#0f1621] border border-[#00c2ff]/30 rounded-xl px-4 py-2.5 flex items-center justify-between gap-3 shadow-lg">
                       <span className="text-xs font-bold text-white">{selectedVideoIds.size} vidéo(s) sélectionnée(s)</span>
                       <div className="flex items-center gap-2">
-                        <button onClick={() => setSelectedVideoIds(new Set(channelVideos.map(v => v.id)))} className="text-xs font-bold text-slate-300 hover:text-white px-2">
+                        <button onClick={() => setSelectedVideoIds(new Set(channelFolderVideos.map(v => v.id)))} className="text-xs font-bold text-slate-300 hover:text-white px-2">
                           Tout sélectionner
                         </button>
                         <button
@@ -6751,16 +6760,83 @@ export default function App() {
                       </button>
                     </div>
                   ) : (
+                    <>
+                    {/* Folder navigation — same dossiers as "Mes Vidéos", scoped to
+                        this channel's videos, so moving a video into a folder from
+                        either screen shows up in both. Keeps old videos tucked away
+                        without ever deleting them. */}
+                    <div className="flex items-center gap-1.5 flex-wrap text-xs">
+                      <button
+                        onClick={() => openFolder(null)}
+                        className={`px-2 py-1 rounded-lg font-bold flex items-center gap-1 transition-colors ${currentFolderId === null ? 'text-white' : 'text-slate-400 hover:text-white'}`}
+                      >
+                        <span className="material-symbols-outlined text-[16px]">home</span>
+                      </button>
+                      {folderPath.map((f, i) => (
+                        <span key={f.id} className="flex items-center gap-1.5">
+                          <span className="material-symbols-outlined text-[14px] text-slate-600">chevron_right</span>
+                          <button
+                            onClick={() => openFolder(f.id)}
+                            className={`px-2 py-1 rounded-lg font-bold transition-colors ${i === folderPath.length - 1 ? 'text-white' : 'text-slate-400 hover:text-white'}`}
+                          >
+                            {f.name}
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {folders.filter(f => f.parent_id === currentFolderId).map(f => {
+                        const countInChannel = allVideos.filter(v => v.channel_id === activeChannel.id && v.folder_id === f.id).length;
+                        return (
+                          <button
+                            key={f.id}
+                            onClick={() => openFolder(f.id)}
+                            onDragOver={(e) => { if (draggedVideoId) { e.preventDefault(); setDragOverFolderId(f.id); } }}
+                            onDragLeave={() => setDragOverFolderId(id => id === f.id ? null : id)}
+                            onDrop={(e) => {
+                              e.preventDefault();
+                              setDragOverFolderId(null);
+                              const videoId = draggedVideoId || e.dataTransfer.getData('text/plain');
+                              setDraggedVideoId(null);
+                              if (videoId) moveVideoToFolder(videoId, f.id);
+                            }}
+                            title={f.name}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 border transition-all ${
+                              dragOverFolderId === f.id ? 'ring-2 ring-[#00c2ff] ring-offset-1 ring-offset-[var(--bg-page)]' : ''
+                            } bg-[var(--bg-surface-alt)] text-slate-300 hover:text-white border-[var(--border)]`}
+                          >
+                            <span className="material-symbols-outlined text-[15px] text-[#00c2ff]">folder</span> {f.name} <span className="text-slate-500">({countInChannel})</span>
+                          </button>
+                        );
+                      })}
+                      <button
+                        onClick={() => setShowNewFolderModal(true)}
+                        title="Nouveau dossier"
+                        className="px-3 py-1.5 rounded-xl text-xs font-bold text-[#00c2ff] hover:bg-[#00c2ff]/10 border border-dashed border-[#00c2ff]/40 flex items-center gap-1.5 transition-all"
+                      >
+                        <span className="material-symbols-outlined text-[15px]">create_new_folder</span> Nouveau dossier
+                      </button>
+                    </div>
+                    {channelFolderVideos.length === 0 ? (
+                      <div className="bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-2xl p-10 text-center">
+                        <span className="material-symbols-outlined text-[40px] text-slate-500 mb-2">folder_off</span>
+                        <h4 className="text-base font-bold text-white mb-1">Dossier vide</h4>
+                        <p className="text-xs text-slate-400">Aucune vidéo de cette chaîne dans ce dossier.</p>
+                      </div>
+                    ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                      {channelVideos.map(vid => {
+                      {channelFolderVideos.map(vid => {
                         const isSelected = selectedVideoIds.has(vid.id);
                         return (
                         <div
                           key={vid.id}
                           onClick={() => videoSelectionMode && toggleVideoSelected(vid.id)}
+                          draggable={!videoSelectionMode}
+                          onDragStart={(e) => { setDraggedVideoId(vid.id); e.dataTransfer.setData('text/plain', vid.id); e.dataTransfer.effectAllowed = 'move'; }}
+                          onDragEnd={() => { setDraggedVideoId(null); setDragOverFolderId(null); }}
                           className={`bg-[var(--bg-surface)] hover:bg-[var(--bg-hover)] border rounded-2xl p-4 transition-all group flex flex-col justify-between shadow-lg relative card-warm-hover video-menu-container ${
-                            videoSelectionMode ? 'cursor-pointer ' + (isSelected ? 'border-[#00c2ff]' : 'border-[var(--border-soft)]') : 'border-[var(--border-soft)] hover:border-[#00c2ff]/40'
-                          }`}
+                            videoSelectionMode ? 'cursor-pointer ' + (isSelected ? 'border-[#00c2ff]' : 'border-[var(--border-soft)]') : 'border-[var(--border-soft)] hover:border-[#00c2ff]/40 cursor-grab active:cursor-grabbing'
+                          } ${draggedVideoId === vid.id ? 'opacity-40' : ''}`}
                         >
                           {videoSelectionMode && (
                             <div className={`absolute top-2.5 left-2.5 z-10 w-5 h-5 rounded-md border-2 flex items-center justify-center ${isSelected ? 'bg-[#00c2ff] border-[#00c2ff]' : 'bg-slate-950/70 border-slate-500'}`}>
@@ -6895,6 +6971,30 @@ export default function App() {
                                   </button>
                                 )}
                                 <div className="h-[1px] bg-[var(--border-dropdown)] my-1"></div>
+                                <button onClick={(e) => { e.stopPropagation(); setMovingVideoId(movingVideoId === vid.id ? null : vid.id); }} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium">
+                                  <span className="material-symbols-outlined text-[16px] text-[#00c2ff]">drive_file_move</span> Déplacer vers…
+                                </button>
+                                {movingVideoId === vid.id && (
+                                  <div className="border-t border-[var(--border-dropdown)] mt-1 pt-1 max-h-40 overflow-y-auto">
+                                    {vid.folder_id && (
+                                      <button onClick={(e) => { e.stopPropagation(); moveVideoToFolder(vid.id, null); }} className="w-full text-left px-4 py-2 text-[11px] text-slate-400 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2">
+                                        <span className="material-symbols-outlined text-[14px]">folder_off</span> Retirer du dossier
+                                      </button>
+                                    )}
+                                    {folders.length === 0 ? (
+                                      <p className="px-4 py-2 text-[11px] text-slate-500">Aucun dossier — créez-en un.</p>
+                                    ) : folders.map(f => (
+                                      <button
+                                        key={f.id}
+                                        onClick={(e) => { e.stopPropagation(); moveVideoToFolder(vid.id, f.id); }}
+                                        className="w-full text-left px-4 py-2 text-[11px] text-slate-300 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 truncate"
+                                      >
+                                        <span className="material-symbols-outlined text-[14px] text-[#00c2ff]">folder</span> {f.name}
+                                      </button>
+                                    ))}
+                                  </div>
+                                )}
+                                <div className="h-[1px] bg-[var(--border-dropdown)] my-1"></div>
                                 <button onClick={(e) => handleDeleteVideo(vid.id, e)} className="w-full text-left px-4 py-2.5 text-xs text-rose-400 hover:bg-rose-950/50 flex items-center gap-2 font-medium">
                                   <span className="material-symbols-outlined text-[16px]">delete</span> Supprimer
                                 </button>
@@ -6958,8 +7058,12 @@ export default function App() {
                         </div>
                       );})}
                     </div>
+                    )}
+                    </>
                   )}
                 </section>
+                  );
+                })()}
               </div>
             )}
 
