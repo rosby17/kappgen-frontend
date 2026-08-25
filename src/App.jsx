@@ -2257,14 +2257,16 @@ function ScriptTimeInput({ hour, minute, second, onChange }) {
 // calls: voiceover/transcription always runs first (from the script if typed,
 // or straight from an uploaded audio file — either way it's the audio step,
 // there's no separate "writing the script" stage in the render itself, that
-// already happened before the video was queued), *then* the script gets cut
-// into scene-length segments, then visuals, subtitles, scene animation, the
-// voice/music mix, and the final assembly — audio was previously mislabeled
-// "Script" at the very front and placed a second time (as "Audio") way at
-// the end via the "mixage" stage, which is actually part of Montage.
+// already happened before the video was queued), *then* the already-written
+// script gets cut into scene-length segments, then visuals, subtitles, scene
+// animation, the voice/music mix, and the final assembly. The scene-cutting
+// step used to be labeled "Script" here, which read as "the script gets
+// written after the audio" — backwards, and confusing, even though the real
+// order was always correct (the script exists before rendering starts at
+// all). Relabeled "Scènes" since that's what this step actually does.
 const PIPELINE_STEPS = [
   { match: /transcription|voix|reprise/i, floor: 0, label: 'Audio', icon: 'graphic_eq' },
-  { match: /découpage|scènes en/i, floor: 25, label: 'Script', icon: 'auto_stories' },
+  { match: /découpage|scènes en/i, floor: 25, label: 'Scènes', icon: 'auto_stories' },
   { match: /préparation des visuels/i, floor: 35, label: 'Visuels', icon: 'image' },
   { match: /sous-titres|animation|mixage|montage final/i, floor: 55, label: 'Montage', icon: 'movie' },
   { match: /assemblage|youtube|miniature|publication/i, floor: 90, label: 'Finalisation', icon: 'movie_edit' },
@@ -4309,7 +4311,7 @@ export default function App() {
           ? `${API_BASE}/channels/${editingChannelId}/library-images`
           : `${API_BASE}/channels/library-images/staging`;
         const extraFields = isDirectUpload
-          ? { append: i > 0 ? 'true' : 'false' }
+          ? { append: i > 0 ? 'true' : 'false', share_with_community: newChannel.image_style.share_with_community ? 'true' : 'false' }
           : (stagingToken ? { staging_token: stagingToken } : {});
         const batchBytes = batch.reduce((sum, f) => sum + f.size, 0);
         lastData = await uploadOneLibraryBatch(batch, {
@@ -4577,6 +4579,7 @@ export default function App() {
       if (stagedLibraryToken && needsLibrary) {
         const attachForm = new FormData();
         attachForm.append('staging_token', stagedLibraryToken);
+        attachForm.append('share_with_community', newChannel.image_style.share_with_community ? 'true' : 'false');
         const attachRes = await authFetch(`${API_BASE}/channels/${saved.id}/library-images/staging`, { method: 'POST', body: attachForm });
         if (!attachRes.ok) {
           const detail = await attachRes.json().catch(() => ({}));
@@ -4773,6 +4776,11 @@ export default function App() {
   const [adminActivity, setAdminActivity] = useState(null);
   const [adminVideos, setAdminVideos] = useState([]);
   const [adminVideosLoading, setAdminVideosLoading] = useState(false);
+  const [adminLibraryFolders, setAdminLibraryFolders] = useState([]);
+  const [adminLibraryLoading, setAdminLibraryLoading] = useState(false);
+  const [adminLibraryNicheFilter, setAdminLibraryNicheFilter] = useState('');
+  const [adminLibraryExpandedId, setAdminLibraryExpandedId] = useState(null);
+  const [adminLibraryImages, setAdminLibraryImages] = useState([]);
   const [adminVideoDetail, setAdminVideoDetail] = useState(null);
   const [adminVideoDetailLoading, setAdminVideoDetailLoading] = useState(false);
   const [adminVideoSearch, setAdminVideoSearch] = useState('');
@@ -4940,6 +4948,48 @@ export default function App() {
     }
   };
 
+  const fetchAdminLibraryFolders = async () => {
+    setAdminLibraryLoading(true);
+    try {
+      const res = await authFetch(`${API_BASE}/admin/community-library${adminLibraryNicheFilter ? `?niche=${encodeURIComponent(adminLibraryNicheFilter)}` : ''}`);
+      if (res.ok) setAdminLibraryFolders(await res.json());
+    } catch (err) {
+      console.error("Erreur chargement bibliothèque collaborative:", err);
+    } finally {
+      setAdminLibraryLoading(false);
+    }
+  };
+
+  const toggleAdminLibraryExpand = async (folder) => {
+    if (adminLibraryExpandedId === folder.id) {
+      setAdminLibraryExpandedId(null);
+      return;
+    }
+    setAdminLibraryExpandedId(folder.id);
+    setAdminLibraryImages([]);
+    try {
+      const res = await authFetch(`${API_BASE}/admin/community-library/${folder.id}/images`);
+      if (res.ok) setAdminLibraryImages((await res.json()).filenames || []);
+    } catch (err) {
+      console.error("Erreur chargement aperçu dossier:", err);
+    }
+  };
+
+  const setAdminLibraryFolderStatus = async (folder, status) => {
+    try {
+      const res = await authFetch(`${API_BASE}/admin/community-library/${folder.id}/status`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status }),
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || "Échec de la mise à jour.");
+      setAdminLibraryFolders(prev => prev.map(f => f.id === folder.id ? { ...f, status } : f));
+      showToast(status === 'approved' ? 'Dossier validé et ajouté à la bibliothèque de sa niche.' : status === 'flagged' ? 'Dossier signalé et exclu de la bibliothèque.' : 'Statut mis à jour.', 'success');
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  };
+
   const openAdminVideoDetail = async (videoId) => {
     setAdminVideoDetail({ id: videoId });
     setAdminVideoDetailLoading(true);
@@ -4990,6 +5040,10 @@ export default function App() {
   useEffect(() => {
     if (view === 'admin' && currentUser?.is_admin && adminTab === 'transactions') fetchAdminOrders();
   }, [view, currentUser?.is_admin, adminTab]);
+
+  useEffect(() => {
+    if (view === 'admin' && currentUser?.is_admin && adminTab === 'library') fetchAdminLibraryFolders();
+  }, [view, currentUser?.is_admin, adminTab, adminLibraryNicheFilter]);
 
   const fetchAdminCosts = async () => {
     setAdminCostsLoading(true);
@@ -6260,6 +6314,7 @@ export default function App() {
                 { id: 'users', label: 'Utilisateurs', icon: 'group' },
                 { id: 'plans', label: 'Offres', icon: 'sell' },
                 { id: 'videos', label: 'Vidéos', icon: 'movie' },
+                { id: 'library', label: 'Bibliothèque collaborative', icon: 'diversity_3' },
                 { id: 'transactions', label: 'Transactions', icon: 'payments' },
                 { id: 'costs', label: 'Coûts', icon: 'monitoring' },
                 { id: 'resources', label: 'Ressources', icon: 'dns' },
@@ -8324,8 +8379,9 @@ export default function App() {
 
                 {/* STEP 4: VISUELS & SOURCES D'IMAGES (OPTION A & OPTION B COCHABLES) */}
                 {wizardStep === 4 && (() => {
-                  const isOptionAChecked = newChannel.image_style.source === 'library' || newChannel.image_style.source === 'hybrid';
-                  const isOptionBChecked = newChannel.image_style.source === 'ai_generated' || newChannel.image_style.source === 'hybrid';
+                  const isCommunityChecked = newChannel.image_style.source === 'community';
+                  const isOptionAChecked = !isCommunityChecked && (newChannel.image_style.source === 'library' || newChannel.image_style.source === 'hybrid');
+                  const isOptionBChecked = !isCommunityChecked && (newChannel.image_style.source === 'ai_generated' || newChannel.image_style.source === 'hybrid');
 
                   const toggleOptionA = () => {
                     let nextA = !isOptionAChecked;
@@ -8346,6 +8402,17 @@ export default function App() {
                     if (!nextA && !nextB) nextB = true;
                     let source = nextA && nextB ? 'hybrid' : nextA ? 'library' : 'ai_generated';
                     setNewChannel({ ...newChannel, image_style: { ...newChannel.image_style, source } });
+                  };
+
+                  // Exclusive with A/B — a video's visual source is either the
+                  // creator's own setup (library/AI/hybrid) or the community's,
+                  // never a mix, to keep the mental model simple.
+                  const toggleCommunity = () => {
+                    if (isCommunityChecked) {
+                      setNewChannel({ ...newChannel, image_style: { ...newChannel.image_style, source: 'library' } });
+                    } else {
+                      setNewChannel({ ...newChannel, image_style: { ...newChannel.image_style, source: 'community' } });
+                    }
                   };
 
                   // How many distinct AI images to generate for this video — the
@@ -8476,6 +8543,20 @@ export default function App() {
                                 {libraryUploadStatus === 'success' && (
                                   <p className="text-[9px] text-emerald-300/80">Importation terminée. Vous pouvez passer à l’aperçu final.</p>
                                 )}
+                              </div>
+                            )}
+                            {isOptionAChecked && (
+                              <div className="flex items-start gap-2 pt-1" onClick={(e) => e.stopPropagation()}>
+                                <input
+                                  type="checkbox"
+                                  id="share-with-community"
+                                  checked={!!newChannel.image_style.share_with_community}
+                                  onChange={() => setNewChannel({ ...newChannel, image_style: { ...newChannel.image_style, share_with_community: !newChannel.image_style.share_with_community } })}
+                                  className="w-4 h-4 mt-0.5 accent-[#00c2ff] cursor-pointer shrink-0"
+                                />
+                                <label htmlFor="share-with-community" className="text-[10px] text-slate-400 cursor-pointer">
+                                  Partager cette bibliothèque avec la communauté KappGen (aide les autres créateurs de ta niche à démarrer plus vite).
+                                </label>
                               </div>
                             )}
                           </div>
@@ -8649,6 +8730,44 @@ export default function App() {
                         </div>
 
                       </div>
+
+                      {(() => {
+                        const nicheSet = (newChannel.niche || '').trim();
+                        const available = communityLibraryAvailability?.available;
+                        const disabled = !nicheSet || !available;
+                        return (
+                          <div
+                            onClick={() => { if (!disabled) toggleCommunity(); }}
+                            className={`p-4 rounded-xl border transition-colors ${disabled ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'} ${
+                              isCommunityChecked ? 'border-[#00c2ff] bg-[#00c2ff]/5' : 'border-[var(--border)] bg-[#171b23] hover:border-slate-500'
+                            }`}
+                          >
+                            <div className="flex items-start gap-3">
+                              <input
+                                type="checkbox"
+                                checked={isCommunityChecked}
+                                disabled={disabled}
+                                onChange={() => { if (!disabled) toggleCommunity(); }}
+                                onClick={(e) => e.stopPropagation()}
+                                className="w-5 h-5 mt-0.5 accent-[#00c2ff] cursor-pointer rounded shrink-0"
+                              />
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <span className="material-symbols-outlined text-[18px] text-[#00c2ff]">diversity_3</span>
+                                  <span className="text-sm font-bold text-white">Bibliothèque collaborative</span>
+                                </div>
+                                <p className="text-xs text-slate-400 mt-1">
+                                  {!nicheSet
+                                    ? "Choisis d'abord une niche (étape 1) pour voir si une bibliothèque partagée existe déjà."
+                                    : available
+                                      ? `${communityLibraryAvailability.folder_count} dossier(s) partagé(s) par la communauté pour la niche « ${nicheSet} » (${communityLibraryAvailability.image_count} images). Aucun upload requis de ta part.`
+                                      : `Pas encore de bibliothèque disponible pour la niche « ${nicheSet} » — sois le premier à partager la tienne (case ci-dessus) !`}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })()}
 
                       {isOptionAChecked && isOptionBChecked && (
                         <div className="bg-[#00c2ff]/10 border border-[#00c2ff]/30 p-3 rounded-xl flex items-center gap-2.5 text-xs text-[#00c2ff]">
@@ -10626,9 +10745,9 @@ export default function App() {
           <div>
             <h2 className="text-xl font-extrabold text-white flex items-center gap-2">
               <span className="material-symbols-outlined text-[#00c2ff]">
-                {{ overview: 'dashboard', users: 'group', plans: 'sell', videos: 'movie', transactions: 'payments' }[adminTab]}
+                {{ overview: 'dashboard', users: 'group', plans: 'sell', videos: 'movie', library: 'diversity_3', transactions: 'payments' }[adminTab]}
               </span>
-              {{ overview: "Vue d'ensemble", users: 'Utilisateurs', plans: 'Offres', videos: 'Vidéos', transactions: 'Transactions', costs: 'Coûts', resources: 'Ressources' }[adminTab]}
+              {{ overview: "Vue d'ensemble", users: 'Utilisateurs', plans: 'Offres', videos: 'Vidéos', library: 'Bibliothèque collaborative', transactions: 'Transactions', costs: 'Coûts', resources: 'Ressources' }[adminTab]}
             </h2>
             <p className="text-xs text-slate-400 mt-1">
               {{
@@ -10636,6 +10755,7 @@ export default function App() {
                 users: 'Gère les comptes, quotas et abonnements des créateurs.',
                 plans: "Configure les offres d'abonnement proposées à la vente.",
                 videos: 'Toutes les vidéos générées sur la plateforme.',
+                library: "Dossiers d'images partagés par les créateurs — valide ou signale pour construire la bibliothèque de chaque niche.",
                 transactions: 'Historique des paiements Maketou et Tara Money.',
               }[adminTab]}
             </p>
@@ -10838,6 +10958,87 @@ export default function App() {
                           <button onClick={() => deleteAdminVideo(v.id)} className="text-rose-400 font-bold hover:underline">Supprimer</button>
                         </td>
                       </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {adminTab === 'library' && (
+            <div className="bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-2xl overflow-hidden">
+              <div className="p-4 border-b border-[var(--border-soft)]">
+                <input
+                  value={adminLibraryNicheFilter}
+                  onChange={e => setAdminLibraryNicheFilter(e.target.value)}
+                  placeholder="Filtrer par niche..."
+                  className="w-full max-w-xs bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-3 py-2 text-xs text-white focus:border-[#00c2ff] outline-none"
+                />
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="text-left text-slate-500 border-b border-[var(--border-soft)]">
+                      <th className="px-4 py-2.5 font-bold">Niche</th>
+                      <th className="px-4 py-2.5 font-bold">Chaîne</th>
+                      <th className="px-4 py-2.5 font-bold">Propriétaire</th>
+                      <th className="px-4 py-2.5 font-bold">Images</th>
+                      <th className="px-4 py-2.5 font-bold">Statut</th>
+                      <th className="px-4 py-2.5 font-bold text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {adminLibraryLoading ? (
+                      <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-500">Chargement…</td></tr>
+                    ) : adminLibraryFolders.length === 0 ? (
+                      <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-500">Aucun dossier partagé pour l'instant.</td></tr>
+                    ) : adminLibraryFolders.map(f => (
+                      <React.Fragment key={f.id}>
+                        <tr className="border-b border-[var(--border-soft)]/50 hover:bg-[var(--bg-hover)] cursor-pointer" onClick={() => toggleAdminLibraryExpand(f)}>
+                          <td className="px-4 py-2.5 text-white font-bold">{f.niche}</td>
+                          <td className="px-4 py-2.5 text-slate-300">{f.channel_name || '—'}</td>
+                          <td className="px-4 py-2.5 text-slate-400">{f.user_email || '—'}</td>
+                          <td className="px-4 py-2.5 text-slate-400">{f.image_count}</td>
+                          <td className="px-4 py-2.5">
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                              f.status === 'approved' ? 'bg-emerald-950/60 text-emerald-400'
+                              : f.status === 'flagged' ? 'bg-rose-950/60 text-rose-400'
+                              : 'bg-amber-950/60 text-amber-400'
+                            }`}>
+                              {f.status === 'approved' ? 'Validé' : f.status === 'flagged' ? 'Signalé' : 'En attente'}
+                            </span>
+                          </td>
+                          <td className="px-4 py-2.5 text-right space-x-3" onClick={e => e.stopPropagation()}>
+                            {f.status !== 'approved' && (
+                              <button onClick={() => setAdminLibraryFolderStatus(f, 'approved')} className="text-emerald-400 font-bold hover:underline">Valider</button>
+                            )}
+                            {f.status !== 'flagged' && (
+                              <button onClick={() => setAdminLibraryFolderStatus(f, 'flagged')} className="text-rose-400 font-bold hover:underline">Signaler</button>
+                            )}
+                          </td>
+                        </tr>
+                        {adminLibraryExpandedId === f.id && (
+                          <tr className="bg-[var(--bg-input)]/40">
+                            <td colSpan={6} className="px-4 py-3">
+                              {adminLibraryImages.length === 0 ? (
+                                <p className="text-slate-500 text-[11px]">Chargement de l'aperçu…</p>
+                              ) : (
+                                <div className="grid grid-cols-6 sm:grid-cols-8 gap-2">
+                                  {adminLibraryImages.map(name => (
+                                    <img
+                                      key={name}
+                                      src={`${API_BASE}/admin/community-library/${f.id}/images/${encodeURIComponent(name)}`}
+                                      alt=""
+                                      className="w-full aspect-video object-cover rounded-lg border border-[var(--border)]"
+                                      loading="lazy"
+                                    />
+                                  ))}
+                                </div>
+                              )}
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
                     ))}
                   </tbody>
                 </table>
@@ -12586,7 +12787,7 @@ export default function App() {
                   )}
                 </div>
 
-                <div className="space-y-3">
+                <div className="space-y-4">
                   <div className="flex items-center justify-between px-1">
                     <div className="flex items-center gap-2">
                       <label className="text-[11px] font-bold text-slate-300">Parties du script</label>
@@ -12594,12 +12795,12 @@ export default function App() {
                     <span className="text-[10px] text-slate-500 font-bold pr-11">Mots</span>
                   </div>
                   {parts.map((part, idx) => (
-                    <div key={idx} className="border border-[var(--border)] rounded-lg p-3 space-y-2 bg-[var(--bg-surface-alt)]">
+                    <div key={idx} className="border border-[var(--border)] rounded-xl p-4 space-y-3 bg-[var(--bg-surface-alt)]">
                       <div className="flex items-center gap-2">
                         <input
                           value={part.name || ''}
                           onChange={e => updatePart(idx, { name: e.target.value })}
-                          className="flex-1 bg-[var(--bg-input-alt)] border border-[var(--border)] rounded-lg px-2.5 py-1.5 text-xs text-white focus:border-[#00c2ff] outline-none"
+                          className="flex-1 bg-[var(--bg-input-alt)] border border-[var(--border)] rounded-lg px-3 py-2 text-xs text-white focus:border-[#00c2ff] outline-none"
                           placeholder="Nom de la partie (interne)"
                         />
                         <input
@@ -12607,17 +12808,17 @@ export default function App() {
                           min="20"
                           value={part.word_count ?? 300}
                           onChange={e => updatePart(idx, { word_count: parseInt(e.target.value) || 0 })}
-                          className="w-24 bg-[var(--bg-input-alt)] border border-[var(--border)] rounded-lg px-2.5 py-1.5 text-xs text-white focus:border-[#00c2ff] outline-none"
+                          className="w-24 bg-[var(--bg-input-alt)] border border-[var(--border)] rounded-lg px-3 py-2 text-xs text-white focus:border-[#00c2ff] outline-none"
                           placeholder="Mots"
                         />
-                        <button type="button" onClick={() => removePart(idx)} className="shrink-0 w-8 h-8 flex items-center justify-center rounded-lg text-red-400 hover:bg-red-500/10">
+                        <button type="button" onClick={() => removePart(idx)} className="shrink-0 w-9 h-9 flex items-center justify-center rounded-lg text-red-400 hover:bg-red-500/10">
                           <span className="material-symbols-outlined text-lg">delete</span>
                         </button>
                       </div>
                       <textarea
                         value={part.guidance || ''}
                         onChange={e => updatePart(idx, { guidance: e.target.value })}
-                        className="w-full bg-[var(--bg-input-alt)] border border-[var(--border)] rounded-lg px-2.5 py-1.5 text-xs text-white focus:border-[#00c2ff] outline-none min-h-[50px]"
+                        className="w-full bg-[var(--bg-input-alt)] border border-[var(--border)] rounded-lg px-3 py-2 text-xs text-white leading-relaxed focus:border-[#00c2ff] outline-none min-h-[70px]"
                         placeholder="Ce que cette partie doit couvrir..."
                       />
                     </div>
@@ -12628,20 +12829,20 @@ export default function App() {
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-300 mb-1">Règles de formatage (une par ligne)</label>
+                  <label className="block text-[11px] font-bold text-slate-300 mb-1.5">Règles de formatage (une par ligne)</label>
                   <textarea
                     value={rulesText}
                     onChange={e => updateStructure({ formatting_rules: e.target.value.split('\n').map(r => r.trim()).filter(Boolean) })}
-                    className="w-full bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-lg px-3 py-2 text-xs text-white focus:border-[#00c2ff] outline-none min-h-[80px]"
+                    className="w-full bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-lg px-3 py-2.5 text-xs text-white leading-relaxed focus:border-[#00c2ff] outline-none min-h-[100px]"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-300 mb-1">Style d'appel à l'action</label>
+                  <label className="block text-[11px] font-bold text-slate-300 mb-1.5">Style d'appel à l'action</label>
                   <textarea
                     value={structure.cta_style || ''}
                     onChange={e => updateStructure({ cta_style: e.target.value })}
-                    className="w-full bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-lg px-3 py-2 text-xs text-white focus:border-[#00c2ff] outline-none min-h-[50px]"
+                    className="w-full bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-lg px-3 py-2.5 text-xs text-white leading-relaxed focus:border-[#00c2ff] outline-none min-h-[70px]"
                   />
                 </div>
               </div>
