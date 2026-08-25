@@ -4444,6 +4444,7 @@ export default function App() {
   const [billingPlans, setBillingPlans] = useState([]);
   const [billingSubscription, setBillingSubscription] = useState(null);
   const [creditBalance, setCreditBalance] = useState(null);
+  const [hasPurchasedCredits, setHasPurchasedCredits] = useState(false);
   const [billingLoading, setBillingLoading] = useState(false);
   const [checkoutPlanId, setCheckoutPlanId] = useState(null);
   const [billingVerifyOrderId, setBillingVerifyOrderId] = useState(null);
@@ -4488,7 +4489,11 @@ export default function App() {
       ]);
       if (plansRes.ok) setBillingPlans(await plansRes.json());
       if (subRes.ok) setBillingSubscription(await subRes.json());
-      if (creditsRes.ok) setCreditBalance((await creditsRes.json()).balance);
+      if (creditsRes.ok) {
+        const creditsData = await creditsRes.json();
+        setCreditBalance(creditsData.balance);
+        setHasPurchasedCredits(!!creditsData.has_purchased_credits);
+      }
     } catch (err) {
       console.error("Erreur chargement abonnement:", err);
     } finally {
@@ -4500,11 +4505,14 @@ export default function App() {
     if (currentUser) fetchBillingData();
   }, [currentUser?.id]);
 
-  // rooseveltmkr@gmail.com is the KappGen owner account — exempt from the
-  // subscription gate everywhere a paid feature (like watermark removal) is
-  // otherwise locked behind an active subscription.
+  // rooseveltmkr@gmail.com is the KappGen owner account — exempt from every
+  // paid-feature gate (subscription or credit-purchase based).
   const isSubscriptionExempt = currentUser?.email === 'rooseveltmkr@gmail.com';
   const hasActiveSubscription = isSubscriptionExempt || !!billingSubscription?.active;
+  // Watermark removal specifically: a lifetime unlock once the creator has
+  // ever paid for a credit pack — not tied to a currently-active
+  // subscription, and free-trial creators (never having paid) never qualify.
+  const canRemoveWatermark = isSubscriptionExempt || hasPurchasedCredits;
 
   const startCheckout = async (planId, provider, billingCycle = 'monthly') => {
     setCheckoutPlanId(planId);
@@ -7306,7 +7314,7 @@ export default function App() {
                         <input
                           value={newChannel.name}
                           onChange={e => setNewChannel({ ...newChannel, name: e.target.value })}
-                          className="w-full bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-4 py-3 text-sm text-white focus:border-[#00c2ff] outline-none"
+                          className="w-full max-w-md bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-4 py-3 text-sm text-white focus:border-[#00c2ff] outline-none"
                           placeholder="Ex: Stoic Mind Daily"
                         />
                       </div>
@@ -9240,7 +9248,7 @@ export default function App() {
                     if (id === 'music') return setNewChannel({ ...newChannel, music_preference: { ...newChannel.music_preference, enabled: !isRecapChecked('music') } });
                     if (id === 'voiceover') return; // read-only — always on once a voice is picked, nothing to toggle
                     if (id === 'watermark') {
-                      if (!hasActiveSubscription) { showToast('Un abonnement actif est requis pour retirer le filigrane KappGen.', 'error'); return; }
+                      if (!canRemoveWatermark) { showToast('Achète au moins un pack de crédits pour retirer le filigrane KappGen.', 'error'); return; }
                       return setNewChannel({ ...newChannel, effects_config: { ...newChannel.effects_config, watermark_enabled: !isRecapChecked('watermark') } });
                     }
                     setRecapVisible(prev => ({ ...prev, visual: !prev.visual }));
@@ -9278,7 +9286,7 @@ export default function App() {
                               >
                                 <span className="material-symbols-outlined text-[16px] shrink-0">{icon}</span>
                                 <span className="flex-1 truncate">{label}</span>
-                                {id === 'watermark' && !hasActiveSubscription && (
+                                {id === 'watermark' && !canRemoveWatermark && (
                                   <span className="px-1.5 py-0.5 rounded bg-amber-400/10 border border-amber-400/25 text-amber-300 text-[8px] font-bold uppercase tracking-wide shrink-0">Premium</span>
                                 )}
                                 <span className="material-symbols-outlined text-[16px] shrink-0">{available && isRecapChecked(id) ? 'check_box' : 'check_box_outline_blank'}</span>
