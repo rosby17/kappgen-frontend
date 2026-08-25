@@ -20,6 +20,14 @@ const SERVICE_UNAVAILABLE_MESSAGE = "Les serveurs de KappGen sont temporairement
 // Mirrors CREDIT_INSUFFICIENT_MESSAGE in backend/src/worker/queue_runner.py —
 // keep the two in sync so the "recharger" CTA below only shows for this exact message.
 const CREDIT_INSUFFICIENT_MESSAGE = "La génération automatique est en pause : ton solde de crédits KappGen est épuisé. Recharge des crédits pour que cette chaîne continue à écrire et publier ses vidéos automatiquement.";
+
+// Mirrors src/utils/billing.py's IZIVOICE_*/THUMBNAIL_CREDITS constants —
+// used here only to show the creator a cost estimate and to gate paid
+// options behind an actual balance; the real charge always happens
+// server-side, this is display/UX only.
+const IMAGE_GENERATION_CREDITS = 1000;
+const THUMBNAIL_GENERATION_CREDITS = 2000;
+const MUSIC_GENERATION_CREDITS = 300;
 const AUTH_PATHS = new Set(['/login', '/signup', '/signin']);
 
 // Broad coverage of the languages with established YouTube audiences. Values
@@ -8100,13 +8108,30 @@ export default function App() {
                     setNewChannel({ ...newChannel, image_style: { ...newChannel.image_style, source } });
                   };
 
+                  // Generating AI visuals costs real credits per image — without at
+                  // least enough balance for one image, the option isn't offered at
+                  // all (not just disabled with an explanation), same principle as
+                  // the watermark gate.
+                  const canGenerateAIImages = isSubscriptionExempt || (creditBalance != null && creditBalance >= IMAGE_GENERATION_CREDITS);
+
                   const toggleOptionB = () => {
+                    if (!isOptionBChecked && !canGenerateAIImages) {
+                      showToast(`Crédits insuffisants pour la génération d'images IA (${IMAGE_GENERATION_CREDITS.toLocaleString()} crédits/image).`, 'error');
+                      return;
+                    }
                     let nextA = isOptionAChecked;
                     let nextB = !isOptionBChecked;
                     if (!nextA && !nextB) nextB = true;
                     let source = nextA && nextB ? 'hybrid' : nextA ? 'library' : 'ai_generated';
                     setNewChannel({ ...newChannel, image_style: { ...newChannel.image_style, source } });
                   };
+
+                  // How many distinct AI images to generate for this video — the
+                  // rest of the timeline reuses/recycles them instead of generating
+                  // a fresh (paid) image per scene, so the creator controls their
+                  // own cost instead of it scaling silently with video length.
+                  const maxUniqueImages = newChannel.image_style.max_unique_images ?? 10;
+                  const maxAffordableImages = creditBalance != null ? Math.max(1, Math.floor(creditBalance / IMAGE_GENERATION_CREDITS)) : 999;
 
                   const hasStoredLibrary = Number(newChannel.image_style.library_image_count || 0) > 0
                     && String(newChannel.image_style.library_path || '').startsWith('channels/');
@@ -8232,12 +8257,14 @@ export default function App() {
                         </div>
 
                         {/* OPTION B: GÉNÉRATION IA AUTOMATIQUE */}
-                        <div 
+                        <div
                           onClick={toggleOptionB}
-                          className={`p-5 rounded-2xl border-2 transition-all cursor-pointer space-y-4 flex flex-col justify-between ${
+                          className={`p-5 rounded-2xl border-2 transition-all space-y-4 flex flex-col justify-between ${
                             isOptionBChecked
-                              ? 'bg-[var(--bg-surface-alt)] border-[#00c2ff] shadow-lg shadow-[#00c2ff]/10'
-                              : 'bg-[var(--bg-surface-soft)] border-[var(--border-soft)] hover:border-slate-500 opacity-60'
+                              ? 'bg-[var(--bg-surface-alt)] border-[#00c2ff] shadow-lg shadow-[#00c2ff]/10 cursor-pointer'
+                              : canGenerateAIImages
+                                ? 'bg-[var(--bg-surface-soft)] border-[var(--border-soft)] hover:border-slate-500 opacity-60 cursor-pointer'
+                                : 'bg-[var(--bg-surface-soft)] border-[var(--border-soft)] opacity-50 cursor-not-allowed'
                           }`}
                         >
                           <div className="space-y-2">
@@ -8247,15 +8274,16 @@ export default function App() {
                                 <h4 className="font-bold text-white text-xs">Option B: Génération IA Automatique</h4>
                                 <span className="shrink-0 text-[9px] font-extrabold uppercase tracking-wide px-1.5 py-0.5 rounded bg-gradient-to-r from-[#00c2ff] to-[#0088ff] text-slate-950">Pro</span>
                               </div>
-                              <input 
+                              <input
                                 type="checkbox"
                                 checked={isOptionBChecked}
+                                disabled={!isOptionBChecked && !canGenerateAIImages}
                                 onChange={toggleOptionB}
-                                className="w-5 h-5 accent-[#00c2ff] cursor-pointer rounded"
+                                className="w-5 h-5 accent-[#00c2ff] cursor-pointer rounded disabled:cursor-not-allowed disabled:opacity-50"
                               />
                             </div>
                             <p className="text-[11px] text-slate-400">
-                              L'IA génère automatiquement les visuels pour chaque scène, dans le style que tu décris ci-dessous.
+                              L'IA génère automatiquement les visuels pour chaque scène, dans le style que tu décris ci-dessous — {IMAGE_GENERATION_CREDITS.toLocaleString()} crédits par image générée.
                             </p>
                             {!hasActiveSubscription && (
                               <button
@@ -8267,7 +8295,42 @@ export default function App() {
                                 Réservé aux abonnés Pro — passer à l'abonnement
                               </button>
                             )}
+                            {hasActiveSubscription && !canGenerateAIImages && (
+                              <button
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); setView('settings'); setSettingsTab('billing'); }}
+                                className="text-[10px] font-bold text-amber-400 hover:underline flex items-center gap-1"
+                              >
+                                <span className="material-symbols-outlined text-[13px]">bolt</span>
+                                Solde de crédits insuffisant — recharger
+                              </button>
+                            )}
                           </div>
+
+                          {isOptionBChecked && (
+                            <div onClick={(e) => e.stopPropagation()} className="p-3 rounded-xl bg-[var(--bg-input-alt)] border border-[var(--border)] space-y-2">
+                              <div className="flex items-center justify-between gap-3">
+                                <label className="text-[10px] font-bold text-slate-300">Nombre d'images à générer par vidéo</label>
+                                <input
+                                  type="number"
+                                  min={1}
+                                  max={Math.min(60, maxAffordableImages)}
+                                  value={maxUniqueImages}
+                                  onChange={e => {
+                                    const v = Math.max(1, Math.min(Math.min(60, maxAffordableImages), parseInt(e.target.value) || 1));
+                                    setNewChannel({ ...newChannel, image_style: { ...newChannel.image_style, max_unique_images: v } });
+                                  }}
+                                  className="w-16 bg-[var(--bg-input)] border border-[var(--border)] rounded-lg px-2 py-1 text-xs text-white text-center focus:border-[#00c2ff] outline-none"
+                                />
+                              </div>
+                              <p className="text-[10px] text-slate-500">
+                                Le reste de la vidéo réutilise ces images au lieu d'en générer une nouvelle par scène — tu maîtrises le coût, pas la durée.
+                              </p>
+                              <p className="text-[11px] font-bold text-[#56d9ff]">
+                                Coût estimé : {maxUniqueImages} × {IMAGE_GENERATION_CREDITS.toLocaleString()} = {(maxUniqueImages * IMAGE_GENERATION_CREDITS).toLocaleString()} crédits
+                              </p>
+                            </div>
+                          )}
 
                           <div>
                             <div className="flex items-center justify-between mb-1">
@@ -8368,9 +8431,10 @@ export default function App() {
                             />
                             <button
                               type="button"
-                              disabled={thumbnailStyleAnalyzing}
+                              disabled={thumbnailStyleAnalyzing || !canGenerateAIImages}
+                              title={canGenerateAIImages ? undefined : `Crédits insuffisants (${THUMBNAIL_GENERATION_CREDITS.toLocaleString()} crédits/miniature générée)`}
                               onClick={() => thumbnailStyleInputRef.current && thumbnailStyleInputRef.current.click()}
-                              className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold bg-[#00c2ff]/10 text-[#00c2ff] hover:bg-[#00c2ff]/20 transition-colors disabled:opacity-50"
+                              className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold bg-[#00c2ff]/10 text-[#00c2ff] hover:bg-[#00c2ff]/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                               <span className="material-symbols-outlined text-[13px]">{thumbnailStyleAnalyzing ? 'hourglass_top' : 'image_search'}</span>
                               {thumbnailStyleAnalyzing ? 'Analyse...' : (newChannel.thumbnail_style?.style_prompt ? "Ajouter d'autres images" : "Ajouter des images de référence")}
@@ -8378,8 +8442,18 @@ export default function App() {
                           </div>
                         </div>
                         <p className="text-[11px] text-slate-400">
-                          Optionnel — donne plusieurs exemples de la miniature que tu veux (personnage, cadrage, ambiance). L'IA analyse toutes ces images ensemble et réutilise le style commun pour toutes les miniatures générées sur cette chaîne, à la place du style visuel des vidéos ci-dessus.
+                          Optionnel — donne plusieurs exemples de la miniature que tu veux (personnage, cadrage, ambiance). L'IA analyse toutes ces images ensemble et réutilise le style commun pour toutes les miniatures générées sur cette chaîne, à la place du style visuel des vidéos ci-dessus. {THUMBNAIL_GENERATION_CREDITS.toLocaleString()} crédits par miniature générée.
                         </p>
+                        {!canGenerateAIImages && (
+                          <button
+                            type="button"
+                            onClick={() => { setView('settings'); setSettingsTab('billing'); }}
+                            className="text-[10px] font-bold text-amber-400 hover:underline flex items-center gap-1"
+                          >
+                            <span className="material-symbols-outlined text-[13px]">bolt</span>
+                            Solde de crédits insuffisant — recharger
+                          </button>
+                        )}
                         {newChannel.thumbnail_style?.style_prompt ? (
                           <div className="bg-[var(--bg-input-alt)] border border-[var(--border)] rounded-lg p-2.5 space-y-2">
                             <div className="flex flex-wrap gap-2">
@@ -9552,14 +9626,19 @@ export default function App() {
                       </div>
 
                       <div className="grid grid-cols-1 lg:grid-cols-[260px_minmax(0,1fr)] gap-8 items-center">
-                        {/* Layers — vertical, ordered back-to-front like the real composite.
+                        {/* Layers — displayed front-to-back (top row = what's drawn on top,
+                            same convention as Photoshop/Figma layer panels), even though the
+                            underlying persisted `layerOrder` stays back-to-front (index 0 =
+                            back) to match zForLayer/the backend compositing order below —
+                            dragging is id-based (reorderLayers), so this display reversal
+                            doesn't need any special-casing there.
                             Decocher un calque le masque dans l'aperçu à droite, sans rien
                             changer à la configuration réelle de la chaîne. */}
                         <div className="space-y-1">
-                          <label className="block text-xs font-bold text-slate-300 mb-3">Calques (arrière-plan → premier plan)</label>
+                          <label className="block text-xs font-bold text-slate-300 mb-3">Calques (premier plan → arrière-plan)</label>
                           <div className="relative pl-2">
                             <div className="absolute left-[19px] top-3 bottom-3 w-px bg-[var(--border)]"></div>
-                            {recapItems.map(({ id, label, icon, available }, idx) => (
+                            {[...recapItems].reverse().map(({ id, label, icon, available }, idx) => (
                               <div
                                 key={id}
                                 draggable
@@ -10870,11 +10949,11 @@ export default function App() {
                           : 'bg-[var(--bg-surface-alt)] border-[var(--border)] text-slate-500 hover:border-slate-500'
                       }`}
                       title={submitMode === 'text'
-                        ? "Sans transcription, les sous-titres sont estimés en répartissant le script uniformément sur la durée — moins précis mais gratuit."
-                        : "Sans transcription, les sous-titres utiliseront le titre du fichier au lieu du texte réel parlé."}
+                        ? "Sans transcription, les sous-titres sont estimés en répartissant le script uniformément sur la durée — moins précis mais gratuit. Avec transcription : 3 crédits par seconde d'audio (gratuit si tu utilises ta propre clé Izivoice)."
+                        : "Sans transcription, les sous-titres utiliseront le titre du fichier au lieu du texte réel parlé. Avec transcription : 3 crédits par seconde d'audio (gratuit si tu utilises ta propre clé Izivoice)."}
                     >
                       <span className="material-symbols-outlined text-[16px] shrink-0">record_voice_over</span>
-                      <span className="flex-1 truncate">Transcrire pour des sous-titres précis (IA, facturable)</span>
+                      <span className="flex-1 truncate">Transcrire pour des sous-titres précis (IA — 3 crédits/sec)</span>
                       <span className="material-symbols-outlined text-[16px] shrink-0">{transcribeAudio ? 'check_box' : 'check_box_outline_blank'}</span>
                     </button>
                   )}
