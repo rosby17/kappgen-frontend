@@ -2874,7 +2874,7 @@ export default function App() {
       let overlays = data.branding?.overlays || [];
       const newest = overlays[overlays.length - 1];
       if (old && newest) {
-        overlays = overlays.map(o => o.id === newest.id ? { ...o, corner: old.corner, size_percent: old.size_percent, enabled: old.enabled } : o);
+        overlays = overlays.map(o => o.id === newest.id ? { ...o, corner: old.corner, x_percent: old.x_percent, y_percent: old.y_percent, size_percent: old.size_percent, opacity: old.opacity, shape: old.shape, enabled: old.enabled } : o);
       }
       setNewChannel(prev => ({ ...prev, branding: { ...prev.branding, overlays } }));
       setChannels(prev => prev.map(c => c.id === data.id ? { ...data, branding: { ...data.branding, overlays } } : c));
@@ -4433,11 +4433,19 @@ export default function App() {
   });
 
   const PRESET_MARGIN_PERCENT = 6;
+  // The frame is 16:9 (wider than tall), so an image sized as X% of the
+  // frame's WIDTH has a height — assuming a roughly square logo/sticker,
+  // true for the reported bug case — equal to that many % of width in
+  // pixels, which is a *larger* percentage of the frame's shorter HEIGHT.
+  // Using sizePercent directly for the bottom margin under-reserved that
+  // extra vertical room, so "bottom" presets clipped the image against the
+  // frame's bottom edge instead of sitting cleanly inside it.
+  const FRAME_ASPECT = 16 / 9;
   // The 4 quick-position buttons stay balanced/inset (never flush to an
   // edge) regardless of the image's current size, unlike free dragging.
   const presetXY = (id, sizePercent) => {
     const rightX = 100 - PRESET_MARGIN_PERCENT - sizePercent;
-    const bottomY = 100 - PRESET_MARGIN_PERCENT - sizePercent;
+    const bottomY = 100 - PRESET_MARGIN_PERCENT - sizePercent * FRAME_ASPECT;
     switch (id) {
       case 'top-left': return { x: PRESET_MARGIN_PERCENT, y: PRESET_MARGIN_PERCENT };
       case 'top-right': return { x: rightX, y: PRESET_MARGIN_PERCENT };
@@ -9502,13 +9510,15 @@ export default function App() {
                           )}
 
                           {/* KappGen watermark — centered, low opacity, matches exactly what's
-                              burned into the real render when enabled. */}
+                              burned into the real render when enabled (see WATERMARK_PATH in
+                              backend/src/pipeline/assembler.py — the horizontal white logo, not
+                              the square app icon). */}
                           {isRecapChecked('watermark') && (
                             <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none">
                               <img
-                                src="/assets/logo/logo-kappgen.png"
+                                src="/assets/logo/logo-kappgen-horizontale-blanc.png"
                                 alt="Filigrane KappGen"
-                                style={{ width: `${140 * mockupSubtitlePreviewScale}px`, height: `${140 * mockupSubtitlePreviewScale}px`, opacity: 0.18 }}
+                                style={{ width: `${360 * mockupSubtitlePreviewScale}px`, opacity: 0.22 }}
                                 className="object-contain"
                               />
                             </div>
