@@ -8341,14 +8341,13 @@ export default function App() {
                                 <input
                                   type="number"
                                   min={1}
-                                  max={60}
                                   value={maxUniqueImages}
                                   onChange={e => {
                                     const raw = e.target.value;
                                     if (raw === '') return; // let them clear the field while typing a new value
                                     const parsed = parseInt(raw, 10);
                                     if (Number.isNaN(parsed)) return;
-                                    setNewChannel({ ...newChannel, image_style: { ...newChannel.image_style, max_unique_images: Math.max(1, Math.min(60, parsed)) } });
+                                    setNewChannel({ ...newChannel, image_style: { ...newChannel.image_style, max_unique_images: Math.max(1, parsed) } });
                                   }}
                                   onBlur={e => {
                                     if (e.target.value !== '' && !Number.isNaN(parseInt(e.target.value, 10))) return;
