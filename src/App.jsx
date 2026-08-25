@@ -30,6 +30,7 @@ const IMAGE_GENERATION_CREDITS_MIN = 956;
 const IMAGE_GENERATION_CREDITS_MAX = 1001;
 const THUMBNAIL_GENERATION_CREDITS = 2000;
 const MUSIC_GENERATION_CREDITS = 300;
+const TRANSCRIPTION_CREDITS_PER_SEC = 3;
 const AUTH_PATHS = new Set(['/login', '/signup', '/signin']);
 
 // Broad coverage of the languages with established YouTube audiences. Values
@@ -3095,7 +3096,7 @@ export default function App() {
       logo_path: '',
       logo_enabled: true,
       logo_corner: 'top-right',
-      logo_size_percent: 5,
+      logo_size_percent: 9,
       overlays: [],
     },
     music_preference: {
@@ -7610,7 +7611,7 @@ export default function App() {
                               <div className="text-[9px] font-bold text-slate-500 uppercase tracking-wider mb-1">Positions rapides</div>
                               <div className="flex items-center gap-1.5">
                                 {(() => {
-                                  const logoSize = newChannel.branding.logo_size_percent ?? 5;
+                                  const logoSize = newChannel.branding.logo_size_percent ?? 9;
                                   const logoX = newChannel.branding.logo_x_percent ?? presetXY(newChannel.branding.logo_corner, logoSize).x;
                                   const logoY = newChannel.branding.logo_y_percent ?? presetXY(newChannel.branding.logo_corner, logoSize).y;
                                   return [
@@ -7642,9 +7643,9 @@ export default function App() {
                               <ShapePicker value={newChannel.branding.logo_shape || 'rectangle'} onChange={v => setNewChannel({ ...newChannel, branding: { ...newChannel.branding, logo_shape: v } })} />
                             </div>
                             <div className="flex-1 min-w-0 grid grid-cols-3 gap-3">
-                              <MiniSlider label="Taille" value={newChannel.branding.logo_size_percent ?? 5} min={3} max={20} onChange={v => setNewChannel({ ...newChannel, branding: { ...newChannel.branding, logo_size_percent: v } })} />
-                              <MiniSlider label="Position X" value={newChannel.branding.logo_x_percent ?? presetXY(newChannel.branding.logo_corner, newChannel.branding.logo_size_percent ?? 5).x} min={-20} max={120} onChange={v => setNewChannel({ ...newChannel, branding: { ...newChannel.branding, logo_x_percent: v } })} />
-                              <MiniSlider label="Position Y" value={newChannel.branding.logo_y_percent ?? presetXY(newChannel.branding.logo_corner, newChannel.branding.logo_size_percent ?? 5).y} min={-20} max={120} onChange={v => setNewChannel({ ...newChannel, branding: { ...newChannel.branding, logo_y_percent: v } })} />
+                              <MiniSlider label="Taille" value={newChannel.branding.logo_size_percent ?? 9} min={3} max={25} onChange={v => setNewChannel({ ...newChannel, branding: { ...newChannel.branding, logo_size_percent: v } })} />
+                              <MiniSlider label="Position X" value={newChannel.branding.logo_x_percent ?? presetXY(newChannel.branding.logo_corner, newChannel.branding.logo_size_percent ?? 9).x} min={-20} max={120} onChange={v => setNewChannel({ ...newChannel, branding: { ...newChannel.branding, logo_x_percent: v } })} />
+                              <MiniSlider label="Position Y" value={newChannel.branding.logo_y_percent ?? presetXY(newChannel.branding.logo_corner, newChannel.branding.logo_size_percent ?? 9).y} min={-20} max={120} onChange={v => setNewChannel({ ...newChannel, branding: { ...newChannel.branding, logo_y_percent: v } })} />
                             </div>
                           </div>
                         </div>
@@ -7774,10 +7775,10 @@ export default function App() {
                               alt=""
                               className="absolute object-contain drop-shadow-lg"
                               style={{
-                                width: `${newChannel.branding.logo_size_percent || 5}%`,
+                                width: `${newChannel.branding.logo_size_percent || 9}%`,
                                 ...overlayPositionStyle(
-                                  newChannel.branding.logo_x_percent ?? presetXY(newChannel.branding.logo_corner, newChannel.branding.logo_size_percent ?? 5).x,
-                                  newChannel.branding.logo_y_percent ?? presetXY(newChannel.branding.logo_corner, newChannel.branding.logo_size_percent ?? 5).y
+                                  newChannel.branding.logo_x_percent ?? presetXY(newChannel.branding.logo_corner, newChannel.branding.logo_size_percent ?? 9).x,
+                                  newChannel.branding.logo_y_percent ?? presetXY(newChannel.branding.logo_corner, newChannel.branding.logo_size_percent ?? 9).y
                                 ),
                                 ...shapeClipStyle(newChannel.branding.logo_shape),
                               }}
@@ -8741,6 +8742,9 @@ export default function App() {
                 {wizardStep === 6 && (
                   <div className="space-y-6">
                     <h3 className="text-base font-bold text-white">6. Personnalisation Avancée des Sous-Titres</h3>
+                    <p className="text-[11px] text-slate-400 -mt-4">
+                      Le style (police, couleurs, animation) ci-dessous est gratuit. Le texte des sous-titres, lui, dépend de la transcription choisie à l'envoi de chaque vidéo : gratuite (estimation à partir du script) ou précise via l'IA — {TRANSCRIPTION_CREDITS_PER_SEC} crédits par seconde d'audio (gratuit avec ta propre clé Izivoice).
+                    </p>
 
                     <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_520px] gap-8 items-start">
                       {/* Settings column — split into CapCut-style toggle sections instead
@@ -9354,36 +9358,38 @@ export default function App() {
                           {(hasGrain || hasVignette) && (
                             <div className="pt-2 border-t border-[var(--border-soft)] space-y-4">
                               <label className="block text-xs font-bold text-[#00c2ff]">Intensité</label>
-                              {hasGrain && (
-                                <div>
-                                  <label className="block text-[11px] font-bold text-slate-300 mb-2">
-                                    Grain / Bruit ({newChannel.effects_config.grain_intensity ?? 50}%)
-                                  </label>
-                                  <input
-                                    type="range"
-                                    min="0"
-                                    max="100"
-                                    value={newChannel.effects_config.grain_intensity ?? 50}
-                                    onChange={e => setNewChannel({ ...newChannel, effects_config: { ...newChannel.effects_config, grain_intensity: parseInt(e.target.value) } })}
-                                    className="w-full accent-[#00c2ff]"
-                                  />
-                                </div>
-                              )}
-                              {hasVignette && (
-                                <div>
-                                  <label className="block text-[11px] font-bold text-slate-300 mb-2">
-                                    Assombrissement des bords ({newChannel.effects_config.vignette_intensity ?? 50}%)
-                                  </label>
-                                  <input
-                                    type="range"
-                                    min="0"
-                                    max="100"
-                                    value={newChannel.effects_config.vignette_intensity ?? 50}
-                                    onChange={e => setNewChannel({ ...newChannel, effects_config: { ...newChannel.effects_config, vignette_intensity: parseInt(e.target.value) } })}
-                                    className="w-full accent-[#00c2ff]"
-                                  />
-                                </div>
-                              )}
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                {hasGrain && (
+                                  <div>
+                                    <label className="block text-[11px] font-bold text-slate-300 mb-2">
+                                      Grain / Bruit ({newChannel.effects_config.grain_intensity ?? 50}%)
+                                    </label>
+                                    <input
+                                      type="range"
+                                      min="0"
+                                      max="100"
+                                      value={newChannel.effects_config.grain_intensity ?? 50}
+                                      onChange={e => setNewChannel({ ...newChannel, effects_config: { ...newChannel.effects_config, grain_intensity: parseInt(e.target.value) } })}
+                                      className="w-full accent-[#00c2ff]"
+                                    />
+                                  </div>
+                                )}
+                                {hasVignette && (
+                                  <div>
+                                    <label className="block text-[11px] font-bold text-slate-300 mb-2">
+                                      Assombrissement des bords ({newChannel.effects_config.vignette_intensity ?? 50}%)
+                                    </label>
+                                    <input
+                                      type="range"
+                                      min="0"
+                                      max="100"
+                                      value={newChannel.effects_config.vignette_intensity ?? 50}
+                                      onChange={e => setNewChannel({ ...newChannel, effects_config: { ...newChannel.effects_config, vignette_intensity: parseInt(e.target.value) } })}
+                                      className="w-full accent-[#00c2ff]"
+                                    />
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           )}
 
