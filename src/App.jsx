@@ -3196,8 +3196,24 @@ export default function App() {
       if (!res.ok) throw new Error(`API ${res.status}`);
       const data = await res.json();
       if (!Array.isArray(data)) throw new Error('Réponse API invalide');
+
+      // Detect a video that just flipped to 'done' since the last poll, and
+      // pull its cost recap — this is the "juste après la génération" trigger,
+      // since render completion is only ever observed here (polling), not as
+      // a direct response to a submit call.
+      const previousStatuses = allVideosStatusRef.current;
+      const freshlyDone = data.filter(v => v.status === 'done' && previousStatuses[v.id] && previousStatuses[v.id] !== 'done');
+      allVideosStatusRef.current = Object.fromEntries(data.map(v => [v.id, v.status]));
+
       setAllVideos(data);
       setVideosLoadError('');
+
+      if (freshlyDone.length > 0) {
+        const video = freshlyDone[0];
+        authFetch(`${API_BASE}/videos/${video.id}/cost-recap`).then(r => r.ok ? r.json() : null).then(recap => {
+          if (recap && recap.total_credits > 0) setCostRecap({ videoTitle: video.title || 'Vidéo', ...recap });
+        }).catch(() => {});
+      }
     } catch (e) {
       console.error("API error loading videos:", e);
       setVideosLoadError("Impossible de charger vos vidéos. Vérifiez que l’API KappGen est accessible.");
@@ -12321,6 +12337,41 @@ export default function App() {
           </div>
         );
       })()}
+
+      {/* COST RECAP — shown right after a video finishes rendering, itemizing
+          exactly what it cost in credits (transcription, images, base render
+          fee...) so a creator never wonders why their balance moved. */}
+      {costRecap && (
+        <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-[130] flex items-center justify-center p-6" onClick={() => setCostRecap(null)}>
+          <div className="bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-3xl p-6 max-w-sm w-full shadow-2xl space-y-4" onClick={e => e.stopPropagation()}>
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-2 text-[#59d8ff]">
+                <span className="material-symbols-outlined text-[20px]">toll</span>
+                <span className="text-[10px] font-bold uppercase tracking-[.16em]">Coût de la vidéo</span>
+              </div>
+              <button onClick={() => setCostRecap(null)} className="text-slate-400 hover:text-white">
+                <span className="material-symbols-outlined text-[18px]">close</span>
+              </button>
+            </div>
+            <p className="text-sm font-bold text-white truncate">{costRecap.videoTitle}</p>
+            <div className="space-y-1.5">
+              {costRecap.items.map((item, i) => (
+                <div key={i} className="flex items-center justify-between gap-3 text-[11px]">
+                  <span className="text-slate-400 truncate">{item.description}</span>
+                  <span className="text-slate-300 font-bold shrink-0">{item.credits.toLocaleString()} cr.</span>
+                </div>
+              ))}
+            </div>
+            <div className="flex items-center justify-between pt-3 border-t border-[var(--border-soft)]">
+              <span className="text-xs font-bold text-slate-300">Total</span>
+              <span className="text-base font-extrabold text-white">{costRecap.total_credits.toLocaleString()} crédits</span>
+            </div>
+            <button onClick={() => setCostRecap(null)} className="w-full py-2.5 bg-[#00c2ff] text-slate-950 font-bold text-xs rounded-xl">
+              Compris
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* TOAST NOTIFICATION */}
       {toast && (
