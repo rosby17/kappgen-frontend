@@ -1132,12 +1132,14 @@ const nameFromFilename = (filename) => {
 // a red cross instead of a green check, since a check on an excluded
 // feature reads as "you have this."
 const PLAN_CHANNEL_COUNTS = { 'Starter': '1 chaîne', 'Creator': '2 chaînes', 'Standard': 'Jusqu’à 5 chaînes', 'Pro': 'Chaînes illimitées' };
+const PLAN_VIDEO_DURATIONS = { 'Starter': 'Vidéos jusqu’à 10 min', 'Creator': 'Vidéos jusqu’à 25 min', 'Standard': 'Vidéos jusqu’à 1h', 'Pro': 'Durée de vidéo illimitée' };
 // "Accès à ..." on purpose, not "Voix off incluse" — a checked line unlocks
 // the feature (you're allowed to use it), it doesn't make it free/unlimited:
 // every use still draws down the credit balance like any other generation.
 const buildPlanFeatures = (planName, { transcription, aiImages, aiScript, autoPublish, prioritySupport }) => [
   { text: 'Accès à la voix off', included: true },
   { text: PLAN_CHANNEL_COUNTS[planName], included: true },
+  { text: PLAN_VIDEO_DURATIONS[planName], included: true },
   { text: 'Accès à la transcription automatique', included: transcription },
   { text: 'Accès à la génération d’images IA', included: aiImages },
   { text: 'Accès au script automatique IA', included: aiScript },
