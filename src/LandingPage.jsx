@@ -224,8 +224,8 @@ export default function LandingPage() {
           </div>
           <div className="network-plan">
             <div><div className="section-kicker">RÉSEAUX MULTICHAÎNES</div><h3>Une infrastructure adaptée à ton réseau.</h3><p>Plusieurs chaînes, accès équipe, volume personnalisé et accompagnement prioritaire.</p></div>
-            <div className="network-price"><span>À partir de</span><strong>299 $</strong><small>/ mois · sur devis</small></div>
-            <a className="button button-ghost" href="mailto:contact@kappgen.com?subject=Offre%20Réseau%20multichaîne">Nous contacter <ArrowRight size={16} /></a>
+            <div className="network-price"><span>Tarif</span><strong>Sur devis</strong></div>
+            <a className="button button-ghost" href="https://wa.me/237655306425?text=Bonjour%2C%20je%20suis%20int%C3%A9ress%C3%A9%20par%20l%27offre%20R%C3%A9seau%20multicha%C3%AEne%20KappGen." target="_blank" rel="noopener">Nous contacter <ArrowRight size={16} /></a>
           </div>
           <p className="pricing-note">Les quotas correspondent aux générations incluses par cycle mensuel. Les besoins supérieurs peuvent être adaptés sur devis.</p>
         </section>
