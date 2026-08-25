@@ -675,6 +675,22 @@ function writeVoiceIdList(key, ids) {
   try { localStorage.setItem(key, JSON.stringify(ids)); } catch { /* ignore quota/private mode */ }
 }
 
+// Full-object cache (name/preview_url/...) for every saved/cloned voice ever
+// seen in this browser, keyed by id — the id lists above only remember
+// *which* voices to badge as saved/cloned, not their metadata. Without this,
+// a cloned voice that later scrolls out of the ~1000-entry catalog page (the
+// shared Izivoice account can hold thousands of voices across every KappGen
+// creator) silently vanishes from the "Mes voix clonées" tab on the very
+// next catalog refetch, even though the channel using it keeps working fine
+// (its voice_id is stored server-side, independent of this cache).
+const VOICE_META_CACHE_KEY = 'nichecut_voice_meta_cache';
+function readVoiceMetaCache() {
+  try { return JSON.parse(localStorage.getItem(VOICE_META_CACHE_KEY) || '{}'); } catch { return {}; }
+}
+function writeVoiceMetaCache(cache) {
+  try { localStorage.setItem(VOICE_META_CACHE_KEY, JSON.stringify(cache)); } catch { /* ignore quota/private mode */ }
+}
+
 // Raw Izivoice catalog items are passed through as-is by the backend, so
 // their exact schema isn't fixed — this keeps the fields the picker actually
 // filters/sorts on (language, gender, accent, usage) alongside the flattened
@@ -2769,6 +2785,29 @@ export default function App() {
   const [showVoiceCloner, setShowVoiceCloner] = useState(false);
   const [savedVoiceIds, setSavedVoiceIds] = useState(() => readVoiceIdList(SAVED_VOICE_IDS_KEY));
   const [clonedVoiceIds, setClonedVoiceIds] = useState(() => readVoiceIdList(CLONED_VOICE_IDS_KEY));
+  const [voiceMetaCache, setVoiceMetaCache] = useState(() => readVoiceMetaCache());
+  // Remembers a saved/cloned voice's display info so it survives a catalog
+  // refetch (see VOICE_META_CACHE_KEY above) — call this anywhere a voice
+  // gets bookmarked or cloned, alongside the id-list tracking.
+  const cacheVoiceMeta = (voice) => {
+    if (!voice?.id) return;
+    setVoiceMetaCache(prev => {
+      const next = { ...prev, [voice.id]: voice };
+      writeVoiceMetaCache(next);
+      return next;
+    });
+  };
+  // Re-adds any saved/cloned voice missing from a freshly fetched catalog
+  // page/search result, using the cached metadata — otherwise a voice cloned
+  // earlier in this browser silently disappears from the picker the moment
+  // it scrolls outside whatever page window the catalog fetch happens to
+  // cover (see VOICE_META_CACHE_KEY comment).
+  const mergeKnownVoices = (list) => {
+    const missingIds = [...clonedVoiceIds, ...savedVoiceIds].filter(id => !list.some(v => v.id === id));
+    if (missingIds.length === 0) return list;
+    const missing = missingIds.map(id => voiceMetaCache[id]).filter(Boolean);
+    return [...missing, ...list];
+  };
   const [catalogHasMore, setCatalogHasMore] = useState(false);
   const [catalogNextPage, setCatalogNextPage] = useState(10);
   const [loadingMoreVoices, setLoadingMoreVoices] = useState(false);
@@ -5061,7 +5100,7 @@ export default function App() {
     authFetch(`${API_BASE}/channels/voice/catalog${ownerQuery}`)
       .then(res => res.ok ? res.json() : Promise.reject())
       .then(data => {
-        const voices = (data.voices || []).map(mapCatalogVoice);
+        const voices = mergeKnownVoices((data.voices || []).map(mapCatalogVoice));
         if (voices.length) {
           defaultVoicesRef.current = voices;
           setAvailableVoices(voices);
@@ -5115,7 +5154,7 @@ export default function App() {
       authFetch(`${API_BASE}/channels/voice/catalog?search=${encodeURIComponent(query)}${ownerQuery}`)
         .then(res => res.ok ? res.json() : Promise.reject())
         .then(data => {
-          const voices = (data.voices || []).map(mapCatalogVoice);
+          const voices = mergeKnownVoices((data.voices || []).map(mapCatalogVoice));
           setAvailableVoices(voices);
         })
         .catch(() => {})
@@ -5173,6 +5212,7 @@ export default function App() {
       writeVoiceIdList(SAVED_VOICE_IDS_KEY, next);
       return next;
     });
+    cacheVoiceMeta(voice);
   };
 
   // Lets someone attach a voice they already cloned directly on Izivoice
@@ -5192,6 +5232,7 @@ export default function App() {
       writeVoiceIdList(CLONED_VOICE_IDS_KEY, next);
       return next;
     });
+    cacheVoiceMeta(voice);
     if (view === 'wizard') setNewChannel(prev => ({ ...prev, voice_id: voice.id, voice_name: voice.name }));
     showToast('Voix ajoutée et sélectionnée.', 'success');
   };
@@ -5247,6 +5288,7 @@ export default function App() {
         writeVoiceIdList(CLONED_VOICE_IDS_KEY, next);
         return next;
       });
+      cacheVoiceMeta(voice);
       if (view === 'wizard') setNewChannel(prev => ({ ...prev, voice_id: voice.id, voice_name: voice.name }));
       showToast('Ta voix a été clonée et sélectionnée.', 'success');
       setShowVoiceCloner(false);
@@ -12572,9 +12614,14 @@ export default function App() {
         </div>
       )}
 
-      {/* TOAST NOTIFICATION */}
-      {toast && (
-        <div className="fixed bottom-6 right-6 z-[100] animate-in fade-in slide-in-from-bottom-4 duration-300">
+      {/* TOAST NOTIFICATION — rendered via a portal straight onto <body>,
+          not wherever this component happens to sit in the tree. Any
+          transformed/scaled ancestor (e.g. a modal's open/close animation)
+          turns `position: fixed` into "relative to that ancestor" instead of
+          the viewport, which is what put this in a random corner instead of
+          its intended spot. Top-center also keeps it clear of the sidebar. */}
+      {toast && createPortal(
+        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[200] animate-in fade-in slide-in-from-top-4 duration-300">
           <div className={`flex items-center gap-3 px-5 py-3.5 rounded-xl shadow-2xl border max-w-md ${
             toast.type === 'error'
               ? 'bg-rose-950 border-rose-800 text-rose-200'
@@ -12588,7 +12635,8 @@ export default function App() {
               <span className="material-symbols-outlined text-[16px]">close</span>
             </button>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {fontPickerOpen && (() => {
