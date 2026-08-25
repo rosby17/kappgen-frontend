@@ -1123,41 +1123,37 @@ const nameFromFilename = (filename) => {
 // Feature checklists mirror the marketing landing page's #tarifs section
 // (LandingPage.jsx) — same plan names, same promise, so a creator never sees
 // a different feature list depending on where they subscribe.
-// Each feature is { text, included } — included:false still shows the line
-// (so a lower tier's card openly lists what it's missing, for contrast with
-// the plans above it) but with a red cross instead of a green check, since a
-// green check on an excluded feature reads as "you have this."
+// Same feature rows on every tier (so cards compare line-by-line), each
+// marked included:true/false per tier — progressively more checked from
+// Starter (the fewest) to Pro (all of them). The credit amount itself isn't
+// repeated here — it's already shown at the top of the card, right under
+// the price, so listing it again as a feature line was pure duplication.
+// { text, included } — included:false still shows the line grayed out with
+// a red cross instead of a green check, since a check on an excluded
+// feature reads as "you have this."
+const PLAN_CHANNEL_COUNTS = { 'Starter': '1 chaîne', 'Creator': '2 chaînes', 'Standard': 'Jusqu’à 5 chaînes', 'Pro': 'Chaînes illimitées' };
+const buildPlanFeatures = (planName, { transcription, aiImages, aiScript, autoPublish, prioritySupport }) => [
+  { text: 'Voix off', included: true },
+  { text: PLAN_CHANNEL_COUNTS[planName], included: true },
+  { text: 'Transcription automatique', included: transcription },
+  { text: 'Génération d’images IA', included: aiImages },
+  { text: 'Script automatique IA', included: aiScript },
+  { text: 'Publication automatique YouTube', included: autoPublish },
+  { text: 'Support prioritaire', included: prioritySupport },
+];
 const PLAN_DETAILS = {
-  'Starter': { tagline: 'Pour tester la voix off sans engagement.', features: [
-    { text: '100 000 crédits', included: true },
-    { text: 'Voix off incluse', included: true },
-    { text: 'Transcription incluse', included: true },
-    { text: '1 chaîne', included: true },
-    { text: 'Génération d’images IA', included: false },
-  ] },
-  'Creator': { tagline: 'Pour créer régulièrement sans y penser.', features: [
-    { text: '350 000 crédits', included: true },
-    { text: 'Voix off incluse', included: true },
-    { text: 'Transcription incluse', included: true },
-    { text: '2 chaînes', included: true },
-    { text: 'Génération d’images IA débloquée', included: true },
-  ] },
-  'Standard': { tagline: 'Le meilleur rapport crédits / prix.', features: [
-    { text: '1 000 000 crédits', included: true },
-    { text: 'Voix off incluse', included: true },
-    { text: 'Transcription incluse', included: true },
-    { text: 'Jusqu’à 5 chaînes', included: true },
-    { text: 'Génération d’images IA débloquée', included: true },
-    { text: 'Meilleur coût par vidéo', included: true },
-  ], featured: true, badgeText: 'Le plus populaire' },
-  'Pro': { tagline: 'Pour un usage intensif et plusieurs chaînes.', features: [
-    { text: '5 000 000 crédits', included: true },
-    { text: 'Voix off incluse', included: true },
-    { text: 'Transcription incluse', included: true },
-    { text: 'Chaînes illimitées', included: true },
-    { text: 'Génération d’images IA débloquée', included: true },
-    { text: 'Support prioritaire', included: true },
-  ] },
+  'Starter': { tagline: 'Pour tester la voix off sans engagement.', features: buildPlanFeatures('Starter', {
+    transcription: false, aiImages: false, aiScript: false, autoPublish: false, prioritySupport: false,
+  }) },
+  'Creator': { tagline: 'Pour créer régulièrement sans y penser.', features: buildPlanFeatures('Creator', {
+    transcription: true, aiImages: true, aiScript: false, autoPublish: false, prioritySupport: false,
+  }) },
+  'Standard': { tagline: 'Le meilleur rapport crédits / prix.', features: buildPlanFeatures('Standard', {
+    transcription: true, aiImages: true, aiScript: true, autoPublish: true, prioritySupport: false,
+  }), featured: true, badgeText: 'Le plus populaire' },
+  'Pro': { tagline: 'Pour un usage intensif et plusieurs chaînes.', features: buildPlanFeatures('Pro', {
+    transcription: true, aiImages: true, aiScript: true, autoPublish: true, prioritySupport: true,
+  }) },
 };
 
 // Bottom-sheet pricing popup — opened from the sidebar's "Offres & Tarifs"
