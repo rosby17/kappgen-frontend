@@ -1123,11 +1123,41 @@ const nameFromFilename = (filename) => {
 // Feature checklists mirror the marketing landing page's #tarifs section
 // (LandingPage.jsx) — same plan names, same promise, so a creator never sees
 // a different feature list depending on where they subscribe.
+// Each feature is { text, included } — included:false still shows the line
+// (so a lower tier's card openly lists what it's missing, for contrast with
+// the plans above it) but with a red cross instead of a green check, since a
+// green check on an excluded feature reads as "you have this."
 const PLAN_DETAILS = {
-  'Starter': { tagline: 'Pour tester la voix off sans engagement.', features: ['100 000 crédits', 'Voix off + transcription incluses', 'Pas de génération d’images IA'] },
-  'Creator': { tagline: 'Pour créer régulièrement sans y penser.', features: ['350 000 crédits', 'Voix off + transcription incluses', 'Génération d’images IA débloquée'] },
-  'Standard': { tagline: 'Le meilleur rapport crédits / prix.', features: ['1 000 000 crédits', 'Voix off + transcription incluses', 'Génération d’images IA débloquée', 'Meilleur coût par vidéo'], featured: true, badgeText: 'Le plus populaire' },
-  'Pro': { tagline: 'Pour un usage intensif et plusieurs chaînes.', features: ['5 000 000 crédits', 'Voix off + transcription incluses', 'Génération d’images IA débloquée', 'Plusieurs chaînes en parallèle', 'Support prioritaire'] },
+  'Starter': { tagline: 'Pour tester la voix off sans engagement.', features: [
+    { text: '100 000 crédits', included: true },
+    { text: 'Voix off incluse', included: true },
+    { text: 'Transcription incluse', included: true },
+    { text: '1 chaîne', included: true },
+    { text: 'Génération d’images IA', included: false },
+  ] },
+  'Creator': { tagline: 'Pour créer régulièrement sans y penser.', features: [
+    { text: '350 000 crédits', included: true },
+    { text: 'Voix off incluse', included: true },
+    { text: 'Transcription incluse', included: true },
+    { text: '2 chaînes', included: true },
+    { text: 'Génération d’images IA débloquée', included: true },
+  ] },
+  'Standard': { tagline: 'Le meilleur rapport crédits / prix.', features: [
+    { text: '1 000 000 crédits', included: true },
+    { text: 'Voix off incluse', included: true },
+    { text: 'Transcription incluse', included: true },
+    { text: 'Jusqu’à 5 chaînes', included: true },
+    { text: 'Génération d’images IA débloquée', included: true },
+    { text: 'Meilleur coût par vidéo', included: true },
+  ], featured: true, badgeText: 'Le plus populaire' },
+  'Pro': { tagline: 'Pour un usage intensif et plusieurs chaînes.', features: [
+    { text: '5 000 000 crédits', included: true },
+    { text: 'Voix off incluse', included: true },
+    { text: 'Transcription incluse', included: true },
+    { text: 'Chaînes illimitées', included: true },
+    { text: 'Génération d’images IA débloquée', included: true },
+    { text: 'Support prioritaire', included: true },
+  ] },
 };
 
 // Bottom-sheet pricing popup — opened from the sidebar's "Offres & Tarifs"
@@ -1216,9 +1246,9 @@ function PricingModal({ onClose, plans, subscription, checkoutPlanId, onSelectPl
                   </div>
                   <ul className="space-y-1.5 flex-1">
                     {details.features.map(f => (
-                      <li key={f} className="flex items-start gap-1.5 text-[11px] text-slate-300">
-                        <span className="material-symbols-outlined text-[14px] text-emerald-400 shrink-0 mt-0.5">check</span>
-                        {f}
+                      <li key={f.text} className={`flex items-start gap-1.5 text-[11px] ${f.included ? 'text-slate-300' : 'text-slate-500'}`}>
+                        <span className={`material-symbols-outlined text-[14px] shrink-0 mt-0.5 ${f.included ? 'text-emerald-400' : 'text-red-400'}`}>{f.included ? 'check' : 'close'}</span>
+                        {f.text}
                       </li>
                     ))}
                   </ul>
@@ -10404,9 +10434,9 @@ export default function App() {
                                 </div>
                                 <ul className="space-y-1.5 flex-1">
                                   {details.features.map(f => (
-                                    <li key={f} className="flex items-start gap-1.5 text-[11px] text-slate-300">
-                                      <span className="material-symbols-outlined text-[14px] text-emerald-400 shrink-0 mt-0.5">check</span>
-                                      {f}
+                                    <li key={f.text} className={`flex items-start gap-1.5 text-[11px] ${f.included ? 'text-slate-300' : 'text-slate-500'}`}>
+                                      <span className={`material-symbols-outlined text-[14px] shrink-0 mt-0.5 ${f.included ? 'text-emerald-400' : 'text-red-400'}`}>{f.included ? 'check' : 'close'}</span>
+                                      {f.text}
                                     </li>
                                   ))}
                                 </ul>
