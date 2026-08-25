@@ -2891,7 +2891,18 @@ export default function App() {
     if (!editingChannelId) return;
     try {
       const res = await authFetch(`${API_BASE}/channels/${editingChannelId}/overlays/${overlayId}`, { method: 'DELETE' });
-      if (!res.ok) throw new Error("Suppression impossible.");
+      if (res.status === 404) {
+        // Already gone server-side (e.g. this channel was open in another tab
+        // that replaced/deleted it first, leaving this tab's local state
+        // pointing at a stale id) — the end state the user wants is already
+        // true, so just drop it locally instead of showing a scary error.
+        setNewChannel(prev => ({ ...prev, branding: { ...prev.branding, overlays: (prev.branding.overlays || []).filter(o => o.id !== overlayId) } }));
+        return;
+      }
+      if (!res.ok) {
+        const detail = await res.json().catch(() => ({}));
+        throw new Error(detail.detail || `Suppression impossible (${res.status}).`);
+      }
       const data = await res.json();
       setNewChannel(prev => ({ ...prev, branding: { ...prev.branding, overlays: data.branding?.overlays || [] } }));
       setChannels(prev => prev.map(c => c.id === data.id ? data : c));
