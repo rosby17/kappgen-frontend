@@ -4754,6 +4754,12 @@ export default function App() {
   // ever paid for a credit pack — not tied to a currently-active
   // subscription, and free-trial creators (never having paid) never qualify.
   const canRemoveWatermark = isSubscriptionExempt || hasPurchasedCredits;
+  // Generic "can this creator afford a paid AI generation right now" check —
+  // images, thumbnails, AI music preview all cost real credits, so none of
+  // them should even be selectable without enough balance to cover one call.
+  const canAffordCredits = (amount) => isSubscriptionExempt || (creditBalance != null && creditBalance >= amount);
+  const canGenerateAIImages = canAffordCredits(IMAGE_GENERATION_CREDITS);
+  const canGenerateAIMusic = canAffordCredits(MUSIC_GENERATION_CREDITS);
 
   const startCheckout = async (planId, provider, billingCycle = 'monthly') => {
     setCheckoutPlanId(planId);
@@ -8108,11 +8114,6 @@ export default function App() {
                     setNewChannel({ ...newChannel, image_style: { ...newChannel.image_style, source } });
                   };
 
-                  // Generating AI visuals costs real credits per image — without at
-                  // least enough balance for one image, the option isn't offered at
-                  // all (not just disabled with an explanation), same principle as
-                  // the watermark gate.
-                  const canGenerateAIImages = isSubscriptionExempt || (creditBalance != null && creditBalance >= IMAGE_GENERATION_CREDITS);
 
                   const toggleOptionB = () => {
                     if (!isOptionBChecked && !canGenerateAIImages) {
@@ -8603,7 +8604,17 @@ export default function App() {
                             <span className="material-symbols-outlined text-[#00c2ff] text-[24px]">auto_awesome</span>
                             <h4 className="font-bold text-white text-xs">Générer avec l'IA</h4>
                           </div>
-                          <p className="text-[11px] text-slate-400">KappGen écrit le prompt à partir de la niche (et du script), puis IziVoice génère la musique.</p>
+                          <p className="text-[11px] text-slate-400">KappGen écrit le prompt à partir de la niche (et du script), puis IziVoice génère la musique — {MUSIC_GENERATION_CREDITS.toLocaleString()} crédits par génération.</p>
+                          {!canGenerateAIMusic && (
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); setView('settings'); setSettingsTab('billing'); }}
+                              className="text-[10px] font-bold text-amber-400 hover:underline flex items-center gap-1"
+                            >
+                              <span className="material-symbols-outlined text-[13px]">bolt</span>
+                              Solde de crédits insuffisant — recharger
+                            </button>
+                          )}
                         </div>
 
                         <div onClick={(e) => e.stopPropagation()}>
@@ -8620,8 +8631,9 @@ export default function App() {
                         <button
                           type="button"
                           onClick={(e) => { e.stopPropagation(); handleGenerateMusicPreview(); }}
-                          disabled={aiMusicGenerating}
-                          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#00c2ff] text-slate-950 font-bold text-xs hover:bg-[#38d0ff] transition-all disabled:opacity-50"
+                          disabled={aiMusicGenerating || !canGenerateAIMusic}
+                          title={canGenerateAIMusic ? undefined : `Crédits insuffisants (${MUSIC_GENERATION_CREDITS.toLocaleString()} crédits)`}
+                          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#00c2ff] text-slate-950 font-bold text-xs hover:bg-[#38d0ff] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           <span className="material-symbols-outlined text-[18px]">{aiMusicGenerating ? 'hourglass_top' : 'auto_awesome'}</span>
                           {aiMusicGenerating ? 'Génération...' : (aiMusicPreviewUrl ? 'Régénérer et réécouter' : 'Générer et écouter un aperçu')}
