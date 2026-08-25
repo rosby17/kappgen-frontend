@@ -1124,9 +1124,10 @@ const nameFromFilename = (filename) => {
 // (LandingPage.jsx) — same plan names, same promise, so a creator never sees
 // a different feature list depending on where they subscribe.
 const PLAN_DETAILS = {
-  'Creator': { tagline: 'Pour créer régulièrement sans y penser.', features: ['350 000 crédits', 'Voix off + transcription incluses', 'Génération d’images IA débloquée', 'Validité au choix : 1 à 12 mois, ou à vie'] },
-  'Standard': { tagline: 'Le meilleur rapport crédits / prix.', features: ['1 000 000 crédits', 'Voix off + transcription incluses', 'Génération d’images IA débloquée', 'Validité au choix : 1 à 12 mois, ou à vie'], featured: true, badgeText: 'Le plus populaire' },
-  'Pro': { tagline: 'Pour un usage intensif et plusieurs chaînes.', features: ['5 000 000 crédits', 'Voix off + transcription incluses', 'Génération d’images IA débloquée', 'Validité au choix : 1 à 12 mois, ou à vie'] },
+  'Starter': { tagline: 'Pour tester la voix off sans engagement.', features: ['100 000 crédits', 'Voix off + transcription incluses', 'Pas de génération d’images IA'] },
+  'Creator': { tagline: 'Pour créer régulièrement sans y penser.', features: ['350 000 crédits', 'Voix off + transcription incluses', 'Génération d’images IA débloquée'] },
+  'Standard': { tagline: 'Le meilleur rapport crédits / prix.', features: ['1 000 000 crédits', 'Voix off + transcription incluses', 'Génération d’images IA débloquée', 'Meilleur coût par vidéo'], featured: true, badgeText: 'Le plus populaire' },
+  'Pro': { tagline: 'Pour un usage intensif et plusieurs chaînes.', features: ['5 000 000 crédits', 'Voix off + transcription incluses', 'Génération d’images IA débloquée', 'Plusieurs chaînes en parallèle', 'Support prioritaire'] },
 };
 
 // Bottom-sheet pricing popup — opened from the sidebar's "Offres & Tarifs"
@@ -1156,7 +1157,7 @@ function PricingModal({ onClose, plans, subscription, checkoutPlanId, onSelectPl
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className={`w-full sm:max-w-3xl max-h-[85vh] overflow-y-auto bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-t-3xl sm:rounded-3xl p-6 sm:p-8 space-y-5 transition-transform duration-300 ease-out ${
+        className={`w-full sm:max-w-4xl max-h-[85vh] overflow-y-auto bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-t-3xl sm:rounded-3xl p-6 sm:p-8 space-y-5 transition-transform duration-300 ease-out ${
           entered ? 'translate-y-0' : 'translate-y-full'
         }`}
       >
@@ -1178,7 +1179,7 @@ function PricingModal({ onClose, plans, subscription, checkoutPlanId, onSelectPl
         ) : sortedPlans.length === 0 ? (
           <p className="text-xs text-slate-500">Aucune offre disponible pour le moment.</p>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-stretch">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-stretch">
             {sortedPlans.map(p => {
               const details = PLAN_DETAILS[p.name] || { tagline: '', features: [] };
               const isCurrent = currentPlanName === p.name;
@@ -1211,7 +1212,7 @@ function PricingModal({ onClose, plans, subscription, checkoutPlanId, onSelectPl
                     {p.credits ? (
                       <div className="text-[11px] text-[#00c2ff] font-bold mt-0.5">{p.credits.toLocaleString()} crédits</div>
                     ) : null}
-                    <div className="text-[11px] text-slate-500">{p.credits ? '/ mois — validité au choix' : `/ ${p.duration_days} jours`}</div>
+                    <div className="text-[11px] text-slate-500">{p.credits ? 'crédits à vie' : `/ ${p.duration_days} jours`}</div>
                   </div>
                   <ul className="space-y-1.5 flex-1">
                     {details.features.map(f => (
@@ -1245,30 +1246,15 @@ function PricingModal({ onClose, plans, subscription, checkoutPlanId, onSelectPl
 }
 
 // Payment-method picker shown after choosing a plan — one focused screen
-// (plan summary + method list) instead of two raw provider-name buttons, so
-// a creator who's never heard of "Maketou" or "Tara Money" still recognizes
-// "Mobile Money" / "Carte Bancaire" as things they can actually pay with.
-// Both rows still settle through our two real processors underneath
-// (Tara Money handles mobile money in this market, Maketou handles cards) —
-// no method is shown here that we don't actually support.
-// Same validity tiers as Izivoice's own credit packs (backend
-// src/utils/billing.py CREDIT_CYCLE_MARKUPS/CREDIT_CYCLE_DAYS) — the plan's
-// listed price is the monthly (30-day) rate; a longer commitment multiplies
-// both price and validity. Mirrored here only for display — the price
-// actually charged is always recomputed server-side from these same
-// constants, never trusted from the client.
-const BILLING_CYCLES = [
-  { id: 'monthly', label: 'Mensuel', days: 30, markup: 1.0 },
-  { id: 'quarterly', label: '3 mois', days: 90, markup: 1.1 },
-  { id: 'semiannual', label: '6 mois', days: 180, markup: 1.2 },
-  { id: 'yearly', label: '1 an', days: 365, markup: 1.25 },
-  { id: 'lifetime', label: 'À vie', days: null, markup: 1.3 },
-];
-const priceForCycle = (basePriceFcfa, markup) => Math.ceil((basePriceFcfa * markup) / 500) * 500;
+// (plan summary + method list) instead of raw provider-name buttons, so a
+// creator who's never heard of "Maketou" or "Tara Money" still recognizes
+// "Mobile Money" / "Carte Bancaire" / "PayPal" as things they can actually
+// pay with. Mobile Money settles through Maketou; Carte Bancaire and PayPal
+// both settle through Tara Money — no method shown here that isn't actually
+// wired to one of our two real processors.
 
 function PaymentModal({ plan, onClose, onCheckout, checkingOut }) {
   const [entered, setEntered] = useState(false);
-  const [selectedCycle, setSelectedCycle] = useState('monthly');
   useEffect(() => {
     const t = setTimeout(() => setEntered(true), 10);
     return () => clearTimeout(t);
@@ -1276,15 +1262,15 @@ function PaymentModal({ plan, onClose, onCheckout, checkingOut }) {
   const handleClose = () => { setEntered(false); setTimeout(onClose, 200); };
   if (!plan) return null;
 
-  // Legacy subscription-style plans (no `credits`) don't have per-pot
-  // expiry to extend — only credit packs get the cycle choice.
+  // Credits never expire — no "pay more for longer validity" choice any
+  // more, every pack is a flat one-time price for a permanent balance.
   const isCreditPack = !!plan.credits;
-  const cycle = BILLING_CYCLES.find(c => c.id === selectedCycle) || BILLING_CYCLES[0];
-  const displayPrice = isCreditPack ? priceForCycle(plan.price_fcfa, cycle.markup) : plan.price_fcfa;
+  const displayPrice = plan.price_fcfa;
 
   const methods = [
-    { id: 'tarapay', icon: 'smartphone', title: 'Mobile Money', subtitle: 'Orange, MTN, Moov, Wave...', badge: 'Populaire' },
-    { id: 'maketou', icon: 'credit_card', title: 'Carte Bancaire', subtitle: 'Visa, Mastercard sécurisé' },
+    { id: 'mobile_money', provider: 'maketou', icon: 'smartphone', title: 'Mobile Money', subtitle: 'Orange, MTN, Moov, Wave...', badge: 'Populaire' },
+    { id: 'card', provider: 'tarapay', icon: 'credit_card', title: 'Carte Bancaire', subtitle: 'Visa, Mastercard sécurisé' },
+    { id: 'paypal', provider: 'tarapay', icon: 'account_balance_wallet', title: 'PayPal', subtitle: 'Paiement sécurisé via PayPal' },
   ];
 
   return (
@@ -1315,37 +1301,16 @@ function PaymentModal({ plan, onClose, onCheckout, checkingOut }) {
           </div>
           <div className="text-right">
             <div className="text-lg font-extrabold text-white">{displayPrice.toLocaleString()} FCFA</div>
-            <div className="text-[10px] text-slate-400">{isCreditPack ? `Valable ${cycle.label.toLowerCase()}` : `/ ${plan.duration_days} jours`}</div>
+            <div className="text-[10px] text-slate-400">{isCreditPack ? 'Crédits à vie' : `/ ${plan.duration_days} jours`}</div>
           </div>
         </div>
 
-        {isCreditPack && (
-          <div className="space-y-2">
-            <div className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Durée de validité des crédits</div>
-            <div className="grid grid-cols-3 sm:grid-cols-5 gap-1.5">
-              {BILLING_CYCLES.map(c => (
-                <button
-                  key={c.id}
-                  type="button"
-                  onClick={() => setSelectedCycle(c.id)}
-                  className={`px-2 py-2 rounded-xl text-[10px] font-bold border transition-colors text-center ${
-                    selectedCycle === c.id
-                      ? 'bg-[#00c2ff] text-slate-950 border-[#00c2ff]'
-                      : 'bg-[var(--bg-surface-alt)] text-slate-300 border-[var(--border)] hover:border-[#00c2ff]/50'
-                  }`}
-                >
-                  {c.label}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
 
         <div className="space-y-2.5">
           {methods.map(m => (
             <button
               key={m.id}
-              onClick={() => onCheckout(plan.id, m.id, isCreditPack ? selectedCycle : 'monthly')}
+              onClick={() => onCheckout(plan.id, m.provider, 'lifetime')}
               disabled={checkingOut}
               className="w-full flex items-center gap-3.5 p-3.5 bg-[var(--bg-surface-alt)] hover:bg-[var(--bg-dropdown)] border border-[var(--border)] hover:border-[#00c2ff]/50 rounded-2xl transition-all text-left disabled:opacity-50 relative"
             >
@@ -10402,7 +10367,7 @@ export default function App() {
                       const sortedPlans = [...billingPlans].sort((a, b) => a.price_fcfa - b.price_fcfa);
                       const currentPlanName = billingSubscription?.active ? billingSubscription.subscription.plan_name : null;
                       return (
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-stretch">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-stretch">
                           {sortedPlans.map(p => {
                             const details = PLAN_DETAILS[p.name] || { tagline: '', features: [] };
                             const isCurrent = currentPlanName === p.name;
@@ -10435,7 +10400,7 @@ export default function App() {
                                   {p.credits ? (
                                     <div className="text-[11px] text-[#00c2ff] font-bold mt-0.5">{p.credits.toLocaleString()} crédits</div>
                                   ) : null}
-                                  <div className="text-[11px] text-slate-500">{p.credits ? '/ mois — validité au choix' : `/ ${p.duration_days} jours`}</div>
+                                  <div className="text-[11px] text-slate-500">{p.credits ? 'crédits à vie' : `/ ${p.duration_days} jours`}</div>
                                 </div>
                                 <ul className="space-y-1.5 flex-1">
                                   {details.features.map(f => (
