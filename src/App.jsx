@@ -10524,7 +10524,6 @@ export default function App() {
                       <th className="px-4 py-2.5 font-bold">Inscrit le</th>
                       <th className="px-4 py-2.5 font-bold">Chaînes</th>
                       <th className="px-4 py-2.5 font-bold">Vidéos</th>
-                      <th className="px-4 py-2.5 font-bold">Quota gratuit</th>
                       <th className="px-4 py-2.5 font-bold">Crédits</th>
                       <th className="px-4 py-2.5 font-bold">Abonnement</th>
                       <th className="px-4 py-2.5"></th>
@@ -10532,17 +10531,24 @@ export default function App() {
                   </thead>
                   <tbody>
                     {adminUsersLoading ? (
-                      <tr><td colSpan={8} className="px-4 py-8 text-center text-slate-500">Chargement...</td></tr>
+                      <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-500">Chargement...</td></tr>
                     ) : adminUsers.length === 0 ? (
-                      <tr><td colSpan={8} className="px-4 py-8 text-center text-slate-500">Aucun utilisateur.</td></tr>
+                      <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-500">Aucun utilisateur.</td></tr>
                     ) : adminUsers.map(u => (
                       <tr key={u.id} className="border-b border-[var(--border-subtle)] hover:bg-[var(--bg-surface-alt)]/60">
                         <td className="px-4 py-2.5 text-white font-medium">{u.email}{u.is_admin && <span className="ml-1.5 text-[9px] px-1.5 py-0.5 rounded bg-[#00c2ff]/15 text-[#00c2ff] font-bold">ADMIN</span>}</td>
                         <td className="px-4 py-2.5 text-slate-400">{u.created_at ? new Date(u.created_at).toLocaleDateString('fr-FR') : '—'}</td>
                         <td className="px-4 py-2.5 text-slate-300">{u.channel_count}</td>
                         <td className="px-4 py-2.5 text-slate-300">{u.video_count}</td>
-                        <td className="px-4 py-2.5 text-slate-300">{u.free_videos_used}/{u.free_video_quota_granted}</td>
-                        <td className="px-4 py-2.5 text-[#00c2ff] font-bold">{(u.credit_balance ?? 0).toLocaleString()}</td>
+                        <td className="px-4 py-2.5">
+                          <button
+                            onClick={() => { openAdminUser(u.id); setAdminCreditForm({ amount: '', note: '' }); }}
+                            title="Gérer les crédits de cet utilisateur"
+                            className="text-[#00c2ff] font-bold hover:underline"
+                          >
+                            {(u.credit_balance ?? 0).toLocaleString()}
+                          </button>
+                        </td>
                         <td className="px-4 py-2.5">
                           {u.has_active_subscription ? (
                             <span className="px-2 py-0.5 rounded-full bg-emerald-950/60 text-emerald-400 text-[10px] font-bold">Actif</span>
@@ -10616,15 +10622,16 @@ export default function App() {
                       <th className="px-4 py-2.5 font-bold">Chaîne</th>
                       <th className="px-4 py-2.5 font-bold">Propriétaire</th>
                       <th className="px-4 py-2.5 font-bold">Statut</th>
+                      <th className="px-4 py-2.5 font-bold">Coût (crédits)</th>
                       <th className="px-4 py-2.5 font-bold">Créée le</th>
                       <th className="px-4 py-2.5"></th>
                     </tr>
                   </thead>
                   <tbody>
                     {adminVideosLoading ? (
-                      <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-500">Chargement...</td></tr>
+                      <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-500">Chargement...</td></tr>
                     ) : adminVideos.length === 0 ? (
-                      <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-500">Aucune vidéo.</td></tr>
+                      <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-500">Aucune vidéo.</td></tr>
                     ) : adminVideos.map(v => (
                       <tr key={v.id} className="border-b border-[var(--border-subtle)] hover:bg-[var(--bg-surface-alt)]/60">
                         <td className="px-4 py-2.5 text-white font-medium max-w-[280px] truncate">{v.title || '(sans titre)'}</td>
@@ -10637,6 +10644,7 @@ export default function App() {
                             'bg-[var(--bg-surface-alt)] text-slate-400'
                           }`}>{v.status}</span>
                         </td>
+                        <td className="px-4 py-2.5 text-[#00c2ff] font-bold">{(v.total_credits ?? 0).toLocaleString()}</td>
                         <td className="px-4 py-2.5 text-slate-400">{v.created_at ? new Date(v.created_at).toLocaleDateString('fr-FR') : '—'}</td>
                         <td className="px-4 py-2.5 text-right">
                           <button onClick={() => deleteAdminVideo(v.id)} className="text-rose-400 font-bold hover:underline">Supprimer</button>
