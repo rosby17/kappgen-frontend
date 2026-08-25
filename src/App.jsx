@@ -151,6 +151,89 @@ const slugifyChannelName = (name) =>
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '') || 'chaine';
 
+// Encodes an AudioBuffer as a 16-bit PCM WAV Blob — no external library
+// needed, and WAV decodes losslessly on the backend's own ffmpeg re-encode,
+// so there's no quality tradeoff versus shipping the original container.
+const encodeWav = (audioBuffer) => {
+  const numChannels = audioBuffer.numberOfChannels;
+  const sampleRate = audioBuffer.sampleRate;
+  const numFrames = audioBuffer.length;
+  const bytesPerSample = 2;
+  const blockAlign = numChannels * bytesPerSample;
+  const dataSize = numFrames * blockAlign;
+  const buffer = new ArrayBuffer(44 + dataSize);
+  const view = new DataView(buffer);
+  const writeStr = (offset, str) => { for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i)); };
+
+  writeStr(0, 'RIFF');
+  view.setUint32(4, 36 + dataSize, true);
+  writeStr(8, 'WAVE');
+  writeStr(12, 'fmt ');
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true); // PCM
+  view.setUint16(22, numChannels, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * blockAlign, true);
+  view.setUint16(32, blockAlign, true);
+  view.setUint16(34, bytesPerSample * 8, true);
+  writeStr(36, 'data');
+  view.setUint32(40, dataSize, true);
+
+  const channelData = [];
+  for (let ch = 0; ch < numChannels; ch++) channelData.push(audioBuffer.getChannelData(ch));
+  let offset = 44;
+  for (let frame = 0; frame < numFrames; frame++) {
+    for (let ch = 0; ch < numChannels; ch++) {
+      const sample = Math.max(-1, Math.min(1, channelData[ch][frame]));
+      view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7fff, true);
+      offset += 2;
+    }
+  }
+  return new Blob([buffer], { type: 'audio/wav' });
+};
+
+// Voice cloning only ever uses the first ~30s of a sample (see backend's
+// CLONE_MAX_SECONDS) — trimming here, before upload, avoids sending an
+// entire long recording (which can be tens of MB and slow on a weak
+// connection) just to have the server throw most of it away. Falls back to
+// uploading the original file untouched if decoding fails for any reason
+// (unsupported codec, browser quirk, etc.) — the backend still trims safely
+// either way, this is purely a client-side upload-size optimization.
+const trimAudioClientSide = async (file, maxSeconds = 32) => {
+  try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return file;
+    const arrayBuffer = await file.arrayBuffer();
+    const audioCtx = new AudioCtx();
+    let decoded;
+    try {
+      decoded = await audioCtx.decodeAudioData(arrayBuffer.slice(0));
+    } finally {
+      audioCtx.close();
+    }
+    if (decoded.duration <= maxSeconds) return file;
+
+    const frameCount = Math.floor(Math.min(maxSeconds, decoded.duration) * decoded.sampleRate);
+    // Manually copy the first frameCount samples per channel — simpler and
+    // more portable than wiring up an OfflineAudioContext render graph just
+    // to truncate a buffer.
+    const out = new AudioBuffer({
+      length: frameCount,
+      numberOfChannels: decoded.numberOfChannels,
+      sampleRate: decoded.sampleRate,
+    });
+    for (let ch = 0; ch < decoded.numberOfChannels; ch++) {
+      out.copyToChannel(decoded.getChannelData(ch).subarray(0, frameCount), ch);
+    }
+    const wavBlob = encodeWav(out);
+    const trimmedName = (file.name || 'audio').replace(/\.[^.]+$/, '') + `-${maxSeconds}s.wav`;
+    return new File([wavBlob], trimmedName, { type: 'audio/wav' });
+  } catch (err) {
+    console.warn('Découpage audio côté client impossible, envoi du fichier original :', err);
+    return file;
+  }
+};
+
 const getVideoUrl = (path) => {
   if (!path) return '';
   if (path.startsWith('http://') || path.startsWith('https://')) return path;
@@ -2692,6 +2775,9 @@ export default function App() {
   // background) — logo/subtitles/effects/music toggle real newChannel fields
   // instead, see isRecapChecked/toggleRecap in the step-6 wizard block.
   const [recapVisible, setRecapVisible] = useState({ visual: true });
+  // Drag-and-drop reordering of the "Calques" stack on the pipeline wizard's
+  // final preview step — id of the layer currently being dragged, or null.
+  const [draggedLayerId, setDraggedLayerId] = useState(null);
   const [wizardMode, setWizardMode] = useState('create');
   const [fontPickerOpen, setFontPickerOpen] = useState(false);
   const [fontSearchQuery, setFontSearchQuery] = useState('');
@@ -5008,10 +5094,11 @@ export default function App() {
     if (!file || !targetChannelId || !name?.trim()) return;
     setCloningVoice(true);
     try {
+      const clip = await trimAudioClientSide(file, 32);
       const form = new FormData();
       form.append('name', name.trim());
       if (currentUser) form.append('user_id', currentUser.id);
-      form.append('audio', file);
+      form.append('audio', clip);
       const res = await authFetch(`${API_BASE}/channels/${targetChannelId}/voice/clone`, { method: 'POST', body: form });
       const started = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(started.detail || 'Clonage impossible.');
@@ -7524,7 +7611,7 @@ export default function App() {
                             one gets its own corner + size, same idea as the logo. */}
                         <div className="bg-[var(--bg-input)] border border-[var(--border-subtle)] rounded-xl p-4 space-y-3">
                           <div className="flex items-center justify-between">
-                            <label className="block text-xs font-bold text-slate-300">Incrustations (Abonne-toi, cloche…)</label>
+                            <label className="block text-xs font-bold text-slate-300">Incrustations d'images</label>
                             <button
                               type="button"
                               onClick={() => editingChannelId ? overlayInputRef.current?.click() : showToast("Enregistre d'abord la chaîne avant d'ajouter des incrustations.", "error")}
@@ -7540,7 +7627,7 @@ export default function App() {
                           {!editingChannelId ? (
                             <p className="text-[11px] text-slate-500">Enregistre d'abord la chaîne pour ajouter des incrustations (PNG recommandé).</p>
                           ) : (newChannel.branding.overlays || []).length === 0 ? (
-                            <p className="text-[11px] text-slate-500">Aucune incrustation — ajoute un PNG (bouton « Abonne-toi », cloche, etc.), placé au coin de ton choix, taille réglable.</p>
+                            <p className="text-[11px] text-slate-500">Aucune incrustation — ajoute n'importe quelle image à superposer sur la vidéo (bouton « Abonne-toi », cloche de notification, mascotte, sticker, logo secondaire...), placée au coin de ton choix, taille réglable.</p>
                           ) : (
                             <div className="space-y-2.5">
                               {(newChannel.branding.overlays || []).map(ov => {
@@ -9391,17 +9478,42 @@ export default function App() {
                   // 4. Visuels → 5. Musique → 6. Sous-titres → 7. Effets). The thumbnail isn't
                   // listed here — it's generated separately at publish time, not a layer
                   // composited into the video itself.
-                  const recapItems = [
-                    { id: 'logo', label: 'Logo de la chaîne', icon: 'workspace_premium', available: !!resolvedLogoUrl },
+                  const recapItemsById = {
+                    logo: { id: 'logo', label: 'Logo de la chaîne', icon: 'workspace_premium', available: !!resolvedLogoUrl },
                     // A channel always has a voice — either the one explicitly picked, or the
                     // platform default the creator never bothered changing — so this is always on.
-                    { id: 'voiceover', label: 'Voix Off', icon: 'mic', available: true },
-                    { id: 'visual', label: 'Visuel de fond', icon: 'image', available: !!(userImagePreview || (wizardMode === 'edit' && activeChannel)) },
-                    { id: 'music', label: 'Musique de fond', icon: 'music_note', available: !!musicLabel },
-                    { id: 'subtitles', label: 'Sous-titres', icon: 'subtitles', available: true },
-                    { id: 'effects', label: 'Effets visuels', icon: 'auto_awesome', available: stepHasGrain || stepHasVignette || (newChannel.effects_config.color_grade && newChannel.effects_config.color_grade !== 'none') },
-                    { id: 'watermark', label: 'Filigrane KappGen', icon: 'branding_watermark', available: true },
-                  ];
+                    voiceover: { id: 'voiceover', label: 'Voix Off', icon: 'mic', available: true },
+                    visual: { id: 'visual', label: 'Visuel de fond', icon: 'image', available: !!(userImagePreview || (wizardMode === 'edit' && activeChannel)) },
+                    music: { id: 'music', label: 'Musique de fond', icon: 'music_note', available: !!musicLabel },
+                    subtitles: { id: 'subtitles', label: 'Sous-titres', icon: 'subtitles', available: true },
+                    effects: { id: 'effects', label: 'Effets visuels', icon: 'auto_awesome', available: stepHasGrain || stepHasVignette || (newChannel.effects_config.color_grade && newChannel.effects_config.color_grade !== 'none') },
+                    watermark: { id: 'watermark', label: 'Filigrane KappGen', icon: 'branding_watermark', available: true },
+                  };
+                  // Persisted per-channel so a creator's chosen stacking order survives
+                  // leaving and reopening the wizard — defaults to the original
+                  // chronological order for channels that never touched it.
+                  const DEFAULT_LAYER_ORDER = ['logo', 'voiceover', 'visual', 'music', 'subtitles', 'effects', 'watermark'];
+                  const savedLayerOrder = newChannel.effects_config.layer_order;
+                  const layerOrder = Array.isArray(savedLayerOrder) && savedLayerOrder.length === DEFAULT_LAYER_ORDER.length && DEFAULT_LAYER_ORDER.every(id => savedLayerOrder.includes(id))
+                    ? savedLayerOrder
+                    : DEFAULT_LAYER_ORDER;
+                  const recapItems = layerOrder.map(id => recapItemsById[id]);
+                  const reorderLayers = (draggedId, targetId) => {
+                    if (draggedId === targetId) return;
+                    const order = [...layerOrder];
+                    const from = order.indexOf(draggedId);
+                    const to = order.indexOf(targetId);
+                    if (from === -1 || to === -1) return;
+                    order.splice(from, 1);
+                    order.splice(to, 0, draggedId);
+                    setNewChannel({ ...newChannel, effects_config: { ...newChannel.effects_config, layer_order: order } });
+                  };
+                  // Preview-only stacking order (z-index) for the layers that actually
+                  // paint something in the mockup below — drives visually what "arrière-plan
+                  // → premier plan" in the list means, in real time as you drag. 'visual'
+                  // (the background image) and 'voiceover' (audio, nothing to draw) are
+                  // skipped since they have no z-order of their own to assign.
+                  const zForLayer = (id) => (layerOrder.indexOf(id) + 1) * 10;
                   // Logo/sous-titres/effets/musique are real, saved settings — toggling them
                   // here actually edits `newChannel` (persisted on save), same as any other
                   // field in the wizard. "visual" and "voiceover" have no real off-switch (a
@@ -9448,26 +9560,41 @@ export default function App() {
                           <div className="relative pl-2">
                             <div className="absolute left-[19px] top-3 bottom-3 w-px bg-[var(--border)]"></div>
                             {recapItems.map(({ id, label, icon, available }, idx) => (
-                              <button
+                              <div
                                 key={id}
-                                type="button"
-                                disabled={!available}
-                                onClick={() => toggleRecap(id)}
-                                className={`relative z-10 w-full mb-1.5 px-3 py-2.5 rounded-xl text-xs font-bold border transition-colors flex items-center gap-2.5 text-left ${
-                                  !available
-                                    ? 'bg-[var(--bg-surface-alt)]/50 border-[var(--border)]/50 text-slate-600 cursor-not-allowed'
-                                    : isRecapChecked(id)
-                                      ? 'bg-emerald-950/60 border-emerald-700 text-emerald-400'
-                                      : 'bg-[var(--bg-surface-alt)] border-[var(--border)] text-slate-500 hover:border-slate-500'
-                                }`}
+                                draggable
+                                onDragStart={(e) => { setDraggedLayerId(id); e.dataTransfer.effectAllowed = 'move'; }}
+                                onDragEnd={() => setDraggedLayerId(null)}
+                                onDragOver={(e) => e.preventDefault()}
+                                onDrop={(e) => { e.preventDefault(); if (draggedLayerId) reorderLayers(draggedLayerId, id); setDraggedLayerId(null); }}
+                                className={`relative z-10 flex items-center gap-1 mb-1.5 transition-opacity ${draggedLayerId === id ? 'opacity-40' : ''}`}
                               >
-                                <span className="material-symbols-outlined text-[16px] shrink-0">{icon}</span>
-                                <span className="flex-1 truncate">{label}</span>
-                                {id === 'watermark' && !canRemoveWatermark && (
-                                  <span className="px-1.5 py-0.5 rounded bg-amber-400/10 border border-amber-400/25 text-amber-300 text-[8px] font-bold uppercase tracking-wide shrink-0">Premium</span>
-                                )}
-                                <span className="material-symbols-outlined text-[16px] shrink-0">{available && isRecapChecked(id) ? 'check_box' : 'check_box_outline_blank'}</span>
-                              </button>
+                                <span
+                                  title="Glisser pour réordonner"
+                                  className="material-symbols-outlined text-[16px] shrink-0 text-slate-600 cursor-grab active:cursor-grabbing"
+                                >
+                                  drag_indicator
+                                </span>
+                                <button
+                                  type="button"
+                                  disabled={!available}
+                                  onClick={() => toggleRecap(id)}
+                                  className={`flex-1 min-w-0 px-3 py-2.5 rounded-xl text-xs font-bold border transition-colors flex items-center gap-2.5 text-left ${
+                                    !available
+                                      ? 'bg-[var(--bg-surface-alt)]/50 border-[var(--border)]/50 text-slate-600 cursor-not-allowed'
+                                      : isRecapChecked(id)
+                                        ? 'bg-emerald-950/60 border-emerald-700 text-emerald-400'
+                                        : 'bg-[var(--bg-surface-alt)] border-[var(--border)] text-slate-500 hover:border-slate-500'
+                                  }`}
+                                >
+                                  <span className="material-symbols-outlined text-[16px] shrink-0">{icon}</span>
+                                  <span className="flex-1 truncate">{label}</span>
+                                  {id === 'watermark' && !canRemoveWatermark && (
+                                    <span className="px-1.5 py-0.5 rounded bg-amber-400/10 border border-amber-400/25 text-amber-300 text-[8px] font-bold uppercase tracking-wide shrink-0">Premium</span>
+                                  )}
+                                  <span className="material-symbols-outlined text-[16px] shrink-0">{available && isRecapChecked(id) ? 'check_box' : 'check_box_outline_blank'}</span>
+                                </button>
+                              </div>
                             ))}
                           </div>
                         </div>
@@ -9509,23 +9636,25 @@ export default function App() {
 
                           {isRecapChecked('effects') && stepHasGrain && (
                             <div
-                              className="absolute inset-0 mix-blend-overlay z-10"
+                              className="absolute inset-0 mix-blend-overlay"
                               style={{
+                                zIndex: zForLayer('effects'),
                                 opacity: (stepOverlayEffects.includes('white_noise') && !stepOverlayEffects.includes('grain') ? 0.6 : 0.3) * stepGrainIntensity,
                                 backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")"
                               }}
                             />
                           )}
                           {isRecapChecked('effects') && stepHasVignette && (
-                            <div className="absolute inset-0 z-10" style={{ boxShadow: `inset 0 0 ${60 * stepVignetteIntensity}px ${20 * stepVignetteIntensity}px rgba(0,0,0,0.8)` }} />
+                            <div className="absolute inset-0" style={{ zIndex: zForLayer('effects'), boxShadow: `inset 0 0 ${60 * stepVignetteIntensity}px ${20 * stepVignetteIntensity}px rgba(0,0,0,0.8)` }} />
                           )}
 
                           {/* KappGen watermark — centered, low opacity, matches exactly what's
                               burned into the real render when enabled (see WATERMARK_PATH in
                               backend/src/pipeline/assembler.py — the horizontal white logo, not
-                              the square app icon). */}
+                              the square app icon). Stacking order (z-index) follows the
+                              "Calques" drag order on the left, same as every other layer below. */}
                           {isRecapChecked('watermark') && (
-                            <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none">
+                            <div className="absolute inset-0 flex items-center justify-center pointer-events-none" style={{ zIndex: zForLayer('watermark') }}>
                               <img
                                 src="/assets/logo/logo-kappgen-horizontale-blanc.png"
                                 alt="Filigrane KappGen"
@@ -9536,7 +9665,7 @@ export default function App() {
                           )}
 
                           {/* Top-right logo — matches exactly what's burned into the real render. */}
-                          <div className="relative z-20 flex justify-end items-start">
+                          <div className="relative flex justify-end items-start" style={{ zIndex: zForLayer('logo') }}>
                             {isRecapChecked('logo') && resolvedLogoUrl && (
                               <img
                                 src={resolvedLogoUrl}
@@ -9549,7 +9678,7 @@ export default function App() {
 
                           {/* Bottom-left music cue — informational only, not burned into the real render. */}
                           {isRecapChecked('music') && musicLabel && (
-                            <div className="relative z-20 flex items-center gap-1.5 text-[10px] font-bold text-white/90 bg-black/50 backdrop-blur-sm px-2.5 py-1.5 rounded-lg w-fit">
+                            <div className="relative flex items-center gap-1.5 text-[10px] font-bold text-white/90 bg-black/50 backdrop-blur-sm px-2.5 py-1.5 rounded-lg w-fit" style={{ zIndex: zForLayer('music') }}>
                               <span className="material-symbols-outlined text-[14px]">music_note</span>
                               <span className="truncate max-w-[160px]">{musicLabel}</span>
                             </div>
@@ -9557,7 +9686,7 @@ export default function App() {
 
                           {/* Animated subtitle at the exact configured vertical position */}
                           {isRecapChecked('subtitles') && (
-                          <div className={`absolute inset-x-5 z-20 flex justify-center ${subtitlePositionClass(newChannel.subtitle_style.position)}`}>
+                          <div className={`absolute inset-x-5 flex justify-center ${subtitlePositionClass(newChannel.subtitle_style.position)}`} style={{ zIndex: zForLayer('subtitles') }}>
                             <div
                               style={{
                                 backgroundColor: newChannel.subtitle_style.box_color || 'transparent',
