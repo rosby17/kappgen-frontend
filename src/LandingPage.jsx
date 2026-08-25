@@ -42,28 +42,29 @@ const steps = [
   ['04', 'Retrouve tes vidéos publiées', 'KappGen AI programme et publie sur ta chaîne. Tu gardes la visibilité, pas la charge de travail.'],
 ];
 
-const pricingPlans = [
-  {
-    name: 'Découverte', price: 'Gratuit', description: 'Découvre la qualité KappGen avant de lancer ta chaîne.',
-    features: ['1 vidéo test', 'Export avec filigrane', 'Création assistée', 'Sans publication automatique'],
-    cta: 'Tester sans pression', featured: false,
-  },
-  {
-    name: 'Créateur', price: '29 $', localPrice: '≈ 18 000 FCFA / mois', description: 'Pour créer régulièrement tout en gardant la validation finale.',
-    features: ['1 chaîne YouTube', '20 vidéos assistées / mois', '10 à 15 min par vidéo', 'Identité visuelle personnalisée'],
-    cta: 'Créer à mon rythme', featured: false,
-  },
-  {
-    name: 'Automatique', price: '69 $', localPrice: '≈ 42 000 FCFA / mois', description: 'L’expérience KappGen complète : tu configures, KappGen exécute.',
-    features: ['1 chaîne YouTube', '12 vidéos autonomes / mois', 'Jusqu’à 1h par vidéo', 'Programmation automatique', 'Publication automatique YouTube'],
-    cta: 'Dormir l’esprit tranquille', featured: true,
-  },
-  {
-    name: 'Scale', price: '149 $', localPrice: '≈ 90 000 FCFA / mois', description: 'Pour piloter plusieurs chaînes avec un volume de production élevé.',
-    features: ['Jusqu’à 10 chaînes', 'Jusqu’à 300 vidéos / mois', 'Jusqu’à 10h par vidéo', 'Rendu prioritaire', 'Gestion multi-chaînes'],
-    cta: 'Libérer toute mon équipe', featured: false,
-  },
-];
+// Taglines/CTAs keyed by plan name — the checkable feature rows themselves
+// come straight from /api/billing/plans (see buildPlanFeatureRows below) so
+// this page can never drift out of sync with what the app actually enforces
+// the way the old hardcoded Découverte/Créateur/Automatique/Scale list did.
+const PLAN_COPY = {
+  'Starter': { description: 'Pour tester la voix off sans engagement.', cta: 'Tester sans pression', featured: false },
+  'Creator': { description: 'Pour créer régulièrement sans y penser.', cta: 'Créer à mon rythme', featured: false },
+  'Standard': { description: 'Le meilleur rapport crédits / prix.', cta: 'Dormir l’esprit tranquille', featured: true },
+  'Pro': { description: 'Pour un usage intensif et plusieurs chaînes.', cta: 'Libérer toute mon équipe', featured: false },
+};
+
+function buildPlanFeatureRows(plan) {
+  const rows = [
+    { text: 'Accès à la voix off', included: true },
+    { text: plan.max_channels ? `${plan.max_channels} chaîne${plan.max_channels > 1 ? 's' : ''}` : 'Chaînes illimitées', included: true },
+    { text: plan.max_video_duration_seconds ? `Vidéos jusqu’à ${Math.round(plan.max_video_duration_seconds / 60)} min` : 'Durée de vidéo illimitée', included: true },
+    { text: 'Accès à la transcription automatique', included: !!plan.ai_transcription_enabled },
+    { text: 'Accès à la génération d’images IA', included: !!plan.ai_images_enabled },
+    { text: 'Accès au script automatique IA', included: !!plan.ai_script_enabled },
+    { text: 'Accès à la publication automatique YouTube', included: !!plan.autopublish_enabled },
+  ];
+  return rows;
+}
 
 function ProductPreview() {
   return (
@@ -109,6 +110,17 @@ export default function LandingPage() {
   // domain rather than app.kappgen.com — lets an already-logged-in visitor
   // skip straight to "Accéder à KappGen" instead of being shown login/signup.
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  // Fetched live instead of hardcoded — this page used to show a completely
+  // different set of plans (Découverte/Créateur/Automatique/Scale, priced in
+  // USD) than the app's real Starter/Creator/Standard/Pro credit packs, and
+  // that copy silently drifted out of sync with what's actually enforced.
+  const [pricingPlans, setPricingPlans] = useState([]);
+  useEffect(() => {
+    fetch(`${API_BASE}/billing/plans`)
+      .then(res => res.ok ? res.json() : [])
+      .then(plans => setPricingPlans((plans || []).filter(p => p.credits).sort((a, b) => a.price_fcfa - b.price_fcfa)))
+      .catch(() => setPricingPlans([]));
+  }, []);
   useEffect(() => {
     document.title = 'KappGen — Tu vis. KappGen travaille.';
     const description = document.querySelector('meta[name="description"]');
@@ -192,16 +204,23 @@ export default function LandingPage() {
         <section className="section pricing" id="tarifs">
           <div className="section-intro centered"><div className="section-kicker">DES OFFRES POUR REPRENDRE TON TEMPS</div><h2>Commence avec une vidéo.<br /><span>Puis libère-toi des écrans.</span></h2><p>Choisis le rythme qui laisse ta chaîne avancer sans sacrifier tes journées, tes nuits ou tes vacances.</p></div>
           <div className="pricing-grid">
-            {pricingPlans.map((plan) => (
-              <article className={`pricing-card ${plan.featured ? 'featured' : ''}`} key={plan.name}>
-                {plan.featured && <div className="pricing-badge"><Zap size={13} fill="currentColor" /> RECOMMANDÉE</div>}
-                <div className="pricing-card-head"><h3>{plan.name}</h3><p>{plan.description}</p></div>
-                <div className="pricing-price"><strong>{plan.price}</strong>{plan.price !== 'Gratuit' && <span>/ mois</span>}</div>
-                {plan.localPrice && <div className="pricing-local">{plan.localPrice}</div>}
-                <ul>{plan.features.map((feature) => <li key={feature}><Check /> {feature}</li>)}</ul>
-                <a className={`button full ${plan.featured ? 'button-primary' : 'button-ghost'}`} href={appUrl('/signup')}>{plan.cta} <ArrowRight size={16} /></a>
-              </article>
-            ))}
+            {pricingPlans.map((plan) => {
+              const copy = PLAN_COPY[plan.name] || { description: '', cta: 'Choisir cette offre', featured: false };
+              return (
+                <article className={`pricing-card ${copy.featured ? 'featured' : ''}`} key={plan.id}>
+                  {copy.featured && <div className="pricing-badge"><Zap size={13} fill="currentColor" /> RECOMMANDÉE</div>}
+                  <div className="pricing-card-head"><h3>{plan.name}</h3><p>{copy.description}</p></div>
+                  <div className="pricing-price"><strong>{plan.price_fcfa.toLocaleString('fr-FR')}</strong><span>FCFA</span></div>
+                  <div className="pricing-local">{plan.credits.toLocaleString('fr-FR')} crédits à vie</div>
+                  <ul>{buildPlanFeatureRows(plan).map((row) => (
+                    <li key={row.text} className={row.included ? '' : 'pricing-feature-excluded'}>
+                      {row.included ? <Check /> : <X />} {row.text}
+                    </li>
+                  ))}</ul>
+                  <a className={`button full ${copy.featured ? 'button-primary' : 'button-ghost'}`} href={appUrl('/signup')}>{copy.cta} <ArrowRight size={16} /></a>
+                </article>
+              );
+            })}
           </div>
           <div className="network-plan">
             <div><div className="section-kicker">RÉSEAUX MULTICHAÎNES</div><h3>Une infrastructure adaptée à ton réseau.</h3><p>Plusieurs chaînes, accès équipe, volume personnalisé et accompagnement prioritaire.</p></div>
