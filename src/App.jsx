@@ -2463,6 +2463,9 @@ export default function App() {
   const [paymentPlan, setPaymentPlan] = useState(null);
   const [showLanguageModal, setShowLanguageModal] = useState(false);
   const [showScriptStructureModal, setShowScriptStructureModal] = useState(false);
+  const [scriptStructurePasteText, setScriptStructurePasteText] = useState('');
+  const [scriptStructureAnalyzing, setScriptStructureAnalyzing] = useState(false);
+  const [scriptStructureAnalyzeError, setScriptStructureAnalyzeError] = useState('');
   const [languageSearch, setLanguageSearch] = useState('');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
@@ -2957,9 +2960,13 @@ export default function App() {
     const old = (newChannel.branding.overlays || []).find(o => o.id === overlayId);
     setOverlayUploading(true);
     try {
-      await authFetch(`${API_BASE}/channels/${editingChannelId}/overlays/${overlayId}`, { method: 'DELETE' });
+      // Upload the replacement first, then only delete the old one once
+      // that succeeded — the other order (delete, then upload) could leave
+      // neither image in place if the upload failed after the delete went
+      // through. replace_id keeps this from tripping the 6-overlay cap.
       const formData = new FormData();
       formData.append('file', file);
+      formData.append('replace_id', overlayId);
       const res = await authFetch(`${API_BASE}/channels/${editingChannelId}/overlays`, { method: 'POST', body: formData });
       if (!res.ok) {
         const detail = await res.json().catch(() => ({}));
@@ -2970,6 +2977,11 @@ export default function App() {
       const newest = overlays[overlays.length - 1];
       if (old && newest) {
         overlays = overlays.map(o => o.id === newest.id ? { ...o, corner: old.corner, x_percent: old.x_percent, y_percent: old.y_percent, size_percent: old.size_percent, opacity: old.opacity, shape: old.shape, enabled: old.enabled } : o);
+      }
+      const delRes = await authFetch(`${API_BASE}/channels/${editingChannelId}/overlays/${overlayId}`, { method: 'DELETE' });
+      if (delRes.ok) {
+        const delData = await delRes.json();
+        overlays = (delData.branding?.overlays || []).map(o => o.id === newest?.id ? overlays.find(x => x.id === newest.id) || o : o);
       }
       setNewChannel(prev => ({ ...prev, branding: { ...prev.branding, overlays } }));
       setChannels(prev => prev.map(c => c.id === data.id ? { ...data, branding: { ...data.branding, overlays } } : c));
@@ -12270,9 +12282,33 @@ export default function App() {
         const totalWords = parts.reduce((sum, p) => sum + (Number(p.word_count) || 0), 0);
         const rulesText = (structure.formatting_rules || []).join('\n');
 
+        // Lets the creator paste one full block of instructions/script text
+        // instead of filling each part by hand — the AI splits it across the
+        // existing parts (matched by name) and we apply the resulting
+        // guidance in one shot.
+        const analyzePastedText = async () => {
+          if (!scriptStructurePasteText.trim() || parts.length === 0) return;
+          setScriptStructureAnalyzing(true);
+          setScriptStructureAnalyzeError('');
+          try {
+            const res = await authFetch(`${API_BASE}/channels/analyze-script-structure`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ text: scriptStructurePasteText, parts }),
+            });
+            const body = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(body.detail || "L'analyse a échoué.");
+            updateStructure({ parts: body.parts });
+          } catch (err) {
+            setScriptStructureAnalyzeError(err.message || "L'analyse a échoué, réessaie.");
+          } finally {
+            setScriptStructureAnalyzing(false);
+          }
+        };
+
         return (
           <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-[120] flex items-center justify-center p-4 sm:p-6" onClick={() => setShowScriptStructureModal(false)}>
-            <div className="bg-[#111822] border border-[#293548] rounded-3xl w-full max-w-2xl shadow-2xl flex flex-col max-h-[88vh]" onClick={e => e.stopPropagation()}>
+            <div className="bg-[#111822] border border-[#293548] rounded-3xl w-full max-w-6xl shadow-2xl flex flex-col max-h-[88vh]" onClick={e => e.stopPropagation()}>
               <div className="p-5 sm:p-6 border-b border-[var(--border-soft)] flex items-start justify-between gap-4 flex-shrink-0">
                 <div>
                   <div className="flex items-center gap-2 text-[#59d8ff] mb-1">
@@ -12287,7 +12323,8 @@ export default function App() {
                 </button>
               </div>
 
-              <div className="overflow-y-auto p-5 sm:p-6 space-y-4">
+              <div className="overflow-y-auto p-5 sm:p-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="space-y-4">
                 <p className="text-[10px] text-slate-500 -mb-1">Renseigne l'un ou l'autre pour la longueur — les parties ci-dessous sont réparties automatiquement au prorata pour atteindre ce total.</p>
                 <div className="grid grid-cols-3 gap-3">
                 <div className="relative">
@@ -12446,6 +12483,44 @@ export default function App() {
                     className="w-full bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-lg px-3 py-2 text-xs text-white focus:border-[#00c2ff] outline-none min-h-[50px]"
                   />
                 </div>
+              </div>
+
+              <div className="space-y-3 lg:border-l lg:border-[var(--border-soft)] lg:pl-6">
+                <div className="flex items-center gap-2 text-[#59d8ff]">
+                  <span className="material-symbols-outlined text-[20px]">auto_awesome</span>
+                  <label className="text-[11px] font-bold text-slate-300">Import automatique depuis un texte complet</label>
+                </div>
+                <p className="text-[10px] text-slate-500">
+                  Colle ici tes instructions ou ton script complet — l'IA l'analysera et répartira le contenu dans les parties à gauche ({parts.length} partie{parts.length > 1 ? 's' : ''} : {parts.map(p => p.name).filter(Boolean).join(', ') || '—'}), pour t'éviter de tout recopier à la main.
+                </p>
+                <textarea
+                  value={scriptStructurePasteText}
+                  onChange={e => setScriptStructurePasteText(e.target.value)}
+                  placeholder="Colle ici le texte complet (script, notes, brief...)"
+                  className="w-full bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-lg px-3 py-2 text-xs text-white focus:border-[#00c2ff] outline-none min-h-[320px] flex-1"
+                />
+                {scriptStructureAnalyzeError && (
+                  <p className="text-[11px] text-red-400">{scriptStructureAnalyzeError}</p>
+                )}
+                <button
+                  type="button"
+                  onClick={analyzePastedText}
+                  disabled={scriptStructureAnalyzing || !scriptStructurePasteText.trim() || parts.length === 0}
+                  className="w-full py-2.5 bg-[#00c2ff]/10 border border-[#00c2ff]/40 text-[#59d8ff] font-bold text-xs rounded-xl hover:bg-[#00c2ff]/20 transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {scriptStructureAnalyzing ? (
+                    <>
+                      <span className="material-symbols-outlined text-[16px] animate-spin">progress_activity</span>
+                      Analyse en cours...
+                    </>
+                  ) : (
+                    <>
+                      <span className="material-symbols-outlined text-[16px]">bolt</span>
+                      Analyser et remplir les parties
+                    </>
+                  )}
+                </button>
+              </div>
               </div>
 
               <div className="p-4 sm:p-5 border-t border-[var(--border-soft)] flex-shrink-0">
