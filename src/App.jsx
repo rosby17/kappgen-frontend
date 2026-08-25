@@ -9743,7 +9743,11 @@ export default function App() {
                     if (id === 'music') return newChannel.music_preference.enabled ?? false;
                     if (id === 'voiceover') return true;
                     if (id === 'watermark') return newChannel.effects_config.watermark_enabled ?? true;
-                    return recapVisible.visual;
+                    // 'visual' has no real "disabled" setting to reflect (a video always
+                    // has a background — library or AI-generated) — always on, same as
+                    // voiceover, instead of an orphaned local toggle that could get stuck
+                    // unchecked with no way for it to reflect the actual configuration.
+                    return true;
                   };
                   const toggleRecap = (id) => {
                     if (id === 'logo') return setNewChannel({ ...newChannel, branding: { ...newChannel.branding, logo_enabled: !isRecapChecked('logo') } });
@@ -9751,11 +9755,11 @@ export default function App() {
                     if (id === 'effects') return setNewChannel({ ...newChannel, effects_config: { ...newChannel.effects_config, enabled: !isRecapChecked('effects') } });
                     if (id === 'music') return setNewChannel({ ...newChannel, music_preference: { ...newChannel.music_preference, enabled: !isRecapChecked('music') } });
                     if (id === 'voiceover') return; // read-only — always on once a voice is picked, nothing to toggle
+                    if (id === 'visual') return; // read-only — a video always has a background, nothing to toggle
                     if (id === 'watermark') {
                       if (!canRemoveWatermark) { showToast('Achète au moins un pack de crédits pour retirer le filigrane KappGen.', 'error'); return; }
                       return setNewChannel({ ...newChannel, effects_config: { ...newChannel.effects_config, watermark_enabled: !isRecapChecked('watermark') } });
                     }
-                    setRecapVisible(prev => ({ ...prev, visual: !prev.visual }));
                   };
                   return (
                     <div className="space-y-6">
@@ -11107,14 +11111,19 @@ export default function App() {
                       { id: 'logo', label: 'Logo de la chaîne', icon: 'workspace_premium', group: 'branding', field: 'logo_enabled', checked: activeChannel.branding?.logo_enabled ?? true },
                       { id: 'subtitles', label: 'Sous-titres', icon: 'subtitles', group: 'subtitle_style', field: 'enabled', checked: activeChannel.subtitle_style?.enabled ?? true },
                       { id: 'effects', label: 'Effets visuels', icon: 'auto_awesome', group: 'effects_config', field: 'enabled', checked: activeChannel.effects_config?.enabled ?? true },
-                      { id: 'visual', label: 'Visuel de fond', icon: 'image', checked: recapVisible.visual },
+                      // No real "disabled" setting exists for the background visual — a
+                      // video always has one (library or AI-generated) — so it's shown
+                      // as permanently on, same as voiceover, rather than an orphaned
+                      // local toggle with nothing real to reflect.
+                      { id: 'visual', label: 'Visuel de fond', icon: 'image', checked: true, readOnly: true },
                       { id: 'music', label: 'Musique de fond', icon: 'music_note', group: 'music_preference', field: 'enabled', checked: activeChannel.music_preference?.enabled ?? true },
-                    ].map(({ id, label, icon, group, field, checked }) => (
+                    ].map(({ id, label, icon, group, field, checked, readOnly }) => (
                       <button
                         key={id}
                         type="button"
-                        onClick={() => group ? toggleActiveChannelFlag(group, field) : setRecapVisible(prev => ({ ...prev, visual: !prev.visual }))}
-                        className={`w-full px-3 py-2 rounded-xl text-xs font-bold border transition-colors flex items-center gap-2.5 text-left ${
+                        disabled={readOnly}
+                        onClick={() => group && toggleActiveChannelFlag(group, field)}
+                        className={`w-full px-3 py-2 rounded-xl text-xs font-bold border transition-colors flex items-center gap-2.5 text-left ${readOnly ? 'cursor-default' : ''} ${
                           checked
                             ? 'bg-emerald-950/60 border-emerald-700 text-emerald-400'
                             : 'bg-[var(--bg-surface-alt)] border-[var(--border)] text-slate-500 hover:border-slate-500'
@@ -11157,7 +11166,7 @@ export default function App() {
                   <div>
                     <div className="text-xs text-slate-400 mb-2">Aperçu visuel du rendu final</div>
                     <div ref={submitSubtitlePreviewRef} className="w-full aspect-video rounded-2xl overflow-hidden relative border border-[var(--border)] shadow-lg">
-                      {recapVisible.visual && activeChannel.image_style?.source !== 'ai_generated' && (
+                      {activeChannel.image_style?.source !== 'ai_generated' && (
                         <img
                           src={`${API_BASE}/channels/${activeChannel.id}/library-preview`}
                           alt="Image aléatoire de la bibliothèque"
