@@ -2253,12 +2253,21 @@ function ScriptTimeInput({ hour, minute, second, onChange }) {
 // auto-published channels, while it's uploaded to YouTube afterwards) — turns
 // the raw progress_stage string from the backend into a visual "what's
 // happening right now" strip instead of just a percentage bar.
+// Matches the real order in backend/src/pipeline/orchestrator.py's progress()
+// calls: voiceover/transcription always runs first (from the script if typed,
+// or straight from an uploaded audio file — either way it's the audio step,
+// there's no separate "writing the script" stage in the render itself, that
+// already happened before the video was queued), *then* the script gets cut
+// into scene-length segments, then visuals, subtitles, scene animation, the
+// voice/music mix, and the final assembly — audio was previously mislabeled
+// "Script" at the very front and placed a second time (as "Audio") way at
+// the end via the "mixage" stage, which is actually part of Montage.
 const PIPELINE_STEPS = [
-  { match: /transcription|voix|découpage|scènes en/i, floor: 0, label: 'Script', icon: 'auto_stories' },
+  { match: /transcription|voix|reprise/i, floor: 0, label: 'Audio', icon: 'graphic_eq' },
+  { match: /découpage|scènes en/i, floor: 25, label: 'Script', icon: 'auto_stories' },
   { match: /préparation des visuels/i, floor: 35, label: 'Visuels', icon: 'image' },
-  { match: /sous-titres|animation/i, floor: 55, label: 'Montage', icon: 'movie' },
-  { match: /mixage/i, floor: 82, label: 'Audio', icon: 'graphic_eq' },
-  { match: /assemblage|youtube|miniature/i, floor: 90, label: 'Finalisation', icon: 'movie_edit' },
+  { match: /sous-titres|animation|mixage|montage final/i, floor: 55, label: 'Montage', icon: 'movie' },
+  { match: /assemblage|youtube|miniature|publication/i, floor: 90, label: 'Finalisation', icon: 'movie_edit' },
 ];
 
 function getActivePipelineStepIndex(stage, percent) {
