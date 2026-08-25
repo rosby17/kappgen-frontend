@@ -8742,9 +8742,15 @@ export default function App() {
                 {wizardStep === 6 && (
                   <div className="space-y-6">
                     <h3 className="text-base font-bold text-white">6. Personnalisation Avancée des Sous-Titres</h3>
-                    <p className="text-[11px] text-slate-400 -mt-4">
-                      Le style (police, couleurs, animation) ci-dessous est gratuit. Le texte des sous-titres, lui, dépend de la transcription choisie à l'envoi de chaque vidéo : gratuite (estimation à partir du script) ou précise via l'IA — {TRANSCRIPTION_CREDITS_PER_SEC} crédits par seconde d'audio (gratuit avec ta propre clé Izivoice).
-                    </p>
+                    <div className="-mt-4 flex items-center gap-2 flex-wrap">
+                      <p className="text-[11px] text-slate-400">
+                        Le style ci-dessous est gratuit. Le texte, lui, dépend de la transcription choisie à l'envoi de chaque vidéo.
+                      </p>
+                      <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-amber-400/15 border border-amber-400/40 text-amber-300 text-[11px] font-extrabold whitespace-nowrap">
+                        <span className="material-symbols-outlined text-[14px]">bolt</span>
+                        Transcription IA : {TRANSCRIPTION_CREDITS_PER_SEC} crédits/sec d'audio
+                      </span>
+                    </div>
 
                     <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_520px] gap-8 items-start">
                       {/* Settings column — split into CapCut-style toggle sections instead
@@ -9577,6 +9583,10 @@ export default function App() {
                       <div>
                         <label className="block text-xs font-bold text-slate-300 mb-2">Publication YouTube</label>
                         <p className="text-[11px] text-slate-500 mb-2">Indépendant du mode de génération du script — décide ce qui arrive à une vidéo une fois qu'elle est prête.</p>
+                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[var(--bg-surface-alt)] border border-[var(--border)] text-slate-400 text-[10px] font-bold mb-3">
+                          <span className="material-symbols-outlined text-[13px] text-emerald-400">check_circle</span>
+                          Gratuit pour l'instant — pourra devenir payant à l'avenir
+                        </div>
                         <ModeDropdown
                           value={newChannel.publish_mode || 'manual'}
                           onChange={v => setNewChannel({ ...newChannel, publish_mode: v })}
@@ -11038,11 +11048,14 @@ export default function App() {
                           : 'bg-[var(--bg-surface-alt)] border-[var(--border)] text-slate-500 hover:border-slate-500'
                       }`}
                       title={submitMode === 'text'
-                        ? "Sans transcription, les sous-titres sont estimés en répartissant le script uniformément sur la durée — moins précis mais gratuit. Avec transcription : 3 crédits par seconde d'audio (gratuit si tu utilises ta propre clé Izivoice)."
-                        : "Sans transcription, les sous-titres utiliseront le titre du fichier au lieu du texte réel parlé. Avec transcription : 3 crédits par seconde d'audio (gratuit si tu utilises ta propre clé Izivoice)."}
+                        ? `Sans transcription, les sous-titres sont estimés en répartissant le script uniformément sur la durée — moins précis mais gratuit. Avec transcription : ${TRANSCRIPTION_CREDITS_PER_SEC} crédits par seconde d'audio (gratuit si tu utilises ta propre clé Izivoice).`
+                        : `Sans transcription, les sous-titres utiliseront le titre du fichier au lieu du texte réel parlé. Avec transcription : ${TRANSCRIPTION_CREDITS_PER_SEC} crédits par seconde d'audio (gratuit si tu utilises ta propre clé Izivoice).`}
                     >
                       <span className="material-symbols-outlined text-[16px] shrink-0">record_voice_over</span>
-                      <span className="flex-1 truncate">Transcrire pour des sous-titres précis (IA — 3 crédits/sec)</span>
+                      <span className="flex-1 truncate">Transcrire pour des sous-titres précis (IA)</span>
+                      <span className="shrink-0 px-1.5 py-0.5 rounded-md bg-amber-400/20 border border-amber-400/50 text-amber-300 text-[10px] font-extrabold whitespace-nowrap">
+                        {TRANSCRIPTION_CREDITS_PER_SEC} crédits/sec
+                      </span>
                       <span className="material-symbols-outlined text-[16px] shrink-0">{transcribeAudio ? 'check_box' : 'check_box_outline_blank'}</span>
                     </button>
                   )}
