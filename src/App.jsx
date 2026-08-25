@@ -8958,32 +8958,6 @@ export default function App() {
                             </div>
                           )}
 
-                          <div className="pt-2 border-t border-[var(--border-soft)] flex items-center justify-between gap-3">
-                            <div>
-                              <label className="block text-xs font-bold text-slate-300">Filigrane KappGen</label>
-                              <p className="text-[11px] text-slate-500 mt-0.5">
-                                {hasActiveSubscription
-                                  ? 'Logo officiel centré à faible opacité.'
-                                  : 'Logo officiel centré à faible opacité. Un abonnement actif est requis pour le désactiver.'}
-                              </p>
-                            </div>
-                            <div className="flex items-center gap-2 shrink-0">
-                              {!hasActiveSubscription && (
-                                <span className="px-2 py-1 rounded-lg bg-amber-400/10 border border-amber-400/25 text-amber-300 text-[9px] font-bold uppercase tracking-wide">
-                                  Premium
-                                </span>
-                              )}
-                              <button
-                                type="button"
-                                disabled={!hasActiveSubscription}
-                                title={hasActiveSubscription ? undefined : 'Un abonnement actif est requis pour retirer le filigrane KappGen'}
-                                onClick={() => hasActiveSubscription && setNewChannel({ ...newChannel, effects_config: { ...newChannel.effects_config, watermark_enabled: !(newChannel.effects_config.watermark_enabled ?? true) } })}
-                                className={`w-11 h-6 rounded-full relative overflow-hidden transition-colors ${(newChannel.effects_config.watermark_enabled ?? true) ? 'bg-[#00c2ff]' : 'bg-[var(--border)]'} ${hasActiveSubscription ? '' : 'opacity-50 cursor-not-allowed'}`}
-                              >
-                                <span className={`absolute left-0.5 top-0.5 w-5 h-5 rounded-full bg-white transition-transform ${(newChannel.effects_config.watermark_enabled ?? true) ? 'translate-x-5' : 'translate-x-0'}`} />
-                              </button>
-                            </div>
-                          </div>
                         </div>
 
                         <div className="lg:sticky lg:top-4">
@@ -9241,6 +9215,7 @@ export default function App() {
                     { id: 'music', label: 'Musique de fond', icon: 'music_note', available: !!musicLabel },
                     { id: 'subtitles', label: 'Sous-titres', icon: 'subtitles', available: true },
                     { id: 'effects', label: 'Effets visuels', icon: 'auto_awesome', available: stepHasGrain || stepHasVignette || (newChannel.effects_config.color_grade && newChannel.effects_config.color_grade !== 'none') },
+                    { id: 'watermark', label: 'Filigrane KappGen', icon: 'branding_watermark', available: true },
                   ];
                   // Logo/sous-titres/effets/musique are real, saved settings — toggling them
                   // here actually edits `newChannel` (persisted on save), same as any other
@@ -9255,6 +9230,7 @@ export default function App() {
                     // actually picked a track/AI generation, same rule as the Musique step.
                     if (id === 'music') return newChannel.music_preference.enabled ?? false;
                     if (id === 'voiceover') return true;
+                    if (id === 'watermark') return newChannel.effects_config.watermark_enabled ?? true;
                     return recapVisible.visual;
                   };
                   const toggleRecap = (id) => {
@@ -9263,6 +9239,10 @@ export default function App() {
                     if (id === 'effects') return setNewChannel({ ...newChannel, effects_config: { ...newChannel.effects_config, enabled: !isRecapChecked('effects') } });
                     if (id === 'music') return setNewChannel({ ...newChannel, music_preference: { ...newChannel.music_preference, enabled: !isRecapChecked('music') } });
                     if (id === 'voiceover') return; // read-only — always on once a voice is picked, nothing to toggle
+                    if (id === 'watermark') {
+                      if (!hasActiveSubscription) { showToast('Un abonnement actif est requis pour retirer le filigrane KappGen.', 'error'); return; }
+                      return setNewChannel({ ...newChannel, effects_config: { ...newChannel.effects_config, watermark_enabled: !isRecapChecked('watermark') } });
+                    }
                     setRecapVisible(prev => ({ ...prev, visual: !prev.visual }));
                   };
                   return (
@@ -9298,6 +9278,9 @@ export default function App() {
                               >
                                 <span className="material-symbols-outlined text-[16px] shrink-0">{icon}</span>
                                 <span className="flex-1 truncate">{label}</span>
+                                {id === 'watermark' && !hasActiveSubscription && (
+                                  <span className="px-1.5 py-0.5 rounded bg-amber-400/10 border border-amber-400/25 text-amber-300 text-[8px] font-bold uppercase tracking-wide shrink-0">Premium</span>
+                                )}
                                 <span className="material-symbols-outlined text-[16px] shrink-0">{available && isRecapChecked(id) ? 'check_box' : 'check_box_outline_blank'}</span>
                               </button>
                             ))}
@@ -9350,6 +9333,19 @@ export default function App() {
                           )}
                           {isRecapChecked('effects') && stepHasVignette && (
                             <div className="absolute inset-0 z-10" style={{ boxShadow: `inset 0 0 ${60 * stepVignetteIntensity}px ${20 * stepVignetteIntensity}px rgba(0,0,0,0.8)` }} />
+                          )}
+
+                          {/* KappGen watermark — centered, low opacity, matches exactly what's
+                              burned into the real render when enabled. */}
+                          {isRecapChecked('watermark') && (
+                            <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none">
+                              <img
+                                src="/assets/logo/logo-kappgen.png"
+                                alt="Filigrane KappGen"
+                                style={{ width: `${140 * mockupSubtitlePreviewScale}px`, height: `${140 * mockupSubtitlePreviewScale}px`, opacity: 0.18 }}
+                                className="object-contain"
+                              />
+                            </div>
                           )}
 
                           {/* Top-right logo — matches exactly what's burned into the real render. */}
