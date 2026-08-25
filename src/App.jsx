@@ -2731,23 +2731,31 @@ export default function App() {
   // backend (src/utils/auth.py: set_session_cookie) — never in localStorage
   // or JS-readable state, so a hypothetical XSS bug can't exfiltrate it.
   // `credentials: 'include'` makes fetch send that cookie automatically.
+  // `timeoutMs`, when given, aborts the request instead of leaving it
+  // pending forever — plain `fetch()` has no built-in timeout, so a single
+  // hung request (dead connection, backend stall) can otherwise freeze an
+  // awaiting caller indefinitely. This bit the voice-clone status poll: each
+  // iteration awaited one fetch with no timeout, so one stuck request froze
+  // the whole polling loop before it ever reached its own 5-minute give-up
+  // counter, leaving "Clonage…" stuck on screen with no error, no retry, no
+  // way out short of a page reload.
   const authFetch = (url, options = {}) => {
-    return fetch(url, { ...options, credentials: 'include' }).then(res => {
-      // A missing/expired/invalid cookie (session lifetime is 30 days) means
-      // every authenticated call fails the same way forever until the person
-      // re-logs-in — bounce them to the login screen automatically instead of
-      // leaving every screen stuck on a generic loading error. Not gated on
-      // localStorage still holding nichecut_user: if that ever falls out of
-      // sync with in-memory currentUser (e.g. cleared by another tab), the
-      // stale guard would silently skip the bounce and every authenticated
-      // poll would 401 forever instead of ever reaching the login screen.
-      if (res.status === 401) {
-        handleLogout();
-      }
-      return res;
-    });
+    const { timeoutMs, ...rest } = options;
+    if (!timeoutMs) {
+      return fetch(url, { ...rest, credentials: 'include' }).then(res => {
+        if (res.status === 401) handleLogout();
+        return res;
+      });
+    }
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    return fetch(url, { ...rest, credentials: 'include', signal: controller.signal })
+      .then(res => {
+        if (res.status === 401) handleLogout();
+        return res;
+      })
+      .finally(() => clearTimeout(timer));
   };
-
   const storeAuthSession = (loggedUser) => {
     setCurrentUser(loggedUser);
     localStorage.setItem("nichecut_user", JSON.stringify(loggedUser));
@@ -3113,6 +3121,10 @@ export default function App() {
   const [libraryUploadProgress, setLibraryUploadProgress] = useState(0);
   const [libraryUploadMessage, setLibraryUploadMessage] = useState('');
   const [stagedLibraryToken, setStagedLibraryToken] = useState(null);
+  // Community library availability for the channel's current niche —
+  // refetched whenever the niche changes, drives whether "Bibliothèque
+  // collaborative" can be selected as a visual source (Step 4).
+  const [communityLibraryAvailability, setCommunityLibraryAvailability] = useState(null); // null (loading/unknown) | { available, folder_count, image_count }
   const [selectedFolderName, setSelectedFolderName] = useState('');
   const [isFolderDragging, setIsFolderDragging] = useState(false);
   const wizardFolderInputRef = useRef(null);
@@ -3212,6 +3224,17 @@ export default function App() {
     voice_settings: { speed: 0.845, stability: 0.8, similarity_boost: 0.9, style: 0 }
   };
   const [newChannel, setNewChannel] = useState(defaultChannelForm);
+
+  useEffect(() => {
+    const niche = (newChannel?.niche || '').trim();
+    if (view !== 'wizard' || wizardStep !== 4 || !niche) return;
+    let cancelled = false;
+    fetch(`${API_BASE}/channels/community-library/availability?niche=${encodeURIComponent(niche)}`)
+      .then(res => res.ok ? res.json() : null)
+      .then(data => { if (!cancelled) setCommunityLibraryAvailability(data); })
+      .catch(() => { if (!cancelled) setCommunityLibraryAvailability(null); });
+    return () => { cancelled = true; };
+  }, [view, wizardStep, newChannel?.niche]);
 
   const fetchChannels = async () => {
     if (!currentUser) return;
@@ -5261,7 +5284,7 @@ export default function App() {
       form.append('name', name.trim());
       if (currentUser) form.append('user_id', currentUser.id);
       form.append('audio', clip);
-      const res = await authFetch(`${API_BASE}/channels/${targetChannelId}/voice/clone`, { method: 'POST', body: form });
+      const res = await authFetch(`${API_BASE}/channels/${targetChannelId}/voice/clone`, { method: 'POST', body: form, timeoutMs: 60000 });
       const started = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(started.detail || 'Clonage impossible.');
 
@@ -5272,7 +5295,19 @@ export default function App() {
       let body;
       for (let attempt = 0; ; attempt++) {
         if (attempt > 0) await new Promise(r => setTimeout(r, 3000));
-        const statusRes = await authFetch(`${API_BASE}/channels/voice/clone/status/${started.job_id}`);
+        // Each poll gets its own timeout — a single hung/dropped request
+        // (dead connection, backend stall) used to freeze this whole loop
+        // on one `await` forever, leaving "Clonage…" stuck on screen with
+        // no error and no way out short of a page reload. A timed-out poll
+        // just counts as a skipped attempt and retries instead of aborting
+        // the clone outright — the job may still be running fine server-side.
+        let statusRes;
+        try {
+          statusRes = await authFetch(`${API_BASE}/channels/voice/clone/status/${started.job_id}`, { timeoutMs: 15000 });
+        } catch (pollErr) {
+          if (attempt > 100) throw new Error("Le clonage prend trop de temps, réessaie plus tard.");
+          continue;
+        }
         const statusBody = await statusRes.json().catch(() => ({}));
         if (!statusRes.ok) throw new Error(statusBody.detail || 'Clonage impossible.');
         if (statusBody.status === 'done') { body = statusBody; break; }
@@ -5405,6 +5440,32 @@ export default function App() {
       showToast(e2.message, 'error');
     } finally {
       setApprovingVideoId(null);
+    }
+  };
+
+  // Videos are auto-deleted from the server after 48h by default now (disk
+  // space) — this opts one out, keeping it around longer by moving it to R2
+  // storage instead of local disk. Meant to become a paid feature; no
+  // charge/gate wired up yet (see Video.extended_retention).
+  const [togglingRetentionId, setTogglingRetentionId] = useState(null);
+  const handleToggleExtendedRetention = async (vid, e) => {
+    if (e) e.stopPropagation();
+    setOpenVideoMenuId(null);
+    setTogglingRetentionId(vid.id);
+    try {
+      const res = await authFetch(`${API_BASE}/videos/${vid.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ extended_retention: !vid.extended_retention }),
+      });
+      if (!res.ok) throw new Error("Impossible de mettre à jour la conservation.");
+      showToast(vid.extended_retention ? 'Conservation prolongée désactivée — suppression automatique après 48h.' : 'Vidéo conservée plus longtemps.', 'success');
+      fetchAllVideos();
+      if (activeChannel) fetchChannelVideos(activeChannel.id);
+    } catch (e2) {
+      showToast(e2.message, 'error');
+    } finally {
+      setTogglingRetentionId(null);
     }
   };
 
@@ -6924,6 +6985,12 @@ export default function App() {
                                       <span className="material-symbols-outlined text-[16px] text-[#00c2ff]">download</span> Télécharger
                                     </button>
                                   )}
+                                  {vid.status === 'done' && (
+                                    <button disabled={togglingRetentionId === vid.id} onClick={(e) => handleToggleExtendedRetention(vid, e)} title="Par défaut, une vidéo est supprimée du serveur après 48h." className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium disabled:opacity-50">
+                                      <span className={`material-symbols-outlined text-[16px] ${vid.extended_retention ? 'text-emerald-400' : 'text-[#00c2ff]'}`}>{vid.extended_retention ? 'lock_clock' : 'schedule'}</span>
+                                      {vid.extended_retention ? 'Conservée plus longtemps' : 'Conserver plus longtemps'}
+                                    </button>
+                                  )}
                                   {vid.status === 'done' && vid.scheduled_publish_at && !vid.youtube_video_id && (
                                     <button disabled={approvingVideoId === vid.id} onClick={(e) => handleToggleApproval(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium disabled:opacity-50">
                                       <span className={`material-symbols-outlined text-[16px] ${vid.approved_for_publish ? 'text-emerald-400' : 'text-[#00c2ff]'}`}>{vid.approved_for_publish ? 'check_circle' : 'pending'}</span>
@@ -7476,6 +7543,12 @@ export default function App() {
                                 {vid.status === 'done' && (
                                   <button onClick={(e) => handleDownloadVideo(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium">
                                     <span className="material-symbols-outlined text-[16px] text-[#00c2ff]">download</span> Télécharger
+                                  </button>
+                                )}
+                                {vid.status === 'done' && (
+                                  <button disabled={togglingRetentionId === vid.id} onClick={(e) => handleToggleExtendedRetention(vid, e)} title="Par défaut, une vidéo est supprimée du serveur après 48h." className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium disabled:opacity-50">
+                                    <span className={`material-symbols-outlined text-[16px] ${vid.extended_retention ? 'text-emerald-400' : 'text-[#00c2ff]'}`}>{vid.extended_retention ? 'lock_clock' : 'schedule'}</span>
+                                    {vid.extended_retention ? 'Conservée plus longtemps' : 'Conserver plus longtemps'}
                                   </button>
                                 )}
                                 {vid.status === 'done' && vid.scheduled_publish_at && !vid.youtube_video_id && (
@@ -12359,8 +12432,8 @@ export default function App() {
 
         return (
           <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-[120] flex items-center justify-center p-4 sm:p-6" onClick={() => setShowScriptStructureModal(false)}>
-            <div className="bg-[#111822] border border-[#293548] rounded-3xl w-full max-w-6xl shadow-2xl flex flex-col max-h-[88vh]" onClick={e => e.stopPropagation()}>
-              <div className="p-5 sm:p-6 border-b border-[var(--border-soft)] flex items-start justify-between gap-4 flex-shrink-0">
+            <div className="bg-[#111822] border border-[#293548] rounded-3xl w-full max-w-7xl shadow-2xl flex flex-col max-h-[92vh]" onClick={e => e.stopPropagation()}>
+              <div className="p-6 sm:p-8 border-b border-[var(--border-soft)] flex items-start justify-between gap-4 flex-shrink-0">
                 <div>
                   <div className="flex items-center gap-2 text-[#59d8ff] mb-1">
                     <span className="material-symbols-outlined text-[20px]">description</span>
@@ -12374,8 +12447,45 @@ export default function App() {
                 </button>
               </div>
 
-              <div className="overflow-y-auto p-5 sm:p-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div className="space-y-4">
+              <div className="overflow-y-auto p-6 sm:p-8 grid grid-cols-1 lg:grid-cols-2 gap-10">
+              <div className="flex flex-col space-y-4 min-h-[520px]">
+                <div className="flex items-center gap-2 text-[#59d8ff]">
+                  <span className="material-symbols-outlined text-[20px]">auto_awesome</span>
+                  <label className="text-[13px] font-bold text-white">Import automatique depuis un texte complet</label>
+                </div>
+                <p className="text-[11px] text-slate-500 leading-relaxed">
+                  Colle ici tes instructions ou ton script complet — l'IA l'analysera et répartira le contenu dans les parties à droite ({parts.length} partie{parts.length > 1 ? 's' : ''} : {parts.map(p => p.name).filter(Boolean).join(', ') || '—'}), pour t'éviter de tout recopier à la main.
+                </p>
+                <textarea
+                  value={scriptStructurePasteText}
+                  onChange={e => setScriptStructurePasteText(e.target.value)}
+                  placeholder="Colle ici le texte complet (script, notes, brief...)"
+                  className="w-full flex-1 bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-4 py-3 text-sm text-white leading-relaxed focus:border-[#00c2ff] outline-none min-h-[420px] resize-none"
+                />
+                {scriptStructureAnalyzeError && (
+                  <p className="text-[11px] text-red-400">{scriptStructureAnalyzeError}</p>
+                )}
+                <button
+                  type="button"
+                  onClick={analyzePastedText}
+                  disabled={scriptStructureAnalyzing || !scriptStructurePasteText.trim() || parts.length === 0}
+                  className="w-full py-3 bg-[#00c2ff]/10 border border-[#00c2ff]/40 text-[#59d8ff] font-bold text-sm rounded-xl hover:bg-[#00c2ff]/20 transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 flex-shrink-0"
+                >
+                  {scriptStructureAnalyzing ? (
+                    <>
+                      <span className="material-symbols-outlined text-[18px] animate-spin">progress_activity</span>
+                      Analyse en cours...
+                    </>
+                  ) : (
+                    <>
+                      <span className="material-symbols-outlined text-[18px]">bolt</span>
+                      Analyser et remplir les parties
+                    </>
+                  )}
+                </button>
+              </div>
+
+              <div className="flex flex-col space-y-5 lg:border-l lg:border-[var(--border-soft)] lg:pl-10">
                 <p className="text-[10px] text-slate-500 -mb-1">Renseigne l'un ou l'autre pour la longueur — les parties ci-dessous sont réparties automatiquement au prorata pour atteindre ce total.</p>
                 <div className="grid grid-cols-3 gap-3">
                 <div className="relative">
@@ -12534,43 +12644,6 @@ export default function App() {
                     className="w-full bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-lg px-3 py-2 text-xs text-white focus:border-[#00c2ff] outline-none min-h-[50px]"
                   />
                 </div>
-              </div>
-
-              <div className="space-y-3 lg:border-l lg:border-[var(--border-soft)] lg:pl-6">
-                <div className="flex items-center gap-2 text-[#59d8ff]">
-                  <span className="material-symbols-outlined text-[20px]">auto_awesome</span>
-                  <label className="text-[11px] font-bold text-slate-300">Import automatique depuis un texte complet</label>
-                </div>
-                <p className="text-[10px] text-slate-500">
-                  Colle ici tes instructions ou ton script complet — l'IA l'analysera et répartira le contenu dans les parties à gauche ({parts.length} partie{parts.length > 1 ? 's' : ''} : {parts.map(p => p.name).filter(Boolean).join(', ') || '—'}), pour t'éviter de tout recopier à la main.
-                </p>
-                <textarea
-                  value={scriptStructurePasteText}
-                  onChange={e => setScriptStructurePasteText(e.target.value)}
-                  placeholder="Colle ici le texte complet (script, notes, brief...)"
-                  className="w-full bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-lg px-3 py-2 text-xs text-white focus:border-[#00c2ff] outline-none min-h-[320px] flex-1"
-                />
-                {scriptStructureAnalyzeError && (
-                  <p className="text-[11px] text-red-400">{scriptStructureAnalyzeError}</p>
-                )}
-                <button
-                  type="button"
-                  onClick={analyzePastedText}
-                  disabled={scriptStructureAnalyzing || !scriptStructurePasteText.trim() || parts.length === 0}
-                  className="w-full py-2.5 bg-[#00c2ff]/10 border border-[#00c2ff]/40 text-[#59d8ff] font-bold text-xs rounded-xl hover:bg-[#00c2ff]/20 transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                >
-                  {scriptStructureAnalyzing ? (
-                    <>
-                      <span className="material-symbols-outlined text-[16px] animate-spin">progress_activity</span>
-                      Analyse en cours...
-                    </>
-                  ) : (
-                    <>
-                      <span className="material-symbols-outlined text-[16px]">bolt</span>
-                      Analyser et remplir les parties
-                    </>
-                  )}
-                </button>
               </div>
               </div>
 
