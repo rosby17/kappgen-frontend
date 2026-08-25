@@ -8132,7 +8132,6 @@ export default function App() {
                   // a fresh (paid) image per scene, so the creator controls their
                   // own cost instead of it scaling silently with video length.
                   const maxUniqueImages = newChannel.image_style.max_unique_images ?? 10;
-                  const maxAffordableImages = creditBalance != null ? Math.max(1, Math.floor(creditBalance / IMAGE_GENERATION_CREDITS)) : 999;
 
                   const hasStoredLibrary = Number(newChannel.image_style.library_image_count || 0) > 0
                     && String(newChannel.image_style.library_path || '').startsWith('channels/');
@@ -8315,11 +8314,18 @@ export default function App() {
                                 <input
                                   type="number"
                                   min={1}
-                                  max={Math.min(60, maxAffordableImages)}
+                                  max={60}
                                   value={maxUniqueImages}
                                   onChange={e => {
-                                    const v = Math.max(1, Math.min(Math.min(60, maxAffordableImages), parseInt(e.target.value) || 1));
-                                    setNewChannel({ ...newChannel, image_style: { ...newChannel.image_style, max_unique_images: v } });
+                                    const raw = e.target.value;
+                                    if (raw === '') return; // let them clear the field while typing a new value
+                                    const parsed = parseInt(raw, 10);
+                                    if (Number.isNaN(parsed)) return;
+                                    setNewChannel({ ...newChannel, image_style: { ...newChannel.image_style, max_unique_images: Math.max(1, Math.min(60, parsed)) } });
+                                  }}
+                                  onBlur={e => {
+                                    if (e.target.value !== '' && !Number.isNaN(parseInt(e.target.value, 10))) return;
+                                    setNewChannel({ ...newChannel, image_style: { ...newChannel.image_style, max_unique_images: 1 } });
                                   }}
                                   className="w-16 bg-[var(--bg-input)] border border-[var(--border)] rounded-lg px-2 py-1 text-xs text-white text-center focus:border-[#00c2ff] outline-none"
                                 />
@@ -8328,8 +8334,13 @@ export default function App() {
                                 Le reste de la vidéo réutilise ces images au lieu d'en générer une nouvelle par scène — tu maîtrises le coût, pas la durée.
                               </p>
                               <p className="text-[11px] font-bold text-[#56d9ff]">
-                                Coût estimé : {maxUniqueImages} × {IMAGE_GENERATION_CREDITS.toLocaleString()} = {(maxUniqueImages * IMAGE_GENERATION_CREDITS).toLocaleString()} crédits
+                                Coût estimé par vidéo générée : {maxUniqueImages} × {IMAGE_GENERATION_CREDITS.toLocaleString()} = {(maxUniqueImages * IMAGE_GENERATION_CREDITS).toLocaleString()} crédits
                               </p>
+                              {creditBalance != null && !isSubscriptionExempt && maxUniqueImages * IMAGE_GENERATION_CREDITS > creditBalance && (
+                                <p className="text-[10px] font-bold text-amber-400">
+                                  ⚠ Ton solde ({creditBalance.toLocaleString()} crédits) ne couvre pas ce nombre d'images — les images manquantes utiliseront ta bibliothèque à la place.
+                                </p>
+                              )}
                             </div>
                           )}
 
