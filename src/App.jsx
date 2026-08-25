@@ -7536,33 +7536,12 @@ export default function App() {
                 {/* STEP 1: IDENTITÉ DE LA CHAÎNE (LOGO & NOM) */}
                 {wizardStep === 1 && (
                   <div className="space-y-6">
-                    <div className="flex items-center justify-between gap-3">
-                      <h3 className="text-base font-bold text-white">1. Identité de la Chaîne</h3>
-                      {editingChannel?.youtube_connected ? (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wide bg-emerald-950/80 text-emerald-300 border border-emerald-700/60">
-                          <YouTubeIcon className="w-3.5 h-2.5" /> {editingChannel.youtube_channel_title || 'Connectée'}
-                        </span>
-                      ) : (
-                        <button
-                          type="button"
-                          disabled={connectingYouTubeFromWizard}
-                          onClick={handleConnectYouTubeFromWizard}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wide bg-slate-800/80 text-slate-300 border border-slate-700/60 hover:bg-slate-700/80 hover:text-white transition-colors disabled:opacity-50"
-                        >
-                          <YouTubeIcon className="w-3.5 h-2.5" /> {connectingYouTubeFromWizard ? 'Connexion…' : 'Connecter la chaîne YouTube'}
-                        </button>
-                      )}
-                    </div>
-                    {!editingChannel?.youtube_connected && (
-                      <p className="text-[11px] text-slate-500 -mt-2">
-                        Connecte-la maintenant pour remplir automatiquement le nom, la photo et le pseudo à partir de ta vraie chaîne.
-                      </p>
-                    )}
+                    <h3 className="text-base font-bold text-white">1. Identité de la Chaîne</h3>
 
-                    <div className="flex items-start gap-5">
+                    <div className="flex items-start gap-4">
                       <div
                         onClick={() => logoInputRef.current && logoInputRef.current.click()}
-                        className="w-28 h-28 rounded-full bg-[var(--bg-surface-alt)] border-2 border-dashed border-[var(--border)] hover:border-[#00c2ff] cursor-pointer flex items-center justify-center overflow-hidden flex-shrink-0 transition-colors group"
+                        className="w-16 h-16 rounded-full bg-[var(--bg-surface-alt)] border-2 border-dashed border-[var(--border)] hover:border-[#00c2ff] cursor-pointer flex items-center justify-center overflow-hidden flex-shrink-0 transition-colors group"
                         title={logoPreviewUrl ? "Changer la photo" : "Sélectionner une photo"}
                       >
                         {logoPreviewUrl ? (
@@ -7576,7 +7555,7 @@ export default function App() {
                             }}
                           />
                         ) : (
-                          <span className="material-symbols-outlined text-slate-400 group-hover:text-[#00c2ff] text-[32px]">add_a_photo</span>
+                          <span className="material-symbols-outlined text-slate-400 group-hover:text-[#00c2ff] text-[20px]">add_a_photo</span>
                         )}
                       </div>
                       <input
@@ -7587,14 +7566,35 @@ export default function App() {
                         className="hidden"
                       />
 
-                      <div className="flex-1">
+                      <div className="flex-1 min-w-0">
                         <label className="block text-xs font-bold text-slate-300 mb-2">Nom de la chaîne YouTube</label>
-                        <input
-                          value={newChannel.name}
-                          onChange={e => setNewChannel({ ...newChannel, name: e.target.value })}
-                          className="w-full max-w-md bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-4 py-3 text-sm text-white focus:border-[#00c2ff] outline-none"
-                          placeholder="Ex: Stoic Mind Daily"
-                        />
+                        <div className="flex items-center gap-2">
+                          <input
+                            value={newChannel.name}
+                            onChange={e => setNewChannel({ ...newChannel, name: e.target.value })}
+                            className="flex-1 min-w-0 max-w-64 bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-4 py-3 text-sm text-white focus:border-[#00c2ff] outline-none"
+                            placeholder="Ex: Stoic Mind Daily"
+                          />
+                          {editingChannel?.youtube_connected ? (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wide bg-emerald-950/80 text-emerald-300 border border-emerald-700/60 shrink-0">
+                              <YouTubeIcon className="w-3.5 h-2.5" /> {editingChannel.youtube_channel_title || 'Connectée'}
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              disabled={connectingYouTubeFromWizard}
+                              onClick={handleConnectYouTubeFromWizard}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wide bg-slate-800/80 text-slate-300 border border-slate-700/60 hover:bg-slate-700/80 hover:text-white transition-colors disabled:opacity-50 shrink-0"
+                            >
+                              <YouTubeIcon className="w-3.5 h-2.5" /> {connectingYouTubeFromWizard ? 'Connexion…' : 'Connecter la chaîne YouTube'}
+                            </button>
+                          )}
+                        </div>
+                        {!editingChannel?.youtube_connected && (
+                          <p className="text-[11px] text-slate-500 mt-2">
+                            Connecte-la maintenant pour remplir automatiquement le nom, la photo et le pseudo à partir de ta vraie chaîne.
+                          </p>
+                        )}
                       </div>
                     </div>
 
@@ -7607,9 +7607,8 @@ export default function App() {
                         <div className="bg-[var(--bg-input)] border border-[var(--border-subtle)] rounded-xl p-4 space-y-2.5">
                           <label className="block text-xs font-bold text-slate-300">Position, taille et forme du logo</label>
                           <div className="flex items-start gap-4">
-                            <div className="flex-shrink-0">
-                              <div className="text-[9px] font-bold text-slate-500 uppercase tracking-wider mb-1">Positions rapides</div>
-                              <div className="flex items-center gap-1.5">
+                            <div className="flex-shrink-0" title="Positions rapides">
+                              <div className="flex items-center gap-1">
                                 {(() => {
                                   const logoSize = newChannel.branding.logo_size_percent ?? 9;
                                   const logoX = newChannel.branding.logo_x_percent ?? presetXY(newChannel.branding.logo_corner, logoSize).x;
@@ -7627,13 +7626,13 @@ export default function App() {
                                         type="button"
                                         title={`Placer le logo : ${c.label}`}
                                         onClick={() => setNewChannel({ ...newChannel, branding: { ...newChannel.branding, logo_corner: c.id, logo_x_percent: target.x, logo_y_percent: target.y } })}
-                                        className={`w-8 h-8 flex items-center justify-center rounded-lg border transition-colors ${
+                                        className={`w-6 h-6 flex items-center justify-center rounded-md border transition-colors ${
                                           Math.round(logoX) === Math.round(target.x) && Math.round(logoY) === Math.round(target.y)
                                             ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]'
                                             : 'bg-[var(--bg-surface-alt)] border-[var(--border)] text-slate-400 hover:border-slate-500'
                                         }`}
                                       >
-                                        <span className="material-symbols-outlined text-[16px]">{c.icon}</span>
+                                        <span className="material-symbols-outlined text-[12px]">{c.icon}</span>
                                       </button>
                                     );
                                   });
