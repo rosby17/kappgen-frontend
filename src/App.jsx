@@ -4691,6 +4691,33 @@ export default function App() {
   const [billingVerifyOrderId, setBillingVerifyOrderId] = useState(null);
   const [billingVerifyStatus, setBillingVerifyStatus] = useState(null); // null | 'pending' | 'success' | 'failed'
 
+  // Live cost preview for the "Structure du script auto-généré" editor —
+  // debounce-fetched from /api/billing/estimate-script-cost as the creator
+  // adjusts length/parts, so they see what Automatique generation will
+  // actually charge them before committing to a length (real Claude spend,
+  // billed at SCRIPT_GENERATION_COST_MARKUP_MULTIPLIER — see billing.py).
+  const [scriptCostEstimate, setScriptCostEstimate] = useState(null);
+  const [scriptCostLoading, setScriptCostLoading] = useState(false);
+  const scriptStructureParts = newChannel?.script_structure?.parts || defaultChannelForm.script_structure.parts || [];
+  const scriptStructureTotalWords = scriptStructureParts.reduce((sum, p) => sum + (Number(p.word_count) || 0), 0);
+  const scriptStructureNumParts = scriptStructureParts.length;
+
+  useEffect(() => {
+    if (!showScriptStructureModal || scriptStructureTotalWords <= 0) return;
+    setScriptCostLoading(true);
+    const handle = setTimeout(async () => {
+      try {
+        const res = await authFetch(`${API_BASE}/billing/estimate-script-cost?total_words=${scriptStructureTotalWords}&num_parts=${scriptStructureNumParts}`);
+        if (res.ok) setScriptCostEstimate(await res.json());
+      } catch (err) {
+        console.error("Erreur estimation coût script:", err);
+      } finally {
+        setScriptCostLoading(false);
+      }
+    }, 400);
+    return () => clearTimeout(handle);
+  }, [showScriptStructureModal, scriptStructureTotalWords, scriptStructureNumParts]);
+
   // Landed back from Maketou/Tara Money's hosted checkout on /billing/success —
   // poll /api/billing/verify until it resolves (Maketou has no webhook, this
   // return-page call is its only confirmation path; Tara usually confirms via
@@ -12080,6 +12107,22 @@ export default function App() {
                   />
                   <span className="absolute right-3 bottom-2.5 text-[10px] text-slate-500 font-bold">minutes</span>
                 </div>
+                </div>
+
+                {/* Cost preview — what generating a script of this length will actually
+                    charge (real Claude API spend, marked up), so the creator knows the
+                    price before they commit instead of finding out after generation. */}
+                <div className="flex items-center gap-2.5 bg-[#00c2ff]/[0.06] border border-[#00c2ff]/25 rounded-xl px-3.5 py-2.5">
+                  <span className="material-symbols-outlined text-[#59d8ff] text-[18px] shrink-0">toll</span>
+                  {scriptCostLoading || !scriptCostEstimate ? (
+                    <span className="text-[11px] text-slate-400">Estimation du coût...</span>
+                  ) : (
+                    <span className="text-[11px] text-slate-300">
+                      Générer ce script coûtera environ
+                      <span className="font-bold text-white"> {scriptCostEstimate.credits.toLocaleString()} crédits</span>
+                      <span className="text-slate-400"> (~{scriptCostEstimate.fcfa.toLocaleString()} FCFA)</span>
+                    </span>
+                  )}
                 </div>
 
                 <div className="space-y-3">
