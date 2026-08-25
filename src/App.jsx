@@ -2441,6 +2441,8 @@ export default function App() {
   const [activeChannel, setActiveChannel] = useState(null);
   const [channelVideos, setChannelVideos] = useState([]);
   const [allVideos, setAllVideos] = useState([]);
+  const allVideosStatusRef = useRef({}); // video id -> last known status, to detect a fresh done transition
+  const [costRecap, setCostRecap] = useState(null); // { videoTitle, total_credits, items } — shown right after a render finishes
   const [view, setView] = useState(() => viewFromPath(window.location.pathname)); // 'home', 'channels', 'videos', 'channel_detail', 'wizard'
   // Product switcher (à la IziVoice Creative) — 'montage' is the real product;
   // 'avatar' is a placeholder entry point for a not-yet-built product line.
@@ -3096,7 +3098,7 @@ export default function App() {
       logo_path: '',
       logo_enabled: true,
       logo_corner: 'top-right',
-      logo_size_percent: 9,
+      logo_size_percent: 14,
       overlays: [],
     },
     music_preference: {
@@ -4668,6 +4670,8 @@ export default function App() {
   const [adminStats, setAdminStats] = useState(null);
   const [adminSelectedUser, setAdminSelectedUser] = useState(null);
   const [adminGrantForm, setAdminGrantForm] = useState({ plan_id: '', duration_days: 30, note: '' });
+  const [adminCreditForm, setAdminCreditForm] = useState({ amount: '', note: '' });
+  const [adminCreditBusy, setAdminCreditBusy] = useState(false);
   const [adminGranting, setAdminGranting] = useState(false);
   const [adminNewPlan, setAdminNewPlan] = useState({ name: '', price_fcfa: '', duration_days: 30 });
   const [adminCreatingPlan, setAdminCreatingPlan] = useState(false);
@@ -4945,6 +4949,29 @@ export default function App() {
       fetchAdminData();
     } catch (err) {
       showToast(err.message, 'error');
+    }
+  };
+
+  const adjustAdminCredits = async (direction) => {
+    if (!adminSelectedUser) return;
+    const amount = parseInt(adminCreditForm.amount, 10);
+    if (!amount || amount <= 0) return showToast('Indique un montant de crédits positif.', 'error');
+    setAdminCreditBusy(true);
+    try {
+      const res = await authFetch(`${API_BASE}/admin/users/${adminSelectedUser.id}/credits/${direction}`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount, note: adminCreditForm.note || null }),
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || "Échec de l'opération.");
+      const data = await res.json();
+      setAdminSelectedUser(prev => ({ ...prev, credit_balance: data.credit_balance }));
+      setAdminCreditForm({ amount: '', note: '' });
+      showToast(direction === 'grant' ? 'Crédits ajoutés.' : 'Crédits retirés.', 'success');
+      fetchAdminData();
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setAdminCreditBusy(false);
     }
   };
 
@@ -7610,7 +7637,7 @@ export default function App() {
                             <div className="flex-shrink-0" title="Positions rapides">
                               <div className="flex items-center gap-1">
                                 {(() => {
-                                  const logoSize = newChannel.branding.logo_size_percent ?? 9;
+                                  const logoSize = newChannel.branding.logo_size_percent ?? 14;
                                   const logoX = newChannel.branding.logo_x_percent ?? presetXY(newChannel.branding.logo_corner, logoSize).x;
                                   const logoY = newChannel.branding.logo_y_percent ?? presetXY(newChannel.branding.logo_corner, logoSize).y;
                                   return [
@@ -7642,9 +7669,9 @@ export default function App() {
                               <ShapePicker value={newChannel.branding.logo_shape || 'rectangle'} onChange={v => setNewChannel({ ...newChannel, branding: { ...newChannel.branding, logo_shape: v } })} />
                             </div>
                             <div className="flex-1 min-w-0 grid grid-cols-3 gap-3">
-                              <MiniSlider label="Taille" value={newChannel.branding.logo_size_percent ?? 9} min={3} max={25} onChange={v => setNewChannel({ ...newChannel, branding: { ...newChannel.branding, logo_size_percent: v } })} />
-                              <MiniSlider label="Position X" value={newChannel.branding.logo_x_percent ?? presetXY(newChannel.branding.logo_corner, newChannel.branding.logo_size_percent ?? 9).x} min={-20} max={120} onChange={v => setNewChannel({ ...newChannel, branding: { ...newChannel.branding, logo_x_percent: v } })} />
-                              <MiniSlider label="Position Y" value={newChannel.branding.logo_y_percent ?? presetXY(newChannel.branding.logo_corner, newChannel.branding.logo_size_percent ?? 9).y} min={-20} max={120} onChange={v => setNewChannel({ ...newChannel, branding: { ...newChannel.branding, logo_y_percent: v } })} />
+                              <MiniSlider label="Taille" value={newChannel.branding.logo_size_percent ?? 14} min={3} max={25} onChange={v => setNewChannel({ ...newChannel, branding: { ...newChannel.branding, logo_size_percent: v } })} />
+                              <MiniSlider label="Position X" value={newChannel.branding.logo_x_percent ?? presetXY(newChannel.branding.logo_corner, newChannel.branding.logo_size_percent ?? 14).x} min={-20} max={120} onChange={v => setNewChannel({ ...newChannel, branding: { ...newChannel.branding, logo_x_percent: v } })} />
+                              <MiniSlider label="Position Y" value={newChannel.branding.logo_y_percent ?? presetXY(newChannel.branding.logo_corner, newChannel.branding.logo_size_percent ?? 14).y} min={-20} max={120} onChange={v => setNewChannel({ ...newChannel, branding: { ...newChannel.branding, logo_y_percent: v } })} />
                             </div>
                           </div>
                         </div>
@@ -7774,10 +7801,10 @@ export default function App() {
                               alt=""
                               className="absolute object-contain drop-shadow-lg"
                               style={{
-                                width: `${newChannel.branding.logo_size_percent || 9}%`,
+                                width: `${newChannel.branding.logo_size_percent || 14}%`,
                                 ...overlayPositionStyle(
-                                  newChannel.branding.logo_x_percent ?? presetXY(newChannel.branding.logo_corner, newChannel.branding.logo_size_percent ?? 9).x,
-                                  newChannel.branding.logo_y_percent ?? presetXY(newChannel.branding.logo_corner, newChannel.branding.logo_size_percent ?? 9).y
+                                  newChannel.branding.logo_x_percent ?? presetXY(newChannel.branding.logo_corner, newChannel.branding.logo_size_percent ?? 14).x,
+                                  newChannel.branding.logo_y_percent ?? presetXY(newChannel.branding.logo_corner, newChannel.branding.logo_size_percent ?? 14).y
                                 ),
                                 ...shapeClipStyle(newChannel.branding.logo_shape),
                               }}
@@ -9835,7 +9862,7 @@ export default function App() {
                               <img
                                 src="/assets/logo/logo-kappgen-horizontale-blanc.png"
                                 alt="Filigrane KappGen"
-                                style={{ width: `${360 * mockupSubtitlePreviewScale}px`, opacity: 0.22 }}
+                                style={{ width: `${900 * mockupSubtitlePreviewScale}px`, opacity: 0.22 }}
                                 className="object-contain"
                               />
                             </div>
@@ -9847,7 +9874,14 @@ export default function App() {
                               <img
                                 src={resolvedLogoUrl}
                                 alt="Logo"
-                                style={{ width: `${160 * mockupSubtitlePreviewScale}px`, height: `${160 * mockupSubtitlePreviewScale}px` }}
+                                style={(() => {
+                                  // Matches the real render exactly: assembler.py scales the logo
+                                  // to logo_size_percent% of the 1920px-wide output frame — this
+                                  // used to be a disconnected hardcoded 160px, which is why the
+                                  // preview looked smaller than what actually gets burned in.
+                                  const sizePx = 1920 * ((newChannel.branding.logo_size_percent ?? 14) / 100) * mockupSubtitlePreviewScale;
+                                  return { width: `${sizePx}px`, height: `${sizePx}px` };
+                                })()}
                                 className="object-cover shadow-lg"
                               />
                             )}
@@ -10506,15 +10540,16 @@ export default function App() {
                       <th className="px-4 py-2.5 font-bold">Chaînes</th>
                       <th className="px-4 py-2.5 font-bold">Vidéos</th>
                       <th className="px-4 py-2.5 font-bold">Quota gratuit</th>
+                      <th className="px-4 py-2.5 font-bold">Crédits</th>
                       <th className="px-4 py-2.5 font-bold">Abonnement</th>
                       <th className="px-4 py-2.5"></th>
                     </tr>
                   </thead>
                   <tbody>
                     {adminUsersLoading ? (
-                      <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-500">Chargement...</td></tr>
+                      <tr><td colSpan={8} className="px-4 py-8 text-center text-slate-500">Chargement...</td></tr>
                     ) : adminUsers.length === 0 ? (
-                      <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-500">Aucun utilisateur.</td></tr>
+                      <tr><td colSpan={8} className="px-4 py-8 text-center text-slate-500">Aucun utilisateur.</td></tr>
                     ) : adminUsers.map(u => (
                       <tr key={u.id} className="border-b border-[var(--border-subtle)] hover:bg-[var(--bg-surface-alt)]/60">
                         <td className="px-4 py-2.5 text-white font-medium">{u.email}{u.is_admin && <span className="ml-1.5 text-[9px] px-1.5 py-0.5 rounded bg-[#00c2ff]/15 text-[#00c2ff] font-bold">ADMIN</span>}</td>
@@ -10522,6 +10557,7 @@ export default function App() {
                         <td className="px-4 py-2.5 text-slate-300">{u.channel_count}</td>
                         <td className="px-4 py-2.5 text-slate-300">{u.video_count}</td>
                         <td className="px-4 py-2.5 text-slate-300">{u.free_videos_used}/{u.free_video_quota_granted}</td>
+                        <td className="px-4 py-2.5 text-[#00c2ff] font-bold">{(u.credit_balance ?? 0).toLocaleString()}</td>
                         <td className="px-4 py-2.5">
                           {u.has_active_subscription ? (
                             <span className="px-2 py-0.5 rounded-full bg-emerald-950/60 text-emerald-400 text-[10px] font-bold">Actif</span>
@@ -10822,6 +10858,44 @@ export default function App() {
               <button onClick={() => setAdminSelectedUser(null)} className="text-slate-400 hover:text-white">
                 <span className="material-symbols-outlined">close</span>
               </button>
+            </div>
+
+            <div className="pt-3 border-t border-[var(--border-subtle)] space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Solde de crédits</div>
+                <div className="text-sm font-bold text-[#00c2ff]">{(adminSelectedUser.credit_balance ?? 0).toLocaleString()}</div>
+              </div>
+              <div className="flex gap-2">
+                <input
+                  type="number"
+                  value={adminCreditForm.amount}
+                  onChange={e => setAdminCreditForm({ ...adminCreditForm, amount: e.target.value })}
+                  placeholder="Montant"
+                  className="flex-1 min-w-0 bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-3 py-2 text-xs text-white focus:border-[#00c2ff] outline-none"
+                />
+                <input
+                  value={adminCreditForm.note}
+                  onChange={e => setAdminCreditForm({ ...adminCreditForm, note: e.target.value })}
+                  placeholder="Note (optionnel)"
+                  className="flex-[1.5] min-w-0 bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-3 py-2 text-xs text-white focus:border-[#00c2ff] outline-none"
+                />
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => adjustAdminCredits('grant')}
+                  disabled={adminCreditBusy}
+                  className="flex-1 py-2 bg-emerald-500 text-slate-950 font-bold text-xs rounded-xl disabled:opacity-50"
+                >
+                  + Ajouter
+                </button>
+                <button
+                  onClick={() => adjustAdminCredits('revoke')}
+                  disabled={adminCreditBusy}
+                  className="flex-1 py-2 bg-rose-950/60 border border-rose-800 text-rose-300 font-bold text-xs rounded-xl disabled:opacity-50"
+                >
+                  − Retirer
+                </button>
+              </div>
             </div>
 
             <div className="space-y-1.5">
