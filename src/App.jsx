@@ -1952,6 +1952,61 @@ function ModeDropdown({ value, options, onChange }) {
 // Shared by HourDropdown/MinuteDropdown — lets someone type the exact number
 // directly (e.g. typing "14" then Enter) instead of only scrolling a 24- or
 // 60-row list, same idea as the searchable language picker elsewhere.
+// A logo is usually meant to be seen whole (square-ish, rarely cropped), but
+// an overlay sticker or the logo itself might be cut from a circular/rounded
+// design with a plain background outside it — this lets the creator clip the
+// image into that shape instead of always showing its full raw rectangle,
+// both here in the live preview and in the actual rendered video.
+function ShapePicker({ value, onChange }) {
+  const shapes = [
+    { id: 'rectangle', label: 'Rectangle', radius: '3px' },
+    { id: 'rounded', label: 'Coins arrondis', radius: '35%' },
+    { id: 'circle', label: 'Cercle', radius: '50%' },
+  ];
+  return (
+    <div className="flex items-center gap-1 flex-shrink-0" title="Forme">
+      {shapes.map(s => (
+        <button
+          key={s.id}
+          type="button"
+          title={s.label}
+          onClick={() => onChange(s.id)}
+          className={`w-6 h-6 flex items-center justify-center rounded-md border transition-colors ${
+            (value || 'rectangle') === s.id
+              ? 'bg-[#00c2ff]/10 border-[#00c2ff]'
+              : 'bg-[var(--bg-input)] border-[var(--border)] hover:border-slate-500'
+          }`}
+        >
+          <span className={`w-2.5 h-2.5 ${(value || 'rectangle') === s.id ? 'bg-[#00c2ff]' : 'bg-slate-500'}`} style={{ borderRadius: s.radius }} />
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// Compact labeled slider used for the size/x/y controls on the logo and each
+// overlay — three of these side by side instead of one long unlabeled bar,
+// so it's clear which knob moves what.
+function MiniSlider({ label, value, min, max, onChange }) {
+  return (
+    <div className="min-w-0">
+      <div className="flex items-center justify-between mb-0.5">
+        <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">{label}</span>
+        <span className="text-[9px] font-mono text-slate-400">{Math.round(value)}%</span>
+      </div>
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step="1"
+        value={value}
+        onChange={e => onChange(Number(e.target.value))}
+        className="w-full accent-[#00c2ff]"
+      />
+    </div>
+  );
+}
+
 function NumberDropdown({ value, onChange, max, suffix, width }) {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState('');
@@ -2795,6 +2850,43 @@ export default function App() {
     }
   };
 
+  // No dedicated "replace image" endpoint — swaps it by deleting the old
+  // overlay and uploading the new file, then reapplying the corner/size/
+  // enabled the creator already set so replacing the picture doesn't reset
+  // its placement.
+  const handleReplaceOverlayFile = async (e) => {
+    const file = (e.target.files || [])[0];
+    e.target.value = '';
+    const overlayId = replacingOverlayId;
+    if (!file || !overlayId || !editingChannelId) { setReplacingOverlayId(null); return; }
+    const old = (newChannel.branding.overlays || []).find(o => o.id === overlayId);
+    setOverlayUploading(true);
+    try {
+      await authFetch(`${API_BASE}/channels/${editingChannelId}/overlays/${overlayId}`, { method: 'DELETE' });
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await authFetch(`${API_BASE}/channels/${editingChannelId}/overlays`, { method: 'POST', body: formData });
+      if (!res.ok) {
+        const detail = await res.json().catch(() => ({}));
+        throw new Error(detail.detail || "Remplacement impossible.");
+      }
+      const data = await res.json();
+      let overlays = data.branding?.overlays || [];
+      const newest = overlays[overlays.length - 1];
+      if (old && newest) {
+        overlays = overlays.map(o => o.id === newest.id ? { ...o, corner: old.corner, size_percent: old.size_percent, enabled: old.enabled } : o);
+      }
+      setNewChannel(prev => ({ ...prev, branding: { ...prev.branding, overlays } }));
+      setChannels(prev => prev.map(c => c.id === data.id ? { ...data, branding: { ...data.branding, overlays } } : c));
+      showToast("Image remplacée.", "success");
+    } catch (err) {
+      showToast(err.message || "Erreur lors du remplacement.", "error");
+    } finally {
+      setOverlayUploading(false);
+      setReplacingOverlayId(null);
+    }
+  };
+
   const handleDeleteOverlay = async (overlayId) => {
     if (!editingChannelId) return;
     try {
@@ -2846,6 +2938,8 @@ export default function App() {
   const [avatarPreviewUrl, setAvatarPreviewUrl] = useState(null);
   const logoInputRef = useRef(null);
   const overlayInputRef = useRef(null);
+  const replaceOverlayInputRef = useRef(null);
+  const [replacingOverlayId, setReplacingOverlayId] = useState(null);
 
   // Local Image Folder Upload State for Wizard Step 5
   const [localImageFiles, setLocalImageFiles] = useState([]);
@@ -4323,6 +4417,40 @@ export default function App() {
       case 'top-right':
       default: return { top: margin, right: margin };
     }
+  };
+
+  // Direct placement: x_percent/y_percent map straight onto the frame (0 =
+  // image's own top-left touches the frame's left/top edge, 100 = touches
+  // the right/bottom edge minus the image's own size) — deliberately no
+  // safety margin baked in here, so dragging the sliders all the way can
+  // push the image flush to an edge or, past 0/100, partly off-frame, if
+  // that's genuinely what's wanted. The margin only exists as the *starting
+  // point* the 4 quick-position presets set (see PRESET_MARGIN_PERCENT
+  // below) — once placed, free dragging isn't clamped back to it.
+  const overlayPositionStyle = (xPercent, yPercent) => ({
+    left: `${xPercent}%`,
+    top: `${yPercent}%`,
+  });
+
+  const PRESET_MARGIN_PERCENT = 6;
+  // The 4 quick-position buttons stay balanced/inset (never flush to an
+  // edge) regardless of the image's current size, unlike free dragging.
+  const presetXY = (id, sizePercent) => {
+    const rightX = 100 - PRESET_MARGIN_PERCENT - sizePercent;
+    const bottomY = 100 - PRESET_MARGIN_PERCENT - sizePercent;
+    switch (id) {
+      case 'top-left': return { x: PRESET_MARGIN_PERCENT, y: PRESET_MARGIN_PERCENT };
+      case 'top-right': return { x: rightX, y: PRESET_MARGIN_PERCENT };
+      case 'bottom-left': return { x: PRESET_MARGIN_PERCENT, y: bottomY };
+      case 'bottom-right': return { x: rightX, y: bottomY };
+      default: return { x: rightX, y: PRESET_MARGIN_PERCENT };
+    }
+  };
+
+  const shapeClipStyle = (shape) => {
+    if (shape === 'circle') return { borderRadius: '50%' };
+    if (shape === 'rounded') return { borderRadius: '18%' };
+    return {};
   };
 
   const getChannelLogoUrl = (channel) => {
@@ -7324,45 +7452,50 @@ export default function App() {
                         used to be hardcoded top-right at a fixed 100px; now the
                         creator picks each one's corner and size, with a live
                         preview at the exact proportions they'll render at. */}
-                    <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-5 items-start">
+                    <div className="grid grid-cols-1 lg:grid-cols-[1fr_520px] gap-5 items-start">
                       <div className="space-y-4">
                         <div className="bg-[var(--bg-input)] border border-[var(--border-subtle)] rounded-xl p-4 space-y-2.5">
-                          <label className="block text-xs font-bold text-slate-300">Position et taille du logo</label>
-                          <div className="flex items-center gap-4">
-                            <div className="flex items-center gap-1.5 flex-shrink-0">
-                              {[
-                                { id: 'top-left', label: 'Haut gauche', icon: 'north_west' },
-                                { id: 'top-right', label: 'Haut droite', icon: 'north_east' },
-                                { id: 'bottom-left', label: 'Bas gauche', icon: 'south_west' },
-                                { id: 'bottom-right', label: 'Bas droite', icon: 'south_east' },
-                              ].map(c => (
-                                <button
-                                  key={c.id}
-                                  type="button"
-                                  title={c.label}
-                                  onClick={() => setNewChannel({ ...newChannel, branding: { ...newChannel.branding, logo_corner: c.id } })}
-                                  className={`w-8 h-8 flex items-center justify-center rounded-lg border transition-colors ${
-                                    (newChannel.branding.logo_corner || 'top-right') === c.id
-                                      ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]'
-                                      : 'bg-[var(--bg-surface-alt)] border-[var(--border)] text-slate-400 hover:border-slate-500'
-                                  }`}
-                                >
-                                  <span className="material-symbols-outlined text-[16px]">{c.icon}</span>
-                                </button>
-                              ))}
+                          <label className="block text-xs font-bold text-slate-300">Position, taille et forme du logo</label>
+                          <div className="flex items-start gap-4">
+                            <div className="flex-shrink-0">
+                              <div className="text-[9px] font-bold text-slate-500 uppercase tracking-wider mb-1">Positions rapides</div>
+                              <div className="flex items-center gap-1.5">
+                                {(() => {
+                                  const logoSize = newChannel.branding.logo_size_percent ?? 5;
+                                  const logoX = newChannel.branding.logo_x_percent ?? presetXY(newChannel.branding.logo_corner, logoSize).x;
+                                  const logoY = newChannel.branding.logo_y_percent ?? presetXY(newChannel.branding.logo_corner, logoSize).y;
+                                  return [
+                                    { id: 'top-left', label: 'Haut gauche', icon: 'north_west' },
+                                    { id: 'top-right', label: 'Haut droite', icon: 'north_east' },
+                                    { id: 'bottom-left', label: 'Bas gauche', icon: 'south_west' },
+                                    { id: 'bottom-right', label: 'Bas droite', icon: 'south_east' },
+                                  ].map(c => {
+                                    const target = presetXY(c.id, logoSize);
+                                    return (
+                                      <button
+                                        key={c.id}
+                                        type="button"
+                                        title={`Placer le logo : ${c.label}`}
+                                        onClick={() => setNewChannel({ ...newChannel, branding: { ...newChannel.branding, logo_corner: c.id, logo_x_percent: target.x, logo_y_percent: target.y } })}
+                                        className={`w-8 h-8 flex items-center justify-center rounded-lg border transition-colors ${
+                                          Math.round(logoX) === Math.round(target.x) && Math.round(logoY) === Math.round(target.y)
+                                            ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]'
+                                            : 'bg-[var(--bg-surface-alt)] border-[var(--border)] text-slate-400 hover:border-slate-500'
+                                        }`}
+                                      >
+                                        <span className="material-symbols-outlined text-[16px]">{c.icon}</span>
+                                      </button>
+                                    );
+                                  });
+                                })()}
+                              </div>
+                              <div className="text-[9px] font-bold text-slate-500 uppercase tracking-wider mb-1 mt-2.5">Forme</div>
+                              <ShapePicker value={newChannel.branding.logo_shape || 'rectangle'} onChange={v => setNewChannel({ ...newChannel, branding: { ...newChannel.branding, logo_shape: v } })} />
                             </div>
-                            <div className="flex items-center gap-2 flex-1 min-w-0">
-                              <span className="material-symbols-outlined text-[16px] text-slate-500 flex-shrink-0">photo_size_select_small</span>
-                              <input
-                                type="range"
-                                min="3"
-                                max="20"
-                                step="1"
-                                value={newChannel.branding.logo_size_percent || 5}
-                                onChange={e => setNewChannel({ ...newChannel, branding: { ...newChannel.branding, logo_size_percent: Number(e.target.value) } })}
-                                className="flex-1 accent-[#00c2ff]"
-                              />
-                              <span className="text-[10px] font-mono text-slate-400 w-8 text-right flex-shrink-0">{newChannel.branding.logo_size_percent || 5}%</span>
+                            <div className="flex-1 min-w-0 grid grid-cols-3 gap-3">
+                              <MiniSlider label="Taille" value={newChannel.branding.logo_size_percent ?? 5} min={3} max={20} onChange={v => setNewChannel({ ...newChannel, branding: { ...newChannel.branding, logo_size_percent: v } })} />
+                              <MiniSlider label="Position X" value={newChannel.branding.logo_x_percent ?? presetXY(newChannel.branding.logo_corner, newChannel.branding.logo_size_percent ?? 5).x} min={-20} max={120} onChange={v => setNewChannel({ ...newChannel, branding: { ...newChannel.branding, logo_x_percent: v } })} />
+                              <MiniSlider label="Position Y" value={newChannel.branding.logo_y_percent ?? presetXY(newChannel.branding.logo_corner, newChannel.branding.logo_size_percent ?? 5).y} min={-20} max={120} onChange={v => setNewChannel({ ...newChannel, branding: { ...newChannel.branding, logo_y_percent: v } })} />
                             </div>
                           </div>
                         </div>
@@ -7383,6 +7516,7 @@ export default function App() {
                               {overlayUploading ? 'Ajout…' : 'Ajouter'}
                             </button>
                             <input type="file" ref={overlayInputRef} accept="image/png,image/webp,image/gif" onChange={handleUploadOverlay} className="hidden" />
+                            <input type="file" ref={replaceOverlayInputRef} accept="image/png,image/webp,image/gif" onChange={handleReplaceOverlayFile} className="hidden" />
                           </div>
                           {!editingChannelId ? (
                             <p className="text-[11px] text-slate-500">Enregistre d'abord la chaîne pour ajouter des incrustations (PNG recommandé).</p>
@@ -7390,61 +7524,68 @@ export default function App() {
                             <p className="text-[11px] text-slate-500">Aucune incrustation — ajoute un PNG (bouton « Abonne-toi », cloche, etc.), placé au coin de ton choix, taille réglable.</p>
                           ) : (
                             <div className="space-y-2.5">
-                              {(newChannel.branding.overlays || []).map(ov => (
-                                <div key={ov.id} className="flex items-center gap-3 bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl p-2.5">
-                                  <img src={getVideoUrl(ov.image_path)} alt="" className="w-9 h-9 rounded-lg object-contain bg-slate-950/40 flex-shrink-0" />
-                                  <div className="flex items-center gap-1 flex-shrink-0">
-                                    {[
-                                      { id: 'top-left', label: 'Haut gauche', icon: 'north_west' },
-                                      { id: 'top-right', label: 'Haut droite', icon: 'north_east' },
-                                      { id: 'bottom-left', label: 'Bas gauche', icon: 'south_west' },
-                                      { id: 'bottom-right', label: 'Bas droite', icon: 'south_east' },
-                                    ].map(c => (
-                                      <button
-                                        key={c.id}
-                                        type="button"
-                                        title={c.label}
-                                        onClick={() => updateOverlayField(ov.id, 'corner', c.id)}
-                                        className={`w-6 h-6 flex items-center justify-center rounded-md border transition-colors ${
-                                          (ov.corner || 'top-right') === c.id
-                                            ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]'
-                                            : 'bg-[var(--bg-input)] border-[var(--border)] text-slate-500 hover:border-slate-500'
-                                        }`}
-                                      >
-                                        <span className="material-symbols-outlined text-[12px]">{c.icon}</span>
-                                      </button>
-                                    ))}
+                              {(newChannel.branding.overlays || []).map(ov => {
+                                const ovSize = ov.size_percent ?? 12;
+                                const xy = presetXY(ov.corner, ovSize);
+                                const xPercent = ov.x_percent ?? xy.x;
+                                const yPercent = ov.y_percent ?? xy.y;
+                                return (
+                                <div key={ov.id} className="bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl p-2.5 space-y-2">
+                                  <div className="flex items-center gap-3">
+                                    <button
+                                      type="button"
+                                      onClick={() => { setReplacingOverlayId(ov.id); replaceOverlayInputRef.current?.click(); }}
+                                      disabled={overlayUploading}
+                                      title="Cliquer pour remplacer l'image"
+                                      className="w-9 h-9 rounded-lg bg-slate-950/40 flex-shrink-0 relative overflow-hidden group/thumb disabled:opacity-50"
+                                    >
+                                      <img src={getVideoUrl(ov.image_path)} alt="" className="w-full h-full object-contain" />
+                                      <span className="absolute inset-0 flex items-center justify-center bg-slate-950/0 group-hover/thumb:bg-slate-950/60 transition-colors">
+                                        <span className="material-symbols-outlined text-[14px] text-white opacity-0 group-hover/thumb:opacity-100 transition-opacity">{overlayUploading && replacingOverlayId === ov.id ? 'progress_activity' : 'sync'}</span>
+                                      </span>
+                                    </button>
+                                    <div className="flex items-center gap-1 flex-shrink-0" title="Positions rapides">
+                                      {[
+                                        { id: 'top-left', label: 'Haut gauche', icon: 'north_west' },
+                                        { id: 'top-right', label: 'Haut droite', icon: 'north_east' },
+                                        { id: 'bottom-left', label: 'Bas gauche', icon: 'south_west' },
+                                        { id: 'bottom-right', label: 'Bas droite', icon: 'south_east' },
+                                      ].map(c => {
+                                        const target = presetXY(c.id, ovSize);
+                                        return (
+                                          <button
+                                            key={c.id}
+                                            type="button"
+                                            title={c.label}
+                                            onClick={() => setNewChannel(prev => ({ ...prev, branding: { ...prev.branding, overlays: (prev.branding.overlays || []).map(o => o.id === ov.id ? { ...o, corner: c.id, x_percent: target.x, y_percent: target.y } : o) } }))}
+                                            className={`w-6 h-6 flex items-center justify-center rounded-md border transition-colors ${
+                                              Math.round(xPercent) === Math.round(target.x) && Math.round(yPercent) === Math.round(target.y)
+                                                ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]'
+                                                : 'bg-[var(--bg-input)] border-[var(--border)] text-slate-500 hover:border-slate-500'
+                                            }`}
+                                          >
+                                            <span className="material-symbols-outlined text-[12px]">{c.icon}</span>
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
+                                    <ShapePicker value={ov.shape || 'rectangle'} onChange={v => updateOverlayField(ov.id, 'shape', v)} />
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDeleteOverlay(ov.id)}
+                                      title="Supprimer"
+                                      className="w-7 h-7 flex items-center justify-center rounded-lg text-rose-400 hover:bg-rose-950/40 flex-shrink-0 ml-auto"
+                                    >
+                                      <span className="material-symbols-outlined text-[16px]">close</span>
+                                    </button>
                                   </div>
-                                  <div className="flex items-center gap-1.5 flex-1 min-w-0">
-                                    <input
-                                      type="range"
-                                      min="4"
-                                      max="35"
-                                      step="1"
-                                      value={ov.size_percent || 12}
-                                      onChange={e => updateOverlayField(ov.id, 'size_percent', Number(e.target.value))}
-                                      className="flex-1 accent-[#00c2ff]"
-                                    />
-                                    <span className="text-[10px] font-mono text-slate-400 w-8 text-right flex-shrink-0">{ov.size_percent || 12}%</span>
+                                  <div className="grid grid-cols-3 gap-2.5 pl-1">
+                                    <MiniSlider label="Taille" value={ovSize} min={4} max={35} onChange={v => updateOverlayField(ov.id, 'size_percent', v)} />
+                                    <MiniSlider label="Position X" value={xPercent} min={-20} max={120} onChange={v => updateOverlayField(ov.id, 'x_percent', v)} />
+                                    <MiniSlider label="Position Y" value={yPercent} min={-20} max={120} onChange={v => updateOverlayField(ov.id, 'y_percent', v)} />
                                   </div>
-                                  <button
-                                    type="button"
-                                    onClick={() => updateOverlayField(ov.id, 'enabled', !(ov.enabled ?? true))}
-                                    title={(ov.enabled ?? true) ? 'Désactiver' : 'Activer'}
-                                    className={`w-7 h-7 flex items-center justify-center rounded-lg flex-shrink-0 ${(ov.enabled ?? true) ? 'text-emerald-400 hover:bg-emerald-950/40' : 'text-slate-500 hover:bg-[var(--bg-hover)]'}`}
-                                  >
-                                    <span className="material-symbols-outlined text-[16px]">{(ov.enabled ?? true) ? 'visibility' : 'visibility_off'}</span>
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleDeleteOverlay(ov.id)}
-                                    title="Supprimer"
-                                    className="w-7 h-7 flex items-center justify-center rounded-lg text-rose-400 hover:bg-rose-950/40 flex-shrink-0"
-                                  >
-                                    <span className="material-symbols-outlined text-[16px]">delete</span>
-                                  </button>
                                 </div>
-                              ))}
+                              );})}
                             </div>
                           )}
                         </div>
@@ -7459,13 +7600,22 @@ export default function App() {
                       <div className="lg:sticky lg:top-4">
                         <div className="text-xs font-bold text-slate-400 uppercase tracking-wide mb-2">Aperçu du placement</div>
                         <div className="w-full aspect-video rounded-xl bg-gradient-to-b from-slate-800 to-slate-950 border border-[var(--border)] relative overflow-hidden">
-                          <div className="absolute inset-0 flex items-center justify-center">
-                            <span className="material-symbols-outlined text-[56px] text-slate-700">movie</span>
-                          </div>
+                          <img
+                            src={STABLE_EFFECT_PREVIEW_IMAGES[0]}
+                            alt=""
+                            aria-hidden
+                            className="absolute inset-0 w-full h-full object-cover"
+                          />
+                          <div className="absolute inset-0 bg-slate-950/25" />
+                          {/* Not forced to a square — a logo is usually square-ish,
+                              but overlay stickers (a "Subscribe" banner, etc.) are
+                              often wider than tall, so the guide uses a neutral
+                              landscape rectangle rather than implying every image
+                              must be square. */}
                           {['top-left', 'top-right', 'bottom-left', 'bottom-right'].map(corner => (
                             <div
                               key={corner}
-                              className="absolute w-[14%] aspect-square border border-dashed border-slate-600/50 rounded"
+                              className="absolute w-[14%] aspect-[4/3] border border-dashed border-slate-600/50 rounded"
                               style={overlayCornerStyle(corner)}
                             />
                           ))}
@@ -7476,7 +7626,11 @@ export default function App() {
                               className="absolute object-contain drop-shadow-lg"
                               style={{
                                 width: `${newChannel.branding.logo_size_percent || 5}%`,
-                                ...overlayCornerStyle(newChannel.branding.logo_corner || 'top-right'),
+                                ...overlayPositionStyle(
+                                  newChannel.branding.logo_x_percent ?? presetXY(newChannel.branding.logo_corner, newChannel.branding.logo_size_percent ?? 5).x,
+                                  newChannel.branding.logo_y_percent ?? presetXY(newChannel.branding.logo_corner, newChannel.branding.logo_size_percent ?? 5).y
+                                ),
+                                ...shapeClipStyle(newChannel.branding.logo_shape),
                               }}
                             />
                           )}
@@ -7488,7 +7642,11 @@ export default function App() {
                               className="absolute object-contain drop-shadow-lg"
                               style={{
                                 width: `${ov.size_percent || 12}%`,
-                                ...overlayCornerStyle(ov.corner || 'top-right'),
+                                ...overlayPositionStyle(
+                                  ov.x_percent ?? presetXY(ov.corner, ov.size_percent ?? 12).x,
+                                  ov.y_percent ?? presetXY(ov.corner, ov.size_percent ?? 12).y
+                                ),
+                                ...shapeClipStyle(ov.shape),
                               }}
                             />
                           ))}
