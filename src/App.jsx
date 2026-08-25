@@ -1132,13 +1132,16 @@ const nameFromFilename = (filename) => {
 // a red cross instead of a green check, since a check on an excluded
 // feature reads as "you have this."
 const PLAN_CHANNEL_COUNTS = { 'Starter': '1 chaîne', 'Creator': '2 chaînes', 'Standard': 'Jusqu’à 5 chaînes', 'Pro': 'Chaînes illimitées' };
+// "Accès à ..." on purpose, not "Voix off incluse" — a checked line unlocks
+// the feature (you're allowed to use it), it doesn't make it free/unlimited:
+// every use still draws down the credit balance like any other generation.
 const buildPlanFeatures = (planName, { transcription, aiImages, aiScript, autoPublish, prioritySupport }) => [
-  { text: 'Voix off', included: true },
+  { text: 'Accès à la voix off', included: true },
   { text: PLAN_CHANNEL_COUNTS[planName], included: true },
-  { text: 'Transcription automatique', included: transcription },
-  { text: 'Génération d’images IA', included: aiImages },
-  { text: 'Script automatique IA', included: aiScript },
-  { text: 'Publication automatique YouTube', included: autoPublish },
+  { text: 'Accès à la transcription automatique', included: transcription },
+  { text: 'Accès à la génération d’images IA', included: aiImages },
+  { text: 'Accès au script automatique IA', included: aiScript },
+  { text: 'Accès à la publication automatique YouTube', included: autoPublish },
   { text: 'Support prioritaire', included: prioritySupport },
 ];
 const PLAN_DETAILS = {
@@ -4849,6 +4852,21 @@ export default function App() {
       console.error("Erreur chargement vidéos admin:", err);
     } finally {
       setAdminVideosLoading(false);
+    }
+  };
+
+  const openAdminVideoDetail = async (videoId) => {
+    setAdminVideoDetail({ id: videoId });
+    setAdminVideoDetailLoading(true);
+    try {
+      const res = await authFetch(`${API_BASE}/admin/videos/${videoId}`);
+      if (res.ok) setAdminVideoDetail(await res.json());
+      else setAdminVideoDetail(null);
+    } catch (err) {
+      console.error("Erreur chargement détail vidéo admin:", err);
+      setAdminVideoDetail(null);
+    } finally {
+      setAdminVideoDetailLoading(false);
     }
   };
 
@@ -10662,7 +10680,11 @@ export default function App() {
                       <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-500">Aucune vidéo.</td></tr>
                     ) : adminVideos.map(v => (
                       <tr key={v.id} className="border-b border-[var(--border-subtle)] hover:bg-[var(--bg-surface-alt)]/60">
-                        <td className="px-4 py-2.5 text-white font-medium max-w-[280px] truncate">{v.title || '(sans titre)'}</td>
+                        <td className="px-4 py-2.5 max-w-[280px] truncate">
+                          <button onClick={() => openAdminVideoDetail(v.id)} className="text-white font-medium hover:text-[#00c2ff] hover:underline text-left">
+                            {v.title || '(sans titre)'}
+                          </button>
+                        </td>
                         <td className="px-4 py-2.5 text-slate-300">{v.channel_name || '—'}</td>
                         <td className="px-4 py-2.5 text-slate-400">{v.owner_email || '—'}</td>
                         <td className="px-4 py-2.5">
@@ -10972,6 +10994,93 @@ export default function App() {
                 {adminGranting ? 'Octroi...' : 'Accorder l\'abonnement'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ADMIN — video technical detail popup: preview, voice/script/subtitles/
+          music actually used, itemized credit cost — opened from the video
+          title in the Vidéos tab. */}
+      {adminVideoDetail && (
+        <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-[70] flex items-center justify-center p-6" onClick={() => setAdminVideoDetail(null)}>
+          <div onClick={e => e.stopPropagation()} className="bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-3xl p-6 max-w-[640px] w-full shadow-2xl space-y-4 max-h-[85vh] overflow-y-auto">
+            <div className="flex justify-between items-start gap-3">
+              <div className="min-w-0">
+                <h3 className="text-sm font-bold text-white truncate">{adminVideoDetail.title || '(sans titre)'}</h3>
+                <p className="text-[11px] text-slate-500">{adminVideoDetail.channel_name || '—'} · {adminVideoDetail.owner_email || '—'}</p>
+              </div>
+              <button onClick={() => setAdminVideoDetail(null)} className="text-slate-400 hover:text-white shrink-0">
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+
+            {adminVideoDetailLoading ? (
+              <p className="text-xs text-slate-500 py-6 text-center">Chargement...</p>
+            ) : (
+              <>
+                {adminVideoDetail.output_path && (
+                  <video
+                    controls
+                    src={`${STORAGE_BASE}/${adminVideoDetail.output_path}`}
+                    className="w-full rounded-2xl bg-black max-h-[320px]"
+                  />
+                )}
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="bg-[var(--bg-input)] border border-[var(--border-subtle)] rounded-xl p-3">
+                    <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Statut</div>
+                    <div className="text-xs font-bold text-white">{adminVideoDetail.status}</div>
+                  </div>
+                  <div className="bg-[var(--bg-input)] border border-[var(--border-subtle)] rounded-xl p-3">
+                    <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Coût total</div>
+                    <div className="text-xs font-bold text-[#00c2ff]">{(adminVideoDetail.total_credits ?? 0).toLocaleString()} crédits</div>
+                  </div>
+                  <div className="bg-[var(--bg-input)] border border-[var(--border-subtle)] rounded-xl p-3">
+                    <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Voix</div>
+                    <div className="text-xs font-bold text-white truncate">{adminVideoDetail.voice_name || adminVideoDetail.voice_id || '—'}</div>
+                  </div>
+                  <div className="bg-[var(--bg-input)] border border-[var(--border-subtle)] rounded-xl p-3">
+                    <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Musique</div>
+                    <div className="text-xs font-bold text-white truncate">
+                      {adminVideoDetail.music_preference?.enabled
+                        ? (adminVideoDetail.music_preference.mode === 'ai_generate' ? 'Générée par IA' : (adminVideoDetail.music_preference.tracks?.[0]?.split('/').pop() || 'Piste importée'))
+                        : 'Désactivée'}
+                    </div>
+                  </div>
+                  <div className="bg-[var(--bg-input)] border border-[var(--border-subtle)] rounded-xl p-3 col-span-2">
+                    <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Sous-titres</div>
+                    <div className="text-xs font-bold text-white">
+                      {adminVideoDetail.subtitle_style?.enabled === false
+                        ? 'Désactivés'
+                        : `${adminVideoDetail.subtitle_style?.font || 'Police par défaut'} · ${adminVideoDetail.subtitle_style?.position || 'centre'}`}
+                    </div>
+                  </div>
+                </div>
+
+                {adminVideoDetail.script_text && (
+                  <div>
+                    <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Script</div>
+                    <div className="bg-[var(--bg-input)] border border-[var(--border-subtle)] rounded-xl p-3 text-xs text-slate-300 max-h-[160px] overflow-y-auto whitespace-pre-wrap">
+                      {adminVideoDetail.script_text}
+                    </div>
+                  </div>
+                )}
+
+                {adminVideoDetail.cost_items?.length > 0 && (
+                  <div>
+                    <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Détail des coûts</div>
+                    <div className="space-y-1">
+                      {adminVideoDetail.cost_items.map((item, i) => (
+                        <div key={i} className="flex items-center justify-between text-[11px] bg-[var(--bg-input)] border border-[var(--border-subtle)] rounded-lg px-3 py-1.5">
+                          <span className="text-slate-400 truncate">{item.description}</span>
+                          <span className="text-[#00c2ff] font-bold shrink-0 ml-2">{item.credits.toLocaleString()}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
           </div>
         </div>
       )}
