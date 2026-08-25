@@ -4311,6 +4311,20 @@ export default function App() {
   // choice they made, so it must never be silently overridden by the
   // auto-filled YouTube avatar (that one only fills the gap when nothing
   // was chosen manually).
+  // Same 4 corners the renderer actually composites at (assembler.py's
+  // CORNER_OVERLAY_XY) — used by the Identité step's placement preview so
+  // logo/overlay position in the mockup matches the real render exactly.
+  const overlayCornerStyle = (corner) => {
+    const margin = '6%';
+    switch (corner) {
+      case 'top-left': return { top: margin, left: margin };
+      case 'bottom-left': return { bottom: margin, left: margin };
+      case 'bottom-right': return { bottom: margin, right: margin };
+      case 'top-right':
+      default: return { top: margin, right: margin };
+    }
+  };
+
   const getChannelLogoUrl = (channel) => {
     if (channel?.branding?.logo_path) return getVideoUrl(channel.branding.logo_path);
     if (channel?.youtube_channel_thumbnail_url) return channel.youtube_channel_thumbnail_url;
@@ -7298,119 +7312,170 @@ export default function App() {
                       </div>
                     </div>
 
-                    {/* Logo position/size — used to be hardcoded top-right at a
-                        fixed 100px; now the creator picks the corner and the
-                        size like any other overlay below. */}
-                    <div className="bg-[var(--bg-input)] border border-[var(--border-subtle)] rounded-xl p-4 space-y-3">
-                      <label className="block text-xs font-bold text-slate-300">Position et taille du logo</label>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        {[
-                          { id: 'top-left', label: 'Haut gauche' },
-                          { id: 'top-right', label: 'Haut droite' },
-                          { id: 'bottom-left', label: 'Bas gauche' },
-                          { id: 'bottom-right', label: 'Bas droite' },
-                        ].map(c => (
-                          <button
-                            key={c.id}
-                            type="button"
-                            onClick={() => setNewChannel({ ...newChannel, branding: { ...newChannel.branding, logo_corner: c.id } })}
-                            className={`px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-colors ${
-                              (newChannel.branding.logo_corner || 'top-right') === c.id
-                                ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]'
-                                : 'bg-[var(--bg-surface-alt)] border-[var(--border)] text-slate-400 hover:border-slate-500'
-                            }`}
-                          >
-                            {c.label}
-                          </button>
-                        ))}
-                      </div>
-                      <div>
-                        <div className="flex items-center justify-between text-[11px] text-slate-400 mb-1">
-                          <span>Taille</span>
-                          <span className="font-mono text-white">{newChannel.branding.logo_size_percent || 5}%</span>
-                        </div>
-                        <input
-                          type="range"
-                          min="3"
-                          max="20"
-                          step="1"
-                          value={newChannel.branding.logo_size_percent || 5}
-                          onChange={e => setNewChannel({ ...newChannel, branding: { ...newChannel.branding, logo_size_percent: Number(e.target.value) } })}
-                          className="w-full accent-[#00c2ff]"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Extra sticker overlays — e.g. a "Subscribe" button or bell
-                        icon a creator used to paste on the video by hand. Each
-                        one gets its own corner + size, same idea as the logo. */}
-                    <div className="bg-[var(--bg-input)] border border-[var(--border-subtle)] rounded-xl p-4 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <label className="block text-xs font-bold text-slate-300">Incrustations (Abonne-toi, cloche…)</label>
-                        <button
-                          type="button"
-                          onClick={() => editingChannelId ? overlayInputRef.current?.click() : showToast("Enregistre d'abord la chaîne avant d'ajouter des incrustations.", "error")}
-                          disabled={overlayUploading || (newChannel.branding.overlays || []).length >= 6}
-                          className="px-3 py-1.5 rounded-lg text-[11px] font-bold bg-[#00c2ff]/10 text-[#00c2ff] border border-[#00c2ff]/40 hover:bg-[#00c2ff]/20 transition-colors disabled:opacity-50 flex items-center gap-1.5"
-                        >
-                          <span className="material-symbols-outlined text-[14px]">{overlayUploading ? 'progress_activity' : 'add_photo_alternate'}</span>
-                          {overlayUploading ? 'Ajout…' : 'Ajouter'}
-                        </button>
-                        <input type="file" ref={overlayInputRef} accept="image/png,image/webp,image/gif" onChange={handleUploadOverlay} className="hidden" />
-                      </div>
-                      {!editingChannelId ? (
-                        <p className="text-[11px] text-slate-500">Enregistre d'abord la chaîne pour ajouter des incrustations (PNG recommandé).</p>
-                      ) : (newChannel.branding.overlays || []).length === 0 ? (
-                        <p className="text-[11px] text-slate-500">Aucune incrustation — ajoute un PNG (bouton « Abonne-toi », cloche, etc.), placé au coin de ton choix, taille réglable.</p>
-                      ) : (
-                        <div className="space-y-2.5">
-                          {(newChannel.branding.overlays || []).map(ov => (
-                            <div key={ov.id} className="flex items-center gap-3 bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl p-2.5">
-                              <img src={getVideoUrl(ov.image_path)} alt="" className="w-10 h-10 rounded-lg object-contain bg-slate-950/40 flex-shrink-0" />
-                              <div className="flex-1 min-w-0 space-y-1.5">
-                                <select
-                                  value={ov.corner || 'top-right'}
-                                  onChange={e => updateOverlayField(ov.id, 'corner', e.target.value)}
-                                  className="w-full bg-[var(--bg-input)] border border-[var(--border)] rounded-lg px-2 py-1 text-[11px] text-white outline-none"
+                    {/* Logo + custom overlays (Subscribe button, bell icon...) —
+                        used to be hardcoded top-right at a fixed 100px; now the
+                        creator picks each one's corner and size, with a live
+                        preview at the exact proportions they'll render at. */}
+                    <div className="grid grid-cols-1 lg:grid-cols-[1fr_220px] gap-4 items-start">
+                      <div className="space-y-4">
+                        <div className="bg-[var(--bg-input)] border border-[var(--border-subtle)] rounded-xl p-4 space-y-2.5">
+                          <label className="block text-xs font-bold text-slate-300">Position et taille du logo</label>
+                          <div className="flex items-center gap-4">
+                            <div className="flex items-center gap-1.5 flex-shrink-0">
+                              {[
+                                { id: 'top-left', label: 'Haut gauche', icon: 'north_west' },
+                                { id: 'top-right', label: 'Haut droite', icon: 'north_east' },
+                                { id: 'bottom-left', label: 'Bas gauche', icon: 'south_west' },
+                                { id: 'bottom-right', label: 'Bas droite', icon: 'south_east' },
+                              ].map(c => (
+                                <button
+                                  key={c.id}
+                                  type="button"
+                                  title={c.label}
+                                  onClick={() => setNewChannel({ ...newChannel, branding: { ...newChannel.branding, logo_corner: c.id } })}
+                                  className={`w-8 h-8 flex items-center justify-center rounded-lg border transition-colors ${
+                                    (newChannel.branding.logo_corner || 'top-right') === c.id
+                                      ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]'
+                                      : 'bg-[var(--bg-surface-alt)] border-[var(--border)] text-slate-400 hover:border-slate-500'
+                                  }`}
                                 >
-                                  <option value="top-left">Haut gauche</option>
-                                  <option value="top-right">Haut droite</option>
-                                  <option value="bottom-left">Bas gauche</option>
-                                  <option value="bottom-right">Bas droite</option>
-                                </select>
-                                <div className="flex items-center gap-2">
-                                  <input
-                                    type="range"
-                                    min="4"
-                                    max="35"
-                                    step="1"
-                                    value={ov.size_percent || 12}
-                                    onChange={e => updateOverlayField(ov.id, 'size_percent', Number(e.target.value))}
-                                    className="flex-1 accent-[#00c2ff]"
-                                  />
-                                  <span className="text-[10px] font-mono text-slate-400 w-8 text-right">{ov.size_percent || 12}%</span>
-                                </div>
-                              </div>
-                              <button
-                                type="button"
-                                onClick={() => updateOverlayField(ov.id, 'enabled', !(ov.enabled ?? true))}
-                                title={(ov.enabled ?? true) ? 'Désactiver' : 'Activer'}
-                                className={`w-8 h-8 flex items-center justify-center rounded-lg flex-shrink-0 ${(ov.enabled ?? true) ? 'text-emerald-400 hover:bg-emerald-950/40' : 'text-slate-500 hover:bg-[var(--bg-hover)]'}`}
-                              >
-                                <span className="material-symbols-outlined text-[18px]">{(ov.enabled ?? true) ? 'visibility' : 'visibility_off'}</span>
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleDeleteOverlay(ov.id)}
-                                title="Supprimer"
-                                className="w-8 h-8 flex items-center justify-center rounded-lg text-rose-400 hover:bg-rose-950/40 flex-shrink-0"
-                              >
-                                <span className="material-symbols-outlined text-[18px]">delete</span>
-                              </button>
+                                  <span className="material-symbols-outlined text-[16px]">{c.icon}</span>
+                                </button>
+                              ))}
                             </div>
+                            <div className="flex items-center gap-2 flex-1 min-w-0">
+                              <span className="material-symbols-outlined text-[16px] text-slate-500 flex-shrink-0">photo_size_select_small</span>
+                              <input
+                                type="range"
+                                min="3"
+                                max="20"
+                                step="1"
+                                value={newChannel.branding.logo_size_percent || 5}
+                                onChange={e => setNewChannel({ ...newChannel, branding: { ...newChannel.branding, logo_size_percent: Number(e.target.value) } })}
+                                className="flex-1 accent-[#00c2ff]"
+                              />
+                              <span className="text-[10px] font-mono text-slate-400 w-8 text-right flex-shrink-0">{newChannel.branding.logo_size_percent || 5}%</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Extra sticker overlays — e.g. a "Subscribe" button or bell
+                            icon a creator used to paste on the video by hand. Each
+                            one gets its own corner + size, same idea as the logo. */}
+                        <div className="bg-[var(--bg-input)] border border-[var(--border-subtle)] rounded-xl p-4 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <label className="block text-xs font-bold text-slate-300">Incrustations (Abonne-toi, cloche…)</label>
+                            <button
+                              type="button"
+                              onClick={() => editingChannelId ? overlayInputRef.current?.click() : showToast("Enregistre d'abord la chaîne avant d'ajouter des incrustations.", "error")}
+                              disabled={overlayUploading || (newChannel.branding.overlays || []).length >= 6}
+                              className="px-3 py-1.5 rounded-lg text-[11px] font-bold bg-[#00c2ff]/10 text-[#00c2ff] border border-[#00c2ff]/40 hover:bg-[#00c2ff]/20 transition-colors disabled:opacity-50 flex items-center gap-1.5"
+                            >
+                              <span className="material-symbols-outlined text-[14px]">{overlayUploading ? 'progress_activity' : 'add_photo_alternate'}</span>
+                              {overlayUploading ? 'Ajout…' : 'Ajouter'}
+                            </button>
+                            <input type="file" ref={overlayInputRef} accept="image/png,image/webp,image/gif" onChange={handleUploadOverlay} className="hidden" />
+                          </div>
+                          {!editingChannelId ? (
+                            <p className="text-[11px] text-slate-500">Enregistre d'abord la chaîne pour ajouter des incrustations (PNG recommandé).</p>
+                          ) : (newChannel.branding.overlays || []).length === 0 ? (
+                            <p className="text-[11px] text-slate-500">Aucune incrustation — ajoute un PNG (bouton « Abonne-toi », cloche, etc.), placé au coin de ton choix, taille réglable.</p>
+                          ) : (
+                            <div className="space-y-2.5">
+                              {(newChannel.branding.overlays || []).map(ov => (
+                                <div key={ov.id} className="flex items-center gap-3 bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl p-2.5">
+                                  <img src={getVideoUrl(ov.image_path)} alt="" className="w-9 h-9 rounded-lg object-contain bg-slate-950/40 flex-shrink-0" />
+                                  <div className="flex items-center gap-1 flex-shrink-0">
+                                    {[
+                                      { id: 'top-left', label: 'Haut gauche', icon: 'north_west' },
+                                      { id: 'top-right', label: 'Haut droite', icon: 'north_east' },
+                                      { id: 'bottom-left', label: 'Bas gauche', icon: 'south_west' },
+                                      { id: 'bottom-right', label: 'Bas droite', icon: 'south_east' },
+                                    ].map(c => (
+                                      <button
+                                        key={c.id}
+                                        type="button"
+                                        title={c.label}
+                                        onClick={() => updateOverlayField(ov.id, 'corner', c.id)}
+                                        className={`w-6 h-6 flex items-center justify-center rounded-md border transition-colors ${
+                                          (ov.corner || 'top-right') === c.id
+                                            ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]'
+                                            : 'bg-[var(--bg-input)] border-[var(--border)] text-slate-500 hover:border-slate-500'
+                                        }`}
+                                      >
+                                        <span className="material-symbols-outlined text-[12px]">{c.icon}</span>
+                                      </button>
+                                    ))}
+                                  </div>
+                                  <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                                    <input
+                                      type="range"
+                                      min="4"
+                                      max="35"
+                                      step="1"
+                                      value={ov.size_percent || 12}
+                                      onChange={e => updateOverlayField(ov.id, 'size_percent', Number(e.target.value))}
+                                      className="flex-1 accent-[#00c2ff]"
+                                    />
+                                    <span className="text-[10px] font-mono text-slate-400 w-8 text-right flex-shrink-0">{ov.size_percent || 12}%</span>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => updateOverlayField(ov.id, 'enabled', !(ov.enabled ?? true))}
+                                    title={(ov.enabled ?? true) ? 'Désactiver' : 'Activer'}
+                                    className={`w-7 h-7 flex items-center justify-center rounded-lg flex-shrink-0 ${(ov.enabled ?? true) ? 'text-emerald-400 hover:bg-emerald-950/40' : 'text-slate-500 hover:bg-[var(--bg-hover)]'}`}
+                                  >
+                                    <span className="material-symbols-outlined text-[16px]">{(ov.enabled ?? true) ? 'visibility' : 'visibility_off'}</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteOverlay(ov.id)}
+                                    title="Supprimer"
+                                    className="w-7 h-7 flex items-center justify-center rounded-lg text-rose-400 hover:bg-rose-950/40 flex-shrink-0"
+                                  >
+                                    <span className="material-symbols-outlined text-[16px]">delete</span>
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Live preview — exact proportions (% of the 1920px-wide
+                          render frame) at the exact corner each element will
+                          actually be composited at, so there's no guessing. */}
+                      <div className="lg:sticky lg:top-4">
+                        <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1.5">Aperçu du placement</div>
+                        <div className="w-full aspect-video rounded-xl bg-gradient-to-b from-slate-800 to-slate-950 border border-[var(--border)] relative overflow-hidden">
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <span className="material-symbols-outlined text-[32px] text-slate-700">movie</span>
+                          </div>
+                          {(newChannel.branding.logo_enabled ?? true) && logoPreviewUrl && (
+                            <img
+                              src={logoPreviewUrl}
+                              alt=""
+                              className="absolute object-contain drop-shadow"
+                              style={{
+                                width: `${newChannel.branding.logo_size_percent || 5}%`,
+                                ...overlayCornerStyle(newChannel.branding.logo_corner || 'top-right'),
+                              }}
+                            />
+                          )}
+                          {(newChannel.branding.overlays || []).filter(o => o.enabled ?? true).map(ov => (
+                            <img
+                              key={ov.id}
+                              src={getVideoUrl(ov.image_path)}
+                              alt=""
+                              className="absolute object-contain drop-shadow"
+                              style={{
+                                width: `${ov.size_percent || 12}%`,
+                                ...overlayCornerStyle(ov.corner || 'top-right'),
+                              }}
+                            />
                           ))}
                         </div>
-                      )}
+                      </div>
                     </div>
 
                     <div>
