@@ -1146,7 +1146,7 @@ const PLAN_DETAILS = {
     transcription: false, aiImages: false, aiScript: false, autoPublish: false, prioritySupport: false,
   }) },
   'Creator': { tagline: 'Pour créer régulièrement sans y penser.', features: buildPlanFeatures('Creator', {
-    transcription: true, aiImages: true, aiScript: false, autoPublish: false, prioritySupport: false,
+    transcription: true, aiImages: true, aiScript: true, autoPublish: false, prioritySupport: false,
   }) },
   'Standard': { tagline: 'Le meilleur rapport crédits / prix.', features: buildPlanFeatures('Standard', {
     transcription: true, aiImages: true, aiScript: true, autoPublish: true, prioritySupport: false,
@@ -4685,6 +4685,8 @@ export default function App() {
   const [adminActivity, setAdminActivity] = useState(null);
   const [adminVideos, setAdminVideos] = useState([]);
   const [adminVideosLoading, setAdminVideosLoading] = useState(false);
+  const [adminVideoDetail, setAdminVideoDetail] = useState(null);
+  const [adminVideoDetailLoading, setAdminVideoDetailLoading] = useState(false);
   const [adminVideoSearch, setAdminVideoSearch] = useState('');
   const [adminOrders, setAdminOrders] = useState([]);
   const [adminOrdersLoading, setAdminOrdersLoading] = useState(false);
