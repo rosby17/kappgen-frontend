@@ -25,7 +25,9 @@ const CREDIT_INSUFFICIENT_MESSAGE = "La génération automatique est en pause : 
 // used here only to show the creator a cost estimate and to gate paid
 // options behind an actual balance; the real charge always happens
 // server-side, this is display/UX only.
-const IMAGE_GENERATION_CREDITS = 1000;
+const IMAGE_GENERATION_CREDITS = 1000; // display default (~mid-point); real per-image cost varies, see below
+const IMAGE_GENERATION_CREDITS_MIN = 956;
+const IMAGE_GENERATION_CREDITS_MAX = 1001;
 const THUMBNAIL_GENERATION_CREDITS = 2000;
 const MUSIC_GENERATION_CREDITS = 300;
 const AUTH_PATHS = new Set(['/login', '/signup', '/signin']);
@@ -8144,7 +8146,7 @@ export default function App() {
 
                   const toggleOptionB = () => {
                     if (!isOptionBChecked && !canGenerateAIImages) {
-                      showToast(`Crédits insuffisants pour la génération d'images IA (${IMAGE_GENERATION_CREDITS.toLocaleString()} crédits/image).`, 'error');
+                      showToast(`Crédits insuffisants pour la génération d'images IA (~${IMAGE_GENERATION_CREDITS_MIN.toLocaleString()}–${IMAGE_GENERATION_CREDITS_MAX.toLocaleString()} crédits/image).`, 'error');
                       return;
                     }
                     let nextA = isOptionAChecked;
@@ -8159,6 +8161,10 @@ export default function App() {
                   // a fresh (paid) image per scene, so the creator controls their
                   // own cost instead of it scaling silently with video length.
                   const maxUniqueImages = newChannel.image_style.max_unique_images ?? 10;
+                  // Backward-compat default: channels saved before this toggle
+                  // existed but already had a max_unique_images value meant it
+                  // manually, so keep treating those as "manual".
+                  const imageCountMode = newChannel.image_style.image_count_mode ?? (newChannel.image_style.max_unique_images ? 'manual' : 'auto');
 
                   const hasStoredLibrary = Number(newChannel.image_style.library_image_count || 0) > 0
                     && String(newChannel.image_style.library_path || '').startsWith('channels/');
@@ -8310,7 +8316,7 @@ export default function App() {
                               />
                             </div>
                             <p className="text-[11px] text-slate-400">
-                              L'IA génère automatiquement les visuels pour chaque scène, dans le style que tu décris ci-dessous — {IMAGE_GENERATION_CREDITS.toLocaleString()} crédits par image générée.
+                              L'IA génère automatiquement les visuels pour chaque scène, dans le style que tu décris ci-dessous — ~{IMAGE_GENERATION_CREDITS_MIN.toLocaleString()}–{IMAGE_GENERATION_CREDITS_MAX.toLocaleString()} crédits par image générée.
                             </p>
                             {!hasActiveSubscription && (
                               <button
@@ -8335,37 +8341,66 @@ export default function App() {
                           </div>
 
                           {isOptionBChecked && (
-                            <div onClick={(e) => e.stopPropagation()} className="p-3 rounded-xl bg-[var(--bg-input-alt)] border border-[var(--border)] space-y-2">
-                              <div className="flex items-center justify-between gap-3">
-                                <label className="text-[10px] font-bold text-slate-300">Nombre d'images à générer par vidéo</label>
-                                <input
-                                  type="number"
-                                  min={1}
-                                  value={maxUniqueImages}
-                                  onChange={e => {
-                                    const raw = e.target.value;
-                                    if (raw === '') return; // let them clear the field while typing a new value
-                                    const parsed = parseInt(raw, 10);
-                                    if (Number.isNaN(parsed)) return;
-                                    setNewChannel({ ...newChannel, image_style: { ...newChannel.image_style, max_unique_images: Math.max(1, parsed) } });
-                                  }}
-                                  onBlur={e => {
-                                    if (e.target.value !== '' && !Number.isNaN(parseInt(e.target.value, 10))) return;
-                                    setNewChannel({ ...newChannel, image_style: { ...newChannel.image_style, max_unique_images: 1 } });
-                                  }}
-                                  className="w-16 bg-[var(--bg-input)] border border-[var(--border)] rounded-lg px-2 py-1 text-xs text-white text-center focus:border-[#00c2ff] outline-none"
-                                />
+                            <div onClick={(e) => e.stopPropagation()} className="p-3 rounded-xl bg-[var(--bg-input-alt)] border border-[var(--border)] space-y-3">
+                              <div className="grid grid-cols-2 gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => setNewChannel({ ...newChannel, image_style: { ...newChannel.image_style, image_count_mode: 'auto', max_unique_images: null } })}
+                                  className={`px-3 py-2 rounded-lg text-[10px] font-bold border transition-colors ${
+                                    imageCountMode === 'auto' ? 'bg-[#00c2ff]/15 border-[#00c2ff] text-white' : 'bg-transparent border-[var(--border)] text-slate-400 hover:text-white'
+                                  }`}
+                                >
+                                  Auto — KappGen décide
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setNewChannel({ ...newChannel, image_style: { ...newChannel.image_style, image_count_mode: 'manual' } })}
+                                  className={`px-3 py-2 rounded-lg text-[10px] font-bold border transition-colors ${
+                                    imageCountMode === 'manual' ? 'bg-[#00c2ff]/15 border-[#00c2ff] text-white' : 'bg-transparent border-[var(--border)] text-slate-400 hover:text-white'
+                                  }`}
+                                >
+                                  Nombre précis
+                                </button>
                               </div>
-                              <p className="text-[10px] text-slate-500">
-                                Le reste de la vidéo réutilise ces images au lieu d'en générer une nouvelle par scène — tu maîtrises le coût, pas la durée.
-                              </p>
-                              <p className="text-[11px] font-bold text-[#56d9ff]">
-                                Coût estimé par vidéo générée : {maxUniqueImages} × {IMAGE_GENERATION_CREDITS.toLocaleString()} = {(maxUniqueImages * IMAGE_GENERATION_CREDITS).toLocaleString()} crédits
-                              </p>
-                              {creditBalance != null && !isSubscriptionExempt && maxUniqueImages * IMAGE_GENERATION_CREDITS > creditBalance && (
-                                <p className="text-[10px] font-bold text-amber-400">
-                                  ⚠ Ton solde ({creditBalance.toLocaleString()} crédits) ne couvre pas ce nombre d'images — les images manquantes utiliseront ta bibliothèque à la place.
+
+                              {imageCountMode === 'auto' ? (
+                                <p className="text-[10px] text-slate-500">
+                                  KappGen choisit automatiquement combien d'images générer selon la longueur de la vidéo, et débite tes crédits au fur et à mesure ({IMAGE_GENERATION_CREDITS_MIN.toLocaleString()}–{IMAGE_GENERATION_CREDITS_MAX.toLocaleString()} crédits par image).
                                 </p>
+                              ) : (
+                                <>
+                                  <div className="flex items-center justify-between gap-3">
+                                    <label className="text-[10px] font-bold text-slate-300">Nombre d'images à générer par vidéo</label>
+                                    <input
+                                      type="number"
+                                      min={1}
+                                      value={maxUniqueImages}
+                                      onChange={e => {
+                                        const raw = e.target.value;
+                                        if (raw === '') return; // let them clear the field while typing a new value
+                                        const parsed = parseInt(raw, 10);
+                                        if (Number.isNaN(parsed)) return;
+                                        setNewChannel({ ...newChannel, image_style: { ...newChannel.image_style, max_unique_images: Math.max(1, parsed) } });
+                                      }}
+                                      onBlur={e => {
+                                        if (e.target.value !== '' && !Number.isNaN(parseInt(e.target.value, 10))) return;
+                                        setNewChannel({ ...newChannel, image_style: { ...newChannel.image_style, max_unique_images: 1 } });
+                                      }}
+                                      className="w-16 bg-[var(--bg-input)] border border-[var(--border)] rounded-lg px-2 py-1 text-xs text-white text-center focus:border-[#00c2ff] outline-none"
+                                    />
+                                  </div>
+                                  <p className="text-[10px] text-slate-500">
+                                    Le reste de la vidéo réutilise ces images au lieu d'en générer une nouvelle par scène — tu maîtrises le coût, pas la durée.
+                                  </p>
+                                  <p className="text-[11px] font-bold text-[#56d9ff]">
+                                    Coût estimé par vidéo générée : {maxUniqueImages} × {IMAGE_GENERATION_CREDITS_MIN.toLocaleString()}–{IMAGE_GENERATION_CREDITS_MAX.toLocaleString()} = {(maxUniqueImages * IMAGE_GENERATION_CREDITS_MIN).toLocaleString()}–{(maxUniqueImages * IMAGE_GENERATION_CREDITS_MAX).toLocaleString()} crédits
+                                  </p>
+                                  {creditBalance != null && !isSubscriptionExempt && maxUniqueImages * IMAGE_GENERATION_CREDITS_MAX > creditBalance && (
+                                    <p className="text-[10px] font-bold text-amber-400">
+                                      ⚠ Ton solde ({creditBalance.toLocaleString()} crédits) peut ne pas couvrir ce nombre d'images — les images manquantes utiliseront ta bibliothèque à la place.
+                                    </p>
+                                  )}
+                                </>
                               )}
                             </div>
                           )}
