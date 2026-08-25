@@ -12117,9 +12117,7 @@ export default function App() {
                     <span className="text-[11px] text-slate-400">Estimation du coût...</span>
                   ) : (
                     <span className="text-[11px] text-slate-300">
-                      Générer ce script coûtera environ
-                      <span className="font-bold text-white"> {scriptCostEstimate.credits.toLocaleString()} crédits</span>
-                      <span className="text-slate-400"> (~{scriptCostEstimate.fcfa.toLocaleString()} FCFA)</span>
+                      Coût de génération : <span className="font-bold text-white">{scriptCostEstimate.credits.toLocaleString()} crédits</span>
                     </span>
                   )}
                 </div>
