@@ -9900,7 +9900,7 @@ export default function App() {
                                   // used to be a disconnected hardcoded 160px, which is why the
                                   // preview looked smaller than what actually gets burned in.
                                   const sizePx = 1920 * ((newChannel.branding.logo_size_percent ?? 14) / 100) * mockupSubtitlePreviewScale;
-                                  return { width: `${sizePx}px`, height: `${sizePx}px` };
+                                  return { width: `${sizePx}px`, height: `${sizePx}px`, ...shapeClipStyle(newChannel.branding.logo_shape) };
                                 })()}
                                 className="object-cover shadow-lg"
                               />
@@ -11195,7 +11195,10 @@ export default function App() {
                           <img
                             src={getChannelLogoUrl(activeChannel)}
                             alt="Logo"
-                            style={{ width: `${160 * submitSubtitlePreviewScale}px`, height: `${160 * submitSubtitlePreviewScale}px` }}
+                            style={(() => {
+                              const sizePx = 1920 * ((activeChannel.branding?.logo_size_percent ?? 14) / 100) * submitSubtitlePreviewScale;
+                              return { width: `${sizePx}px`, height: `${sizePx}px`, ...shapeClipStyle(activeChannel.branding?.logo_shape) };
+                            })()}
                             className="object-cover shadow-lg"
                           />
                         </div>
