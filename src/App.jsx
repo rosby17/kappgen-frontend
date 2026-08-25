@@ -17,6 +17,9 @@ const API_BASE = rawApiBase;
 // outage, not something the creator did wrong; used to offer "switch this
 // channel to manual" instead of just "Relancer" (which would just fail again).
 const SERVICE_UNAVAILABLE_MESSAGE = "Les serveurs de KappGen sont temporairement indisponibles. Veuillez réessayer plus tard.";
+// Mirrors CREDIT_INSUFFICIENT_MESSAGE in backend/src/worker/queue_runner.py —
+// keep the two in sync so the "recharger" CTA below only shows for this exact message.
+const CREDIT_INSUFFICIENT_MESSAGE = "La génération automatique est en pause : ton solde de crédits KappGen est épuisé. Recharge des crédits pour que cette chaîne continue à écrire et publier ses vidéos automatiquement.";
 const AUTH_PATHS = new Set(['/login', '/signup', '/signin']);
 
 // Broad coverage of the languages with established YouTube audiences. Values
@@ -802,10 +805,11 @@ function VoiceLibraryModal({
       return;
     }
     let url = voice.preview_url;
-    if (!url && voice.cloned) {
-      // Voices cloned before on-demand preview generation existed (or whose
-      // best-effort generation failed right after cloning) have no sample
-      // yet — generate one now instead of leaving the play button dead.
+    if (!url) {
+      // Covers both a cloned voice with no sample yet (cloned before
+      // on-demand generation existed, or whose best-effort generation right
+      // after cloning failed) and a catalog voice whose entry came back
+      // without one — generate it now instead of leaving the play button dead.
       setGeneratingPreviewId(voice.id);
       try {
         const res = await authFetch(`${API_BASE}/channels/voice/${voice.id}/preview/generate`, { method: 'POST' });
@@ -2611,6 +2615,7 @@ export default function App() {
   // Separate from VoiceLibraryModal's own (locally-scoped) playingId — this one
   // is for the compact voice selector on the Voix Off step, outside that modal.
   const [wizardVoicePreviewId, setWizardVoicePreviewId] = useState(null);
+  const [wizardVoiceGeneratingId, setWizardVoiceGeneratingId] = useState(null);
   const [showVoiceCloner, setShowVoiceCloner] = useState(false);
   const [savedVoiceIds, setSavedVoiceIds] = useState(() => readVoiceIdList(SAVED_VOICE_IDS_KEY));
   const [clonedVoiceIds, setClonedVoiceIds] = useState(() => readVoiceIdList(CLONED_VOICE_IDS_KEY));
@@ -2757,6 +2762,65 @@ export default function App() {
     }
   };
 
+  // Extra sticker overlays (e.g. a "Subscribe" button or bell icon a creator
+  // used to paste on by hand) — same deferred-until-saved pattern as the
+  // thumbnail reference images above: the channel must exist server-side
+  // before a file can be attached to it.
+  const [overlayUploading, setOverlayUploading] = useState(false);
+  const handleUploadOverlay = async (e) => {
+    const file = (e.target.files || [])[0];
+    e.target.value = '';
+    if (!file) return;
+    if (!editingChannelId) {
+      showToast("Enregistre d'abord la chaîne avant d'ajouter des incrustations.", "error");
+      return;
+    }
+    setOverlayUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await authFetch(`${API_BASE}/channels/${editingChannelId}/overlays`, { method: 'POST', body: formData });
+      if (!res.ok) {
+        const detail = await res.json().catch(() => ({}));
+        throw new Error(detail.detail || "Ajout de l'incrustation impossible.");
+      }
+      const data = await res.json();
+      setNewChannel(prev => ({ ...prev, branding: { ...prev.branding, overlays: data.branding?.overlays || [] } }));
+      setChannels(prev => prev.map(c => c.id === data.id ? data : c));
+      showToast("Incrustation ajoutée.", "success");
+    } catch (err) {
+      showToast(err.message || "Erreur lors de l'ajout de l'incrustation.", "error");
+    } finally {
+      setOverlayUploading(false);
+    }
+  };
+
+  const handleDeleteOverlay = async (overlayId) => {
+    if (!editingChannelId) return;
+    try {
+      const res = await authFetch(`${API_BASE}/channels/${editingChannelId}/overlays/${overlayId}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error("Suppression impossible.");
+      const data = await res.json();
+      setNewChannel(prev => ({ ...prev, branding: { ...prev.branding, overlays: data.branding?.overlays || [] } }));
+      setChannels(prev => prev.map(c => c.id === data.id ? data : c));
+    } catch (err) {
+      showToast(err.message || "Erreur lors de la suppression.", "error");
+    }
+  };
+
+  // Corner/size/enabled changes are just local state until the channel is
+  // saved (same PUT as every other branding field) — no dedicated endpoint,
+  // consistent with how the rest of the wizard's fields work.
+  const updateOverlayField = (overlayId, field, value) => {
+    setNewChannel(prev => ({
+      ...prev,
+      branding: {
+        ...prev.branding,
+        overlays: (prev.branding.overlays || []).map(o => o.id === overlayId ? { ...o, [field]: value } : o),
+      },
+    }));
+  };
+
   const handleRemoveThumbnailStyle = async (imagePath = null) => {
     if (!editingChannelId) return;
     setThumbnailStyleAnalyzing(true);
@@ -2781,6 +2845,7 @@ export default function App() {
   const [avatarFile, setAvatarFile] = useState(null);
   const [avatarPreviewUrl, setAvatarPreviewUrl] = useState(null);
   const logoInputRef = useRef(null);
+  const overlayInputRef = useRef(null);
 
   // Local Image Folder Upload State for Wizard Step 5
   const [localImageFiles, setLocalImageFiles] = useState([]);
@@ -2828,6 +2893,9 @@ export default function App() {
     branding: {
       logo_path: '',
       logo_enabled: true,
+      logo_corner: 'top-right',
+      logo_size_percent: 5,
+      overlays: [],
     },
     music_preference: {
       // Off until the creator actually picks something (upload / AI generate) —
@@ -7098,6 +7166,16 @@ export default function App() {
                                 </button>
                               </div>
                             )}
+                            {vid.status === 'failed' && vid.error_message === CREDIT_INSUFFICIENT_MESSAGE && (
+                              <div className="pt-2 flex items-center gap-2">
+                                <button
+                                  onClick={() => setShowPricingModal(true)}
+                                  className="flex-1 py-1.5 bg-[#00c2ff]/10 text-[#59d8ff] border border-[#00c2ff]/30 rounded-xl font-bold text-xs hover:bg-[#00c2ff]/20 transition-all flex items-center justify-center gap-1"
+                                >
+                                  <span className="material-symbols-outlined text-[16px]">bolt</span> Recharger des crédits
+                                </button>
+                              </div>
+                            )}
                           </div>
                         </div>
                       );})}
@@ -7220,6 +7298,121 @@ export default function App() {
                       </div>
                     </div>
 
+                    {/* Logo position/size — used to be hardcoded top-right at a
+                        fixed 100px; now the creator picks the corner and the
+                        size like any other overlay below. */}
+                    <div className="bg-[var(--bg-input)] border border-[var(--border-subtle)] rounded-xl p-4 space-y-3">
+                      <label className="block text-xs font-bold text-slate-300">Position et taille du logo</label>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {[
+                          { id: 'top-left', label: 'Haut gauche' },
+                          { id: 'top-right', label: 'Haut droite' },
+                          { id: 'bottom-left', label: 'Bas gauche' },
+                          { id: 'bottom-right', label: 'Bas droite' },
+                        ].map(c => (
+                          <button
+                            key={c.id}
+                            type="button"
+                            onClick={() => setNewChannel({ ...newChannel, branding: { ...newChannel.branding, logo_corner: c.id } })}
+                            className={`px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-colors ${
+                              (newChannel.branding.logo_corner || 'top-right') === c.id
+                                ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]'
+                                : 'bg-[var(--bg-surface-alt)] border-[var(--border)] text-slate-400 hover:border-slate-500'
+                            }`}
+                          >
+                            {c.label}
+                          </button>
+                        ))}
+                      </div>
+                      <div>
+                        <div className="flex items-center justify-between text-[11px] text-slate-400 mb-1">
+                          <span>Taille</span>
+                          <span className="font-mono text-white">{newChannel.branding.logo_size_percent || 5}%</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="3"
+                          max="20"
+                          step="1"
+                          value={newChannel.branding.logo_size_percent || 5}
+                          onChange={e => setNewChannel({ ...newChannel, branding: { ...newChannel.branding, logo_size_percent: Number(e.target.value) } })}
+                          className="w-full accent-[#00c2ff]"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Extra sticker overlays — e.g. a "Subscribe" button or bell
+                        icon a creator used to paste on the video by hand. Each
+                        one gets its own corner + size, same idea as the logo. */}
+                    <div className="bg-[var(--bg-input)] border border-[var(--border-subtle)] rounded-xl p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <label className="block text-xs font-bold text-slate-300">Incrustations (Abonne-toi, cloche…)</label>
+                        <button
+                          type="button"
+                          onClick={() => editingChannelId ? overlayInputRef.current?.click() : showToast("Enregistre d'abord la chaîne avant d'ajouter des incrustations.", "error")}
+                          disabled={overlayUploading || (newChannel.branding.overlays || []).length >= 6}
+                          className="px-3 py-1.5 rounded-lg text-[11px] font-bold bg-[#00c2ff]/10 text-[#00c2ff] border border-[#00c2ff]/40 hover:bg-[#00c2ff]/20 transition-colors disabled:opacity-50 flex items-center gap-1.5"
+                        >
+                          <span className="material-symbols-outlined text-[14px]">{overlayUploading ? 'progress_activity' : 'add_photo_alternate'}</span>
+                          {overlayUploading ? 'Ajout…' : 'Ajouter'}
+                        </button>
+                        <input type="file" ref={overlayInputRef} accept="image/png,image/webp,image/gif" onChange={handleUploadOverlay} className="hidden" />
+                      </div>
+                      {!editingChannelId ? (
+                        <p className="text-[11px] text-slate-500">Enregistre d'abord la chaîne pour ajouter des incrustations (PNG recommandé).</p>
+                      ) : (newChannel.branding.overlays || []).length === 0 ? (
+                        <p className="text-[11px] text-slate-500">Aucune incrustation — ajoute un PNG (bouton « Abonne-toi », cloche, etc.), placé au coin de ton choix, taille réglable.</p>
+                      ) : (
+                        <div className="space-y-2.5">
+                          {(newChannel.branding.overlays || []).map(ov => (
+                            <div key={ov.id} className="flex items-center gap-3 bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl p-2.5">
+                              <img src={getVideoUrl(ov.image_path)} alt="" className="w-10 h-10 rounded-lg object-contain bg-slate-950/40 flex-shrink-0" />
+                              <div className="flex-1 min-w-0 space-y-1.5">
+                                <select
+                                  value={ov.corner || 'top-right'}
+                                  onChange={e => updateOverlayField(ov.id, 'corner', e.target.value)}
+                                  className="w-full bg-[var(--bg-input)] border border-[var(--border)] rounded-lg px-2 py-1 text-[11px] text-white outline-none"
+                                >
+                                  <option value="top-left">Haut gauche</option>
+                                  <option value="top-right">Haut droite</option>
+                                  <option value="bottom-left">Bas gauche</option>
+                                  <option value="bottom-right">Bas droite</option>
+                                </select>
+                                <div className="flex items-center gap-2">
+                                  <input
+                                    type="range"
+                                    min="4"
+                                    max="35"
+                                    step="1"
+                                    value={ov.size_percent || 12}
+                                    onChange={e => updateOverlayField(ov.id, 'size_percent', Number(e.target.value))}
+                                    className="flex-1 accent-[#00c2ff]"
+                                  />
+                                  <span className="text-[10px] font-mono text-slate-400 w-8 text-right">{ov.size_percent || 12}%</span>
+                                </div>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => updateOverlayField(ov.id, 'enabled', !(ov.enabled ?? true))}
+                                title={(ov.enabled ?? true) ? 'Désactiver' : 'Activer'}
+                                className={`w-8 h-8 flex items-center justify-center rounded-lg flex-shrink-0 ${(ov.enabled ?? true) ? 'text-emerald-400 hover:bg-emerald-950/40' : 'text-slate-500 hover:bg-[var(--bg-hover)]'}`}
+                              >
+                                <span className="material-symbols-outlined text-[18px]">{(ov.enabled ?? true) ? 'visibility' : 'visibility_off'}</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteOverlay(ov.id)}
+                                title="Supprimer"
+                                className="w-8 h-8 flex items-center justify-center rounded-lg text-rose-400 hover:bg-rose-950/40 flex-shrink-0"
+                              >
+                                <span className="material-symbols-outlined text-[18px]">delete</span>
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
                     <div>
                       <label className="block text-xs font-bold text-slate-300 mb-2">Description de la chaîne</label>
                       <textarea
@@ -7282,6 +7475,27 @@ export default function App() {
                         ? "KappGen AI choisit le sujet et écrit le script pour toi."
                         : 'Tu écris ou colles le script toi-même à chaque vidéo.'}
                     </p>
+
+                    {newChannel.automation_mode === 'auto' && !hasActiveSubscription
+                      && (currentUser?.free_video_quota_granted - currentUser?.free_videos_used <= 0)
+                      && (creditBalance != null && creditBalance <= 0) && (
+                      <div className="flex items-start gap-2.5 border border-amber-500/30 bg-amber-500/10 rounded-xl p-3">
+                        <span className="material-symbols-outlined text-amber-300 text-[18px] shrink-0 mt-0.5">warning</span>
+                        <div className="min-w-0">
+                          <p className="text-xs font-bold text-amber-200">La génération automatique ne fonctionnera pas encore</p>
+                          <p className="text-[11px] text-amber-200/80 mt-0.5">
+                            Ton solde de crédits est à zéro et tu n'as plus de vidéo gratuite disponible. Recharge des crédits pour que cette chaîne écrive et publie réellement ses vidéos toute seule.
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => setShowPricingModal(true)}
+                            className="mt-2 text-[11px] font-bold text-amber-200 underline decoration-dotted underline-offset-2 hover:text-amber-100"
+                          >
+                            Voir les offres de crédits
+                          </button>
+                        </div>
+                      </div>
+                    )}
 
                     {newChannel.automation_mode === 'auto' && (() => {
                       const structure = newChannel.script_structure || defaultChannelForm.script_structure;
@@ -7454,11 +7668,32 @@ export default function App() {
                                 <VoiceAvatar
                                   voice={activeVoice}
                                   size={34}
-                                  playable={!!activeVoice.preview_url}
+                                  playable
                                   playing={wizardVoicePreviewId === activeVoice.id}
-                                  onTogglePlay={() => {
+                                  generating={wizardVoiceGeneratingId === activeVoice.id}
+                                  onTogglePlay={async () => {
                                     if (wizardVoicePreviewId === activeVoice.id) { stopVoicePreview(); setWizardVoicePreviewId(null); return; }
-                                    playVoicePreviewExclusive(activeVoice.preview_url, () => setWizardVoicePreviewId(null));
+                                    let url = activeVoice.preview_url;
+                                    if (!url) {
+                                      // Catalog voices already have one; a cloned voice can lack it
+                                      // (cloned before on-demand generation existed, or the best-effort
+                                      // generation right after cloning failed) — generate it now on click
+                                      // instead of leaving the avatar looking clickable but dead.
+                                      setWizardVoiceGeneratingId(activeVoice.id);
+                                      try {
+                                        const res = await authFetch(`${API_BASE}/channels/voice/${activeVoice.id}/preview/generate`, { method: 'POST' });
+                                        const body = await res.json().catch(() => ({}));
+                                        if (!res.ok) throw new Error(body.detail || "Impossible de générer l'aperçu.");
+                                        url = `${API_BASE}${body.preview_url}`;
+                                        setAvailableVoices(prev => prev.map(v => v.id === activeVoice.id ? { ...v, preview_url: url } : v));
+                                      } catch (err) {
+                                        showToast(err.message, 'error');
+                                        setWizardVoiceGeneratingId(null);
+                                        return;
+                                      }
+                                      setWizardVoiceGeneratingId(null);
+                                    }
+                                    playVoicePreviewExclusive(url, () => setWizardVoicePreviewId(null));
                                     setWizardVoicePreviewId(activeVoice.id);
                                   }}
                                 />
@@ -11236,17 +11471,19 @@ export default function App() {
         };
         const addPart = () => updateStructure({ parts: [...parts, { name: `part_${parts.length + 1}`, word_count: 300, guidance: '' }] });
         const removePart = (idx) => updateStructure({ parts: parts.filter((_, i) => i !== idx) });
-        // For channels created before the app switched to always-French guidance —
-        // their saved parts can still carry the old English text. Re-matches each
-        // part by name against the current French defaults and swaps just the
-        // guidance, keeping word counts and any custom part names untouched.
-        const resetGuidanceToFrench = () => {
-          const frenchParts = getScriptStructureDefaults().parts || [];
-          const next = parts.map(p => {
-            const match = frenchParts.find(fp => fp.name === p.name);
+        // Swaps each part's guidance to match the newly selected script
+        // language, re-matched by part name so custom part names/word counts
+        // are untouched. Only English/Français have translated guidance text
+        // (see SCRIPT_STRUCTURE_DEFAULTS) — any other language keeps whatever
+        // guidance was already there, since Claude understands meta-instructions
+        // in any language regardless of the script's own output language.
+        const applyLanguageToParts = (languageValue) => {
+          const translated = SCRIPT_STRUCTURE_DEFAULTS[languageValue]?.parts;
+          if (!translated) return parts;
+          return parts.map(p => {
+            const match = translated.find(tp => tp.name === p.name);
             return match ? { ...p, guidance: match.guidance } : p;
           });
-          updateStructure({ parts: next });
         };
         const totalWords = parts.reduce((sum, p) => sum + (Number(p.word_count) || 0), 0);
         const rulesText = (structure.formatting_rules || []).join('\n');
@@ -11311,13 +11548,10 @@ export default function App() {
                                 key={lang.code}
                                 type="button"
                                 onClick={() => {
-                                  // Only changes the language the AI writes the script IN — the
-                                  // part names/guidance shown here stay in French (the editor's
-                                  // own interface language) no matter what's picked.
-                                  setNewChannel(prev => ({
-                                    ...prev,
-                                    script_structure: { ...(prev.script_structure || {}), language: lang.value },
-                                  }));
+                                  // Changes the language the AI writes the script IN, and — when a
+                                  // translated set exists for it (English/Français) — also swaps the
+                                  // part guidance shown below to match, so the two never drift apart.
+                                  updateStructure({ language: lang.value, parts: applyLanguageToParts(lang.value) });
                                   setShowLanguageModal(false);
                                 }}
                                 className={`w-full text-left px-3 py-1.5 text-[11px] hover:bg-[var(--bg-hover)] transition-colors flex items-center justify-between gap-2 ${active ? 'text-[#00c2ff] font-bold' : 'text-slate-300'}`}
@@ -11362,14 +11596,6 @@ export default function App() {
                   <div className="flex items-center justify-between px-1">
                     <div className="flex items-center gap-2">
                       <label className="text-[11px] font-bold text-slate-300">Parties du script</label>
-                      <button
-                        type="button"
-                        onClick={resetGuidanceToFrench}
-                        title="Remet les consignes de chaque partie en français (utile si ce canal a été créé avant, avec des consignes en anglais)"
-                        className="text-[10px] font-bold text-[#00c2ff] hover:text-[#38d0ff] underline decoration-dotted underline-offset-2"
-                      >
-                        Réinitialiser en français
-                      </button>
                     </div>
                     <span className="text-[10px] text-slate-500 font-bold pr-11">Mots</span>
                   </div>
