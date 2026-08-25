@@ -7316,7 +7316,7 @@ export default function App() {
                         used to be hardcoded top-right at a fixed 100px; now the
                         creator picks each one's corner and size, with a live
                         preview at the exact proportions they'll render at. */}
-                    <div className="grid grid-cols-1 lg:grid-cols-[1fr_220px] gap-4 items-start">
+                    <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-5 items-start">
                       <div className="space-y-4">
                         <div className="bg-[var(--bg-input)] border border-[var(--border-subtle)] rounded-xl p-4 space-y-2.5">
                           <label className="block text-xs font-bold text-slate-300">Position et taille du logo</label>
@@ -7444,18 +7444,28 @@ export default function App() {
 
                       {/* Live preview — exact proportions (% of the 1920px-wide
                           render frame) at the exact corner each element will
-                          actually be composited at, so there's no guessing. */}
+                          actually be composited at, so there's no guessing. The
+                          4 faint corner guides are always shown (whether or not
+                          anything is placed there) so it's clear all 4 slots
+                          exist, not just whichever one is currently in use. */}
                       <div className="lg:sticky lg:top-4">
-                        <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1.5">Aperçu du placement</div>
+                        <div className="text-xs font-bold text-slate-400 uppercase tracking-wide mb-2">Aperçu du placement</div>
                         <div className="w-full aspect-video rounded-xl bg-gradient-to-b from-slate-800 to-slate-950 border border-[var(--border)] relative overflow-hidden">
                           <div className="absolute inset-0 flex items-center justify-center">
-                            <span className="material-symbols-outlined text-[32px] text-slate-700">movie</span>
+                            <span className="material-symbols-outlined text-[56px] text-slate-700">movie</span>
                           </div>
+                          {['top-left', 'top-right', 'bottom-left', 'bottom-right'].map(corner => (
+                            <div
+                              key={corner}
+                              className="absolute w-[14%] aspect-square border border-dashed border-slate-600/50 rounded"
+                              style={overlayCornerStyle(corner)}
+                            />
+                          ))}
                           {(newChannel.branding.logo_enabled ?? true) && logoPreviewUrl && (
                             <img
                               src={logoPreviewUrl}
                               alt=""
-                              className="absolute object-contain drop-shadow"
+                              className="absolute object-contain drop-shadow-lg"
                               style={{
                                 width: `${newChannel.branding.logo_size_percent || 5}%`,
                                 ...overlayCornerStyle(newChannel.branding.logo_corner || 'top-right'),
@@ -7467,7 +7477,7 @@ export default function App() {
                               key={ov.id}
                               src={getVideoUrl(ov.image_path)}
                               alt=""
-                              className="absolute object-contain drop-shadow"
+                              className="absolute object-contain drop-shadow-lg"
                               style={{
                                 width: `${ov.size_percent || 12}%`,
                                 ...overlayCornerStyle(ov.corner || 'top-right'),
@@ -7475,6 +7485,7 @@ export default function App() {
                             />
                           ))}
                         </div>
+                        <p className="text-[10px] text-slate-500 mt-1.5">Les pointillés marquent les 4 coins disponibles pour le logo et chaque incrustation.</p>
                       </div>
                     </div>
 
