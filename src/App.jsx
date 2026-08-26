@@ -8866,8 +8866,36 @@ export default function App() {
                           </div>
                         </div>
                         <p className="text-[11px] text-slate-400">
-                          Optionnel — donne des exemples du style voulu. {THUMBNAIL_GENERATION_CREDITS.toLocaleString()} crédits/miniature.
+                          Optionnel — décris le style de fond voulu, ou donne des exemples en image. {THUMBNAIL_GENERATION_CREDITS.toLocaleString()} crédits/miniature.
                         </p>
+                        <textarea
+                          rows="2"
+                          value={newChannel.thumbnail_style?.style_prompt || ''}
+                          onChange={e => setNewChannel({ ...newChannel, thumbnail_style: { ...(newChannel.thumbnail_style || {}), style_prompt: e.target.value } })}
+                          className="w-full bg-[var(--bg-input-alt)] border border-[var(--border)] rounded-xl p-2.5 text-[11px] text-white focus:border-[#00c2ff] outline-none placeholder-slate-500"
+                          placeholder="Ex: peinture à l'huile classique, palette dorée, contre-jour dramatique..."
+                        />
+                        <div className="flex flex-wrap gap-1.5">
+                          {[
+                            'Cinématique, éclairage dramatique',
+                            'Peinture à l’huile classique, palette dorée',
+                            'Photo réaliste, style documentaire',
+                            'Illustration religieuse classique',
+                            'Aquarelle douce',
+                            'Bande dessinée, contours encrés',
+                            'Minimaliste épuré, aplats de couleur',
+                            'Néon futuriste, cyberpunk',
+                          ].map((preset) => (
+                            <button
+                              key={preset}
+                              type="button"
+                              onClick={() => setNewChannel({ ...newChannel, thumbnail_style: { ...(newChannel.thumbnail_style || {}), style_prompt: preset } })}
+                              className="px-2.5 py-1 rounded-full text-[10px] font-semibold bg-[var(--bg-surface-alt)] text-slate-300 hover:bg-[#00c2ff]/10 hover:text-[#00c2ff] border border-[var(--border)] transition-colors"
+                            >
+                              {preset}
+                            </button>
+                          ))}
+                        </div>
                         {!canGenerateAIImages && (
                           <button
                             type="button"
@@ -8878,7 +8906,7 @@ export default function App() {
                             Solde de crédits insuffisant — recharger
                           </button>
                         )}
-                        {newChannel.thumbnail_style?.style_prompt ? (
+                        {(newChannel.thumbnail_style?.reference_image_paths || []).length > 0 ? (
                           <div className="bg-[var(--bg-input-alt)] border border-[var(--border)] rounded-lg p-2.5 space-y-2">
                             <div className="flex flex-wrap gap-2">
                               {(newChannel.thumbnail_style.reference_image_paths || []).map((path) => (
@@ -8901,14 +8929,14 @@ export default function App() {
                               ))}
                             </div>
                             <div>
-                              <p className="text-[10px] text-slate-300 line-clamp-3">{newChannel.thumbnail_style.style_prompt}</p>
+                              <p className="text-[10px] text-slate-500">Style dérivé des images ci-dessus — modifie le texte plus haut si tu veux l'affiner.</p>
                               <button
                                 type="button"
                                 onClick={() => handleRemoveThumbnailStyle()}
                                 disabled={thumbnailStyleAnalyzing}
                                 className="mt-1 text-[10px] font-semibold text-red-400 hover:text-red-300 disabled:opacity-50"
                               >
-                                Tout retirer
+                                Retirer les images de référence
                               </button>
                             </div>
                           </div>
