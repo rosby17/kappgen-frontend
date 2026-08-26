@@ -4680,6 +4680,7 @@ export default function App() {
     const queued = channel.queued_count || 0;
     const done = channel.done_count || 0;
     const failed = channel.failed_count || 0;
+    if (channel.is_active === false) return { label: 'Désactivée', className: 'bg-slate-800/80 text-slate-400 border border-slate-600/60' };
     if (rendering > 0) return { label: 'KappGen travaille', className: 'bg-blue-950/80 text-blue-300 border border-blue-700/60 animate-pulse' };
     if (queued > 0) return { label: 'En file', className: 'bg-amber-950/80 text-amber-300 border border-amber-700/60' };
     if (done > 0) return { label: 'Prête', className: 'bg-emerald-950/80 text-emerald-300 border border-emerald-700/60' };
@@ -6073,7 +6074,35 @@ export default function App() {
     }
   };
 
-  const filteredChannels = channels.filter(c => 
+  const handleToggleChannelActive = async (channel, e) => {
+    if (e) e.stopPropagation();
+    setOpenChannelMenuId(null);
+    const activating = !channel.is_active;
+    if (!activating) {
+      const ok = await askConfirm("Aucune nouvelle vidéo ne sera générée (manuelle ou automatique) tant qu'elle reste désactivée. Rien n'est supprimé — tu peux la réactiver à tout moment.", { title: `Désactiver « ${channel.name} » ?` });
+      if (!ok) return;
+    }
+    try {
+      const res = await authFetch(`${API_BASE}/channels/${channel.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_active: activating }),
+      });
+      if (!res.ok) {
+        const detail = await res.json().catch(() => ({}));
+        throw new Error(detail.detail || "Impossible de modifier l'état de la chaîne.");
+      }
+      const updated = await res.json();
+      setChannels(prev => prev.map(c => c.id === channel.id ? { ...c, ...updated } : c));
+      if (activeChannel && activeChannel.id === channel.id) setActiveChannel(prev => ({ ...prev, ...updated }));
+      showToast(activating ? 'Chaîne réactivée.' : 'Chaîne désactivée — plus aucune vidéo ne sera générée.', 'success');
+    } catch (err) {
+      console.error(err);
+      showToast(err.message, 'error');
+    }
+  };
+
+  const filteredChannels = channels.filter(c =>
     c.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
     c.niche.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -6721,6 +6750,13 @@ export default function App() {
                                   >
                                     <span className="material-symbols-outlined text-[16px] text-[#00c2ff]">edit</span>
                                     Modifier la chaîne
+                                  </button>
+                                  <button
+                                    onClick={(e) => handleToggleChannelActive(chan, e)}
+                                    className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium"
+                                  >
+                                    <span className="material-symbols-outlined text-[16px] text-amber-400">{chan.is_active === false ? 'play_circle' : 'pause_circle'}</span>
+                                    {chan.is_active === false ? 'Réactiver la chaîne' : 'Désactiver la chaîne'}
                                   </button>
                                   <div className="h-[1px] bg-[var(--border-dropdown)] my-1"></div>
                                   <button
