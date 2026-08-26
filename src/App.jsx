@@ -6057,7 +6057,11 @@ export default function App() {
     const ok = await askConfirm("Toutes les vidéos et paramètres associés seront supprimés définitivement.", { title: "Supprimer cette chaîne ?", danger: true });
     if (!ok) return;
     try {
-      await authFetch(`${API_BASE}/channels/${channelId}`, { method: 'DELETE' });
+      const res = await authFetch(`${API_BASE}/channels/${channelId}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const detail = await res.json().catch(() => ({}));
+        throw new Error(detail.detail || "Impossible de supprimer cette chaîne.");
+      }
       fetchChannels();
       if (activeChannel && activeChannel.id === channelId) {
         setActiveChannel(null);
@@ -6065,6 +6069,7 @@ export default function App() {
       }
     } catch (err) {
       console.error(err);
+      showToast(err.message, 'error');
     }
   };
 
