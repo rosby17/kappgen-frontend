@@ -8875,26 +8875,48 @@ export default function App() {
                           className="w-full bg-[var(--bg-input-alt)] border border-[var(--border)] rounded-xl p-2.5 text-[11px] text-white focus:border-[#00c2ff] outline-none placeholder-slate-500"
                           placeholder="Ex: peinture à l'huile classique, palette dorée, contre-jour dramatique..."
                         />
-                        <div className="flex flex-wrap gap-1.5">
+                        {/* Visual style picker — a text chip alone ("Néon futuriste") doesn't
+                            let a creator project what their thumbnail will actually look like;
+                            each card previews the mood/palette so the choice is visual, not a
+                            guess from a label. Preview images are placeholder mood boards for
+                            now (see /assets/thumbnail-styles) — swap for real AI-rendered
+                            previews once image generation credits are available again. */}
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                           {[
-                            'Cinématique, éclairage dramatique',
-                            'Peinture à l’huile classique, palette dorée',
-                            'Photo réaliste, style documentaire',
-                            'Illustration religieuse classique',
-                            'Aquarelle douce',
-                            'Bande dessinée, contours encrés',
-                            'Minimaliste épuré, aplats de couleur',
-                            'Néon futuriste, cyberpunk',
-                          ].map((preset) => (
-                            <button
-                              key={preset}
-                              type="button"
-                              onClick={() => setNewChannel({ ...newChannel, thumbnail_style: { ...(newChannel.thumbnail_style || {}), style_prompt: preset } })}
-                              className="px-2.5 py-1 rounded-full text-[10px] font-semibold bg-[var(--bg-surface-alt)] text-slate-300 hover:bg-[#00c2ff]/10 hover:text-[#00c2ff] border border-[var(--border)] transition-colors"
-                            >
-                              {preset}
-                            </button>
-                          ))}
+                            { key: 'cinematic', label: 'Cinématique', prompt: 'Cinématique, éclairage dramatique' },
+                            { key: 'oil_painting', label: 'Peinture à l’huile', prompt: 'Peinture à l’huile classique, palette dorée' },
+                            { key: 'photorealistic', label: 'Photo réaliste', prompt: 'Photo réaliste, style documentaire' },
+                            { key: 'religious_illustration', label: 'Illustration religieuse', prompt: 'Illustration religieuse classique' },
+                            { key: 'watercolor', label: 'Aquarelle', prompt: 'Aquarelle douce' },
+                            { key: 'comic', label: 'Bande dessinée', prompt: 'Bande dessinée, contours encrés' },
+                            { key: 'minimalist', label: 'Minimaliste', prompt: 'Minimaliste épuré, aplats de couleur' },
+                            { key: 'neon', label: 'Néon cyberpunk', prompt: 'Néon futuriste, cyberpunk' },
+                          ].map((style) => {
+                            const active = newChannel.thumbnail_style?.style_prompt === style.prompt;
+                            return (
+                              <button
+                                key={style.key}
+                                type="button"
+                                onClick={() => setNewChannel({ ...newChannel, thumbnail_style: { ...(newChannel.thumbnail_style || {}), style_prompt: style.prompt } })}
+                                className={`relative rounded-xl overflow-hidden aspect-video border-2 transition-colors group ${
+                                  active ? 'border-[#00c2ff]' : 'border-transparent hover:border-[#00c2ff]/50'
+                                }`}
+                              >
+                                <img
+                                  src={`/assets/thumbnail-styles/${style.key}.jpg`}
+                                  alt={style.label}
+                                  className="absolute inset-0 w-full h-full object-cover"
+                                />
+                                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent" />
+                                <span className="absolute bottom-1.5 left-2 right-2 text-[10px] font-bold text-white truncate text-left">{style.label}</span>
+                                {active && (
+                                  <span className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-[#00c2ff] flex items-center justify-center">
+                                    <span className="material-symbols-outlined text-slate-950 text-[12px]">check</span>
+                                  </span>
+                                )}
+                              </button>
+                            );
+                          })}
                         </div>
                         {!canGenerateAIImages && (
                           <button
