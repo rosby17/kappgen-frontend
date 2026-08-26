@@ -4694,7 +4694,7 @@ export default function App() {
   // red = needs attention (pipeline incomplete, or a video failed to render).
   const getChannelStatusDotColor = (channel) => {
     const failed = channel.failed_count || 0;
-    if (failed > 0 || !channel.is_render_ready) return 'bg-red-500';
+    if (channel.is_active === false || failed > 0 || !channel.is_render_ready) return 'bg-red-500';
     return 'bg-emerald-500';
   };
 
