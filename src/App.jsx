@@ -7125,6 +7125,12 @@ export default function App() {
                                     {(vid.error_message || 'Erreur inconnue').split('\n')[0]}
                                   </div>
                                 </div>
+                              ) : vid.status === 'done' ? (
+                                <div className="p-4 text-center space-y-2">
+                                  <span className="material-symbols-outlined text-[36px] text-slate-500">inventory_2</span>
+                                  <div className="text-[11px] font-bold font-mono text-slate-400">Fichier expiré</div>
+                                  <div className="text-[9px] text-slate-500">Rendu terminé, fichier purgé après la période de rétention.</div>
+                                </div>
                               ) : (
                                 <div className="p-4 text-center space-y-2">
                                   <span className="material-symbols-outlined text-[36px] text-amber-400">hourglass_empty</span>
@@ -7685,6 +7691,11 @@ export default function App() {
                                 <div className="text-[9px] text-rose-300/80 line-clamp-2" title={vid.error_message || ''}>
                                   {(vid.error_message || 'Erreur inconnue').split('\n')[0]}
                                 </div>
+                              </div>
+                            ) : vid.status === 'done' ? (
+                              <div className="p-4 text-center space-y-2">
+                                <span className="material-symbols-outlined text-[36px] text-slate-500">inventory_2</span>
+                                <div className="text-[11px] font-bold font-mono text-slate-400">Fichier expiré</div>
                               </div>
                             ) : (
                               <div className="p-4 text-center space-y-2">
