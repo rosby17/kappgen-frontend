@@ -2389,8 +2389,18 @@ function viewFromPath(path) {
   if (/^\/channels\/[^/]+\/edit$/.test(path)) return 'wizard';
   if (/^\/channels\/[^/]+$/.test(path)) return 'channel_detail';
   if (path === '/settings') return 'settings';
-  if (path === '/admin') return 'admin';
+  if (path === '/admin' || path.startsWith('/admin/')) return 'admin';
   return 'home';
+}
+
+// Each admin sidebar entry gets its own named route (/admin/resources, etc.)
+// so a page refresh stays on the current tab instead of bouncing back to
+// the overview.
+const ADMIN_TABS = ['overview', 'users', 'plans', 'videos', 'library', 'transactions', 'costs', 'resources'];
+function adminTabFromPath(path) {
+  const m = path.match(/^\/admin\/([a-z_]+)$/);
+  if (m && ADMIN_TABS.includes(m[1])) return m[1];
+  return 'overview';
 }
 
 const THEME_STORAGE_KEY = 'nichecut_theme'; // 'light' | 'dark' | 'auto'
@@ -3548,7 +3558,7 @@ export default function App() {
       case 'channel_detail': return activeChannel ? `/channels/${slugifyChannelName(activeChannel.name)}` : '/channels';
       case 'wizard': return wizardMode === 'edit' && editingChannel ? `/channels/${slugifyChannelName(editingChannel.name)}/edit` : '/channels/new';
       case 'settings': return '/settings';
-      case 'admin': return '/admin';
+      case 'admin': return `/admin/${adminTab}`;
       case 'home':
       default: return '/dashboard';
     }
@@ -3571,7 +3581,7 @@ export default function App() {
     if (view === 'wizard' && wizardMode === 'edit' && editingChannelId && !editingChannel) return;
     const target = pathForState();
     if (location.pathname !== target) navigate(target);
-  }, [view, activeChannel, wizardMode, editingChannelId, showAuthModal]);
+  }, [view, activeChannel, wizardMode, editingChannelId, showAuthModal, adminTab]);
 
   // URL -> state (initial load, refresh, direct link, back/forward)
   useEffect(() => {
@@ -3582,7 +3592,7 @@ export default function App() {
     if (path === '/channels') { setView('channels'); return; }
     if (path === '/videos') { setView('videos'); return; }
     if (path === '/settings') { setView('settings'); return; }
-    if (path === '/admin') { setView('admin'); return; }
+    if (path === '/admin' || path.startsWith('/admin/')) { setView('admin'); setAdminTab(adminTabFromPath(path)); return; }
     if (path === '/billing/success') {
       const params = new URLSearchParams(location.search);
       setBillingVerifyOrderId(params.get('order_id'));
@@ -4761,7 +4771,7 @@ export default function App() {
   // Admin dashboard state — all fetched/mutated via /api/admin/* (server-side
   // gated on is_admin; the client-side currentUser.is_admin check just hides
   // the nav entry, it isn't itself a security boundary).
-  const [adminTab, setAdminTab] = useState('overview'); // 'overview' | 'users' | 'plans' | 'videos' | 'transactions'
+  const [adminTab, setAdminTab] = useState(() => adminTabFromPath(window.location.pathname)); // 'overview' | 'users' | 'plans' | 'videos' | 'transactions'
   const [adminUsers, setAdminUsers] = useState([]);
   const [adminUsersLoading, setAdminUsersLoading] = useState(false);
   const [adminSearch, setAdminSearch] = useState('');
