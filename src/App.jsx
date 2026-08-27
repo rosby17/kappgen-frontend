@@ -4791,6 +4791,11 @@ export default function App() {
   const [adminCostsLoading, setAdminCostsLoading] = useState(false);
   const [adminCostsDays, setAdminCostsDays] = useState(30);
   const [adminProviders, setAdminProviders] = useState(null);
+  const [hfAccounts, setHfAccounts] = useState([]);
+  const [hfAccountsLoading, setHfAccountsLoading] = useState(false);
+  const [hfAccountForm, setHfAccountForm] = useState({ token: '', label: '' });
+  const [hfAccountBusy, setHfAccountBusy] = useState(false);
+  const [hfAccountChecking, setHfAccountChecking] = useState(null);
   const [adminProvidersLoading, setAdminProvidersLoading] = useState(false);
 
   // Billing (subscription) tab, under Paramètres — public plan list + this
@@ -5075,8 +5080,77 @@ export default function App() {
   };
 
   useEffect(() => {
-    if (view === 'admin' && currentUser?.is_admin && adminTab === 'resources') fetchAdminProviders();
+    if (view === 'admin' && currentUser?.is_admin && adminTab === 'resources') { fetchAdminProviders(); fetchHfAccounts(); }
   }, [view, currentUser?.is_admin, adminTab]);
+
+  const fetchHfAccounts = async () => {
+    setHfAccountsLoading(true);
+    try {
+      const res = await authFetch(`${API_BASE}/admin/hf-accounts`);
+      if (res.ok) setHfAccounts(await res.json());
+    } catch (err) {
+      console.error("Erreur chargement comptes Hugging Face:", err);
+    } finally {
+      setHfAccountsLoading(false);
+    }
+  };
+
+  const addHfAccount = async () => {
+    const token = hfAccountForm.token.trim();
+    if (!token) return showToast('Colle un token Hugging Face.', 'error');
+    setHfAccountBusy(true);
+    try {
+      const res = await authFetch(`${API_BASE}/admin/hf-accounts`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, label: hfAccountForm.label.trim() || null }),
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || "Échec de l'ajout.");
+      const account = await res.json();
+      setHfAccounts(prev => [...prev, account]);
+      setHfAccountForm({ token: '', label: '' });
+      showToast(account.status === 'active' ? 'Compte ajouté et fonctionnel.' : `Compte ajouté (statut: ${account.status}).`, account.status === 'active' ? 'success' : 'error');
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setHfAccountBusy(false);
+    }
+  };
+
+  const checkHfAccount = async (id) => {
+    setHfAccountChecking(id);
+    try {
+      const res = await authFetch(`${API_BASE}/admin/hf-accounts/${id}/check`, { method: 'POST' });
+      if (!res.ok) throw new Error();
+      const account = await res.json();
+      setHfAccounts(prev => prev.map(a => a.id === id ? account : a));
+    } catch {
+      showToast('Échec de la vérification.', 'error');
+    } finally {
+      setHfAccountChecking(null);
+    }
+  };
+
+  const toggleHfAccount = async (id, isEnabled) => {
+    try {
+      const res = await authFetch(`${API_BASE}/admin/hf-accounts/${id}?is_enabled=${isEnabled}`, { method: 'PATCH' });
+      if (!res.ok) throw new Error();
+      const account = await res.json();
+      setHfAccounts(prev => prev.map(a => a.id === id ? account : a));
+    } catch {
+      showToast('Échec de la mise à jour.', 'error');
+    }
+  };
+
+  const deleteHfAccount = async (id) => {
+    if (!window.confirm('Retirer ce compte Hugging Face ?')) return;
+    try {
+      const res = await authFetch(`${API_BASE}/admin/hf-accounts/${id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error();
+      setHfAccounts(prev => prev.filter(a => a.id !== id));
+    } catch {
+      showToast('Échec de la suppression.', 'error');
+    }
+  };
 
   const openAdminUser = async (userId) => {
     try {
@@ -11314,6 +11388,83 @@ export default function App() {
                   })}
                 </div>
               )}
+
+              <div className="pt-6 border-t border-[var(--border-soft)] space-y-4">
+                <div>
+                  <h4 className="text-sm font-bold text-white">Comptes Hugging Face (gratuit)</h4>
+                  <p className="text-[11px] text-slate-500 mt-1 max-w-xl">
+                    FLUX.1-schnell (open source) via nscale — essayé en premier, avant tout fournisseur payant. Ajoute des comptes au fil du temps pour cumuler plus de quota gratuit.
+                  </p>
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <input
+                    value={hfAccountForm.token}
+                    onChange={e => setHfAccountForm({ ...hfAccountForm, token: e.target.value })}
+                    placeholder="hf_..."
+                    className="flex-1 min-w-0 bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-3 py-2 text-xs text-white focus:border-[#00c2ff] outline-none font-mono"
+                  />
+                  <input
+                    value={hfAccountForm.label}
+                    onChange={e => setHfAccountForm({ ...hfAccountForm, label: e.target.value })}
+                    placeholder="Étiquette (optionnel)"
+                    className="sm:w-48 bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-3 py-2 text-xs text-white focus:border-[#00c2ff] outline-none"
+                  />
+                  <button
+                    onClick={addHfAccount}
+                    disabled={hfAccountBusy}
+                    className="shrink-0 px-4 py-2 rounded-xl bg-[#00c2ff] text-slate-950 font-bold text-xs disabled:opacity-50"
+                  >
+                    {hfAccountBusy ? 'Ajout...' : '+ Ajouter'}
+                  </button>
+                </div>
+
+                {hfAccountsLoading ? (
+                  <p className="text-xs text-slate-500">Chargement...</p>
+                ) : hfAccounts.length === 0 ? (
+                  <p className="text-xs text-slate-500">Aucun compte Hugging Face enregistré.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {hfAccounts.map(a => {
+                      const dotColor = a.status === 'active' ? 'bg-emerald-500' : a.status === 'quota_exhausted' ? 'bg-amber-500' : 'bg-red-500';
+                      const statusLabel = { active: 'Actif', quota_exhausted: 'Quota épuisé', invalid: 'Invalide' }[a.status] || a.status;
+                      const statusClass = a.status === 'active' ? 'bg-emerald-950/60 text-emerald-400' : a.status === 'quota_exhausted' ? 'bg-amber-950/60 text-amber-400' : 'bg-rose-950/60 text-rose-400';
+                      return (
+                        <div key={a.id} className={`flex items-center gap-3 bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-xl p-3 ${!a.is_enabled ? 'opacity-50' : ''}`}>
+                          <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${dotColor}`} />
+                          <div className="min-w-0 flex-1">
+                            <div className="text-xs font-bold text-white truncate">{a.label || a.token_preview}</div>
+                            <div className="text-[10px] text-slate-500 font-mono truncate">{a.token_preview}{a.last_error ? ` — ${a.last_error.slice(0, 80)}` : ''}</div>
+                          </div>
+                          <span className={`shrink-0 text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full ${statusClass}`}>{statusLabel}</span>
+                          <button
+                            onClick={() => checkHfAccount(a.id)}
+                            disabled={hfAccountChecking === a.id}
+                            title="Revérifier"
+                            className="shrink-0 p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-[var(--bg-surface-alt)] disabled:opacity-50"
+                          >
+                            <span className={`material-symbols-outlined text-[16px] ${hfAccountChecking === a.id ? 'animate-spin' : ''}`}>{hfAccountChecking === a.id ? 'progress_activity' : 'refresh'}</span>
+                          </button>
+                          <button
+                            onClick={() => toggleHfAccount(a.id, !a.is_enabled)}
+                            title={a.is_enabled ? 'Désactiver' : 'Activer'}
+                            className="shrink-0 p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-[var(--bg-surface-alt)]"
+                          >
+                            <span className="material-symbols-outlined text-[16px]">{a.is_enabled ? 'toggle_on' : 'toggle_off'}</span>
+                          </button>
+                          <button
+                            onClick={() => deleteHfAccount(a.id)}
+                            title="Retirer"
+                            className="shrink-0 p-1.5 rounded-lg text-rose-400 hover:text-rose-300 hover:bg-rose-950/40"
+                          >
+                            <span className="material-symbols-outlined text-[16px]">delete</span>
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>
