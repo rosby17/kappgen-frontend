@@ -4808,6 +4808,8 @@ export default function App() {
   const [hfAccountForm, setHfAccountForm] = useState({ token: '', label: '' });
   const [hfAccountBusy, setHfAccountBusy] = useState(false);
   const [hfAccountChecking, setHfAccountChecking] = useState(null);
+  const [editingHfLabelId, setEditingHfLabelId] = useState(null);
+  const [editingHfLabelValue, setEditingHfLabelValue] = useState('');
   const [adminProvidersLoading, setAdminProvidersLoading] = useState(false);
 
   // Billing (subscription) tab, under Paramètres — public plan list + this
@@ -5150,6 +5152,19 @@ export default function App() {
       setHfAccounts(prev => prev.map(a => a.id === id ? account : a));
     } catch {
       showToast('Échec de la mise à jour.', 'error');
+    }
+  };
+
+  const renameHfAccount = async (id) => {
+    const label = editingHfLabelValue.trim();
+    try {
+      const res = await authFetch(`${API_BASE}/admin/hf-accounts/${id}?label=${encodeURIComponent(label)}`, { method: 'PATCH' });
+      if (!res.ok) throw new Error();
+      const account = await res.json();
+      setHfAccounts(prev => prev.map(a => a.id === id ? account : a));
+      setEditingHfLabelId(null);
+    } catch {
+      showToast('Échec du renommage.', 'error');
     }
   };
 
@@ -11439,10 +11454,38 @@ export default function App() {
                         <div key={a.id} className={`flex items-center gap-3 bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-xl p-3 ${!a.is_enabled ? 'opacity-50' : ''}`}>
                           <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${dotColor}`} />
                           <div className="min-w-0 flex-1">
-                            <div className="text-xs font-bold text-white truncate">{a.label || a.token_preview}</div>
+                            {editingHfLabelId === a.id ? (
+                              <div className="flex items-center gap-1.5">
+                                <input
+                                  autoFocus
+                                  value={editingHfLabelValue}
+                                  onChange={e => setEditingHfLabelValue(e.target.value)}
+                                  onKeyDown={e => { if (e.key === 'Enter') renameHfAccount(a.id); if (e.key === 'Escape') setEditingHfLabelId(null); }}
+                                  placeholder="Étiquette"
+                                  className="min-w-0 flex-1 bg-[var(--bg-surface-alt)] border border-[#00c2ff] rounded-lg px-2 py-1 text-xs text-white outline-none"
+                                />
+                                <button onClick={() => renameHfAccount(a.id)} title="Enregistrer" className="shrink-0 p-1 rounded-lg text-emerald-400 hover:bg-[var(--bg-surface-alt)]">
+                                  <span className="material-symbols-outlined text-[16px]">check</span>
+                                </button>
+                                <button onClick={() => setEditingHfLabelId(null)} title="Annuler" className="shrink-0 p-1 rounded-lg text-slate-400 hover:bg-[var(--bg-surface-alt)]">
+                                  <span className="material-symbols-outlined text-[16px]">close</span>
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="text-xs font-bold text-white truncate">{a.label || a.token_preview}</div>
+                            )}
                             <div className="text-[10px] text-slate-500 font-mono truncate">{a.token_preview}{a.last_error ? ` — ${a.last_error.slice(0, 80)}` : ''}</div>
                           </div>
                           <span className={`shrink-0 text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full ${statusClass}`}>{statusLabel}</span>
+                          {editingHfLabelId !== a.id && (
+                            <button
+                              onClick={() => { setEditingHfLabelId(a.id); setEditingHfLabelValue(a.label || ''); }}
+                              title="Renommer"
+                              className="shrink-0 p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-[var(--bg-surface-alt)]"
+                            >
+                              <span className="material-symbols-outlined text-[16px]">edit</span>
+                            </button>
+                          )}
                           <button
                             onClick={() => checkHfAccount(a.id)}
                             disabled={hfAccountChecking === a.id}
