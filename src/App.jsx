@@ -2477,6 +2477,11 @@ export default function App() {
   const allVideosStatusRef = useRef({}); // video id -> last known status, to detect a fresh done transition
   const [costRecap, setCostRecap] = useState(null); // { videoTitle, total_credits, items } — shown right after a render finishes
   const [view, setView] = useState(() => viewFromPath(window.location.pathname)); // 'home', 'channels', 'videos', 'channel_detail', 'wizard'
+  // Declared here (not down with the rest of the admin dashboard state) because
+  // the state->URL sync effect below references it in its dependency array,
+  // which is evaluated at render time — a `const` declared later in the same
+  // component body would still be in its temporal dead zone at that point.
+  const [adminTab, setAdminTab] = useState(() => adminTabFromPath(window.location.pathname)); // 'overview' | 'users' | 'plans' | 'videos' | 'transactions'
   // Product switcher (à la IziVoice Creative) — 'montage' is the real product;
   // 'avatar' is a placeholder entry point for a not-yet-built product line.
   const [activeProduct, setActiveProduct] = useState('montage');
@@ -4766,12 +4771,9 @@ export default function App() {
     }
   };
 
-  // Declared early — the voice-catalog effect just below needs it in its
-  // guard condition, before the rest of the Studio state block further down.
   // Admin dashboard state — all fetched/mutated via /api/admin/* (server-side
   // gated on is_admin; the client-side currentUser.is_admin check just hides
   // the nav entry, it isn't itself a security boundary).
-  const [adminTab, setAdminTab] = useState(() => adminTabFromPath(window.location.pathname)); // 'overview' | 'users' | 'plans' | 'videos' | 'transactions'
   const [adminUsers, setAdminUsers] = useState([]);
   const [adminUsersLoading, setAdminUsersLoading] = useState(false);
   const [adminSearch, setAdminSearch] = useState('');
