@@ -6550,18 +6550,21 @@ export default function App() {
             </button>
 
             {/* Admin shortcut — only ever visible to admins; the route itself is
-                already gated server-side regardless. */}
+                already gated server-side regardless. While already in admin,
+                this becomes a "back to app" button instead. */}
             {currentUser?.is_admin && (
               <button
-                onClick={() => setView('admin')}
-                title="Administration"
+                onClick={() => setView(view === 'admin' ? 'home' : 'admin')}
+                title={view === 'admin' ? "Retour à l'app" : 'Administration'}
                 className={`w-9 h-9 rounded-full flex items-center justify-center transition-colors flex-shrink-0 border ${
                   view === 'admin'
                     ? 'bg-[#00c2ff]/10 text-[#00c2ff] border-[#00c2ff]/50'
                     : 'text-slate-400 hover:text-white bg-[var(--bg-surface-alt)] border-[var(--border)] hover:border-[#00c2ff]/50'
                 }`}
               >
-                <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>shield_person</span>
+                <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>
+                  {view === 'admin' ? 'arrow_back' : 'shield_person'}
+                </span>
               </button>
             )}
 
