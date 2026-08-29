@@ -3189,6 +3189,10 @@ export default function App() {
   // final preview step — id of the layer currently being dragged, or null.
   const [draggedLayerId, setDraggedLayerId] = useState(null);
   const [wizardMode, setWizardMode] = useState('create');
+  // Which pipeline the 'wizard' view renders — 'narration' (the existing
+  // 9-step script/voiceover flow) or 'music' (MusicChannelWizard). Same
+  // view/sidebar/header shell either way; only the step content differs.
+  const [wizardContentType, setWizardContentType] = useState('narration');
   const [fontPickerOpen, setFontPickerOpen] = useState(false);
   const [fontSearchQuery, setFontSearchQuery] = useState('');
   const [subtitleTab, setSubtitleTab] = useState('presets');
@@ -4488,10 +4492,13 @@ export default function App() {
     try { sessionStorage.setItem(wizardStepKey(editingChannelId), String(wizardStep)); } catch {}
   }, [wizardStep, view, editingChannelId]);
 
-  const openCreateWizard = () => {
+  const openCreateWizard = (contentType = 'narration') => {
+    setWizardContentType(contentType);
     resetWizardState();
-    const draft = loadDraft(null);
-    if (draft) setNewChannel(draft);
+    if (contentType === 'narration') {
+      const draft = loadDraft(null);
+      if (draft) setNewChannel(draft);
+    }
     setView('wizard');
   };
 
@@ -6837,7 +6844,16 @@ export default function App() {
                     {NICHECUT_PRODUCTS.map(p => (
                       <button
                         key={p.id}
-                        onClick={() => { setActiveProduct(p.id); setProductMenuOpen(false); setView('home'); }}
+                        onClick={() => {
+                          setProductMenuOpen(false);
+                          // "Vidéo Musicale" opens the exact same create-wizard flow as
+                          // "Nouvelle chaîne" (same shell, sidebar, header) with a
+                          // different pipeline — not a separate bolted-on screen. Avatar
+                          // has no wizard yet, so it still falls back to its placeholder.
+                          if (p.id === 'music') { openCreateWizard('music'); return; }
+                          setActiveProduct(p.id);
+                          setView('home');
+                        }}
                         className="w-full text-left px-3.5 py-2.5 text-xs font-medium flex items-center gap-2.5 hover:bg-[var(--bg-hover)] transition-colors"
                       >
                         <span className={`material-symbols-outlined text-[18px] ${p.id === activeProduct ? 'text-[#00c2ff]' : 'text-slate-400'}`}>{p.icon}</span>
@@ -6933,21 +6949,6 @@ export default function App() {
 
       {/* MAIN CONTENT AREA */}
       <main className={`relative flex-1 flex flex-col pt-14 md:pt-0 h-screen overflow-hidden bg-[var(--bg-input-alt)] transition-[margin] duration-200 ${sidebarCollapsed ? 'md:ml-[72px]' : 'md:ml-[240px]'}`}>
-        {activeProduct === 'music' && (
-          <div className="absolute inset-0 z-30 bg-[var(--bg-input-alt)] overflow-y-auto">
-            <MusicChannelWizard
-              authFetch={authFetch}
-              showToast={showToast}
-              onBack={() => setActiveProduct('montage')}
-              onCreated={(channel) => {
-                setChannels(prev => [channel, ...prev]);
-                setActiveProduct('montage');
-                setView('channels');
-              }}
-            />
-          </div>
-        )}
-
         {activeProduct === 'avatar' && (
           <div className="absolute inset-0 z-30 bg-[var(--bg-input-alt)] flex flex-col items-center justify-center gap-4 text-center p-8">
             <div className="w-20 h-20 rounded-2xl bg-[#00c2ff]/10 flex items-center justify-center">
@@ -8332,7 +8333,19 @@ export default function App() {
             )}
 
             {/* VIEW 5: CHANNEL WIZARD (CREATE / EDIT) */}
-            {view === 'wizard' && (
+            {view === 'wizard' && wizardContentType === 'music' && (
+              <MusicChannelWizard
+                authFetch={authFetch}
+                showToast={showToast}
+                onBack={() => setView('channels')}
+                onCreated={(channel) => {
+                  setChannels(prev => [channel, ...prev]);
+                  setView('channels');
+                }}
+              />
+            )}
+
+            {view === 'wizard' && wizardContentType !== 'music' && (
               <div className="max-w-[1240px] mx-auto bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-3xl p-4 sm:p-8 shadow-2xl space-y-6 sm:space-y-8">
                 {/* Wizard Header Stepper */}
                 <div className="flex items-start justify-between gap-3 border-b border-[var(--border-soft)] pb-4 sm:pb-6">
