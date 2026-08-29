@@ -2857,7 +2857,22 @@ export default function App() {
     e.stopPropagation();
     if (openVideoMenuId === vidId) { setOpenVideoMenuId(null); return; }
     const rect = e.currentTarget.getBoundingClientRect();
-    setVideoMenuAnchor({ top: rect.bottom + 6, right: window.innerWidth - rect.right });
+    const margin = 12;
+    const spaceBelow = window.innerHeight - rect.bottom - margin;
+    const spaceAbove = rect.top - margin;
+    // The menu has more entries than reliably fit below a button near the
+    // bottom of the viewport — it used to just render past the screen edge
+    // with no way to scroll it into view (a fixed-position portal isn't
+    // inside the page's own scroll container). Flip it to open upward when
+    // there's more room there, and cap+scroll it either way as a safety net
+    // for any screen size.
+    const openUpward = spaceBelow < 260 && spaceAbove > spaceBelow;
+    setVideoMenuAnchor({
+      top: openUpward ? null : rect.bottom + 6,
+      bottom: openUpward ? window.innerHeight - rect.top + 6 : null,
+      right: window.innerWidth - rect.right,
+      maxHeight: Math.max(160, (openUpward ? spaceAbove : spaceBelow) - 6),
+    });
     setOpenVideoMenuId(vidId);
   };
   const [publishingVideoId, setPublishingVideoId] = useState(null);
@@ -7642,7 +7657,7 @@ export default function App() {
                                 <span className="material-symbols-outlined text-[16px]">more_vert</span>
                               </button>
                               {openVideoMenuId === vid.id && videoMenuAnchor && createPortal(
-                                <div style={{ position: 'fixed', top: videoMenuAnchor.top, right: videoMenuAnchor.right }} className="video-menu-container w-44 bg-[var(--bg-dropdown)] border border-[var(--border-dropdown)] rounded-xl shadow-2xl z-[100] py-1.5">
+                                <div style={{ position: 'fixed', top: videoMenuAnchor.top ?? undefined, bottom: videoMenuAnchor.bottom ?? undefined, right: videoMenuAnchor.right, maxHeight: videoMenuAnchor.maxHeight, overflowY: 'auto' }} className="video-menu-container w-44 bg-[var(--bg-dropdown)] border border-[var(--border-dropdown)] rounded-xl shadow-2xl z-[100] py-1.5">
                                   {vid.status === 'done' && (
                                     <button onClick={(e) => openRenameModal(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium">
                                       <span className="material-symbols-outlined text-[16px] text-[#00c2ff]">drive_file_rename_outline</span> Renommer
@@ -8207,7 +8222,7 @@ export default function App() {
                               <span className="material-symbols-outlined text-[16px]">more_vert</span>
                             </button>
                             {openVideoMenuId === vid.id && videoMenuAnchor && createPortal(
-                              <div style={{ position: 'fixed', top: videoMenuAnchor.top, right: videoMenuAnchor.right }} className="video-menu-container w-44 bg-[var(--bg-dropdown)] border border-[var(--border-dropdown)] rounded-xl shadow-2xl z-[100] py-1.5">
+                              <div style={{ position: 'fixed', top: videoMenuAnchor.top ?? undefined, bottom: videoMenuAnchor.bottom ?? undefined, right: videoMenuAnchor.right, maxHeight: videoMenuAnchor.maxHeight, overflowY: 'auto' }} className="video-menu-container w-44 bg-[var(--bg-dropdown)] border border-[var(--border-dropdown)] rounded-xl shadow-2xl z-[100] py-1.5">
                                 {vid.status === 'done' && (
                                   <button disabled={regeneratingTitleId === vid.id} onClick={(e) => handleRegenerateTitle(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium disabled:opacity-50">
                                     <span className={`material-symbols-outlined text-[16px] text-[#00c2ff] ${regeneratingTitleId === vid.id ? 'animate-spin' : ''}`}>{regeneratingTitleId === vid.id ? 'progress_activity' : 'auto_awesome'}</span> {regeneratingTitleId === vid.id ? 'Régénération…' : 'Régénérer le titre'}
