@@ -4507,7 +4507,9 @@ export default function App() {
   // "Nouvelle vidéo" déclenche directement la génération par l'Agent, comme
   // le ferait le pipeline quotidien, et affiche juste l'attente du rendu.
   const startNewVideoFor = async (channel) => {
-    if (channel.automation_mode !== 'auto') {
+    // Music channels have no per-video form either — everything needed
+    // (style, titles, montage) was already set once at channel creation.
+    if (channel.content_type !== 'music' && channel.automation_mode !== 'auto') {
       setActiveChannel(channel);
       setShowSubmitModal(true);
       return;
@@ -4532,11 +4534,14 @@ export default function App() {
     }
   };
 
-  const openNewVideoFlow = () => {
-    if (channels.length === 0) {
-      openCreateWizard();
-    } else if (channels.length === 1) {
-      startNewVideoFor(channels[0]);
+  // Defaults to every channel (Home's generic CTA) — the "Mes Vidéos" page
+  // passes its own product-scoped list so a music-channel context never
+  // offers to create/pick a narration channel or vice versa.
+  const openNewVideoFlow = (channelList = channels, contentType = 'narration') => {
+    if (channelList.length === 0) {
+      openCreateWizard(contentType);
+    } else if (channelList.length === 1) {
+      startNewVideoFor(channelList[0]);
     } else {
       setShowChannelPickerModal(true);
     }
@@ -6634,8 +6639,16 @@ export default function App() {
     }
   };
 
-  const filteredChannels = channels.filter(c =>
-    c.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+  // "Mes Chaînes" and "Mes Vidéos" are scoped to the active product — a music
+  // channel's pipeline (no script/voix off, loop/compilation montage) is
+  // fundamentally different from a narration one's, so mixing them in the
+  // same list would show configuration that doesn't apply. Home stays
+  // unscoped (global totals across every product) since it's just an overview.
+  const activeProductContentType = activeProduct === 'music' ? 'music' : 'narration';
+  const productChannels = channels.filter(c => (c.content_type || 'narration') === activeProductContentType);
+  const productChannelIds = new Set(productChannels.map(c => c.id));
+  const filteredChannels = productChannels.filter(c =>
+    c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     c.niche.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
@@ -7215,7 +7228,7 @@ export default function App() {
                       Configurez votre premier pipeline vidéo (sous-titres karaoké, logo, musique de fond, images) et générez sans limite.
                     </p>
                     <button 
-                      onClick={openCreateWizard}
+                      onClick={() => openCreateWizard(activeProductContentType)}
                       className="bg-[#00c2ff] text-slate-950 px-6 py-3 rounded-xl font-bold text-sm hover:bg-[#38d0ff] transition-all shadow-lg inline-flex items-center gap-2"
                     >
                       <span className="material-symbols-outlined">add</span> Créer un Pipeline de Chaîne
@@ -7227,7 +7240,7 @@ export default function App() {
                         channel list grows, instead of getting pushed further down
                         every time a new channel is added. */}
                     <button
-                      onClick={openCreateWizard}
+                      onClick={() => openCreateWizard(activeProductContentType)}
                       className="rounded-2xl p-5 border-2 border-dashed border-[var(--border)] hover:border-[#00c2ff] hover:bg-[var(--bg-surface)] transition-all flex flex-col items-center justify-center gap-3 min-h-[220px] text-slate-400 hover:text-[#00c2ff] group"
                     >
                       <div className="w-14 h-14 rounded-full bg-[var(--bg-surface-alt)] group-hover:bg-[#00c2ff]/10 flex items-center justify-center transition-colors">
@@ -7349,8 +7362,8 @@ export default function App() {
                       onChange={e => setVideoFilterChannelId(e.target.value)}
                       className="bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-4 py-2 text-xs text-white focus:outline-none"
                     >
-                      <option value="all">Toutes les chaînes ({channels.length})</option>
-                      {channels.map(c => (
+                      <option value="all">Toutes les chaînes ({productChannels.length})</option>
+                      {productChannels.map(c => (
                         <option key={c.id} value={c.id}>{c.name}</option>
                       ))}
                     </select>
@@ -7365,7 +7378,7 @@ export default function App() {
                       {videoSelectionMode ? 'Annuler' : 'Sélectionner'}
                     </button>
                     <button
-                      onClick={openNewVideoFlow}
+                      onClick={() => openNewVideoFlow(productChannels, activeProductContentType)}
                       className="px-4 py-2 bg-[#00c2ff] hover:bg-[#38d0ff] text-slate-950 font-bold text-xs rounded-xl transition-all flex items-center gap-2 shadow-md shadow-[#00c2ff]/20 flex-shrink-0"
                     >
                       <span className="material-symbols-outlined text-[18px]">add</span>
@@ -7420,6 +7433,7 @@ export default function App() {
                       <button
                         onClick={() => setSelectedVideoIds(new Set(
                           allVideos
+                            .filter(v => productChannelIds.has(v.channel_id))
                             .filter(v => videoFilterChannelId === 'all' || v.channel_id === videoFilterChannelId)
                             .filter(v => videoFilterFolderId === 'all' || v.folder_id === videoFilterFolderId)
                             .map(v => v.id)
@@ -7475,13 +7489,13 @@ export default function App() {
                       Réessayer
                     </button>
                   </div>
-                ) : allVideos.length === 0 ? (
+                ) : allVideos.filter(v => productChannelIds.has(v.channel_id)).length === 0 ? (
                   <div className="bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-2xl p-12 text-center">
                     <span className="material-symbols-outlined text-[54px] text-slate-500 mb-3">movie</span>
                     <h3 className="text-base font-bold text-white mb-1">Aucune vidéo dans l'historique</h3>
                     <p className="text-xs text-slate-400 mb-5">Lancez votre première génération de vidéo.</p>
                     <button
-                      onClick={openNewVideoFlow}
+                      onClick={() => openNewVideoFlow(productChannels, activeProductContentType)}
                       className="px-5 py-2.5 bg-[#00c2ff] text-slate-950 font-bold text-xs rounded-xl"
                     >
                       + Nouvelle Vidéo
@@ -7490,6 +7504,7 @@ export default function App() {
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
                     {allVideos
+                      .filter(v => productChannelIds.has(v.channel_id))
                       .filter(v => videoFilterChannelId === 'all' || v.channel_id === videoFilterChannelId)
                       .filter(v => videoFilterFolderId === 'all' || v.folder_id === videoFilterFolderId)
                       .map(vid => {
@@ -13455,7 +13470,7 @@ export default function App() {
             </div>
 
             <div className="space-y-3 max-h-[300px] overflow-y-auto">
-              {channels.map(chan => (
+              {productChannels.map(chan => (
                 <div
                   key={chan.id}
                   onClick={() => {
