@@ -4878,6 +4878,8 @@ export default function App() {
   const [adminCostsLoading, setAdminCostsLoading] = useState(false);
   const [adminCostsDays, setAdminCostsDays] = useState(30);
   const [adminProviders, setAdminProviders] = useState(null);
+  const [thumbnailProviderMode, setThumbnailProviderModeState] = useState('free_only');
+  const [thumbnailProviderModeSaving, setThumbnailProviderModeSaving] = useState(false);
   const [hfAccounts, setHfAccounts] = useState([]);
   const [hfAccountsLoading, setHfAccountsLoading] = useState(false);
   const [hfAccountForm, setHfAccountForm] = useState({ token: '', label: '' });
@@ -5169,8 +5171,34 @@ export default function App() {
   };
 
   useEffect(() => {
-    if (view === 'admin' && currentUser?.is_admin && adminTab === 'resources') { fetchAdminProviders(); fetchHfAccounts(); }
+    if (view === 'admin' && currentUser?.is_admin && adminTab === 'resources') { fetchAdminProviders(); fetchHfAccounts(); fetchThumbnailProviderMode(); }
   }, [view, currentUser?.is_admin, adminTab]);
+
+  const fetchThumbnailProviderMode = async () => {
+    try {
+      const res = await authFetch(`${API_BASE}/admin/settings/thumbnail-provider-mode`);
+      if (res.ok) setThumbnailProviderModeState((await res.json()).mode || 'free_only');
+    } catch (err) {
+      console.error("Erreur chargement du mode de génération des miniatures:", err);
+    }
+  };
+
+  const setThumbnailProviderMode = async (mode) => {
+    setThumbnailProviderModeSaving(true);
+    try {
+      const res = await authFetch(`${API_BASE}/admin/settings/thumbnail-provider-mode`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode }),
+      });
+      if (!res.ok) throw new Error();
+      setThumbnailProviderModeState(mode);
+      showToast(mode === 'free_only' ? 'Miniatures en 100% gratuit.' : 'Miniatures en gratuit puis payant.', 'success');
+    } catch {
+      showToast('Échec de la mise à jour.', 'error');
+    } finally {
+      setThumbnailProviderModeSaving(false);
+    }
+  };
 
   const fetchHfAccounts = async () => {
     setHfAccountsLoading(true);
@@ -11606,6 +11634,44 @@ export default function App() {
                   })}
                 </div>
               )}
+
+              <div className="pt-6 border-t border-[var(--border-soft)] space-y-3">
+                <div>
+                  <h4 className="text-sm font-bold text-white">Génération des miniatures</h4>
+                  <p className="text-[11px] text-slate-500 mt-1 max-w-xl">
+                    Bascule entre 100% gratuit (Hugging Face uniquement, aucun crédit ni fournisseur payant jamais utilisé) et le mode gratuit-puis-payant (fal.ai puis Izivoice en repli si HF échoue, ce qui coûte des crédits).
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setThumbnailProviderMode('free_only')}
+                    disabled={thumbnailProviderModeSaving}
+                    className={`px-4 py-2 rounded-xl text-xs font-bold border transition-colors disabled:opacity-50 ${
+                      thumbnailProviderMode === 'free_only'
+                        ? 'bg-emerald-500/10 text-emerald-300 border-emerald-600/60'
+                        : 'bg-[var(--bg-surface-alt)] text-slate-400 border-[var(--border)] hover:border-slate-500'
+                    }`}
+                  >
+                    <span className="material-symbols-outlined text-[14px] align-middle mr-1">energy_savings_leaf</span>
+                    100% gratuit
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setThumbnailProviderMode('free_then_paid')}
+                    disabled={thumbnailProviderModeSaving}
+                    className={`px-4 py-2 rounded-xl text-xs font-bold border transition-colors disabled:opacity-50 ${
+                      thumbnailProviderMode === 'free_then_paid'
+                        ? 'bg-amber-500/10 text-amber-300 border-amber-600/60'
+                        : 'bg-[var(--bg-surface-alt)] text-slate-400 border-[var(--border)] hover:border-slate-500'
+                    }`}
+                  >
+                    <span className="material-symbols-outlined text-[14px] align-middle mr-1">payments</span>
+                    Gratuit puis payant
+                  </button>
+                  {thumbnailProviderModeSaving && <span className="material-symbols-outlined text-[16px] text-slate-500 animate-spin">progress_activity</span>}
+                </div>
+              </div>
 
               <div className="pt-6 border-t border-[var(--border-soft)] space-y-4">
                 <div>
