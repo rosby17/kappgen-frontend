@@ -7294,7 +7294,7 @@ export default function App() {
                                     className="text-white text-xs font-semibold line-clamp-2 cursor-text"
                                     title="Double-cliquez pour renommer"
                                   >
-                                    {vid.script_text}
+                                    {vid.title || vid.script_text}
                                   </p>
                                 )}
                                 <p className="text-[10px] text-slate-500 mt-1 font-mono">
@@ -7853,7 +7853,7 @@ export default function App() {
                                   className="text-white text-xs font-semibold line-clamp-2 cursor-text"
                                   title="Double-cliquez pour renommer"
                                 >
-                                  {vid.script_text}
+                                  {vid.title || vid.script_text}
                                 </p>
                               )}
                               <p className="text-[10px] text-slate-500 mt-1 font-mono">
