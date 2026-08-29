@@ -7148,10 +7148,10 @@ export default function App() {
                     <h3 className="text-3xl md:text-4xl font-extrabold text-white leading-tight">Tu vis. KappGen travaille.</h3>
                     <p className="text-sm text-slate-400 leading-6 mt-3 max-w-md">KappGen AI prépare tes vidéos et veille sur tes publications. Voyage, repose-toi ou profite simplement de ton temps.</p>
                     <div className="flex items-center gap-3 mt-6">
-                      <button onClick={channels.length ? () => setView('channels') : openCreateWizard} className="px-5 py-2.5 bg-[#00c2ff] hover:bg-[#38d0ff] text-slate-950 font-bold text-xs rounded-xl transition-colors">
-                        {channels.length ? 'Voir mes chaînes' : 'Configurer une chaîne'}
+                      <button onClick={productChannels.length ? () => setView('channels') : () => openCreateWizard(activeProductContentType)} className="px-5 py-2.5 bg-[#00c2ff] hover:bg-[#38d0ff] text-slate-950 font-bold text-xs rounded-xl transition-colors">
+                        {productChannels.length ? 'Voir mes chaînes' : 'Configurer une chaîne'}
                       </button>
-                      <button onClick={openNewVideoFlow} className="text-xs font-bold text-slate-300 hover:text-white transition-colors">Créer une vidéo</button>
+                      <button onClick={() => openNewVideoFlow(productChannels, activeProductContentType)} className="text-xs font-bold text-slate-300 hover:text-white transition-colors">Créer une vidéo</button>
                     </div>
                   </div>
                 </section>
@@ -7162,18 +7162,18 @@ export default function App() {
                     <h3 className="text-lg font-bold text-white">Aperçu des Chaînes</h3>
                   </div>
 
-                  {channels.length === 0 ? (
+                  {productChannels.length === 0 ? (
                     <div className="bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-2xl p-10 text-center">
                       <span className="material-symbols-outlined text-[48px] text-slate-500 mb-3">subscriptions</span>
                       <h4 className="text-base font-bold text-white mb-1">Aucune chaîne configurée</h4>
                       <p className="text-xs text-slate-400 mb-5">Configure ton univers une fois. KappGen s’occupera de la suite.</p>
-                      <button onClick={openCreateWizard} className="px-5 py-2.5 bg-[#00c2ff] text-slate-950 font-bold text-xs rounded-xl">
+                      <button onClick={() => openCreateWizard(activeProductContentType)} className="px-5 py-2.5 bg-[#00c2ff] text-slate-950 font-bold text-xs rounded-xl">
                         + Créer une chaîne
                       </button>
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                      {[...channels]
+                      {[...productChannels]
                         .sort((a, b) =>
                           ((b.queued_count || 0) + (b.rendering_count || 0) + (b.done_count || 0)) -
                           ((a.queued_count || 0) + (a.rendering_count || 0) + (a.done_count || 0))
