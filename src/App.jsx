@@ -3287,6 +3287,8 @@ export default function App() {
     },
     automation_mode: 'manual',
     automation_style_prompt: '',
+    topic_examples: '',
+    use_web_trends: false,
     // Auto-detected from the browser — the daily generation window and the
     // scheduled publish hour are both read in this timezone, never a single
     // region imposed on every creator.
@@ -4242,6 +4244,8 @@ export default function App() {
       },
       automation_mode: channel.automation_mode || 'manual',
       automation_style_prompt: channel.automation_style_prompt || '',
+      topic_examples: channel.topic_examples || '',
+      use_web_trends: !!channel.use_web_trends,
       videos_per_day: channel.videos_per_day ?? 1,
       automation_window_start_hour: channel.automation_window_start_hour ?? 7,
       automation_window_end_hour: channel.automation_window_end_hour ?? 11,
@@ -8387,6 +8391,33 @@ export default function App() {
                         </button>
                       );
                     })()}
+
+                    {newChannel.automation_mode === 'auto' && (
+                      <div>
+                        <label className="block text-xs font-bold text-slate-300 mb-1.5">Exemples de sujets / titres</label>
+                        <textarea
+                          value={newChannel.topic_examples || ''}
+                          onChange={e => setNewChannel({ ...newChannel, topic_examples: e.target.value })}
+                          placeholder={"Un titre par ligne — les tiens (tes vidéos qui ont le mieux marché) ou ceux d'une chaîne que tu veux imiter.\nEx :\nLe jour où tu arrêtes de demander la permission de vivre\nPourquoi le silence de Dieu n'est pas un abandon"}
+                          rows={4}
+                          className="w-full bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-3 py-2.5 text-xs text-white focus:border-[#00c2ff] outline-none resize-none"
+                        />
+                        <p className="text-[10px] text-slate-500 mt-1.5 px-1">Sans ça, le choix des sujets reste générique. Avec des exemples, l'IA colle au style et à l'angle qui marchent déjà pour toi.</p>
+                      </div>
+                    )}
+
+                    {newChannel.automation_mode === 'auto' && (
+                      <label className="flex items-center gap-2.5 bg-[var(--bg-input)] border border-[var(--border-subtle)] rounded-xl px-3 py-2.5 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={!!newChannel.use_web_trends}
+                          onChange={e => setNewChannel({ ...newChannel, use_web_trends: e.target.checked })}
+                          className="w-4 h-4 accent-[#00c2ff]"
+                        />
+                        <span className="material-symbols-outlined text-[16px] text-slate-500 shrink-0">travel_explore</span>
+                        <span className="text-[11px] text-slate-300">Puiser dans l'actualité récente (recherche web) — pour une chaîne d'actu/tendances</span>
+                      </label>
+                    )}
 
                     {newChannel.automation_mode === 'auto' && (
                       <div>
