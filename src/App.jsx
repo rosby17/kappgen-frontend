@@ -2813,7 +2813,7 @@ export default function App() {
   const NICHECUT_PRODUCTS = [
     { id: 'montage', label: 'Montage Simple', icon: 'movie_edit', available: true },
     { id: 'avatar', label: 'Vidéos Avatar', icon: 'face', available: false },
-    { id: 'music', label: 'Vidéo Musicale', icon: 'library_music', available: false },
+    { id: 'music', label: 'Vidéo Musicale', icon: 'library_music', available: true },
   ];
   const [channelsLoaded, setChannelsLoaded] = useState(false);
   const [videosLoaded, setVideosLoaded] = useState(false);
@@ -7424,12 +7424,12 @@ export default function App() {
                       setDraggedVideoId(null);
                       if (videoId) moveVideoToFolder(videoId, null);
                     }}
-                    title={`Toutes (${allVideos.length})`}
+                    title={`Toutes (${allVideos.filter(v => productChannelIds.has(v.channel_id)).length})`}
                     className={`w-full text-left py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${folderSidebarCollapsed ? 'px-0 justify-center' : 'px-2'} ${
                       videoFilterFolderId === 'all' ? 'bg-[#00c2ff] text-slate-950' : 'text-slate-300 hover:text-white hover:bg-[var(--bg-hover)]'
                     } ${dragOverFolderId === 'all' ? 'ring-2 ring-[#00c2ff] ring-offset-1 ring-offset-[var(--bg-page)]' : ''}`}
                   >
-                    <span className="material-symbols-outlined text-[15px]">apps</span> {!folderSidebarCollapsed && `Toutes (${allVideos.length})`}
+                    <span className="material-symbols-outlined text-[15px]">apps</span> {!folderSidebarCollapsed && `Toutes (${allVideos.filter(v => productChannelIds.has(v.channel_id)).length})`}
                   </button>
                   {renderFolderTree(null, 0)}
                   <button
