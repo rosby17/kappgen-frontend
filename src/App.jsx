@@ -9167,22 +9167,22 @@ export default function App() {
                           className="w-full bg-[var(--bg-input-alt)] border border-[var(--border)] rounded-xl p-2.5 text-[11px] text-white focus:border-[#00c2ff] outline-none placeholder-slate-500"
                           placeholder="Ex: peinture à l'huile classique, palette dorée, contre-jour dramatique..."
                         />
-                        {/* Visual style picker — a text chip alone ("Néon futuriste") doesn't
-                            let a creator project what their thumbnail will actually look like;
-                            each card previews the mood/palette so the choice is visual, not a
-                            guess from a label. Preview images are placeholder mood boards for
-                            now (see /assets/thumbnail-styles) — swap for real AI-rendered
-                            previews once image generation credits are available again. */}
+                        {/* Visual style picker — these are proven YouTube-thumbnail
+                            archetypes (the composition + text pattern that actually drives
+                            clicks), not generic art-style mood boards. Each card previews a
+                            real example so the choice is "which of these click patterns fits
+                            my niche", not a guess from an aesthetic label. See
+                            /assets/thumbnail-styles for the reference images. */}
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                           {[
-                            { key: 'cinematic', label: 'Cinématique', prompt: 'Cinématique, éclairage dramatique' },
-                            { key: 'oil_painting', label: 'Peinture à l’huile', prompt: 'Peinture à l’huile classique, palette dorée' },
-                            { key: 'photorealistic', label: 'Photo réaliste', prompt: 'Photo réaliste, style documentaire' },
-                            { key: 'religious_illustration', label: 'Illustration religieuse', prompt: 'Illustration religieuse classique' },
-                            { key: 'watercolor', label: 'Aquarelle', prompt: 'Aquarelle douce' },
-                            { key: 'comic', label: 'Bande dessinée', prompt: 'Bande dessinée, contours encrés' },
-                            { key: 'minimalist', label: 'Minimaliste', prompt: 'Minimaliste épuré, aplats de couleur' },
-                            { key: 'neon', label: 'Néon cyberpunk', prompt: 'Néon futuriste, cyberpunk' },
+                            { key: 'shocked_face', label: 'Visage choqué', prompt: 'Gros plan visage à l’expression choquée/intense, éclairage dramatique, texte énorme en gras avec contour noir, couleurs saturées, haut contraste' },
+                            { key: 'before_after', label: 'Avant / Après', prompt: 'Image divisée en deux, avant terne à gauche, après lumineux et vivant à droite, texte blanc énorme en gras, contraste marqué entre les deux moitiés' },
+                            { key: 'number_hook', label: 'Chiffre choc', prompt: 'Chiffre géant en 3D glossy occupant un tiers du cadre, texte blanc énorme en gras à côté, fond sombre dramatique, haut contraste' },
+                            { key: 'warning_alert', label: 'Alerte / Urgence', prompt: 'Bandes de danger jaune et noir, texte rouge énorme en gras avec contour blanc, icône d’alerte, fond sombre orageux, haut contraste' },
+                            { key: 'silhouette_quote', label: 'Silhouette inspirante', prompt: 'Silhouette sur une crête au coucher de soleil dramatique, texte blanc énorme en gras en bas, cinématique, haut contraste' },
+                            { key: 'versus_duel', label: 'Duel / VS', prompt: 'Deux personnes face à face en contre-jour coloré, énorme texte VS en 3D au centre, éclairs dramatiques, haut contraste' },
+                            { key: 'zoom_circle', label: 'Zoom + cercle', prompt: 'Détail entouré d’un épais cercle rouge façon marqueur, texte noir énorme en gras en haut, fond clair et propre, haut contraste' },
+                            { key: 'portrait_storytelling', label: 'Portrait storytelling', prompt: 'Portrait propre au regard pensif, fond flouté chaleureux, légende blanche en gras en bas de l’image, haut contraste' },
                           ].map((style) => {
                             const active = newChannel.thumbnail_style?.style_prompt === style.prompt;
                             return (
