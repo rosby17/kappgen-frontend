@@ -696,6 +696,10 @@ function writeVoiceMetaCache(cache) {
 // filters/sorts on (language, gender, accent, usage) alongside the flattened
 // `desc` line, and best-effort tags entries the account itself cloned.
 function mapCatalogVoice(v) {
+  let previewUrl = v.preview_url || v.languages?.find(item => item.preview_url)?.preview_url || null;
+  if (previewUrl && previewUrl.startsWith('/')) {
+    previewUrl = `${API_BASE}${previewUrl}`;
+  }
   return {
     id: v.voice_id,
     name: v.name || v.voice_id,
@@ -704,7 +708,7 @@ function mapCatalogVoice(v) {
     accent: v.accent || null,
     usage: v.usage_character_count_1y || v.usage_count || 0,
     desc: [v.language, v.gender, v.accent].filter(Boolean).join(' · ') || 'Voix Izivoice',
-    preview_url: v.preview_url || v.languages?.find(item => item.preview_url)?.preview_url || null,
+    preview_url: previewUrl,
   };
 }
 
@@ -2959,6 +2963,66 @@ export default function App() {
   };
   const thumbnailStyleInputRef = useRef(null);
   const [thumbnailStyleAnalyzing, setThumbnailStyleAnalyzing] = useState(false);
+
+  // AI-proposed thumbnail identity flow: propose one concrete, niche-specific
+  // concept (illustration style + recurring subject + palette) with a real
+  // preview image, let the creator approve it (locked in as this channel's
+  // thumbnail_style — every future thumbnail reuses it automatically) or
+  // ask for a genuinely different one instead of a generic template.
+  const [thumbnailConceptLoading, setThumbnailConceptLoading] = useState(false);
+  const [thumbnailConceptProposal, setThumbnailConceptProposal] = useState(null); // { concept, preview_url }
+  const [rejectedThumbnailConcepts, setRejectedThumbnailConcepts] = useState([]);
+
+  const handleProposeThumbnailConcept = async () => {
+    if (!editingChannelId) {
+      showToast("Enregistre d'abord la chaîne avant de proposer un style de miniature.", "error");
+      return;
+    }
+    setThumbnailConceptLoading(true);
+    try {
+      const res = await authFetch(`${API_BASE}/channels/${editingChannelId}/thumbnail-concept/propose`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rejected_concepts: rejectedThumbnailConcepts }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || "Proposition de style impossible.");
+      setThumbnailConceptProposal(data);
+    } catch (err) {
+      showToast(err.message || "Proposition de style impossible.", "error");
+    } finally {
+      setThumbnailConceptLoading(false);
+    }
+  };
+
+  const handleRejectThumbnailConcept = () => {
+    if (thumbnailConceptProposal?.concept) {
+      const c = thumbnailConceptProposal.concept;
+      setRejectedThumbnailConcepts(prev => [...prev, `${c.concept_name}: ${c.style_prompt}`]);
+    }
+    setThumbnailConceptProposal(null);
+    handleProposeThumbnailConcept();
+  };
+
+  const handleApproveThumbnailConcept = async () => {
+    if (!editingChannelId || !thumbnailConceptProposal?.concept) return;
+    const c = thumbnailConceptProposal.concept;
+    try {
+      const res = await authFetch(`${API_BASE}/channels/${editingChannelId}/thumbnail-concept/approve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ style_prompt: c.style_prompt, concept_name: c.concept_name, text_style: c.text_style }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || "Validation impossible.");
+      setNewChannel(prev => ({ ...prev, thumbnail_style: data.thumbnail_style }));
+      setThumbnailConceptProposal(null);
+      setRejectedThumbnailConcepts([]);
+      showToast("Style de miniature validé — toutes les prochaines vidéos de cette chaîne le garderont.", "success");
+    } catch (err) {
+      showToast(err.message || "Validation impossible.", "error");
+    }
+  };
 
   const handleUploadThumbnailStyle = async (e) => {
     const files = Array.from(e.target.files || []);
@@ -7721,7 +7785,7 @@ export default function App() {
                             )}
 
                             {/* Status Badge */}
-                            {vid.status !== 'rendering' && <div className="absolute top-2 left-2 z-10 flex items-center gap-1.5">
+                            {vid.status !== 'rendering' && <div className="absolute top-2 left-2 z-10">
                               <span className={`px-2 py-0.5 rounded-lg text-[10px] font-mono font-bold uppercase tracking-wider ${
                                 vid.status === 'done' ? 'bg-emerald-950/90 text-emerald-300 border border-emerald-700/80' :
                                 vid.status === 'failed' ? 'bg-rose-950/90 text-rose-300 border border-rose-700/80' :
@@ -7729,12 +7793,6 @@ export default function App() {
                               }`}>
                                 {vid.status === 'done' ? 'Prête' : vid.status === 'failed' ? 'Échec' : 'En file'}
                               </span>
-                              {vid.youtube_video_id && (
-                                <span className="flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-mono font-bold uppercase tracking-wider bg-red-950/90 text-red-300 border border-red-700/80">
-                                  <span className="material-symbols-outlined text-[11px]">check_circle</span>
-                                  Publiée
-                                </span>
-                              )}
                             </div>}
                           </div>
 
@@ -8996,8 +9054,80 @@ export default function App() {
                             </button>
                           </div>
                         </div>
+                        {/* AI concept proposal — the primary path: a real, niche-specific
+                            visual identity (subject/character + palette + style), not a
+                            generic template. Once approved it's locked as this channel's
+                            thumbnail_style, so every future thumbnail follows it automatically. */}
+                        <div className="bg-[#0d1117] border border-[var(--border)] rounded-xl p-3 space-y-2.5">
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="text-[11px] font-bold text-white flex items-center gap-1.5">
+                              <span className="material-symbols-outlined text-[15px] text-[#00c2ff]">auto_awesome</span>
+                              Style de miniature proposé par l'IA, adapté à ta niche
+                            </p>
+                            {!thumbnailConceptProposal && (
+                              <button
+                                type="button"
+                                disabled={thumbnailConceptLoading || !canGenerateAIImages}
+                                title={canGenerateAIImages ? undefined : `Crédits insuffisants (${THUMBNAIL_GENERATION_CREDITS.toLocaleString()} crédits/miniature générée)`}
+                                onClick={handleProposeThumbnailConcept}
+                                className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold bg-[#00c2ff] text-black hover:bg-[#00c2ff]/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                              >
+                                <span className="material-symbols-outlined text-[13px]">{thumbnailConceptLoading ? 'hourglass_top' : 'auto_awesome'}</span>
+                                {thumbnailConceptLoading ? 'Génération...' : (newChannel.thumbnail_style?.concept_name ? "Essayer un autre style" : "Proposer un style")}
+                              </button>
+                            )}
+                          </div>
+
+                          {!editingChannelId && (
+                            <p className="text-[10px] text-slate-500">Enregistre d'abord la chaîne (avec sa niche) pour débloquer cette option.</p>
+                          )}
+
+                          {newChannel.thumbnail_style?.concept_name && !thumbnailConceptProposal && (
+                            <div className="flex items-center gap-2 px-2.5 py-2 rounded-lg bg-emerald-950/40 border border-emerald-700/40">
+                              <span className="material-symbols-outlined text-[15px] text-emerald-400">check_circle</span>
+                              <p className="text-[10px] text-emerald-300"><strong>Style verrouillé :</strong> {newChannel.thumbnail_style.concept_name} — toutes les prochaines vidéos de cette chaîne l'utiliseront.</p>
+                            </div>
+                          )}
+
+                          {thumbnailConceptLoading && (
+                            <div className="flex items-center justify-center py-6 text-[11px] text-slate-400 gap-2">
+                              <span className="material-symbols-outlined text-[16px] animate-spin">progress_activity</span>
+                              Réflexion sur un style pour « {newChannel.niche || 'ta niche'} »...
+                            </div>
+                          )}
+
+                          {thumbnailConceptProposal && !thumbnailConceptLoading && (
+                            <div className="space-y-2">
+                              <img
+                                src={`${API_BASE.replace(/\/api$/, '')}${thumbnailConceptProposal.preview_url}`}
+                                alt={thumbnailConceptProposal.concept.concept_name}
+                                className="w-full aspect-video object-cover rounded-lg border border-[var(--border)]"
+                              />
+                              <p className="text-xs font-bold text-white">{thumbnailConceptProposal.concept.concept_name}</p>
+                              <p className="text-[10px] text-slate-400">{thumbnailConceptProposal.concept.rationale}</p>
+                              <div className="flex items-center gap-2 pt-1">
+                                <button
+                                  type="button"
+                                  onClick={handleApproveThumbnailConcept}
+                                  className="flex-1 flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-bold bg-emerald-600 text-white hover:bg-emerald-500 transition-colors"
+                                >
+                                  <span className="material-symbols-outlined text-[14px]">check</span> Valider ce style
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={thumbnailConceptLoading || !canGenerateAIImages}
+                                  onClick={handleRejectThumbnailConcept}
+                                  className="flex-1 flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-bold bg-[var(--bg-surface-alt)] text-slate-200 hover:bg-[var(--bg-hover)] border border-[var(--border)] transition-colors disabled:opacity-50"
+                                >
+                                  <span className="material-symbols-outlined text-[14px]">refresh</span> Un autre style
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
                         <p className="text-[11px] text-slate-400">
-                          Optionnel — décris le style de fond voulu, ou donne des exemples en image. {THUMBNAIL_GENERATION_CREDITS.toLocaleString()} crédits/miniature.
+                          Ou configure-le toi-même : décris le style de fond voulu, ou donne des exemples en image. {THUMBNAIL_GENERATION_CREDITS.toLocaleString()} crédits/miniature.
                         </p>
                         <textarea
                           rows="2"
