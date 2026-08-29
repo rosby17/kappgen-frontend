@@ -2487,12 +2487,17 @@ export default function App() {
   // component body would still be in its temporal dead zone at that point.
   const [adminTab, setAdminTab] = useState(() => adminTabFromPath(window.location.pathname)); // 'overview' | 'users' | 'plans' | 'videos' | 'transactions'
   // Product switcher (à la IziVoice Creative) — 'montage' is the real product;
-  // 'avatar' is a placeholder entry point for a not-yet-built product line.
+  // 'avatar' and 'music' are placeholder entry points for not-yet-built
+  // product lines (music: a channel whose content IS the music — style +
+  // example titles, AI-generated tracks, then a lightweight loop/compilation
+  // assembly with an audio-spectrum visual — distinct from music_preference,
+  // which is just background music behind a narration video).
   const [activeProduct, setActiveProduct] = useState('montage');
   const [productMenuOpen, setProductMenuOpen] = useState(false);
   const NICHECUT_PRODUCTS = [
     { id: 'montage', label: 'Montage Simple', icon: 'movie_edit', available: true },
     { id: 'avatar', label: 'Vidéos Avatar', icon: 'face', available: false },
+    { id: 'music', label: 'Vidéo Musicale', icon: 'library_music', available: false },
   ];
   const [channelsLoaded, setChannelsLoaded] = useState(false);
   const [videosLoaded, setVideosLoaded] = useState(false);
