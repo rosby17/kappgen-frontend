@@ -4531,21 +4531,77 @@ export default function App() {
     }
     setActiveChannel(channel);
     setGeneratingAutoVideo(true);
+
+    // generate-now returns instantly (the actual generation runs in a
+    // background thread server-side, taking a minute or two) — without an
+    // immediate placeholder, a creator saw nothing happen for that whole
+    // stretch, assumed the click didn't register, and clicked again (and
+    // again), firing 2-3 real generations for one intended video. This
+    // reuses the exact same "rendering" card UI a real queued video already
+    // gets (PipelineStepper), just with a client-only id, so it's visually
+    // indistinguishable from the real thing the moment it exists.
+    const placeholderId = `pending-${channel.id}-${Date.now()}`;
+    const placeholder = {
+      id: placeholderId,
+      channel_id: channel.id,
+      title: null,
+      status: 'rendering',
+      progress_stage: 'Lancement de la génération…',
+      progress_percent: 1,
+      created_at: new Date().toISOString(),
+      folder_id: null,
+      _pending: true,
+    };
+    const countBefore = allVideos.filter(v => v.channel_id === channel.id && !v._pending).length;
+    setAllVideos(prev => [placeholder, ...prev]);
+    setChannelVideos(prev => [placeholder, ...prev]);
+
+    const stopPending = () => {
+      setAllVideos(prev => prev.filter(v => v.id !== placeholderId));
+      setChannelVideos(prev => prev.filter(v => v.id !== placeholderId));
+      setGeneratingAutoVideo(false);
+    };
+
     try {
       const res = await authFetch(`${API_BASE}/channels/${channel.id}/generate-now`, { method: 'POST' });
-      if (res.ok) {
-        fetchChannelVideos(channel.id);
-        fetchChannels();
-        fetchAllVideos();
-        showToast("C’est lancé. Tu peux quitter cet écran, KappGen reste au travail.", "success");
-      } else {
-        const err = await res.json();
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
         showToast(err.detail || "Erreur lors du lancement.", "error");
+        stopPending();
+        return;
       }
+      showToast("C’est lancé. Tu peux quitter cet écran, KappGen reste au travail.", "success");
+      fetchChannels();
+
+      // Poll for the real video to actually show up instead of the one-shot
+      // refresh that used to run here (nothing new exists yet at that point,
+      // since generation hasn't finished) — every 5s for up to 3min, which
+      // comfortably covers a multi-part script write.
+      let attempts = 0;
+      const maxAttempts = 36;
+      const poll = async () => {
+        attempts += 1;
+        const res2 = await authFetch(`${API_BASE}/videos/channel/${channel.id}`).catch(() => null);
+        if (res2 && res2.ok) {
+          const data = await res2.json();
+          const nowCount = data.filter(v => v.channel_id === channel.id).length;
+          if (nowCount > countBefore) {
+            setChannelVideos(data);
+            fetchAllVideos();
+            stopPending();
+            return;
+          }
+        }
+        if (attempts >= maxAttempts) {
+          stopPending();
+          return;
+        }
+        setTimeout(poll, 5000);
+      };
+      setTimeout(poll, 5000);
     } catch (e) {
       showToast("Erreur réseau: " + e.message, "error");
-    } finally {
-      setGeneratingAutoVideo(false);
+      stopPending();
     }
   };
 
