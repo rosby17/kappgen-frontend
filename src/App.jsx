@@ -1529,9 +1529,14 @@ function VoiceCloneModal({ onClose, onSubmit, submitting }) {
 // separate from the 9-step narration wizard above instead of threading a
 // content_type branch through it: a music channel skips script/voiceover/
 // subtitles entirely, so forking here is far less risky than conditionally
-// disabling half of an already-huge stateful component. Single-page form
-// (not a multi-step wizard) since there are only a handful of fields.
+// disabling half of an already-huge stateful component. Mirrors that
+// wizard's own look exactly (same card shell, step-pill header, per-step
+// "N. Titre" heading, Retour/Suivant footer) so it doesn't feel like a
+// bolted-on plain form next to Montage Simple.
+const MUSIC_WIZARD_STEPS = ['Identité', 'Style & Musique', 'Montage', 'Publication'];
+
 function MusicChannelWizard({ authFetch, showToast, onCreated, onBack }) {
+  const [step, setStep] = useState(1);
   const [form, setForm] = useState({
     name: '',
     style_prompt: '',
@@ -1604,150 +1609,234 @@ function MusicChannelWizard({ authFetch, showToast, onCreated, onBack }) {
     }
   };
 
+  const goNext = () => {
+    if (step === 1 && !form.name.trim()) return showToast('Donne un nom à ta chaîne.', 'error');
+    if (step === 2 && !form.style_prompt.trim()) return showToast('Décris le style musical voulu.', 'error');
+    setStep(s => Math.min(4, s + 1));
+  };
+
   return (
-    <div className="max-w-2xl mx-auto p-6 space-y-6">
-      <div>
-        <button onClick={onBack} className="text-xs font-bold text-slate-400 hover:text-white flex items-center gap-1 mb-4">
-          <span className="material-symbols-outlined text-[16px]">arrow_back</span> Retour
-        </button>
-        <h2 className="text-xl font-extrabold text-white flex items-center gap-2.5">
-          <span className="material-symbols-outlined text-[#00c2ff] text-[22px]">library_music</span>
-          Nouvelle chaîne musicale
-        </h2>
-        <p className="text-xs text-slate-400 mt-1">Pas de script, pas de voix off — le contenu, c'est la musique elle-même.</p>
-      </div>
-
-      <div>
-        <label className="block text-xs font-bold text-slate-300 mb-1.5">Nom de la chaîne</label>
-        <input
-          value={form.name}
-          onChange={e => setForm({ ...form, name: e.target.value })}
-          placeholder="Ex : Lofi pour réviser"
-          className="w-full bg-[var(--bg-input)] border border-[var(--border)] rounded-xl px-3 py-2.5 text-sm text-white focus:border-[#00c2ff] outline-none"
-        />
-      </div>
-
-      <div>
-        <label className="block text-xs font-bold text-slate-300 mb-1.5">Style musical</label>
-        <textarea
-          rows={3}
-          value={form.style_prompt}
-          onChange={e => setForm({ ...form, style_prompt: e.target.value })}
-          placeholder="Ex : lofi hip-hop mélancolique, piano doux, boucle de pluie en fond, tempo lent — pour étudier ou dormir"
-          className="w-full bg-[var(--bg-input)] border border-[var(--border)] rounded-xl px-3 py-2.5 text-xs text-white focus:border-[#00c2ff] outline-none resize-none"
-        />
-        <div className="flex items-center gap-3 mt-2">
-          <button
-            type="button"
-            onClick={generatePreview}
-            disabled={previewing}
-            className="px-4 py-2 rounded-xl bg-[var(--bg-surface-alt)] border border-[var(--border)] text-xs font-bold text-white hover:border-[#00c2ff]/60 transition-colors disabled:opacity-50 flex items-center gap-1.5"
-          >
-            <span className={`material-symbols-outlined text-[15px] ${previewing ? 'animate-spin' : ''}`}>{previewing ? 'progress_activity' : 'music_note'}</span>
-            {previewing ? 'Génération...' : 'Écouter un aperçu (gratuit)'}
-          </button>
-          {previewUrl && <audio controls src={previewUrl} className="h-9" />}
-        </div>
-      </div>
-
-      <div>
-        <label className="block text-xs font-bold text-slate-300 mb-1.5">Exemples de titres</label>
-        <textarea
-          rows={3}
-          value={form.title_examples}
-          onChange={e => setForm({ ...form, title_examples: e.target.value })}
-          placeholder={"Un titre par ligne\nEx :\nLofi pour réviser toute la nuit\nPluie douce et piano pour dormir"}
-          className="w-full bg-[var(--bg-input)] border border-[var(--border)] rounded-xl px-3 py-2.5 text-xs text-white focus:border-[#00c2ff] outline-none resize-none"
-        />
-      </div>
-
-      <div>
-        <label className="block text-xs font-bold text-slate-300 mb-2">Montage</label>
-        <div className="grid grid-cols-2 gap-2 mb-3">
-          <button
-            type="button"
-            onClick={() => setForm({ ...form, edit_mode: 'loop' })}
-            className={`p-3 rounded-xl border-2 text-left transition-colors ${form.edit_mode === 'loop' ? 'border-[#00c2ff] bg-[#00c2ff]/5' : 'border-[var(--border)] hover:border-slate-500'}`}
-          >
-            <div className="text-xs font-bold text-white flex items-center gap-1.5"><span className="material-symbols-outlined text-[16px]">repeat</span> Boucle</div>
-            <div className="text-[10px] text-slate-500 mt-0.5">Une seule musique répétée jusqu'à la durée voulue.</div>
-          </button>
-          <button
-            type="button"
-            onClick={() => setForm({ ...form, edit_mode: 'compilation' })}
-            className={`p-3 rounded-xl border-2 text-left transition-colors ${form.edit_mode === 'compilation' ? 'border-[#00c2ff] bg-[#00c2ff]/5' : 'border-[var(--border)] hover:border-slate-500'}`}
-          >
-            <div className="text-xs font-bold text-white flex items-center gap-1.5"><span className="material-symbols-outlined text-[16px]">queue_music</span> Compilation</div>
-            <div className="text-[10px] text-slate-500 mt-0.5">Plusieurs musiques enchaînées pour les vidéos longues.</div>
+    <div className="max-w-[1240px] mx-auto p-4 sm:p-8">
+      <div className="bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-3xl p-4 sm:p-8 shadow-2xl space-y-6 sm:space-y-8">
+        {/* Header */}
+        <div className="flex items-start justify-between gap-3 border-b border-[var(--border-soft)] pb-4 sm:pb-6">
+          <div className="min-w-0">
+            <h2 className="text-base sm:text-xl font-extrabold text-white flex items-center gap-2.5">
+              <span className="material-symbols-outlined text-[#00c2ff] text-[20px]">library_music</span>
+              Nouvelle Chaîne Musicale
+            </h2>
+            <p className="text-xs text-slate-400 mt-1">Étape {step} sur {MUSIC_WIZARD_STEPS.length} — pas de script, pas de voix off, le contenu c'est la musique elle-même.</p>
+          </div>
+          <button onClick={onBack} className="text-slate-400 hover:text-white p-2 shrink-0">
+            <span className="material-symbols-outlined">close</span>
           </button>
         </div>
-        <div className="flex items-center gap-2 bg-[var(--bg-input)] border border-[var(--border-subtle)] rounded-xl px-3 py-2.5 mb-2">
-          <span className="material-symbols-outlined text-[16px] text-slate-500 shrink-0">image</span>
-          <span className="text-[11px] text-slate-400 flex-1">Images illustratives</span>
-          {[0, 1, 2, 3].map(n => (
+
+        {/* Step pills */}
+        <div className="flex sm:grid sm:grid-cols-4 gap-2 overflow-x-auto sm:overflow-visible -mx-4 px-4 sm:mx-0 sm:px-0 pb-1 sm:pb-0">
+          {MUSIC_WIZARD_STEPS.map((label, idx) => {
+            const stepNum = idx + 1;
+            const isActive = step === stepNum;
+            const isPassed = step > stepNum;
+            return (
+              <button
+                key={stepNum}
+                onClick={() => setStep(stepNum)}
+                className={`shrink-0 whitespace-nowrap py-2 px-3 sm:px-1 text-center rounded-xl text-xs font-bold transition-all ${
+                  isActive ? 'bg-[#00c2ff] text-slate-950 shadow-md' :
+                  isPassed ? 'bg-[#00c2ff]/20 text-[#00c2ff] border border-[#00c2ff]/40' :
+                  'bg-[var(--bg-surface-alt)] text-slate-400'
+                }`}
+              >
+                {stepNum}. {label}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* STEP 1: IDENTITÉ */}
+        {step === 1 && (
+          <div className="space-y-6">
+            <h3 className="text-base font-bold text-white">1. Identité de la Chaîne</h3>
+            <div>
+              <label className="block text-xs font-bold text-slate-300 mb-2">Nom de la chaîne YouTube</label>
+              <input
+                value={form.name}
+                onChange={e => setForm({ ...form, name: e.target.value })}
+                placeholder="Ex : Lofi pour réviser"
+                className="w-full bg-[var(--bg-input)] border border-[var(--border)] rounded-xl px-3 py-2.5 text-sm text-white focus:border-[#00c2ff] outline-none"
+              />
+            </div>
+          </div>
+        )}
+
+        {/* STEP 2: STYLE & MUSIQUE */}
+        {step === 2 && (
+          <div className="space-y-6">
+            <h3 className="text-base font-bold text-white">2. Style & Musique</h3>
+            <div>
+              <label className="block text-xs font-bold text-slate-300 mb-2">Style musical</label>
+              <textarea
+                rows={3}
+                value={form.style_prompt}
+                onChange={e => setForm({ ...form, style_prompt: e.target.value })}
+                placeholder="Ex : lofi hip-hop mélancolique, piano doux, boucle de pluie en fond, tempo lent — pour étudier ou dormir"
+                className="w-full bg-[var(--bg-input)] border border-[var(--border)] rounded-xl px-3 py-2.5 text-xs text-white focus:border-[#00c2ff] outline-none resize-none"
+              />
+              <div className="flex items-center gap-3 mt-2">
+                <button
+                  type="button"
+                  onClick={generatePreview}
+                  disabled={previewing}
+                  className="px-4 py-2 rounded-xl bg-[var(--bg-surface-alt)] border border-[var(--border)] text-xs font-bold text-white hover:border-[#00c2ff]/60 transition-colors disabled:opacity-50 flex items-center gap-1.5"
+                >
+                  <span className={`material-symbols-outlined text-[15px] ${previewing ? 'animate-spin' : ''}`}>{previewing ? 'progress_activity' : 'music_note'}</span>
+                  {previewing ? 'Génération...' : 'Écouter un aperçu (gratuit)'}
+                </button>
+                {previewUrl && <audio controls src={previewUrl} className="h-9" />}
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-300 mb-2">Exemples de titres</label>
+              <textarea
+                rows={3}
+                value={form.title_examples}
+                onChange={e => setForm({ ...form, title_examples: e.target.value })}
+                placeholder={"Un titre par ligne\nEx :\nLofi pour réviser toute la nuit\nPluie douce et piano pour dormir"}
+                className="w-full bg-[var(--bg-input)] border border-[var(--border)] rounded-xl px-3 py-2.5 text-xs text-white focus:border-[#00c2ff] outline-none resize-none"
+              />
+            </div>
+          </div>
+        )}
+
+        {/* STEP 3: MONTAGE */}
+        {step === 3 && (
+          <div className="space-y-6">
+            <h3 className="text-base font-bold text-white">3. Montage</h3>
+            <div>
+              <label className="block text-xs font-bold text-slate-300 mb-2">Comment remplir la durée</label>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setForm({ ...form, edit_mode: 'loop' })}
+                  className={`p-3 rounded-xl border-2 text-left transition-colors ${form.edit_mode === 'loop' ? 'border-[#00c2ff] bg-[#00c2ff]/5' : 'border-[var(--border)] hover:border-slate-500'}`}
+                >
+                  <div className="text-xs font-bold text-white flex items-center gap-1.5"><span className="material-symbols-outlined text-[16px]">repeat</span> Boucle</div>
+                  <div className="text-[10px] text-slate-500 mt-0.5">Une seule musique répétée jusqu'à la durée voulue.</div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setForm({ ...form, edit_mode: 'compilation' })}
+                  className={`p-3 rounded-xl border-2 text-left transition-colors ${form.edit_mode === 'compilation' ? 'border-[#00c2ff] bg-[#00c2ff]/5' : 'border-[var(--border)] hover:border-slate-500'}`}
+                >
+                  <div className="text-xs font-bold text-white flex items-center gap-1.5"><span className="material-symbols-outlined text-[16px]">queue_music</span> Compilation</div>
+                  <div className="text-[10px] text-slate-500 mt-0.5">Plusieurs musiques enchaînées pour les vidéos longues.</div>
+                </button>
+              </div>
+              <p className="text-[10px] text-slate-500 mt-1.5 px-1">
+                {form.edit_mode === 'loop'
+                  ? "Une piste générée sera répétée en boucle jusqu'à atteindre la durée cible."
+                  : "Plusieurs pistes seront générées et enchaînées pour atteindre la durée cible."}
+              </p>
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-300 mb-2">Images illustratives</label>
+              <div className="flex items-center gap-2 bg-[var(--bg-input)] border border-[var(--border-subtle)] rounded-xl px-3 py-2.5">
+                <span className="material-symbols-outlined text-[16px] text-slate-500 shrink-0">image</span>
+                <span className="text-[11px] text-slate-400 flex-1">Nombre d'images (0 = aucune, juste le spectre audio)</span>
+                {[0, 1, 2, 3].map(n => (
+                  <button
+                    key={n}
+                    type="button"
+                    onClick={() => setForm({ ...form, image_count: n })}
+                    className={`w-7 h-7 rounded-lg text-xs font-bold border transition-colors ${form.image_count === n ? 'bg-[#00c2ff] text-slate-950 border-[#00c2ff]' : 'bg-[var(--bg-surface-alt)] text-slate-300 border-[var(--border)] hover:border-slate-500'}`}
+                  >
+                    {n}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-300 mb-2">Durée cible</label>
+              <div className="flex items-center gap-2 bg-[var(--bg-input)] border border-[var(--border-subtle)] rounded-xl px-3 py-2.5">
+                <span className="material-symbols-outlined text-[16px] text-slate-500 shrink-0">schedule</span>
+                <span className="text-[11px] text-slate-400 flex-1">Minutes</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={180}
+                  value={form.target_duration_minutes}
+                  onChange={e => setForm({ ...form, target_duration_minutes: Math.max(1, Math.min(180, parseInt(e.target.value) || 1)) })}
+                  className="w-16 text-center bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-lg py-1 text-xs font-bold text-white focus:border-[#00c2ff] outline-none"
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* STEP 4: PUBLICATION */}
+        {step === 4 && (
+          <div className="space-y-6">
+            <h3 className="text-base font-bold text-white">4. Publication</h3>
+            <div>
+              <label className="block text-xs font-bold text-slate-300 mb-2">Mode de production</label>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setForm({ ...form, automation_mode: 'manual' })}
+                  className={`p-3 rounded-xl border-2 text-left transition-colors ${form.automation_mode === 'manual' ? 'border-[#00c2ff] bg-[#00c2ff]/5' : 'border-[var(--border)] hover:border-slate-500'}`}
+                >
+                  <div className="text-xs font-bold text-white flex items-center gap-1.5"><span className="material-symbols-outlined text-[16px]">touch_app</span> Manuel</div>
+                  <div className="text-[10px] text-slate-500 mt-0.5">Tu déclenches chaque vidéo toi-même.</div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setForm({ ...form, automation_mode: 'auto' })}
+                  className={`p-3 rounded-xl border-2 text-left transition-colors ${form.automation_mode === 'auto' ? 'border-[#00c2ff] bg-[#00c2ff]/5' : 'border-[var(--border)] hover:border-slate-500'}`}
+                >
+                  <div className="text-xs font-bold text-white flex items-center gap-1.5"><span className="material-symbols-outlined text-[16px]">auto_awesome</span> Automatique</div>
+                  <div className="text-[10px] text-slate-500 mt-0.5">L'IA génère seule, chaque jour.</div>
+                </button>
+              </div>
+              <p className="text-[10px] text-amber-400/80 mt-2 px-1 flex items-center gap-1">
+                <span className="material-symbols-outlined text-[13px]">construction</span>
+                La génération automatique de vidéos musicales arrive bientôt — configure ta chaîne dès maintenant, la production démarrera dès que ce sera prêt.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Footer navigation */}
+        <div className="flex flex-wrap justify-between items-center gap-3 pt-6 border-t border-[var(--border-soft)]">
+          {step > 1 ? (
             <button
-              key={n}
-              type="button"
-              onClick={() => setForm({ ...form, image_count: n })}
-              className={`w-7 h-7 rounded-lg text-xs font-bold border transition-colors ${form.image_count === n ? 'bg-[#00c2ff] text-slate-950 border-[#00c2ff]' : 'bg-[var(--bg-surface-alt)] text-slate-300 border-[var(--border)] hover:border-slate-500'}`}
+              onClick={() => setStep(step - 1)}
+              className="px-6 py-2.5 rounded-xl bg-[var(--bg-surface-alt)] text-white font-bold text-xs hover:bg-[var(--border-soft)] transition-colors"
             >
-              {n}
+              Retour
             </button>
-          ))}
-        </div>
-        <div className="flex items-center gap-2 bg-[var(--bg-input)] border border-[var(--border-subtle)] rounded-xl px-3 py-2.5">
-          <span className="material-symbols-outlined text-[16px] text-slate-500 shrink-0">schedule</span>
-          <span className="text-[11px] text-slate-400 flex-1">Durée cible (minutes)</span>
-          <input
-            type="number"
-            min={1}
-            max={180}
-            value={form.target_duration_minutes}
-            onChange={e => setForm({ ...form, target_duration_minutes: Math.max(1, Math.min(180, parseInt(e.target.value) || 1)) })}
-            className="w-16 text-center bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-lg py-1 text-xs font-bold text-white focus:border-[#00c2ff] outline-none"
-          />
-        </div>
-        <p className="text-[10px] text-slate-500 mt-1.5 px-1">
-          {form.edit_mode === 'loop'
-            ? "Une piste générée sera répétée en boucle jusqu'à atteindre la durée cible."
-            : "Plusieurs pistes seront générées et enchaînées pour atteindre la durée cible."}
-        </p>
-      </div>
+          ) : <div></div>}
 
-      <div>
-        <label className="block text-xs font-bold text-slate-300 mb-2">Mode de production</label>
-        <div className="grid grid-cols-2 gap-2">
-          <button
-            type="button"
-            onClick={() => setForm({ ...form, automation_mode: 'manual' })}
-            className={`p-3 rounded-xl border-2 text-left transition-colors ${form.automation_mode === 'manual' ? 'border-[#00c2ff] bg-[#00c2ff]/5' : 'border-[var(--border)] hover:border-slate-500'}`}
-          >
-            <div className="text-xs font-bold text-white flex items-center gap-1.5"><span className="material-symbols-outlined text-[16px]">touch_app</span> Manuel</div>
-            <div className="text-[10px] text-slate-500 mt-0.5">Tu déclenches chaque vidéo toi-même.</div>
-          </button>
-          <button
-            type="button"
-            onClick={() => setForm({ ...form, automation_mode: 'auto' })}
-            className={`p-3 rounded-xl border-2 text-left transition-colors ${form.automation_mode === 'auto' ? 'border-[#00c2ff] bg-[#00c2ff]/5' : 'border-[var(--border)] hover:border-slate-500'}`}
-          >
-            <div className="text-xs font-bold text-white flex items-center gap-1.5"><span className="material-symbols-outlined text-[16px]">auto_awesome</span> Automatique</div>
-            <div className="text-[10px] text-slate-500 mt-0.5">L'IA génère seule, chaque jour.</div>
-          </button>
+          {step < MUSIC_WIZARD_STEPS.length ? (
+            <button
+              onClick={goNext}
+              className="px-6 py-2.5 rounded-xl bg-[#00c2ff] text-slate-950 font-bold text-xs hover:bg-[#38d0ff] transition-all flex items-center gap-2 shadow-md"
+            >
+              Suivant
+              <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
+            </button>
+          ) : (
+            <button
+              onClick={createChannel}
+              disabled={creating}
+              className="px-8 py-3 rounded-xl bg-emerald-500 text-slate-950 font-bold text-xs hover:bg-emerald-400 transition-all flex items-center gap-2 shadow-lg shadow-emerald-500/20 disabled:opacity-50"
+            >
+              <span className="material-symbols-outlined text-[18px]">check</span>
+              {creating ? 'Création...' : 'Créer la chaîne musicale'}
+            </button>
+          )}
         </div>
-        <p className="text-[10px] text-amber-400/80 mt-2 px-1 flex items-center gap-1">
-          <span className="material-symbols-outlined text-[13px]">construction</span>
-          La génération automatique de vidéos musicales arrive bientôt — configure ta chaîne dès maintenant, la production démarrera dès que ce sera prêt.
-        </p>
       </div>
-
-      <button
-        type="button"
-        onClick={createChannel}
-        disabled={creating}
-        className="w-full py-3 rounded-xl bg-gradient-to-r from-[#65e0ff] to-[#1a9cff] text-[var(--bg-deep)] font-extrabold text-sm disabled:opacity-50"
-      >
-        {creating ? 'Création...' : 'Créer la chaîne musicale'}
-      </button>
     </div>
   );
 }
