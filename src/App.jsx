@@ -4552,6 +4552,11 @@ export default function App() {
     setOpenChannelMenuId(null);
     setWizardMode('edit');
     setEditingChannelId(channel.id);
+    // Without this, wizardContentType kept whatever it was last set to (e.g.
+    // 'music' from a previous "Vidéo Musicale" creation) — editing an
+    // unrelated narration channel right after would wrongly render
+    // MusicChannelWizard instead of the actual narration edit flow.
+    setWizardContentType(channel.content_type === 'music' ? 'music' : 'narration');
     setNewChannel({
       // A connected channel's real identity lives on youtube_channel_title —
       // channel.name should already mirror it (set on connect / periodic sync),
@@ -6875,8 +6880,8 @@ export default function App() {
                           // "Nouvelle chaîne" (same shell, sidebar, header) with a
                           // different pipeline — not a separate bolted-on screen. Avatar
                           // has no wizard yet, so it still falls back to its placeholder.
-                          if (p.id === 'music') { openCreateWizard('music'); return; }
                           setActiveProduct(p.id);
+                          if (p.id === 'music') { openCreateWizard('music'); return; }
                           setView('home');
                         }}
                         className="w-full text-left px-3.5 py-2.5 text-xs font-medium flex items-center gap-2.5 hover:bg-[var(--bg-hover)] transition-colors"
