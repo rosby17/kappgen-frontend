@@ -5156,9 +5156,14 @@ export default function App() {
 
     try {
       setLoading(true);
+      // Explicit timeout: without one, a stalled connection or an
+      // unresponsive session left the button reading "Lancement..."
+      // forever with no error ever shown — indistinguishable, from the
+      // creator's side, from the click having done nothing at all.
       const res = await authFetch(`${API_BASE}/videos`, {
         method: 'POST',
-        body: formData
+        body: formData,
+        timeoutMs: 30000,
       });
       if (res.ok) {
         setSingleScriptText('');
@@ -5168,12 +5173,19 @@ export default function App() {
         fetchChannels();
         fetchAllVideos();
         showToast("C’est lancé. Tu peux quitter cet écran, KappGen reste au travail.", "success");
+      } else if (res.status === 401) {
+        showToast("Ta session a expiré — reconnecte-toi puis relance la vidéo.", "error");
       } else {
-        const err = await res.json();
+        const err = await res.json().catch(() => ({}));
         showToast(err.detail || "Erreur lors de l'envoi.", "error");
       }
     } catch (e) {
-      showToast("Erreur réseau: " + e.message, "error");
+      showToast(
+        e.name === 'AbortError'
+          ? "La connexion au serveur a expiré. Vérifie ta connexion et réessaie."
+          : "Erreur réseau: " + e.message,
+        "error"
+      );
     } finally {
       setLoading(false);
     }
