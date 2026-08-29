@@ -3197,7 +3197,14 @@ export default function App() {
     },
     image_style: {
       source: 'library',
-      style_prompt: 'cinematic dramatic lighting, high detail, stoic sculpture style, dark moody atmosphere',
+      // Left empty on purpose: this used to default to a "stoic sculpture
+      // style" prompt (leftover from the Philosophie & Stoïcisme example
+      // channel) which every new channel silently inherited regardless of
+      // its actual niche, since picking a niche never touches this field —
+      // producing off-topic imagery (e.g. philosophy-style visuals on a
+      // health or religion channel) unless the creator happened to notice
+      // and clear it manually.
+      style_prompt: '',
       library_path: '',
       library_image_count: 0
     },
@@ -8827,7 +8834,7 @@ export default function App() {
 
                           <div>
                             <div className="flex items-center justify-between mb-1">
-                              <label className="block text-[10px] font-bold text-slate-300">Décris le style visuel que tu veux</label>
+                              <label className="block text-[10px] font-bold text-slate-300">Décris le style visuel et le sujet des images (ex: médecins, hôpital, plantes médicinales pour une chaîne santé)</label>
                               <div onClick={(e) => e.stopPropagation()}>
                                 <input
                                   ref={styleReferenceInputRef}
@@ -8843,16 +8850,19 @@ export default function App() {
                                   className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold bg-[#00c2ff]/10 text-[#00c2ff] hover:bg-[#00c2ff]/20 transition-colors disabled:opacity-50"
                                 >
                                   <span className="material-symbols-outlined text-[13px]">{styleAnalyzing ? 'hourglass_top' : 'image_search'}</span>
-                                  {styleAnalyzing ? 'Analyse...' : "Analyser une image de référence"}
+                                  {styleAnalyzing ? 'Analyse...' : "Envoyer une image d'inspiration"}
                                 </button>
                               </div>
                             </div>
+                            <p className="text-[10px] text-slate-500 mb-1.5">
+                              Envoie une photo qui ressemble à ce que tu veux voir dans tes vidéos — l'IA en retiendra à la fois le style visuel et le sujet (personnages, décors) pour rester dans ta niche.
+                            </p>
                             <textarea
                               rows="2"
                               value={newChannel.image_style.style_prompt}
                               onChange={e => setNewChannel({ ...newChannel, image_style: { ...newChannel.image_style, style_prompt: e.target.value } })}
                               className="w-full bg-[var(--bg-input-alt)] border border-[var(--border)] rounded-xl p-2.5 text-[11px] text-white focus:border-[#00c2ff] outline-none placeholder-slate-500"
-                              placeholder="Ex: cinematic lighting, stoic sculpture style, dark moody atmosphere..."
+                              placeholder="Ex: médecins en blouse blanche, hôpital moderne, éclairage clinique rassurant..."
                             />
                             <div className="flex flex-wrap gap-1.5 mt-2">
                               {[
