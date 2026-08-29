@@ -6196,14 +6196,14 @@ export default function App() {
   const startEditingTitle = (vid, e) => {
     if (e) e.stopPropagation();
     setOpenVideoMenuId(null);
-    setEditingTitleValue(vid.script_text || "");
+    setEditingTitleValue(vid.title || vid.script_text || "");
     setEditingTitleId(vid.id);
   };
 
   const commitTitleEdit = async (vid) => {
     const trimmed = editingTitleValue.trim();
     setEditingTitleId(null);
-    if (!trimmed || trimmed === vid.script_text) return;
+    if (!trimmed || trimmed === (vid.title || vid.script_text)) return;
     try {
       const res = await authFetch(`${API_BASE}/videos/${vid.id}`, {
         method: 'PATCH',
