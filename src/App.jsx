@@ -2832,6 +2832,27 @@ export default function App() {
   const [showScriptStructureModal, setShowScriptStructureModal] = useState(false);
   const [scriptStructurePasteText, setScriptStructurePasteText] = useState('');
   const [scriptStructureAnalyzing, setScriptStructureAnalyzing] = useState(false);
+  const [topicExamplesCleaning, setTopicExamplesCleaning] = useState(false);
+  const cleanTopicExamples = async () => {
+    const raw = (newChannel.topic_examples || '').trim();
+    if (!raw) return;
+    setTopicExamplesCleaning(true);
+    try {
+      const res = await authFetch(`${API_BASE}/channels/clean-topic-examples`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: raw }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.detail || "Le nettoyage a échoué.");
+      setNewChannel(prev => ({ ...prev, topic_examples: body.text }));
+      showToast("Titres extraits — vues, dates et bruit ont été retirés.", "success");
+    } catch (e) {
+      showToast(e.message, 'error');
+    } finally {
+      setTopicExamplesCleaning(false);
+    }
+  };
   const [scriptStructureAnalyzeError, setScriptStructureAnalyzeError] = useState('');
   const [languageSearch, setLanguageSearch] = useState('');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -8874,7 +8895,21 @@ export default function App() {
 
                     {newChannel.automation_mode === 'auto' && (
                       <div>
-                        <label className="block text-xs font-bold text-slate-300 mb-1.5">Exemples de sujets / titres</label>
+                        <div className="flex items-center justify-between mb-1.5">
+                          <label className="block text-xs font-bold text-slate-300">Exemples de sujets / titres</label>
+                          {(newChannel.topic_examples || '').trim() && (
+                            <button
+                              type="button"
+                              onClick={cleanTopicExamples}
+                              disabled={topicExamplesCleaning}
+                              title="Si tu as collé une page entière (vues, dates, etc.) au lieu d'une liste propre, l'IA en extrait juste les titres."
+                              className="text-[10px] font-bold text-[#00c2ff] hover:text-[#38d0ff] underline decoration-dotted underline-offset-2 disabled:opacity-50 flex items-center gap-1"
+                            >
+                              <span className={`material-symbols-outlined text-[13px] ${topicExamplesCleaning ? 'animate-spin' : ''}`}>{topicExamplesCleaning ? 'progress_activity' : 'auto_fix_high'}</span>
+                              {topicExamplesCleaning ? 'Nettoyage…' : 'Nettoyer avec l\'IA'}
+                            </button>
+                          )}
+                        </div>
                         <textarea
                           value={newChannel.topic_examples || ''}
                           onChange={e => setNewChannel({ ...newChannel, topic_examples: e.target.value })}
@@ -8882,7 +8917,7 @@ export default function App() {
                           rows={4}
                           className="w-full bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-3 py-2.5 text-xs text-white focus:border-[#00c2ff] outline-none resize-none"
                         />
-                        <p className="text-[10px] text-slate-500 mt-1.5 px-1">Sans ça, le choix des sujets reste générique. Avec des exemples, l'IA colle au style et à l'angle qui marchent déjà pour toi.</p>
+                        <p className="text-[10px] text-slate-500 mt-1.5 px-1">Sans ça, le choix des sujets reste générique. Avec des exemples, l'IA colle au style et à l'angle qui marchent déjà pour toi. Tu peux coller directement une page de chaîne concurrente en vrac — clique "Nettoyer avec l'IA" pour n'en garder que les titres.</p>
                       </div>
                     )}
 
