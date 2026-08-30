@@ -1,4 +1,4 @@
-import { StrictMode } from 'react'
+import { Component, StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import * as Sentry from '@sentry/react'
@@ -34,10 +34,48 @@ const appSurface = isAppHostname || isLocalAppPath
 const path = window.location.pathname.replace(/\/+$/, '') || '/'
 const legalType = !appSurface && path === '/privacy' ? 'privacy' : !appSurface && path === '/terms' ? 'terms' : null
 
+class AppErrorBoundary extends Component {
+  constructor(props) {
+    super(props)
+    this.state = { error: null }
+  }
+
+  static getDerivedStateFromError(error) {
+    return { error }
+  }
+
+  componentDidCatch(error, info) {
+    Sentry.captureException(error, { extra: { componentStack: info.componentStack } })
+  }
+
+  render() {
+    if (!this.state.error) return this.props.children
+
+    return (
+      <main className="min-h-screen bg-[#131313] text-white flex items-center justify-center p-6">
+        <section className="w-full max-w-md rounded-2xl border border-slate-700 bg-slate-900 p-6 text-center shadow-2xl">
+          <span className="material-symbols-outlined text-4xl text-amber-400">error</span>
+          <h1 className="mt-3 text-xl font-bold">Cette page a rencontré un problème</h1>
+          <p className="mt-2 text-sm text-slate-400">Recharge la page pour reprendre là où tu en étais.</p>
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="mt-5 rounded-xl bg-[#00c2ff] px-5 py-2.5 text-sm font-bold text-slate-950 hover:bg-[#59d8ff]"
+          >
+            Recharger la page
+          </button>
+        </section>
+      </main>
+    )
+  }
+}
+
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <BrowserRouter basename={isLocalAppPath ? '/app' : undefined}>
-      {legalType ? <LegalPage type={legalType} /> : appSurface ? <App /> : <LandingPage />}
-    </BrowserRouter>
+    <AppErrorBoundary>
+      <BrowserRouter basename={isLocalAppPath ? '/app' : undefined}>
+        {legalType ? <LegalPage type={legalType} /> : appSurface ? <App /> : <LandingPage />}
+      </BrowserRouter>
+    </AppErrorBoundary>
   </StrictMode>,
 )

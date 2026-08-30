@@ -5246,6 +5246,15 @@ export default function App() {
     return "/assets/logo/logo-kappgen.png";
   };
 
+  // Shared by the identity/branding steps of the wizard. This used to be
+  // declared only inside the final recap step, while step 1 also referenced
+  // it. Opening an existing channel on step 1 therefore threw a ReferenceError
+  // and React unmounted the whole app, leaving only the page's black backdrop.
+  const resolvedLogoUrl = logoPreviewUrl
+    || (wizardMode === 'edit' && editingChannel && getChannelLogoUrl(editingChannel) !== "/assets/logo/logo-kappgen.png"
+      ? getChannelLogoUrl(editingChannel)
+      : null);
+
   const getChannelStatusInfo = (channel) => {
     const rendering = channel.rendering_count || 0;
     const queued = channel.queued_count || 0;
@@ -11124,12 +11133,6 @@ export default function App() {
                   const stepHasVignette = stepOverlayEffects.includes('vignette');
                   const stepGrainIntensity = (newChannel.effects_config.grain_intensity ?? 50) / 100;
                   const stepVignetteIntensity = (newChannel.effects_config.vignette_intensity ?? 50) / 100;
-                  // editingChannel (freshly derived from the `channels` list on every
-                  // render) rather than activeChannel — the latter is only set once a
-                  // channel's own detail page has been opened, so editing straight from
-                  // the channel grid left this avatar stuck on the placeholder even
-                  // though the channel's real YouTube photo was already known.
-                  const resolvedLogoUrl = logoPreviewUrl || (wizardMode === 'edit' && editingChannel && getChannelLogoUrl(editingChannel) !== "/assets/logo/logo-kappgen.png" ? getChannelLogoUrl(editingChannel) : null);
                   const musicLabel = musicFiles[0]?.name
                     || newChannel.music_preference?.tracks?.[0]?.split('/').pop()?.replace(/^[0-9a-f]{8}_/, '')
                     || (newChannel.music_preference?.mode === 'ai_generate' ? 'Musique générée par IA' : null);
