@@ -4604,19 +4604,42 @@ export default function App() {
       // Poll for the real video to actually show up instead of the one-shot
       // refresh that used to run here (nothing new exists yet at that point,
       // since generation hasn't finished) — every 5s for up to 3min, which
-      // comfortably covers a multi-part script write.
+      // comfortably covers a multi-part script write. The video row now
+      // appears within a second or two of the click (topic/script writing
+      // are tracked stages themselves), so this poll usually finds it on
+      // the very first tick.
+      //
+      // Once found, its LIVE fields are merged into the placeholder IN
+      // PLACE (same client-only id) instead of swapping the card for the
+      // real one outright — swapping changes the React key, which forces
+      // an unmount/remount of the card (and replays its mount-in
+      // animation), reading as a visible blank flash right as generation
+      // was clearly progressing. The real id only takes over at the next
+      // ordinary background refresh elsewhere in the app, by which point
+      // there's no animation tied to that transition.
       let attempts = 0;
       const maxAttempts = 36;
+      let matchedRealId = null;
       const poll = async () => {
         attempts += 1;
         const res2 = await authFetch(`${API_BASE}/videos/channel/${channel.id}`).catch(() => null);
         if (res2 && res2.ok) {
           const data = await res2.json();
-          const nowCount = data.filter(v => v.channel_id === channel.id).length;
-          if (nowCount > countBefore) {
-            setChannelVideos(data);
-            fetchAllVideos();
-            stopPending();
+          const real = matchedRealId
+            ? data.find(v => v.id === matchedRealId)
+            : data.find(v => v.channel_id === channel.id && !allVideos.some(existing => existing.id === v.id && !existing._pending));
+          if (real) {
+            matchedRealId = real.id;
+            const merged = { ...real, id: placeholderId, _pending: true };
+            setAllVideos(prev => prev.map(v => v.id === placeholderId ? merged : v));
+            setChannelVideos(prev => prev.map(v => v.id === placeholderId ? merged : v));
+            if (real.status === 'done' || real.status === 'failed') {
+              fetchChannelVideos(channel.id);
+              fetchAllVideos();
+              stopPending();
+              return;
+            }
+            setTimeout(poll, 5000);
             return;
           }
         }
