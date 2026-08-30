@@ -5362,6 +5362,15 @@ export default function App() {
   const [adminLibraryNicheFilter, setAdminLibraryNicheFilter] = useState('');
   const [adminLibraryExpandedId, setAdminLibraryExpandedId] = useState(null);
   const [adminLibraryImages, setAdminLibraryImages] = useState([]);
+  const [adminLibraryImageTotal, setAdminLibraryImageTotal] = useState(0);
+  const [adminLibraryImagesHasMore, setAdminLibraryImagesHasMore] = useState(false);
+  const [adminLibraryImagesLoadingMore, setAdminLibraryImagesLoadingMore] = useState(false);
+  const [adminLibraryGridColumns, setAdminLibraryGridColumns] = useState(8);
+  const [adminLibraryLightboxIndex, setAdminLibraryLightboxIndex] = useState(null);
+  const [adminLibraryLightboxZoom, setAdminLibraryLightboxZoom] = useState(1);
+  const [adminLibraryMoveFolder, setAdminLibraryMoveFolder] = useState(null);
+  const [adminLibraryMoveNiche, setAdminLibraryMoveNiche] = useState('');
+  const [adminLibraryMoveBusy, setAdminLibraryMoveBusy] = useState(false);
   // Full oversight view — every known niche always listed (even empty), every
   // user's channel library inside it regardless of whether they opted into
   // community sharing (see admin.py's /community-library/overview), plus a
@@ -5593,11 +5602,63 @@ export default function App() {
     }
     setAdminLibraryExpandedId(channelId);
     setAdminLibraryImages([]);
+    setAdminLibraryImageTotal(0);
+    setAdminLibraryImagesHasMore(false);
     try {
-      const res = await authFetch(`${API_BASE}/admin/channel-library/${channelId}/images`);
-      if (res.ok) setAdminLibraryImages((await res.json()).filenames || []);
+      const res = await authFetch(`${API_BASE}/admin/channel-library/${channelId}/images?offset=0&limit=60`);
+      if (res.ok) {
+        const data = await res.json();
+        setAdminLibraryImages(data.filenames || []);
+        setAdminLibraryImageTotal(data.total || 0);
+        setAdminLibraryImagesHasMore(!!data.has_more);
+      }
     } catch (err) {
       console.error("Erreur chargement aperçu dossier:", err);
+    }
+  };
+
+  const loadMoreAdminLibraryImages = async (channelId) => {
+    if (adminLibraryImagesLoadingMore || !adminLibraryImagesHasMore) return;
+    setAdminLibraryImagesLoadingMore(true);
+    try {
+      const res = await authFetch(`${API_BASE}/admin/channel-library/${channelId}/images?offset=${adminLibraryImages.length}&limit=60`);
+      if (!res.ok) throw new Error("Chargement impossible.");
+      const data = await res.json();
+      setAdminLibraryImages(prev => [...prev, ...(data.filenames || [])]);
+      setAdminLibraryImageTotal(data.total || 0);
+      setAdminLibraryImagesHasMore(!!data.has_more);
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setAdminLibraryImagesLoadingMore(false);
+    }
+  };
+
+  const openAdminLibraryMove = (folder, currentNiche) => {
+    setAdminLibraryMoveFolder(folder);
+    setAdminLibraryMoveNiche(currentNiche || '');
+  };
+
+  const moveAdminLibraryFolder = async () => {
+    if (!adminLibraryMoveFolder || !adminLibraryMoveNiche) return;
+    setAdminLibraryMoveBusy(true);
+    try {
+      const res = await authFetch(`${API_BASE}/admin/channel-library/${adminLibraryMoveFolder.channel_id}/niche`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ niche: adminLibraryMoveNiche }),
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || "Déplacement impossible.");
+      const folderName = adminLibraryMoveFolder.channel_name;
+      setAdminLibraryMoveFolder(null);
+      setAdminLibraryDrillNiche(adminLibraryMoveNiche);
+      setAdminLibraryDrillUserKey(null);
+      await fetchAdminLibraryOverview();
+      showToast(`« ${folderName} » a été classé dans ${adminLibraryMoveNiche}. Son nom et ses fichiers n'ont pas changé.`, 'success');
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setAdminLibraryMoveBusy(false);
     }
   };
 
@@ -7164,8 +7225,8 @@ export default function App() {
                       : 'text-slate-300 hover:bg-[var(--bg-dropdown)] hover:text-white'
                   }`}
                 >
-                  <span className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: adminTab === t.id ? "'FILL' 1" : "'FILL' 0" }}>{t.icon}</span>
-                  {!sidebarCollapsed && t.label}
+                  <span className="material-symbols-outlined w-5 shrink-0 text-center text-[20px]" style={{ fontVariationSettings: adminTab === t.id ? "'FILL' 1" : "'FILL' 0" }}>{t.icon}</span>
+                  {!sidebarCollapsed && <span className="min-w-0 flex-1 text-left leading-tight">{t.label}</span>}
                 </button>
               ))}
             </div>
@@ -12118,6 +12179,13 @@ export default function App() {
               // based on whether a CommunityLibraryFolder already exists.
               const FolderActions = ({ uf, sharedFolder }) => (
                 <div className="flex items-center gap-2.5 shrink-0 flex-wrap" onClick={e => e.stopPropagation()}>
+                  <button
+                    onClick={() => openAdminLibraryMove(uf, niche.niche)}
+                    className="inline-flex items-center gap-1 text-[#00c2ff] font-bold text-[11px] hover:underline"
+                  >
+                    <span className="material-symbols-outlined text-[14px]">drive_file_move</span>
+                    Déplacer vers…
+                  </button>
                   {sharedFolder ? (
                     <>
                       {uf.share_status !== 'approved' && (
@@ -12181,13 +12249,33 @@ export default function App() {
                             {adminLibraryImages.length === 0 ? (
                               <p className="text-slate-500 text-[11px]">Chargement de l'aperçu…</p>
                             ) : (
-                              <div className="grid grid-cols-6 sm:grid-cols-8 gap-2">
-                                {adminLibraryImages.map(name => (
-                                  <div key={name} className="relative group">
+                              <div className="space-y-3">
+                                <div className="sticky top-2 z-10 flex items-center gap-3 flex-wrap bg-[var(--bg-surface)]/95 backdrop-blur border border-[var(--border)] rounded-xl px-3 py-2 shadow-lg">
+                                  <span className="text-[11px] font-bold text-white">{adminLibraryImageTotal.toLocaleString('fr-FR')} images</span>
+                                  <label className="ml-auto flex items-center gap-2 text-[10px] text-slate-400">
+                                    Taille
+                                    <input
+                                      type="range"
+                                      min="3"
+                                      max="10"
+                                      value={adminLibraryGridColumns}
+                                      onChange={e => setAdminLibraryGridColumns(Number(e.target.value))}
+                                      className="w-24 accent-[#00c2ff]"
+                                    />
+                                  </label>
+                                  <span className="text-[10px] text-slate-500">Clique une image pour l'agrandir</span>
+                                </div>
+                                <div
+                                  className="grid gap-2"
+                                  style={{ gridTemplateColumns: `repeat(${adminLibraryGridColumns}, minmax(0, 1fr))` }}
+                                >
+                                {adminLibraryImages.map((name, imageIndex) => (
+                                  <div key={name} className="relative group min-w-0">
                                     <img
                                       src={`${API_BASE}/admin/channel-library/${uf.channel_id}/images/${encodeURIComponent(name)}`}
-                                      alt=""
-                                      className="w-full aspect-video object-cover rounded-lg border border-[var(--border)]"
+                                      alt={name}
+                                      onClick={() => { setAdminLibraryLightboxIndex(imageIndex); setAdminLibraryLightboxZoom(1); }}
+                                      className="w-full aspect-video object-cover rounded-lg border border-[var(--border)] hover:border-[#00c2ff] cursor-zoom-in transition-colors"
                                       loading="lazy"
                                     />
                                     <button
@@ -12200,6 +12288,20 @@ export default function App() {
                                     </button>
                                   </div>
                                 ))}
+                                </div>
+                                {adminLibraryImagesHasMore && (
+                                  <button
+                                    type="button"
+                                    onClick={() => loadMoreAdminLibraryImages(uf.channel_id)}
+                                    disabled={adminLibraryImagesLoadingMore}
+                                    className="mx-auto flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[var(--bg-surface-alt)] border border-[var(--border)] text-xs font-bold text-white hover:border-[#00c2ff]/60 disabled:opacity-50"
+                                  >
+                                    <span className={`material-symbols-outlined text-[16px] ${adminLibraryImagesLoadingMore ? 'animate-spin' : ''}`}>
+                                      {adminLibraryImagesLoadingMore ? 'progress_activity' : 'expand_more'}
+                                    </span>
+                                    {adminLibraryImagesLoadingMore ? 'Chargement…' : `Afficher 60 images de plus (${adminLibraryImages.length} / ${adminLibraryImageTotal})`}
+                                  </button>
+                                )}
                               </div>
                             )}
                           </div>
