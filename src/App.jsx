@@ -8851,7 +8851,28 @@ export default function App() {
                     <div className="grid grid-cols-1 lg:grid-cols-[1fr_520px] gap-5 items-start">
                       <div className="space-y-4">
                         <div className="bg-[var(--bg-input)] border border-[var(--border-subtle)] rounded-xl p-4 space-y-2.5">
-                          <label className="block text-xs font-bold text-slate-300">Position, taille et forme du logo</label>
+                          <div className="flex items-center justify-between gap-3">
+                            <label className="block text-xs font-bold text-slate-300">Position, taille et forme du logo</label>
+                            {/* Removes the logo from the rendered video only — the channel's
+                                own identity (its logo image, used for its avatar across the
+                                app) is untouched, only branding.logo_enabled changes. Same
+                                on/off this section's checkbox in the step 9 "Calques" list
+                                already does, surfaced here too since that's where a creator
+                                configuring the logo would look for it first. */}
+                            <button
+                              type="button"
+                              onClick={() => setNewChannel({ ...newChannel, branding: { ...newChannel.branding, logo_enabled: !(newChannel.branding.logo_enabled ?? true) } })}
+                              title={(newChannel.branding.logo_enabled ?? true) ? "Retirer le logo de la vidéo (l'identité de la chaîne reste inchangée)" : "Remettre le logo sur la vidéo"}
+                              className={`shrink-0 flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-colors ${
+                                (newChannel.branding.logo_enabled ?? true)
+                                  ? 'bg-emerald-950/40 border-emerald-700/60 text-emerald-400 hover:bg-rose-950/40 hover:border-rose-700/60 hover:text-rose-400'
+                                  : 'bg-[var(--bg-surface-alt)] border-[var(--border)] text-slate-500 hover:border-slate-500'
+                              }`}
+                            >
+                              <span className="material-symbols-outlined text-[13px]">{(newChannel.branding.logo_enabled ?? true) ? 'close' : 'add'}</span>
+                              {(newChannel.branding.logo_enabled ?? true) ? 'Retirer de la vidéo' : 'Remettre sur la vidéo'}
+                            </button>
+                          </div>
                           <div className="flex items-start gap-4">
                             <div className="flex-shrink-0" title="Positions rapides">
                               <div className="flex items-center gap-1">
@@ -11325,6 +11346,31 @@ export default function App() {
                               />
                             )}
                           </div>
+
+                          {/* Extra sticker overlays (Abonne-toi, cloche, mascotte...) —
+                              same corner/size system as the logo, composited alongside
+                              it in the real render (see assembler.py's image_overlays
+                              list, which appends the logo then every branding.overlays
+                              item). This preview used to only ever draw the logo, so an
+                              incrustation added in step 1 was invisible here even though
+                              it was really being burned into the video. */}
+                          {(newChannel.branding.overlays || []).filter(o => o.enabled ?? true).map(ov => (
+                            <img
+                              key={ov.id}
+                              src={getVideoUrl(ov.image_path)}
+                              alt=""
+                              className="absolute object-contain drop-shadow-lg"
+                              style={{
+                                width: `${ov.size_percent || 12}%`,
+                                zIndex: zForLayer('logo'),
+                                ...overlayPositionStyle(
+                                  ov.x_percent ?? presetXY(ov.corner, ov.size_percent ?? 12).x,
+                                  ov.y_percent ?? presetXY(ov.corner, ov.size_percent ?? 12).y
+                                ),
+                                ...shapeClipStyle(ov.shape),
+                              }}
+                            />
+                          ))}
 
                           {/* Bottom-left music cue — informational only, not burned into the real render. */}
                           {isRecapChecked('music') && musicLabel && (
