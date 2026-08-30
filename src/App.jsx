@@ -7920,19 +7920,19 @@ export default function App() {
                                   </div>
                                 </div>
                               ) : vid.status === 'failed' ? (
-                                <button
-                                  onClick={(e) => { e.stopPropagation(); handleRetryVideo(vid.id); }}
-                                  title="Relancer"
-                                  className="w-full h-full p-4 text-center space-y-2 flex flex-col items-center justify-center group/retry cursor-pointer"
-                                >
-                                  <span className="material-symbols-outlined text-[48px] text-rose-400 group-hover/retry:scale-110 group-hover/retry:hidden transition-transform">warning</span>
-                                  <span className="material-symbols-outlined text-[48px] text-[#00c2ff] hidden group-hover/retry:block">refresh</span>
-                                  <div className="text-[11px] font-bold font-mono text-rose-300 group-hover/retry:hidden">Échec du rendu</div>
-                                  <div className="text-[11px] font-bold font-mono text-[#00c2ff] hidden group-hover/retry:block">Relancer</div>
-                                  <div className="text-[9px] text-rose-300/80 line-clamp-2 group-hover/retry:hidden" title={vid.error_message || ''}>
+                                <div className="w-full h-full px-4 py-5 text-center flex flex-col items-center justify-center gap-3">
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); handleRetryVideo(vid.id); }}
+                                    title="Relancer la génération"
+                                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#00c2ff] px-5 py-2.5 text-xs font-extrabold text-slate-950 shadow-lg shadow-[#00c2ff]/20 transition-all hover:bg-[#32ceff] hover:scale-[1.03] active:scale-95"
+                                  >
+                                    <span className="material-symbols-outlined text-[19px]">refresh</span>
+                                    Relancer
+                                  </button>
+                                  <div className="max-w-full text-[9px] leading-relaxed text-rose-300/80 line-clamp-2" title={vid.error_message || ''}>
                                     {(vid.error_message || 'Erreur inconnue').split('\n')[0]}
                                   </div>
-                                </button>
+                                </div>
                               ) : vid.status === 'done' ? (
                                 <div className="p-4 text-center space-y-2">
                                   <span className="material-symbols-outlined text-[36px] text-slate-500">inventory_2</span>
@@ -8494,19 +8494,19 @@ export default function App() {
                                 </div>
                               </div>
                             ) : vid.status === 'failed' ? (
-                              <button
-                                onClick={(e) => { e.stopPropagation(); handleRetryVideo(vid.id); }}
-                                title="Relancer"
-                                className="w-full h-full p-4 text-center space-y-2 flex flex-col items-center justify-center group/retry cursor-pointer"
-                              >
-                                <span className="material-symbols-outlined text-[48px] text-rose-400 group-hover/retry:scale-110 group-hover/retry:hidden transition-transform">warning</span>
-                                <span className="material-symbols-outlined text-[48px] text-[#00c2ff] hidden group-hover/retry:block">refresh</span>
-                                <div className="text-[11px] font-bold font-mono text-rose-300 group-hover/retry:hidden">Échec</div>
-                                <div className="text-[11px] font-bold font-mono text-[#00c2ff] hidden group-hover/retry:block">Relancer</div>
-                                <div className="text-[9px] text-rose-300/80 line-clamp-2 group-hover/retry:hidden" title={vid.error_message || ''}>
+                              <div className="w-full h-full px-4 py-5 text-center flex flex-col items-center justify-center gap-3">
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); handleRetryVideo(vid.id); }}
+                                  title="Relancer la génération"
+                                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#00c2ff] px-5 py-2.5 text-xs font-extrabold text-slate-950 shadow-lg shadow-[#00c2ff]/20 transition-all hover:bg-[#32ceff] hover:scale-[1.03] active:scale-95"
+                                >
+                                  <span className="material-symbols-outlined text-[19px]">refresh</span>
+                                  Relancer
+                                </button>
+                                <div className="max-w-full text-[9px] leading-relaxed text-rose-300/80 line-clamp-2" title={vid.error_message || ''}>
                                   {(vid.error_message || 'Erreur inconnue').split('\n')[0]}
                                 </div>
-                              </button>
+                              </div>
                             ) : vid.status === 'done' ? (
                               <div className="p-4 text-center space-y-2">
                                 <span className="material-symbols-outlined text-[36px] text-slate-500">inventory_2</span>
