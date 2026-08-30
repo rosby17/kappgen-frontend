@@ -1,10 +1,23 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
+import * as Sentry from '@sentry/react'
 import './index.css'
 import App from './App.jsx'
 import LandingPage from './LandingPage.jsx'
 import LegalPage from './LegalPage.jsx'
+
+// Self-hosted GlitchTip (Sentry-protocol-compatible) — no-ops entirely if
+// unset, so this is safe in any environment (local dev included).
+if (import.meta.env.VITE_SENTRY_DSN) {
+  Sentry.init({
+    dsn: import.meta.env.VITE_SENTRY_DSN,
+    // Error tracking only, not APM — no tracing/replay integrations, so this
+    // never adds runtime overhead beyond actually reporting a caught error.
+    integrations: [],
+    tracesSampleRate: 0,
+  })
+}
 
 const hostname = window.location.hostname.toLowerCase()
 const isAppHostname = hostname === 'app.kappgen.com' || hostname.startsWith('app.')
