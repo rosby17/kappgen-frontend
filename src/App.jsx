@@ -6000,9 +6000,15 @@ export default function App() {
       });
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || "Échec de l'opération.");
       const data = await res.json();
-      setAdminSelectedUser(prev => ({ ...prev, credit_balance: data.credit_balance }));
+      setAdminSelectedUser(prev => ({
+        ...prev,
+        credit_balance: data.credit_balance,
+        ...(data.subscription ? {
+          subscriptions: [data.subscription, ...(prev.subscriptions || [])],
+        } : {}),
+      }));
       setAdminCreditForm({ amount: '', note: '' });
-      showToast(direction === 'grant' ? 'Crédits ajoutés.' : 'Crédits retirés.', 'success');
+      showToast(direction === 'grant' ? 'Crédits ajoutés et abonnement activé.' : 'Crédits retirés.', 'success');
       fetchAdminData();
     } catch (err) {
       showToast(err.message, 'error');
@@ -6045,6 +6051,42 @@ export default function App() {
   };
 
   const [studioVideo, setStudioVideo] = useState(null);
+
+  useEffect(() => {
+    // Server-side source of truth for "Mes voix clonées" — VoiceCloneJob
+    // rows persist per-user regardless of browser/device, unlike the old
+    // localStorage-only tracking (nichecut_cloned_voice_ids), which made a
+    // creator's own cloned voices "disappear" the moment they opened the
+    // wizard from a different tab, browser, or after clearing site data,
+    // even though the channel using that voice_id kept generating fine the
+    // whole time (see /channels/voice/clone/mine in channels.py).
+    const inWizard = view === 'wizard';
+    if ((!showSubmitModal || submitMode !== 'text') && !inWizard && !studioVideo) return;
+    if (!currentUser) return;
+    authFetch(`${API_BASE}/channels/voice/clone/mine`)
+      .then(res => res.ok ? res.json() : Promise.reject())
+      .then(data => {
+        const serverVoices = data.voices || [];
+        if (!serverVoices.length) return;
+        const mapped = serverVoices.map(v => ({
+          id: v.id, name: v.name, desc: 'Voix personnelle clonée', cloned: true,
+          preview_url: v.preview_url ? `${API_BASE}${v.preview_url}` : null,
+        }));
+        setAvailableVoices(prev => {
+          const newOnes = mapped.filter(v => !prev.some(p => p.id === v.id));
+          const merged = newOnes.length ? [...newOnes, ...prev] : prev;
+          defaultVoicesRef.current = merged;
+          return merged;
+        });
+        mapped.forEach(cacheVoiceMeta);
+        setClonedVoiceIds(prev => {
+          const next = [...new Set([...mapped.map(v => v.id), ...prev])];
+          writeVoiceIdList(CLONED_VOICE_IDS_KEY, next);
+          return next;
+        });
+      })
+      .catch(() => {});
+  }, [showSubmitModal, submitMode, view, currentUser?.id, studioVideo?.id]);
 
   useEffect(() => {
     // Voice is a channel-level setting now — fetch the catalog whenever it's
@@ -7920,18 +7962,20 @@ export default function App() {
                                   </div>
                                 </div>
                               ) : vid.status === 'failed' ? (
-                                <div className="w-full h-full px-4 py-5 text-center flex flex-col items-center justify-center gap-3">
+                                <div className="w-full h-full px-4 py-3 text-center flex flex-col items-center justify-center gap-1.5">
+                                  <span className="material-symbols-outlined text-[38px] leading-none text-rose-400">warning</span>
+                                  <div className="text-[11px] font-extrabold text-rose-300">Échec</div>
+                                  <div className="max-w-full text-[9px] leading-relaxed text-rose-300/80 line-clamp-2" title={vid.error_message || ''}>
+                                    {(vid.error_message || 'Erreur inconnue').split('\n')[0]}
+                                  </div>
                                   <button
                                     onClick={(e) => { e.stopPropagation(); handleRetryVideo(vid.id); }}
                                     title="Relancer la génération"
-                                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#00c2ff] px-5 py-2.5 text-xs font-extrabold text-slate-950 shadow-lg shadow-[#00c2ff]/20 transition-all hover:bg-[#32ceff] hover:scale-[1.03] active:scale-95"
+                                    className="mt-0.5 inline-flex items-center justify-center gap-1.5 rounded-lg bg-[#00c2ff] px-4 py-1.5 text-[11px] font-extrabold text-slate-950 shadow-lg shadow-[#00c2ff]/20 transition-all hover:bg-[#32ceff] hover:scale-[1.03] active:scale-95"
                                   >
                                     <span className="material-symbols-outlined text-[19px]">refresh</span>
                                     Relancer
                                   </button>
-                                  <div className="max-w-full text-[9px] leading-relaxed text-rose-300/80 line-clamp-2" title={vid.error_message || ''}>
-                                    {(vid.error_message || 'Erreur inconnue').split('\n')[0]}
-                                  </div>
                                 </div>
                               ) : vid.status === 'done' ? (
                                 <div className="p-4 text-center space-y-2">
@@ -8494,18 +8538,20 @@ export default function App() {
                                 </div>
                               </div>
                             ) : vid.status === 'failed' ? (
-                              <div className="w-full h-full px-4 py-5 text-center flex flex-col items-center justify-center gap-3">
+                              <div className="w-full h-full px-4 py-3 text-center flex flex-col items-center justify-center gap-1.5">
+                                <span className="material-symbols-outlined text-[38px] leading-none text-rose-400">warning</span>
+                                <div className="text-[11px] font-extrabold text-rose-300">Échec</div>
+                                <div className="max-w-full text-[9px] leading-relaxed text-rose-300/80 line-clamp-2" title={vid.error_message || ''}>
+                                  {(vid.error_message || 'Erreur inconnue').split('\n')[0]}
+                                </div>
                                 <button
                                   onClick={(e) => { e.stopPropagation(); handleRetryVideo(vid.id); }}
                                   title="Relancer la génération"
-                                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#00c2ff] px-5 py-2.5 text-xs font-extrabold text-slate-950 shadow-lg shadow-[#00c2ff]/20 transition-all hover:bg-[#32ceff] hover:scale-[1.03] active:scale-95"
+                                  className="mt-0.5 inline-flex items-center justify-center gap-1.5 rounded-lg bg-[#00c2ff] px-4 py-1.5 text-[11px] font-extrabold text-slate-950 shadow-lg shadow-[#00c2ff]/20 transition-all hover:bg-[#32ceff] hover:scale-[1.03] active:scale-95"
                                 >
                                   <span className="material-symbols-outlined text-[19px]">refresh</span>
                                   Relancer
                                 </button>
-                                <div className="max-w-full text-[9px] leading-relaxed text-rose-300/80 line-clamp-2" title={vid.error_message || ''}>
-                                  {(vid.error_message || 'Erreur inconnue').split('\n')[0]}
-                                </div>
                               </div>
                             ) : vid.status === 'done' ? (
                               <div className="p-4 text-center space-y-2">
