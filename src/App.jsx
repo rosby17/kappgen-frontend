@@ -2832,27 +2832,6 @@ export default function App() {
   const [showScriptStructureModal, setShowScriptStructureModal] = useState(false);
   const [scriptStructurePasteText, setScriptStructurePasteText] = useState('');
   const [scriptStructureAnalyzing, setScriptStructureAnalyzing] = useState(false);
-  const [topicExamplesCleaning, setTopicExamplesCleaning] = useState(false);
-  const cleanTopicExamples = async () => {
-    const raw = (newChannel.topic_examples || '').trim();
-    if (!raw) return;
-    setTopicExamplesCleaning(true);
-    try {
-      const res = await authFetch(`${API_BASE}/channels/clean-topic-examples`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: raw }),
-      });
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(body.detail || "Le nettoyage a échoué.");
-      setNewChannel(prev => ({ ...prev, topic_examples: body.text }));
-      showToast("Titres extraits — vues, dates et bruit ont été retirés.", "success");
-    } catch (e) {
-      showToast(e.message, 'error');
-    } finally {
-      setTopicExamplesCleaning(false);
-    }
-  };
   const [scriptStructureAnalyzeError, setScriptStructureAnalyzeError] = useState('');
   const [languageSearch, setLanguageSearch] = useState('');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -7682,13 +7661,19 @@ export default function App() {
                                   </div>
                                 </div>
                               ) : vid.status === 'failed' ? (
-                                <div className="p-4 text-center space-y-2">
-                                  <span className="material-symbols-outlined text-[36px] text-rose-400">warning</span>
-                                  <div className="text-[11px] font-bold font-mono text-rose-300">Échec du rendu</div>
-                                  <div className="text-[9px] text-rose-300/80 line-clamp-2" title={vid.error_message || ''}>
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); handleRetryVideo(vid.id); }}
+                                  title="Relancer"
+                                  className="w-full h-full p-4 text-center space-y-2 flex flex-col items-center justify-center group/retry cursor-pointer"
+                                >
+                                  <span className="material-symbols-outlined text-[48px] text-rose-400 group-hover/retry:scale-110 group-hover/retry:hidden transition-transform">warning</span>
+                                  <span className="material-symbols-outlined text-[48px] text-[#00c2ff] hidden group-hover/retry:block">refresh</span>
+                                  <div className="text-[11px] font-bold font-mono text-rose-300 group-hover/retry:hidden">Échec du rendu</div>
+                                  <div className="text-[11px] font-bold font-mono text-[#00c2ff] hidden group-hover/retry:block">Relancer</div>
+                                  <div className="text-[9px] text-rose-300/80 line-clamp-2 group-hover/retry:hidden" title={vid.error_message || ''}>
                                     {(vid.error_message || 'Erreur inconnue').split('\n')[0]}
                                   </div>
-                                </div>
+                                </button>
                               ) : vid.status === 'done' ? (
                                 <div className="p-4 text-center space-y-2">
                                   <span className="material-symbols-outlined text-[36px] text-slate-500">inventory_2</span>
@@ -7859,17 +7844,6 @@ export default function App() {
                                 </p>
                               </div>
 
-                              {/* Card Action Buttons */}
-                              {vid.status === 'failed' && (
-                                <div className="pt-2 border-t border-[var(--border-subtle)] flex items-center gap-2">
-                                  <button
-                                    onClick={() => handleRetryVideo(vid.id)}
-                                    className="flex-1 py-1.5 bg-[var(--bg-dropdown)] text-white rounded-xl font-bold text-xs hover:bg-[var(--border)] transition-all flex items-center justify-center gap-1 border border-[var(--border)]"
-                                  >
-                                    <span className="material-symbols-outlined text-[16px]">refresh</span> Relancer
-                                  </button>
-                                </div>
-                              )}
                             </div>
                           </div>
                         );
@@ -8258,13 +8232,19 @@ export default function App() {
                                 </div>
                               </div>
                             ) : vid.status === 'failed' ? (
-                              <div className="p-4 text-center space-y-2">
-                                <span className="material-symbols-outlined text-[36px] text-rose-400">warning</span>
-                                <div className="text-[11px] font-bold font-mono text-rose-300">Échec</div>
-                                <div className="text-[9px] text-rose-300/80 line-clamp-2" title={vid.error_message || ''}>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); handleRetryVideo(vid.id); }}
+                                title="Relancer"
+                                className="w-full h-full p-4 text-center space-y-2 flex flex-col items-center justify-center group/retry cursor-pointer"
+                              >
+                                <span className="material-symbols-outlined text-[48px] text-rose-400 group-hover/retry:scale-110 group-hover/retry:hidden transition-transform">warning</span>
+                                <span className="material-symbols-outlined text-[48px] text-[#00c2ff] hidden group-hover/retry:block">refresh</span>
+                                <div className="text-[11px] font-bold font-mono text-rose-300 group-hover/retry:hidden">Échec</div>
+                                <div className="text-[11px] font-bold font-mono text-[#00c2ff] hidden group-hover/retry:block">Relancer</div>
+                                <div className="text-[9px] text-rose-300/80 line-clamp-2 group-hover/retry:hidden" title={vid.error_message || ''}>
                                   {(vid.error_message || 'Erreur inconnue').split('\n')[0]}
                                 </div>
-                              </div>
+                              </button>
                             ) : vid.status === 'done' ? (
                               <div className="p-4 text-center space-y-2">
                                 <span className="material-symbols-outlined text-[36px] text-slate-500">inventory_2</span>
@@ -8412,27 +8392,6 @@ export default function App() {
                               </p>
                             </div>
 
-                            {vid.status === 'failed' && (
-                              <div className="pt-2 border-t border-[var(--border-subtle)] flex items-center gap-2">
-                                <button
-                                  onClick={() => handleRetryVideo(vid.id)}
-                                  className="flex-1 py-1.5 bg-[var(--bg-dropdown)] text-white rounded-xl font-bold text-xs hover:bg-[var(--border)] transition-all flex items-center justify-center gap-1 border border-[var(--border)]"
-                                >
-                                  <span className="material-symbols-outlined text-[16px]">refresh</span> Relancer
-                                </button>
-                              </div>
-                            )}
-                            {vid.status === 'failed' && vid.error_message === SERVICE_UNAVAILABLE_MESSAGE && activeChannel?.automation_mode === 'auto' && (
-                              <div className="pt-2 flex items-center gap-2">
-                                <button
-                                  onClick={() => handleDisableChannelAutomation(activeChannel.id)}
-                                  className="flex-1 py-1.5 bg-amber-500/10 text-amber-300 border border-amber-500/30 rounded-xl font-bold text-xs hover:bg-amber-500/20 transition-all flex items-center justify-center gap-1"
-                                  title="Passe cette chaîne en manuel pour continuer à créer des vidéos toi-même pendant l'incident."
-                                >
-                                  <span className="material-symbols-outlined text-[16px]">pause_circle</span> Désactiver l'automatisation
-                                </button>
-                              </div>
-                            )}
                             {vid.status === 'failed' && vid.error_message === CREDIT_INSUFFICIENT_MESSAGE && (
                               <div className="pt-2 flex items-center gap-2">
                                 <button
@@ -8895,29 +8854,15 @@ export default function App() {
 
                     {newChannel.automation_mode === 'auto' && (
                       <div>
-                        <div className="flex items-center justify-between mb-1.5">
-                          <label className="block text-xs font-bold text-slate-300">Exemples de sujets / titres</label>
-                          {(newChannel.topic_examples || '').trim() && (
-                            <button
-                              type="button"
-                              onClick={cleanTopicExamples}
-                              disabled={topicExamplesCleaning}
-                              title="Si tu as collé une page entière (vues, dates, etc.) au lieu d'une liste propre, l'IA en extrait juste les titres."
-                              className="text-[10px] font-bold text-[#00c2ff] hover:text-[#38d0ff] underline decoration-dotted underline-offset-2 disabled:opacity-50 flex items-center gap-1"
-                            >
-                              <span className={`material-symbols-outlined text-[13px] ${topicExamplesCleaning ? 'animate-spin' : ''}`}>{topicExamplesCleaning ? 'progress_activity' : 'auto_fix_high'}</span>
-                              {topicExamplesCleaning ? 'Nettoyage…' : 'Nettoyer avec l\'IA'}
-                            </button>
-                          )}
-                        </div>
+                        <label className="block text-xs font-bold text-slate-300 mb-1.5">Exemples de sujets / titres</label>
                         <textarea
                           value={newChannel.topic_examples || ''}
                           onChange={e => setNewChannel({ ...newChannel, topic_examples: e.target.value })}
-                          placeholder={"Un titre par ligne — les tiens (tes vidéos qui ont le mieux marché) ou ceux d'une chaîne que tu veux imiter.\nEx :\nLe jour où tu arrêtes de demander la permission de vivre\nPourquoi le silence de Dieu n'est pas un abandon"}
-                          rows={4}
-                          className="w-full bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-3 py-2.5 text-xs text-white focus:border-[#00c2ff] outline-none resize-none"
+                          placeholder={"Colle directement une liste de vidéos qui marchent dans ta niche — les tiennes, ou celles d'une chaîne concurrente copiées en vrac (avec le nombre de vues et la date, aucun souci). L'IA s'occupe de repérer les plus virales et d'en tirer le style pour écrire tes prochains scripts.\n\nEx :\nLe jour où tu arrêtes de demander la permission de vivre — 2,3 M de vues — il y a 4 mois\nPourquoi le silence de Dieu n'est pas un abandon"}
+                          rows={12}
+                          className="w-full bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-3 py-2.5 text-xs text-white focus:border-[#00c2ff] outline-none resize-y"
                         />
-                        <p className="text-[10px] text-slate-500 mt-1.5 px-1">Sans ça, le choix des sujets reste générique. Avec des exemples, l'IA colle au style et à l'angle qui marchent déjà pour toi. Tu peux coller directement une page de chaîne concurrente en vrac — clique "Nettoyer avec l'IA" pour n'en garder que les titres.</p>
+                        <p className="text-[10px] text-slate-500 mt-1.5 px-1">Sans ça, le choix des sujets reste générique. Colle en vrac (vues, dates compris) — l'IA analyse elle-même pour repérer les vidéos les plus virales et s'en inspirer.</p>
                       </div>
                     )}
 
