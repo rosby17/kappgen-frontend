@@ -5369,6 +5369,13 @@ export default function App() {
   // only ever covered opted-in (CommunityLibraryFolder) rows.
   const [adminLibraryOverview, setAdminLibraryOverview] = useState({ total_images: 0, niches: [] });
   const [collapsedLibraryUsers, setCollapsedLibraryUsers] = useState({});
+  // Drill-down navigation (niche -> user -> channel folders) instead of one
+  // long list of nested expandable rows — a dense divider-heavy table read
+  // as cluttered once there were 28 niches to show. 'grid' (cards, default)
+  // or 'list' (compact rows) applies at whichever level is currently shown.
+  const [adminLibraryViewMode, setAdminLibraryViewMode] = useState('grid');
+  const [adminLibraryDrillNiche, setAdminLibraryDrillNiche] = useState(null);
+  const [adminLibraryDrillUserKey, setAdminLibraryDrillUserKey] = useState(null);
   // Which niche sections are collapsed, by niche name — folders now
   // auto-accumulate for every channel (see _persist_generated_images_to_channel_library
   // in images.py), so a flat table would grow unwieldy fast; grouping by
@@ -11940,139 +11947,248 @@ export default function App() {
 
           {adminTab === 'library' && (() => {
             const filterText = adminLibraryNicheFilter.trim().toLowerCase();
-            const niches = adminLibraryOverview.niches.filter(n => !filterText || n.niche.toLowerCase().includes(filterText));
-            return (
-            <div className="bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-2xl overflow-hidden">
-              <div className="p-4 border-b border-[var(--border-soft)] flex items-center justify-between gap-3 flex-wrap">
-                <input
-                  value={adminLibraryNicheFilter}
-                  onChange={e => setAdminLibraryNicheFilter(e.target.value)}
-                  placeholder="Filtrer par niche..."
-                  className="w-full max-w-xs bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-3 py-2 text-xs text-white focus:border-[#00c2ff] outline-none"
-                />
-                <span className="text-[11px] font-bold text-[#00c2ff] shrink-0">
-                  {adminLibraryOverview.total_images.toLocaleString('fr-FR')} image{adminLibraryOverview.total_images > 1 ? 's' : ''} au total sur le serveur
-                </span>
+            const allNiches = adminLibraryOverview.niches;
+            const niche = adminLibraryDrillNiche ? allNiches.find(n => n.niche === adminLibraryDrillNiche) : null;
+            const user = niche && adminLibraryDrillUserKey ? niche.users.find(u => `${niche.niche}::${u.user_id || 'unknown'}` === adminLibraryDrillUserKey) : null;
+
+            const ViewToggle = () => (
+              <div className="flex items-center gap-1 bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl p-1 shrink-0">
+                {[{ key: 'grid', icon: 'grid_view' }, { key: 'list', icon: 'view_list' }].map(m => (
+                  <button
+                    key={m.key}
+                    type="button"
+                    onClick={() => setAdminLibraryViewMode(m.key)}
+                    title={m.key === 'grid' ? 'Vue en grille' : 'Vue en liste'}
+                    className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${adminLibraryViewMode === m.key ? 'bg-[#00c2ff] text-slate-950' : 'text-slate-400 hover:text-white'}`}
+                  >
+                    <span className="material-symbols-outlined text-[16px]">{m.icon}</span>
+                  </button>
+                ))}
               </div>
-              {adminLibraryLoading ? (
-                <p className="px-4 py-8 text-center text-slate-500 text-xs">Chargement…</p>
-              ) : niches.length === 0 ? (
-                <p className="px-4 py-8 text-center text-slate-500 text-xs">Aucune niche ne correspond à ce filtre.</p>
-              ) : niches.map(niche => {
-                const nicheKey = niche.niche;
-                const collapsed = !!collapsedLibraryNiches[nicheKey];
-                return (
-                  <div key={nicheKey} className="border-b border-[var(--border-soft)] last:border-b-0">
+            );
+
+            const Breadcrumb = () => (
+              <div className="flex items-center gap-1.5 text-xs font-bold flex-wrap">
+                <button
+                  onClick={() => { setAdminLibraryDrillNiche(null); setAdminLibraryDrillUserKey(null); }}
+                  className={!niche ? 'text-white' : 'text-slate-400 hover:text-white'}
+                >
+                  Bibliothèque
+                </button>
+                {niche && (
+                  <>
+                    <span className="material-symbols-outlined text-[14px] text-slate-600">chevron_right</span>
                     <button
-                      type="button"
-                      onClick={() => setCollapsedLibraryNiches(prev => ({ ...prev, [nicheKey]: !prev[nicheKey] }))}
-                      className="w-full flex items-center gap-2.5 px-4 py-3 bg-[var(--bg-surface-alt)] hover:bg-[var(--bg-hover)] transition-colors text-left"
+                      onClick={() => setAdminLibraryDrillUserKey(null)}
+                      className={!user ? 'text-white' : 'text-slate-400 hover:text-white'}
                     >
-                      <span className={`material-symbols-outlined text-[18px] text-slate-500 transition-transform ${collapsed ? '-rotate-90' : ''}`}>expand_more</span>
-                      <span className="material-symbols-outlined text-[18px] text-[#00c2ff]">folder</span>
-                      <span className="text-sm font-bold text-white">{nicheKey}</span>
-                      <span className="text-[11px] text-slate-500">
-                        {niche.users.length} utilisateur{niche.users.length > 1 ? 's' : ''} · {niche.total_images} image{niche.total_images > 1 ? 's' : ''}
-                      </span>
+                      {niche.niche}
                     </button>
-                    {!collapsed && (
-                      niche.users.length === 0 ? (
-                        <p className="px-11 py-3 text-[11px] text-slate-500">Aucune image dans cette niche pour l'instant.</p>
-                      ) : niche.users.map(u => {
-                        const userKey = `${nicheKey}::${u.user_id || 'unknown'}`;
-                        const userCollapsed = !!collapsedLibraryUsers[userKey];
-                        return (
-                          <div key={userKey} className="border-t border-[var(--border-soft)]/50">
+                  </>
+                )}
+                {user && (
+                  <>
+                    <span className="material-symbols-outlined text-[14px] text-slate-600">chevron_right</span>
+                    <span className="text-white">{user.user_email || '—'}</span>
+                  </>
+                )}
+              </div>
+            );
+
+            const StatusBadge = ({ status }) => (
+              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${
+                status === 'approved' ? 'bg-emerald-950/60 text-emerald-400'
+                : status === 'flagged' ? 'bg-rose-950/60 text-rose-400'
+                : status === 'pending' ? 'bg-amber-950/60 text-amber-400'
+                : 'bg-[var(--bg-surface-alt)] text-slate-500'
+              }`}>
+                {status === 'approved' ? 'Validé' : status === 'flagged' ? 'Signalé' : status === 'pending' ? 'En attente' : 'Non partagé'}
+              </span>
+            );
+
+            let content;
+            if (!niche) {
+              // LEVEL 1 — every known niche, always shown even empty.
+              const list = allNiches.filter(n => !filterText || n.niche.toLowerCase().includes(filterText));
+              content = list.length === 0 ? (
+                <p className="px-4 py-10 text-center text-slate-500 text-xs">Aucune niche ne correspond à ce filtre.</p>
+              ) : adminLibraryViewMode === 'grid' ? (
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 p-4">
+                  {list.map(n => (
+                    <button
+                      key={n.niche}
+                      onClick={() => setAdminLibraryDrillNiche(n.niche)}
+                      className="flex flex-col items-start gap-2 p-4 bg-[var(--bg-surface-alt)] hover:bg-[var(--bg-hover)] border border-[var(--border)] hover:border-[#00c2ff]/50 rounded-2xl transition-all text-left"
+                    >
+                      <span className="material-symbols-outlined text-[26px] text-[#00c2ff]">folder</span>
+                      <span className="text-xs font-bold text-white line-clamp-2">{n.niche}</span>
+                      <span className="text-[10px] text-slate-500">{n.users.length} utilisateur{n.users.length > 1 ? 's' : ''} · {n.total_images} image{n.total_images > 1 ? 's' : ''}</span>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="divide-y divide-[var(--border-soft)]/50">
+                  {list.map(n => (
+                    <button
+                      key={n.niche}
+                      onClick={() => setAdminLibraryDrillNiche(n.niche)}
+                      className="w-full flex items-center gap-2.5 px-4 py-3 hover:bg-[var(--bg-hover)] transition-colors text-left"
+                    >
+                      <span className="material-symbols-outlined text-[18px] text-[#00c2ff]">folder</span>
+                      <span className="text-sm font-bold text-white flex-1">{n.niche}</span>
+                      <span className="text-[11px] text-slate-500">{n.users.length} utilisateur{n.users.length > 1 ? 's' : ''} · {n.total_images} image{n.total_images > 1 ? 's' : ''}</span>
+                    </button>
+                  ))}
+                </div>
+              );
+            } else if (!user) {
+              // LEVEL 2 — users who have images in this niche.
+              const list = niche.users;
+              content = list.length === 0 ? (
+                <p className="px-4 py-10 text-center text-slate-500 text-xs">Aucune image dans cette niche pour l'instant.</p>
+              ) : adminLibraryViewMode === 'grid' ? (
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 p-4">
+                  {list.map(u => (
+                    <button
+                      key={u.user_id || 'unknown'}
+                      onClick={() => setAdminLibraryDrillUserKey(`${niche.niche}::${u.user_id || 'unknown'}`)}
+                      className="flex flex-col items-start gap-2 p-4 bg-[var(--bg-surface-alt)] hover:bg-[var(--bg-hover)] border border-[var(--border)] hover:border-[#00c2ff]/50 rounded-2xl transition-all text-left"
+                    >
+                      <span className="material-symbols-outlined text-[26px] text-slate-400">person</span>
+                      <span className="text-xs font-bold text-white truncate w-full">{u.user_email || '—'}</span>
+                      <span className="text-[10px] text-slate-500">{u.folders.length} chaîne{u.folders.length > 1 ? 's' : ''} · {u.total_images} image{u.total_images > 1 ? 's' : ''}</span>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="divide-y divide-[var(--border-soft)]/50">
+                  {list.map(u => (
+                    <button
+                      key={u.user_id || 'unknown'}
+                      onClick={() => setAdminLibraryDrillUserKey(`${niche.niche}::${u.user_id || 'unknown'}`)}
+                      className="w-full flex items-center gap-2.5 px-4 py-3 hover:bg-[var(--bg-hover)] transition-colors text-left"
+                    >
+                      <span className="material-symbols-outlined text-[18px] text-slate-400">person</span>
+                      <span className="text-sm font-bold text-white flex-1">{u.user_email || '—'}</span>
+                      <span className="text-[11px] text-slate-500">{u.folders.length} chaîne{u.folders.length > 1 ? 's' : ''} · {u.total_images} image{u.total_images > 1 ? 's' : ''}</span>
+                    </button>
+                  ))}
+                </div>
+              );
+            } else {
+              // LEVEL 3 — this user's channel folders in this niche, with an
+              // inline image preview (existing expand mechanism) for shared ones.
+              const list = user.folders;
+              const FolderActions = ({ uf, sharedFolder }) => (
+                <div className="flex items-center gap-2.5 shrink-0" onClick={e => e.stopPropagation()}>
+                  {sharedFolder && uf.share_status !== 'approved' && (
+                    <button onClick={() => setAdminLibraryFolderStatus(sharedFolder, 'approved')} className="text-emerald-400 font-bold text-[11px] hover:underline">Valider</button>
+                  )}
+                  {sharedFolder && uf.share_status !== 'flagged' && (
+                    <button onClick={() => setAdminLibraryFolderStatus(sharedFolder, 'flagged')} className="text-rose-400 font-bold text-[11px] hover:underline">Signaler</button>
+                  )}
+                </div>
+              );
+              content = (
+                <div className="p-4 space-y-3">
+                  <div className={adminLibraryViewMode === 'grid' ? 'grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3' : 'divide-y divide-[var(--border-soft)]/50 -mx-4'}>
+                    {list.map(uf => {
+                      const sharedFolder = uf.community_folder_id ? { id: uf.community_folder_id } : null;
+                      const isOpen = sharedFolder && adminLibraryExpandedId === sharedFolder.id;
+                      return adminLibraryViewMode === 'grid' ? (
+                        <div key={uf.channel_id} className="flex flex-col gap-2 p-4 bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-2xl">
+                          <div className="flex items-start justify-between gap-2">
                             <button
-                              type="button"
-                              onClick={() => setCollapsedLibraryUsers(prev => ({ ...prev, [userKey]: !prev[userKey] }))}
-                              className="w-full flex items-center gap-2.5 pl-9 pr-4 py-2.5 hover:bg-[var(--bg-hover)] transition-colors text-left"
+                              onClick={() => sharedFolder && toggleAdminLibraryExpand(sharedFolder)}
+                              disabled={!sharedFolder}
+                              className="flex items-center gap-2 min-w-0 text-left disabled:cursor-default"
                             >
-                              <span className={`material-symbols-outlined text-[16px] text-slate-600 transition-transform ${userCollapsed ? '-rotate-90' : ''}`}>expand_more</span>
-                              <span className="material-symbols-outlined text-[15px] text-slate-500">person</span>
-                              <span className="text-xs font-bold text-slate-200">{u.user_email || '—'}</span>
-                              <span className="text-[10px] text-slate-500">{u.folders.length} chaîne{u.folders.length > 1 ? 's' : ''} · {u.total_images} image{u.total_images > 1 ? 's' : ''}</span>
+                              <span className="material-symbols-outlined text-[18px] text-slate-500 shrink-0">videocam</span>
+                              <span className="text-xs font-bold text-white truncate">{uf.channel_name || '—'}</span>
                             </button>
-                            {!userCollapsed && (
-                              <div className="overflow-x-auto">
-                                <table className="w-full text-xs">
-                                  <tbody>
-                                    {u.folders.map(uf => {
-                                      const sharedFolder = uf.community_folder_id ? { id: uf.community_folder_id } : null;
-                                      return (
-                                      <React.Fragment key={uf.channel_id}>
-                                        <tr
-                                          className={`border-t border-[var(--border-soft)]/50 ${sharedFolder ? 'hover:bg-[var(--bg-hover)] cursor-pointer' : ''}`}
-                                          onClick={() => sharedFolder && toggleAdminLibraryExpand(sharedFolder)}
-                                        >
-                                          <td className="pl-16 pr-4 py-2.5 text-slate-300 w-1/3">
-                                            <span className="material-symbols-outlined text-[15px] text-slate-500 align-middle mr-1.5">videocam</span>
-                                            {uf.channel_name || '—'}
-                                          </td>
-                                          <td className="px-4 py-2.5 text-slate-400">{uf.image_count} image{uf.image_count > 1 ? 's' : ''}</td>
-                                          <td className="px-4 py-2.5">
-                                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                                              uf.share_status === 'approved' ? 'bg-emerald-950/60 text-emerald-400'
-                                              : uf.share_status === 'flagged' ? 'bg-rose-950/60 text-rose-400'
-                                              : uf.share_status === 'pending' ? 'bg-amber-950/60 text-amber-400'
-                                              : 'bg-[var(--bg-surface-alt)] text-slate-500'
-                                            }`}>
-                                              {uf.share_status === 'approved' ? 'Validé' : uf.share_status === 'flagged' ? 'Signalé' : uf.share_status === 'pending' ? 'En attente' : 'Non partagé'}
-                                            </span>
-                                          </td>
-                                          <td className="px-4 py-2.5 text-right space-x-3" onClick={e => e.stopPropagation()}>
-                                            {sharedFolder && uf.share_status !== 'approved' && (
-                                              <button onClick={() => setAdminLibraryFolderStatus(sharedFolder, 'approved')} className="text-emerald-400 font-bold hover:underline">Valider</button>
-                                            )}
-                                            {sharedFolder && uf.share_status !== 'flagged' && (
-                                              <button onClick={() => setAdminLibraryFolderStatus(sharedFolder, 'flagged')} className="text-rose-400 font-bold hover:underline">Signaler</button>
-                                            )}
-                                          </td>
-                                        </tr>
-                                        {sharedFolder && adminLibraryExpandedId === sharedFolder.id && (
-                                          <tr className="bg-[var(--bg-input)]/40">
-                                            <td colSpan={4} className="px-4 py-3">
-                                              {adminLibraryImages.length === 0 ? (
-                                                <p className="text-slate-500 text-[11px]">Chargement de l'aperçu…</p>
-                                              ) : (
-                                                <div className="grid grid-cols-6 sm:grid-cols-8 gap-2">
-                                                  {adminLibraryImages.map(name => (
-                                                    <div key={name} className="relative group">
-                                                      <img
-                                                        src={`${API_BASE}/admin/community-library/${sharedFolder.id}/images/${encodeURIComponent(name)}`}
-                                                        alt=""
-                                                        className="w-full aspect-video object-cover rounded-lg border border-[var(--border)]"
-                                                        loading="lazy"
-                                                      />
-                                                      <button
-                                                        type="button"
-                                                        title="Retirer cette image de la bibliothèque de la niche"
-                                                        onClick={() => deleteAdminLibraryImage(sharedFolder, name)}
-                                                        className="absolute top-1 right-1 w-6 h-6 rounded-full bg-slate-950/80 text-rose-400 hover:bg-rose-500 hover:text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                                                      >
-                                                        <span className="material-symbols-outlined text-[14px]">delete</span>
-                                                      </button>
-                                                    </div>
-                                                  ))}
-                                                </div>
-                                              )}
-                                            </td>
-                                          </tr>
-                                        )}
-                                      </React.Fragment>
-                                      );
-                                    })}
-                                  </tbody>
-                                </table>
+                            <StatusBadge status={uf.share_status} />
+                          </div>
+                          <span className="text-[10px] text-slate-500">{uf.image_count} image{uf.image_count > 1 ? 's' : ''}</span>
+                          <FolderActions uf={uf} sharedFolder={sharedFolder} />
+                        </div>
+                      ) : (
+                        <div key={uf.channel_id} className="px-4 py-3 flex items-center gap-2.5">
+                          <button
+                            onClick={() => sharedFolder && toggleAdminLibraryExpand(sharedFolder)}
+                            disabled={!sharedFolder}
+                            className="flex items-center gap-2 flex-1 min-w-0 text-left disabled:cursor-default"
+                          >
+                            <span className="material-symbols-outlined text-[16px] text-slate-500 shrink-0">videocam</span>
+                            <span className="text-xs font-bold text-white truncate">{uf.channel_name || '—'}</span>
+                            <span className="text-[10px] text-slate-500 shrink-0">{uf.image_count} image{uf.image_count > 1 ? 's' : ''}</span>
+                          </button>
+                          <StatusBadge status={uf.share_status} />
+                          <FolderActions uf={uf} sharedFolder={sharedFolder} />
+                        </div>
+                      );
+                    }).reduce((acc, el, i) => {
+                      acc.push(el);
+                      const uf = list[i];
+                      const sharedFolder = uf.community_folder_id ? { id: uf.community_folder_id } : null;
+                      if (sharedFolder && adminLibraryExpandedId === sharedFolder.id) {
+                        acc.push(
+                          <div key={uf.channel_id + '-preview'} className={adminLibraryViewMode === 'grid' ? 'col-span-full bg-[var(--bg-input)]/40 rounded-2xl p-3' : 'bg-[var(--bg-input)]/40 p-3'}>
+                            {adminLibraryImages.length === 0 ? (
+                              <p className="text-slate-500 text-[11px]">Chargement de l'aperçu…</p>
+                            ) : (
+                              <div className="grid grid-cols-6 sm:grid-cols-8 gap-2">
+                                {adminLibraryImages.map(name => (
+                                  <div key={name} className="relative group">
+                                    <img
+                                      src={`${API_BASE}/admin/community-library/${sharedFolder.id}/images/${encodeURIComponent(name)}`}
+                                      alt=""
+                                      className="w-full aspect-video object-cover rounded-lg border border-[var(--border)]"
+                                      loading="lazy"
+                                    />
+                                    <button
+                                      type="button"
+                                      title="Retirer cette image de la bibliothèque de la niche"
+                                      onClick={() => deleteAdminLibraryImage(sharedFolder, name)}
+                                      className="absolute top-1 right-1 w-6 h-6 rounded-full bg-slate-950/80 text-rose-400 hover:bg-rose-500 hover:text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                                    >
+                                      <span className="material-symbols-outlined text-[14px]">delete</span>
+                                    </button>
+                                  </div>
+                                ))}
                               </div>
                             )}
                           </div>
                         );
-                      })
-                    )}
+                      }
+                      return acc;
+                    }, [])}
                   </div>
-                );
-              })}
+                </div>
+              );
+            }
+
+            return (
+            <div className="bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-2xl overflow-hidden">
+              <div className="p-4 border-b border-[var(--border-soft)] flex items-center justify-between gap-3 flex-wrap">
+                <Breadcrumb />
+                <div className="flex items-center gap-3 flex-wrap">
+                  {!niche && (
+                    <input
+                      value={adminLibraryNicheFilter}
+                      onChange={e => setAdminLibraryNicheFilter(e.target.value)}
+                      placeholder="Filtrer par niche..."
+                      className="bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-3 py-2 text-xs text-white focus:border-[#00c2ff] outline-none"
+                    />
+                  )}
+                  <span className="text-[11px] font-bold text-[#00c2ff] shrink-0">
+                    {adminLibraryOverview.total_images.toLocaleString('fr-FR')} image{adminLibraryOverview.total_images > 1 ? 's' : ''} au total
+                  </span>
+                  <ViewToggle />
+                </div>
+              </div>
+              {adminLibraryLoading ? (
+                <p className="px-4 py-10 text-center text-slate-500 text-xs">Chargement…</p>
+              ) : content}
             </div>
             );
           })()}
