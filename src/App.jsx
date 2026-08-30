@@ -2584,11 +2584,20 @@ function ScriptTimeInput({ hour, minute, second, onChange }) {
 // written after the audio" — backwards, and confusing, even though the real
 // order was always correct (the script exists before rendering starts at
 // all). Relabeled "Scènes" since that's what this step actually does.
+// The first two steps only apply to auto-generated videos (channel
+// automation writes its own topic + script before the video even exists
+// yet) — a manually-typed script or an uploaded audio file skips straight
+// to "Audio" since there's nothing for these two to show. See
+// generate_and_queue_auto_video in backend/src/worker/queue_runner.py,
+// which now creates the video row at "Recherche du sujet" instead of only
+// once the script is already fully written.
 const PIPELINE_STEPS = [
-  { match: /transcription|voix|reprise/i, floor: 0, label: 'Audio', icon: 'graphic_eq' },
-  { match: /découpage|scènes en/i, floor: 25, label: 'Scènes', icon: 'auto_stories' },
-  { match: /préparation des visuels/i, floor: 35, label: 'Visuels', icon: 'image' },
-  { match: /sous-titres|animation|mixage|montage final/i, floor: 55, label: 'Montage', icon: 'movie' },
+  { match: /recherche du sujet/i, floor: 0, label: 'Sujet', icon: 'travel_explore' },
+  { match: /rédaction du script/i, floor: 5, label: 'Script', icon: 'edit_note' },
+  { match: /transcription|voix|reprise/i, floor: 25, label: 'Audio', icon: 'graphic_eq' },
+  { match: /découpage|scènes en/i, floor: 40, label: 'Scènes', icon: 'auto_stories' },
+  { match: /préparation des visuels/i, floor: 48, label: 'Visuels', icon: 'image' },
+  { match: /sous-titres|animation|mixage|montage final/i, floor: 60, label: 'Montage', icon: 'movie' },
   { match: /assemblage|youtube|miniature|publication/i, floor: 90, label: 'Finalisation', icon: 'movie_edit' },
 ];
 
@@ -2605,7 +2614,7 @@ function getActivePipelineStepIndex(stage, percent) {
 function PipelineStepper({ stage, percent, failed = false }) {
   const activeIndex = getActivePipelineStepIndex(stage, percent);
   return (
-    <div className="grid grid-cols-5 items-start w-full">
+    <div className="grid grid-cols-7 items-start w-full">
       {PIPELINE_STEPS.map((step, i) => {
         const state = failed && i === activeIndex ? 'failed' : i < activeIndex ? 'done' : i === activeIndex ? 'active' : 'pending';
         return (
