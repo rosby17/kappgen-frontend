@@ -7997,7 +7997,10 @@ export default function App() {
                       </div>
                     </div>
                     <div className="min-w-0">
-                      <h1 className="text-xl sm:text-2xl font-extrabold text-white truncate tracking-[-.025em]">{activeChannel.name}</h1>
+                      <h1 className="text-xl sm:text-2xl font-extrabold text-white truncate tracking-[-.025em] flex items-center gap-2">
+                        <span className="truncate">{activeChannel.name}</span>
+                        <span className="material-symbols-outlined text-[16px] text-slate-500 shrink-0" aria-hidden="true">edit</span>
+                      </h1>
                       {activeChannel.youtube_channel_handle && (
                         <div className="text-slate-400 text-[11px] font-medium mt-0.5">{activeChannel.youtube_channel_handle}</div>
                       )}
