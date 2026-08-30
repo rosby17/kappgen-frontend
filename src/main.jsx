@@ -12,9 +12,13 @@ import LegalPage from './LegalPage.jsx'
 if (import.meta.env.VITE_SENTRY_DSN) {
   Sentry.init({
     dsn: import.meta.env.VITE_SENTRY_DSN,
-    // Error tracking only, not APM — no tracing/replay integrations, so this
-    // never adds runtime overhead beyond actually reporting a caught error.
-    integrations: [],
+    // Left at the SDK's default integrations — that's what installs the
+    // window.onerror/unhandledrejection listeners that make uncaught errors
+    // report automatically. Only tracing (an APM concern, not error
+    // tracking) is turned off below; passing integrations: [] here instead
+    // would silently disable automatic capture entirely, leaving only
+    // explicit Sentry.captureException() calls working (confirmed live —
+    // that's exactly what shipped in the very first version of this).
     tracesSampleRate: 0,
   })
 }
