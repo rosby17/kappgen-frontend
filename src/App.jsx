@@ -5582,15 +5582,19 @@ export default function App() {
     }
   };
 
-  const toggleAdminLibraryExpand = async (folder) => {
-    if (adminLibraryExpandedId === folder.id) {
+  // Keyed by channel_id (not the CommunityLibraryFolder id) so browsing and
+  // deleting images works identically whether or not the channel's owner
+  // opted into community sharing — the admin can inspect and curate any
+  // channel's library, shared or not.
+  const toggleAdminLibraryExpand = async (channelId) => {
+    if (adminLibraryExpandedId === channelId) {
       setAdminLibraryExpandedId(null);
       return;
     }
-    setAdminLibraryExpandedId(folder.id);
+    setAdminLibraryExpandedId(channelId);
     setAdminLibraryImages([]);
     try {
-      const res = await authFetch(`${API_BASE}/admin/community-library/${folder.id}/images`);
+      const res = await authFetch(`${API_BASE}/admin/channel-library/${channelId}/images`);
       if (res.ok) setAdminLibraryImages((await res.json()).filenames || []);
     } catch (err) {
       console.error("Erreur chargement aperçu dossier:", err);
@@ -5612,16 +5616,46 @@ export default function App() {
     }
   };
 
+  // Admin override, independent of the creator's own share_with_community
+  // toggle — final say on what feeds a niche's shared pool stays with the
+  // admin, the creator's setting is just the starting point. Doesn't touch
+  // the channel's own flag (their Studio UI keeps showing their real choice).
+  const forceShareChannelLibrary = async (channelId, status = 'approved') => {
+    try {
+      const res = await authFetch(`${API_BASE}/admin/channel-library/${channelId}/force-share`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status }),
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || "Échec du partage forcé.");
+      fetchAdminLibraryOverview();
+      showToast('Dossier partagé avec la communauté (décision admin).', 'success');
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  };
+
+  const unshareChannelLibrary = async (channelId) => {
+    try {
+      const res = await authFetch(`${API_BASE}/admin/channel-library/${channelId}/unshare`, { method: 'POST' });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || "Échec du retrait.");
+      fetchAdminLibraryOverview();
+      showToast('Dossier retiré de la bibliothèque partagée.', 'success');
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  };
+
   // Removes one specific image an admin judges unfit for the niche/community
   // — most images from an auto-shared channel are fine, so the fix for one
   // bad one is deleting just that one, not flagging the channel's whole folder.
-  const deleteAdminLibraryImage = async (folder, filename) => {
+  const deleteAdminLibraryImage = async (channelId, filename) => {
     try {
-      const res = await authFetch(`${API_BASE}/admin/community-library/${folder.id}/images/${encodeURIComponent(filename)}`, { method: 'DELETE' });
+      const res = await authFetch(`${API_BASE}/admin/channel-library/${channelId}/images/${encodeURIComponent(filename)}`, { method: 'DELETE' });
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || "Suppression impossible.");
       setAdminLibraryImages(prev => prev.filter(name => name !== filename));
       fetchAdminLibraryOverview();
-      showToast('Image supprimée de la bibliothèque de la niche.', 'success');
+      showToast('Image supprimée.', 'success');
     } catch (err) {
       showToast(err.message, 'error');
     }
@@ -12079,29 +12113,42 @@ export default function App() {
               // LEVEL 3 — this user's channel folders in this niche, with an
               // inline image preview (existing expand mechanism) for shared ones.
               const list = user.folders;
+              // Browsing/deleting images works for ANY channel (shared or
+              // not) — only the approve/flag/share-toggle actions differ
+              // based on whether a CommunityLibraryFolder already exists.
               const FolderActions = ({ uf, sharedFolder }) => (
-                <div className="flex items-center gap-2.5 shrink-0" onClick={e => e.stopPropagation()}>
-                  {sharedFolder && uf.share_status !== 'approved' && (
-                    <button onClick={() => setAdminLibraryFolderStatus(sharedFolder, 'approved')} className="text-emerald-400 font-bold text-[11px] hover:underline">Valider</button>
-                  )}
-                  {sharedFolder && uf.share_status !== 'flagged' && (
-                    <button onClick={() => setAdminLibraryFolderStatus(sharedFolder, 'flagged')} className="text-rose-400 font-bold text-[11px] hover:underline">Signaler</button>
+                <div className="flex items-center gap-2.5 shrink-0 flex-wrap" onClick={e => e.stopPropagation()}>
+                  {sharedFolder ? (
+                    <>
+                      {uf.share_status !== 'approved' && (
+                        <button onClick={() => setAdminLibraryFolderStatus(sharedFolder, 'approved')} className="text-emerald-400 font-bold text-[11px] hover:underline">Valider</button>
+                      )}
+                      {uf.share_status !== 'flagged' && (
+                        <button onClick={() => setAdminLibraryFolderStatus(sharedFolder, 'flagged')} className="text-rose-400 font-bold text-[11px] hover:underline">Signaler</button>
+                      )}
+                      <button onClick={() => unshareChannelLibrary(uf.channel_id)} className="text-slate-400 font-bold text-[11px] hover:underline">Retirer du partage</button>
+                    </>
+                  ) : (
+                    <button onClick={() => forceShareChannelLibrary(uf.channel_id, 'approved')} className="text-[#00c2ff] font-bold text-[11px] hover:underline">
+                      Partager quand même
+                    </button>
                   )}
                 </div>
               );
               content = (
                 <div className="p-4 space-y-3">
+                  <p className="text-[10px] text-slate-500 -mt-1">
+                    Le statut "Non partagé" reflète le choix du créateur — tu peux quand même parcourir ses images et forcer le partage si tu juges que ça convient à la niche.
+                  </p>
                   <div className={adminLibraryViewMode === 'grid' ? 'grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3' : 'divide-y divide-[var(--border-soft)]/50 -mx-4'}>
                     {list.map(uf => {
                       const sharedFolder = uf.community_folder_id ? { id: uf.community_folder_id } : null;
-                      const isOpen = sharedFolder && adminLibraryExpandedId === sharedFolder.id;
                       return adminLibraryViewMode === 'grid' ? (
                         <div key={uf.channel_id} className="flex flex-col gap-2 p-4 bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-2xl">
                           <div className="flex items-start justify-between gap-2">
                             <button
-                              onClick={() => sharedFolder && toggleAdminLibraryExpand(sharedFolder)}
-                              disabled={!sharedFolder}
-                              className="flex items-center gap-2 min-w-0 text-left disabled:cursor-default"
+                              onClick={() => toggleAdminLibraryExpand(uf.channel_id)}
+                              className="flex items-center gap-2 min-w-0 text-left"
                             >
                               <span className="material-symbols-outlined text-[18px] text-slate-500 shrink-0">videocam</span>
                               <span className="text-xs font-bold text-white truncate">{uf.channel_name || '—'}</span>
@@ -12114,9 +12161,8 @@ export default function App() {
                       ) : (
                         <div key={uf.channel_id} className="px-4 py-3 flex items-center gap-2.5">
                           <button
-                            onClick={() => sharedFolder && toggleAdminLibraryExpand(sharedFolder)}
-                            disabled={!sharedFolder}
-                            className="flex items-center gap-2 flex-1 min-w-0 text-left disabled:cursor-default"
+                            onClick={() => toggleAdminLibraryExpand(uf.channel_id)}
+                            className="flex items-center gap-2 flex-1 min-w-0 text-left"
                           >
                             <span className="material-symbols-outlined text-[16px] text-slate-500 shrink-0">videocam</span>
                             <span className="text-xs font-bold text-white truncate">{uf.channel_name || '—'}</span>
@@ -12129,8 +12175,7 @@ export default function App() {
                     }).reduce((acc, el, i) => {
                       acc.push(el);
                       const uf = list[i];
-                      const sharedFolder = uf.community_folder_id ? { id: uf.community_folder_id } : null;
-                      if (sharedFolder && adminLibraryExpandedId === sharedFolder.id) {
+                      if (adminLibraryExpandedId === uf.channel_id) {
                         acc.push(
                           <div key={uf.channel_id + '-preview'} className={adminLibraryViewMode === 'grid' ? 'col-span-full bg-[var(--bg-input)]/40 rounded-2xl p-3' : 'bg-[var(--bg-input)]/40 p-3'}>
                             {adminLibraryImages.length === 0 ? (
@@ -12140,15 +12185,15 @@ export default function App() {
                                 {adminLibraryImages.map(name => (
                                   <div key={name} className="relative group">
                                     <img
-                                      src={`${API_BASE}/admin/community-library/${sharedFolder.id}/images/${encodeURIComponent(name)}`}
+                                      src={`${API_BASE}/admin/channel-library/${uf.channel_id}/images/${encodeURIComponent(name)}`}
                                       alt=""
                                       className="w-full aspect-video object-cover rounded-lg border border-[var(--border)]"
                                       loading="lazy"
                                     />
                                     <button
                                       type="button"
-                                      title="Retirer cette image de la bibliothèque de la niche"
-                                      onClick={() => deleteAdminLibraryImage(sharedFolder, name)}
+                                      title="Supprimer cette image"
+                                      onClick={() => deleteAdminLibraryImage(uf.channel_id, name)}
                                       className="absolute top-1 right-1 w-6 h-6 rounded-full bg-slate-950/80 text-rose-400 hover:bg-rose-500 hover:text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
                                     >
                                       <span className="material-symbols-outlined text-[14px]">delete</span>
