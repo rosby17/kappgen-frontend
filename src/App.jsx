@@ -6258,20 +6258,35 @@ export default function App() {
     }
   };
 
-  const runDownload = (vid, quality) => {
-    // Deliberately not fetch()+blob(): that buffers the entire file (hundreds
-    // of MB for a real video) in JS memory with no progress feedback before
-    // anything happens — it just looks stuck. The /download endpoint already
-    // sends Content-Disposition: attachment, so a plain navigation lets the
-    // browser stream straight to disk with its own native download UI.
-    setDownloadingQuality(quality);
-    const url = `${API_BASE}/videos/${vid.id}/download?quality=${quality}`;
+  // Shared by runDownload (video) and runThumbnailDownload — a plain <a
+  // download> navigation, not fetch()+blob(): that would buffer the whole
+  // file (hundreds of MB for a video) in JS memory with no progress
+  // feedback before anything visibly happens. The backend routes already
+  // send Content-Disposition: attachment, so this just lets the browser
+  // stream straight to disk with its own native download UI.
+  const triggerFileDownload = (url, filename) => {
     const a = document.createElement('a');
     a.href = url;
-    a.download = `kappgen-${(vid.script_text || 'video').slice(0, 40).replace(/[^a-z0-9]+/gi, '-')}-${quality}.mp4`;
+    a.download = filename;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
+  };
+
+  const runThumbnailDownload = (vid) => {
+    const base = `kappgen-${(vid.title || vid.script_text || 'video').slice(0, 40).replace(/[^a-z0-9]+/gi, '-')}`;
+    triggerFileDownload(`${API_BASE}/videos/${vid.id}/thumbnail/download`, `${base}-thumbnail.jpg`);
+  };
+
+  const runDownload = (vid, quality) => {
+    setDownloadingQuality(quality);
+    const base = `kappgen-${(vid.title || vid.script_text || 'video').slice(0, 40).replace(/[^a-z0-9]+/gi, '-')}`;
+    triggerFileDownload(`${API_BASE}/videos/${vid.id}/download?quality=${quality}`, `${base}-${quality}.mp4`);
+    // The creator asked for the thumbnail to come down alongside the video
+    // itself every time, not just as a separate manual step — a short delay
+    // avoids the two downloads racing/being coalesced by some browsers when
+    // fired in the exact same tick from one click.
+    setTimeout(() => triggerFileDownload(`${API_BASE}/videos/${vid.id}/thumbnail/download`, `${base}-thumbnail.jpg`), 400);
     setTimeout(() => {
       setDownloadingQuality(null);
       setDownloadModalVideo(null);
@@ -13408,7 +13423,7 @@ export default function App() {
                 <span className="material-symbols-outlined">close</span>
               </button>
             </div>
-            <p className="text-xs text-slate-400">Format MP4. Choisissez la qualité d'export.</p>
+            <p className="text-xs text-slate-400">Format MP4. Choisissez la qualité d'export — la miniature se télécharge automatiquement avec la vidéo.</p>
 
             <div className="space-y-2.5">
               {[
@@ -13432,6 +13447,17 @@ export default function App() {
                   )}
                 </button>
               ))}
+              <button
+                disabled={!!downloadingQuality}
+                onClick={() => runThumbnailDownload(downloadModalVideo)}
+                className="w-full flex items-center justify-between p-3.5 bg-[var(--bg-surface-alt)] hover:bg-[var(--border-soft)] border border-dashed border-[var(--border)] rounded-2xl transition-all disabled:opacity-50 text-left"
+              >
+                <div>
+                  <div className="text-xs font-bold text-white">Miniature seule</div>
+                  <div className="text-[11px] text-slate-400">JPG — pour publier manuellement ailleurs</div>
+                </div>
+                <span className="material-symbols-outlined text-[18px] text-[#00c2ff]">image</span>
+              </button>
             </div>
           </div>
         </div>
