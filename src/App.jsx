@@ -8850,75 +8850,15 @@ export default function App() {
                         preview at the exact proportions they'll render at. */}
                     <div className="grid grid-cols-1 lg:grid-cols-[1fr_520px] gap-5 items-start">
                       <div className="space-y-4">
-                        <div className="bg-[var(--bg-input)] border border-[var(--border-subtle)] rounded-xl p-4 space-y-2.5">
-                          <div className="flex items-center justify-between gap-3">
-                            <label className="block text-xs font-bold text-slate-300">Position, taille et forme du logo</label>
-                            {/* Removes the logo from the rendered video only — the channel's
-                                own identity (its logo image, used for its avatar across the
-                                app) is untouched, only branding.logo_enabled changes. Same
-                                on/off this section's checkbox in the step 9 "Calques" list
-                                already does, surfaced here too since that's where a creator
-                                configuring the logo would look for it first. */}
-                            <button
-                              type="button"
-                              onClick={() => setNewChannel({ ...newChannel, branding: { ...newChannel.branding, logo_enabled: !(newChannel.branding.logo_enabled ?? true) } })}
-                              title={(newChannel.branding.logo_enabled ?? true) ? "Retirer le logo de la vidéo (l'identité de la chaîne reste inchangée)" : "Remettre le logo sur la vidéo"}
-                              className={`shrink-0 flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-colors ${
-                                (newChannel.branding.logo_enabled ?? true)
-                                  ? 'bg-emerald-950/40 border-emerald-700/60 text-emerald-400 hover:bg-rose-950/40 hover:border-rose-700/60 hover:text-rose-400'
-                                  : 'bg-[var(--bg-surface-alt)] border-[var(--border)] text-slate-500 hover:border-slate-500'
-                              }`}
-                            >
-                              <span className="material-symbols-outlined text-[13px]">{(newChannel.branding.logo_enabled ?? true) ? 'close' : 'add'}</span>
-                              {(newChannel.branding.logo_enabled ?? true) ? 'Retirer de la vidéo' : 'Remettre sur la vidéo'}
-                            </button>
-                          </div>
-                          <div className="flex items-start gap-4">
-                            <div className="flex-shrink-0" title="Positions rapides">
-                              <div className="flex items-center gap-1">
-                                {(() => {
-                                  const logoSize = newChannel.branding.logo_size_percent ?? 14;
-                                  const logoX = newChannel.branding.logo_x_percent ?? presetXY(newChannel.branding.logo_corner, logoSize).x;
-                                  const logoY = newChannel.branding.logo_y_percent ?? presetXY(newChannel.branding.logo_corner, logoSize).y;
-                                  return [
-                                    { id: 'top-left', label: 'Haut gauche', icon: 'north_west' },
-                                    { id: 'top-right', label: 'Haut droite', icon: 'north_east' },
-                                    { id: 'bottom-left', label: 'Bas gauche', icon: 'south_west' },
-                                    { id: 'bottom-right', label: 'Bas droite', icon: 'south_east' },
-                                  ].map(c => {
-                                    const target = presetXY(c.id, logoSize);
-                                    return (
-                                      <button
-                                        key={c.id}
-                                        type="button"
-                                        title={`Placer le logo : ${c.label}`}
-                                        onClick={() => setNewChannel({ ...newChannel, branding: { ...newChannel.branding, logo_corner: c.id, logo_x_percent: target.x, logo_y_percent: target.y } })}
-                                        className={`w-6 h-6 flex items-center justify-center rounded-md border transition-colors ${
-                                          Math.round(logoX) === Math.round(target.x) && Math.round(logoY) === Math.round(target.y)
-                                            ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]'
-                                            : 'bg-[var(--bg-surface-alt)] border-[var(--border)] text-slate-400 hover:border-slate-500'
-                                        }`}
-                                      >
-                                        <span className="material-symbols-outlined text-[12px]">{c.icon}</span>
-                                      </button>
-                                    );
-                                  });
-                                })()}
-                              </div>
-                              <div className="text-[9px] font-bold text-slate-500 uppercase tracking-wider mb-1 mt-2.5">Forme</div>
-                              <ShapePicker value={newChannel.branding.logo_shape || 'rectangle'} onChange={v => setNewChannel({ ...newChannel, branding: { ...newChannel.branding, logo_shape: v } })} />
-                            </div>
-                            <div className="flex-1 min-w-0 grid grid-cols-3 gap-3">
-                              <MiniSlider label="Taille" value={newChannel.branding.logo_size_percent ?? 14} min={3} max={25} onChange={v => setNewChannel({ ...newChannel, branding: { ...newChannel.branding, logo_size_percent: v } })} />
-                              <MiniSlider label="Position X" value={newChannel.branding.logo_x_percent ?? presetXY(newChannel.branding.logo_corner, newChannel.branding.logo_size_percent ?? 14).x} min={-20} max={120} onChange={v => setNewChannel({ ...newChannel, branding: { ...newChannel.branding, logo_x_percent: v } })} />
-                              <MiniSlider label="Position Y" value={newChannel.branding.logo_y_percent ?? presetXY(newChannel.branding.logo_corner, newChannel.branding.logo_size_percent ?? 14).y} min={-20} max={120} onChange={v => setNewChannel({ ...newChannel, branding: { ...newChannel.branding, logo_y_percent: v } })} />
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Extra sticker overlays — e.g. a "Subscribe" button or bell
-                            icon a creator used to paste on the video by hand. Each
-                            one gets its own corner + size, same idea as the logo. */}
+                        {/* Logo + extra sticker overlays (Subscribe button, bell icon...)
+                            all in one list, same row layout for every one of them — the
+                            logo is really just an image too, auto-filled once when the
+                            channel connects (see _fill_logo_from_youtube_avatar), with
+                            the same × to remove it from the video as any other overlay.
+                            Removing it only ever flips branding.logo_enabled off — the
+                            channel's own identity logo (used for its avatar elsewhere in
+                            the app) is never deleted, so there's always a "Remettre"
+                            chip to bring it straight back without re-uploading anything. */}
                         <div className="bg-[var(--bg-input)] border border-[var(--border-subtle)] rounded-xl p-4 space-y-3">
                           <div className="flex items-center justify-between">
                             <label className="block text-xs font-bold text-slate-300">Incrustations d'images</label>
@@ -8934,6 +8874,71 @@ export default function App() {
                             <input type="file" ref={overlayInputRef} accept="image/png,image/webp,image/gif" onChange={handleUploadOverlay} className="hidden" />
                             <input type="file" ref={replaceOverlayInputRef} accept="image/png,image/webp,image/gif" onChange={handleReplaceOverlayFile} className="hidden" />
                           </div>
+
+                          {resolvedLogoUrl && (newChannel.branding.logo_enabled ?? true) && (() => {
+                            const logoSize = newChannel.branding.logo_size_percent ?? 14;
+                            const logoX = newChannel.branding.logo_x_percent ?? presetXY(newChannel.branding.logo_corner, logoSize).x;
+                            const logoY = newChannel.branding.logo_y_percent ?? presetXY(newChannel.branding.logo_corner, logoSize).y;
+                            return (
+                              <div className="bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl p-2.5 space-y-2">
+                                <div className="flex items-center gap-3">
+                                  <div className="w-9 h-9 rounded-lg bg-slate-950/40 flex-shrink-0 overflow-hidden" title="Logo de la chaîne">
+                                    <img src={resolvedLogoUrl} alt="" className="w-full h-full object-contain" />
+                                  </div>
+                                  <div className="flex items-center gap-1 flex-shrink-0" title="Positions rapides">
+                                    {[
+                                      { id: 'top-left', label: 'Haut gauche', icon: 'north_west' },
+                                      { id: 'top-right', label: 'Haut droite', icon: 'north_east' },
+                                      { id: 'bottom-left', label: 'Bas gauche', icon: 'south_west' },
+                                      { id: 'bottom-right', label: 'Bas droite', icon: 'south_east' },
+                                    ].map(c => {
+                                      const target = presetXY(c.id, logoSize);
+                                      return (
+                                        <button
+                                          key={c.id}
+                                          type="button"
+                                          title={`Placer le logo : ${c.label}`}
+                                          onClick={() => setNewChannel({ ...newChannel, branding: { ...newChannel.branding, logo_corner: c.id, logo_x_percent: target.x, logo_y_percent: target.y } })}
+                                          className={`w-6 h-6 flex items-center justify-center rounded-md border transition-colors ${
+                                            Math.round(logoX) === Math.round(target.x) && Math.round(logoY) === Math.round(target.y)
+                                              ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]'
+                                              : 'bg-[var(--bg-input)] border-[var(--border)] text-slate-500 hover:border-slate-500'
+                                          }`}
+                                        >
+                                          <span className="material-symbols-outlined text-[12px]">{c.icon}</span>
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                  <ShapePicker value={newChannel.branding.logo_shape || 'rectangle'} onChange={v => setNewChannel({ ...newChannel, branding: { ...newChannel.branding, logo_shape: v } })} />
+                                  <button
+                                    type="button"
+                                    onClick={() => setNewChannel({ ...newChannel, branding: { ...newChannel.branding, logo_enabled: false } })}
+                                    title="Retirer le logo de la vidéo (l'identité de la chaîne reste inchangée)"
+                                    className="w-7 h-7 flex items-center justify-center rounded-lg text-rose-400 hover:bg-rose-950/40 flex-shrink-0 ml-auto"
+                                  >
+                                    <span className="material-symbols-outlined text-[16px]">close</span>
+                                  </button>
+                                </div>
+                                <div className="grid grid-cols-3 gap-2.5 pl-1">
+                                  <MiniSlider label="Taille" value={logoSize} min={3} max={35} onChange={v => setNewChannel({ ...newChannel, branding: { ...newChannel.branding, logo_size_percent: v } })} />
+                                  <MiniSlider label="Position X" value={logoX} min={-20} max={120} onChange={v => setNewChannel({ ...newChannel, branding: { ...newChannel.branding, logo_x_percent: v } })} />
+                                  <MiniSlider label="Position Y" value={logoY} min={-20} max={120} onChange={v => setNewChannel({ ...newChannel, branding: { ...newChannel.branding, logo_y_percent: v } })} />
+                                </div>
+                              </div>
+                            );
+                          })()}
+                          {resolvedLogoUrl && !(newChannel.branding.logo_enabled ?? true) && (
+                            <button
+                              type="button"
+                              onClick={() => setNewChannel({ ...newChannel, branding: { ...newChannel.branding, logo_enabled: true } })}
+                              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl border border-dashed border-[var(--border)] text-slate-500 hover:border-slate-500 hover:text-slate-300 transition-colors text-[11px] font-bold"
+                            >
+                              <span className="material-symbols-outlined text-[16px]">add_photo_alternate</span>
+                              Logo de la chaîne retiré de la vidéo — remettre
+                            </button>
+                          )}
+
                           {!editingChannelId ? (
                             <p className="text-[11px] text-slate-500">Enregistre d'abord la chaîne pour ajouter des incrustations (PNG recommandé).</p>
                           ) : (newChannel.branding.overlays || []).length === 0 ? (
