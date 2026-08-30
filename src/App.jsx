@@ -4487,17 +4487,36 @@ export default function App() {
   // (a not-yet-uploaded logo/music/image picked in this session) — those really
   // are gone if the wizard unmounts, since a File object can't survive that.
   const draftKey = (id) => `nichecut_draft_${id || 'new'}`;
+  // Root cause of a channel's settings silently reverting to old values
+  // (e.g. Next Age Health Fr's image style repeatedly regressing to a
+  // retired default): this draft is auto-saved on every keystroke while
+  // the wizard is open and restored UNCONDITIONALLY the next time it's
+  // opened, with no staleness check — a browser tab left open across a
+  // session (sessionStorage survives page reloads, just not a closed tab)
+  // silently resurrected a draft captured before a later fix, overwriting
+  // the correct data freshly fetched from the server on every reopen, and
+  // re-persisting the stale values the moment it was saved again. A draft
+  // is only ever meant to recover an accidental navigate-away moments ago,
+  // not to outlive the tab indefinitely — so it now expires.
+  const DRAFT_MAX_AGE_MS = 30 * 60 * 1000;
   const loadDraft = (id) => {
     try {
       const raw = sessionStorage.getItem(draftKey(id));
-      return raw ? JSON.parse(raw) : null;
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== 'object' || !('savedAt' in parsed)) return null;
+      if (Date.now() - parsed.savedAt > DRAFT_MAX_AGE_MS) {
+        sessionStorage.removeItem(draftKey(id));
+        return null;
+      }
+      return parsed.data;
     } catch { return null; }
   };
   const clearDraft = (id) => { try { sessionStorage.removeItem(draftKey(id)); } catch {} };
 
   useEffect(() => {
     if (view !== 'wizard') return;
-    try { sessionStorage.setItem(draftKey(editingChannelId), JSON.stringify(newChannel)); } catch {}
+    try { sessionStorage.setItem(draftKey(editingChannelId), JSON.stringify({ data: newChannel, savedAt: Date.now() })); } catch {}
   }, [newChannel, view, editingChannelId]);
 
   // Same idea as the draft above, but for which step the creator was on — so a
@@ -4644,7 +4663,10 @@ export default function App() {
       // make the creator re-type a name YouTube already gave us.
       name: channel.name || channel.youtube_channel_title || '',
       description: channel.description || '',
-      niche: channel.niche || 'Philosophie & Stoïcisme',
+      // Never falls back to a specific niche like the old default did — an
+      // empty niche here should read as "unset, pick one" in the UI, not
+      // silently masquerade as a real (wrong) choice a save could persist.
+      niche: channel.niche || '',
       subtitle_style: { ...defaultChannelForm.subtitle_style, ...(channel.subtitle_style || {}) },
       branding: { ...defaultChannelForm.branding, ...(channel.branding || {}) },
       music_preference: { ...defaultChannelForm.music_preference, ...(channel.music_preference || {}) },
