@@ -5371,6 +5371,7 @@ export default function App() {
   const [adminLibraryMoveFolder, setAdminLibraryMoveFolder] = useState(null);
   const [adminLibraryMoveNiche, setAdminLibraryMoveNiche] = useState('');
   const [adminLibraryMoveBusy, setAdminLibraryMoveBusy] = useState(false);
+  const adminLibraryLoadMoreRef = useRef(null);
   // Full oversight view — every known niche always listed (even empty), every
   // user's channel library inside it regardless of whether they opted into
   // community sharing (see admin.py's /community-library/overview), plus a
@@ -5385,6 +5386,8 @@ export default function App() {
   const [adminLibraryViewMode, setAdminLibraryViewMode] = useState('grid');
   const [adminLibraryDrillNiche, setAdminLibraryDrillNiche] = useState(null);
   const [adminLibraryDrillUserKey, setAdminLibraryDrillUserKey] = useState(null);
+  const [adminLibraryDrillFolder, setAdminLibraryDrillFolder] = useState(null);
+  const [adminLibrarySelectedImages, setAdminLibrarySelectedImages] = useState([]);
   // Which niche sections are collapsed, by niche name — folders now
   // auto-accumulate for every channel (see _persist_generated_images_to_channel_library
   // in images.py), so a flat table would grow unwieldy fast; grouping by
@@ -5595,17 +5598,16 @@ export default function App() {
   // deleting images works identically whether or not the channel's owner
   // opted into community sharing — the admin can inspect and curate any
   // channel's library, shared or not.
-  const toggleAdminLibraryExpand = async (channelId) => {
-    if (adminLibraryExpandedId === channelId) {
-      setAdminLibraryExpandedId(null);
-      return;
-    }
+  const openAdminLibraryFolder = async (folder, nicheName) => {
+    const channelId = folder.channel_id;
     setAdminLibraryExpandedId(channelId);
+    setAdminLibraryDrillFolder({ ...folder, current_niche: nicheName });
+    setAdminLibrarySelectedImages([]);
     setAdminLibraryImages([]);
     setAdminLibraryImageTotal(0);
     setAdminLibraryImagesHasMore(false);
     try {
-      const res = await authFetch(`${API_BASE}/admin/channel-library/${channelId}/images?offset=0&limit=60`);
+      const res = await authFetch(`${API_BASE}/admin/channel-library/${channelId}/images?niche=${encodeURIComponent(nicheName)}&offset=0&limit=60`);
       if (res.ok) {
         const data = await res.json();
         setAdminLibraryImages(data.filenames || []);
@@ -5621,7 +5623,8 @@ export default function App() {
     if (adminLibraryImagesLoadingMore || !adminLibraryImagesHasMore) return;
     setAdminLibraryImagesLoadingMore(true);
     try {
-      const res = await authFetch(`${API_BASE}/admin/channel-library/${channelId}/images?offset=${adminLibraryImages.length}&limit=60`);
+      const nicheParam = adminLibraryDrillFolder?.current_niche ? `niche=${encodeURIComponent(adminLibraryDrillFolder.current_niche)}&` : '';
+      const res = await authFetch(`${API_BASE}/admin/channel-library/${channelId}/images?${nicheParam}offset=${adminLibraryImages.length}&limit=60`);
       if (!res.ok) throw new Error("Chargement impossible.");
       const data = await res.json();
       setAdminLibraryImages(prev => [...prev, ...(data.filenames || [])]);
@@ -5634,8 +5637,19 @@ export default function App() {
     }
   };
 
+  useEffect(() => {
+    const sentinel = adminLibraryLoadMoreRef.current;
+    if (!sentinel || !adminLibraryExpandedId || !adminLibraryImagesHasMore) return;
+    const observer = new IntersectionObserver(entries => {
+      if (entries[0]?.isIntersecting) loadMoreAdminLibraryImages(adminLibraryExpandedId);
+    }, { rootMargin: '500px 0px' });
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [adminLibraryExpandedId, adminLibraryImagesHasMore, adminLibraryImagesLoadingMore, adminLibraryImages.length]);
+
   const openAdminLibraryMove = (folder, currentNiche) => {
-    setAdminLibraryMoveFolder(folder);
+    if (adminLibrarySelectedImages.length === 0) return;
+    setAdminLibraryMoveFolder({ ...folder, current_niche: currentNiche });
     setAdminLibraryMoveNiche(currentNiche || '');
   };
 
@@ -5646,21 +5660,35 @@ export default function App() {
       const res = await authFetch(`${API_BASE}/admin/channel-library/${adminLibraryMoveFolder.channel_id}/niche`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ niche: adminLibraryMoveNiche }),
+        body: JSON.stringify({ niche: adminLibraryMoveNiche, filenames: adminLibrarySelectedImages }),
       });
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || "Déplacement impossible.");
-      const folderName = adminLibraryMoveFolder.channel_name;
+      const movedCount = adminLibrarySelectedImages.length;
+      setAdminLibraryImages(images => images.filter(name => !adminLibrarySelectedImages.includes(name)));
+      setAdminLibraryImageTotal(total => Math.max(0, total - movedCount));
+      setAdminLibrarySelectedImages([]);
       setAdminLibraryMoveFolder(null);
-      setAdminLibraryDrillNiche(adminLibraryMoveNiche);
-      setAdminLibraryDrillUserKey(null);
       await fetchAdminLibraryOverview();
-      showToast(`« ${folderName} » a été classé dans ${adminLibraryMoveNiche}. Son nom et ses fichiers n'ont pas changé.`, 'success');
+      showToast(`${movedCount} image${movedCount > 1 ? 's ont' : ' a'} été classée${movedCount > 1 ? 's' : ''} dans ${adminLibraryMoveNiche}.`, 'success');
     } catch (err) {
       showToast(err.message, 'error');
     } finally {
       setAdminLibraryMoveBusy(false);
     }
   };
+
+  useEffect(() => {
+    if (adminLibraryLightboxIndex == null) return;
+    const onKeyDown = event => {
+      if (event.key === 'Escape') setAdminLibraryLightboxIndex(null);
+      if (event.key === 'ArrowLeft') setAdminLibraryLightboxIndex(index => Math.max(0, index - 1));
+      if (event.key === 'ArrowRight') setAdminLibraryLightboxIndex(index => Math.min(adminLibraryImages.length - 1, index + 1));
+      if (event.key === '+' || event.key === '=') setAdminLibraryLightboxZoom(zoom => Math.min(3, zoom + 0.25));
+      if (event.key === '-') setAdminLibraryLightboxZoom(zoom => Math.max(0.5, zoom - 0.25));
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [adminLibraryLightboxIndex, adminLibraryImages.length]);
 
   const setAdminLibraryFolderStatus = async (folder, status) => {
     try {
@@ -5715,6 +5743,8 @@ export default function App() {
       const res = await authFetch(`${API_BASE}/admin/channel-library/${channelId}/images/${encodeURIComponent(filename)}`, { method: 'DELETE' });
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || "Suppression impossible.");
       setAdminLibraryImages(prev => prev.filter(name => name !== filename));
+      setAdminLibrarySelectedImages(prev => prev.filter(name => name !== filename));
+      setAdminLibraryImageTotal(total => Math.max(0, total - 1));
       fetchAdminLibraryOverview();
       showToast('Image supprimée.', 'success');
     } catch (err) {
@@ -12045,6 +12075,7 @@ export default function App() {
             const allNiches = adminLibraryOverview.niches;
             const niche = adminLibraryDrillNiche ? allNiches.find(n => n.niche === adminLibraryDrillNiche) : null;
             const user = niche && adminLibraryDrillUserKey ? niche.users.find(u => `${niche.niche}::${u.user_id || 'unknown'}` === adminLibraryDrillUserKey) : null;
+            const folder = adminLibraryDrillFolder;
 
             const ViewToggle = () => (
               <div className="flex items-center gap-1 bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl p-1 shrink-0">
@@ -12065,7 +12096,7 @@ export default function App() {
             const Breadcrumb = () => (
               <div className="flex items-center gap-1.5 text-xs font-bold flex-wrap">
                 <button
-                  onClick={() => { setAdminLibraryDrillNiche(null); setAdminLibraryDrillUserKey(null); }}
+                  onClick={() => { setAdminLibraryDrillNiche(null); setAdminLibraryDrillUserKey(null); setAdminLibraryDrillFolder(null); }}
                   className={!niche ? 'text-white' : 'text-slate-400 hover:text-white'}
                 >
                   Bibliothèque
@@ -12074,7 +12105,7 @@ export default function App() {
                   <>
                     <span className="material-symbols-outlined text-[14px] text-slate-600">chevron_right</span>
                     <button
-                      onClick={() => setAdminLibraryDrillUserKey(null)}
+                      onClick={() => { setAdminLibraryDrillUserKey(null); setAdminLibraryDrillFolder(null); }}
                       className={!user ? 'text-white' : 'text-slate-400 hover:text-white'}
                     >
                       {niche.niche}
@@ -12084,9 +12115,10 @@ export default function App() {
                 {user && (
                   <>
                     <span className="material-symbols-outlined text-[14px] text-slate-600">chevron_right</span>
-                    <span className="text-white">{user.user_email || '—'}</span>
+                    <button onClick={() => setAdminLibraryDrillFolder(null)} className={!folder ? 'text-white' : 'text-slate-400 hover:text-white'}>{user.user_email || '—'}</button>
                   </>
                 )}
+                {folder && <><span className="material-symbols-outlined text-[14px] text-slate-600">chevron_right</span><span className="text-white">{folder.channel_name}</span></>}
               </div>
             );
 
@@ -12170,22 +12202,14 @@ export default function App() {
                   ))}
                 </div>
               );
-            } else {
-              // LEVEL 3 — this user's channel folders in this niche, with an
-              // inline image preview (existing expand mechanism) for shared ones.
+            } else if (!folder) {
+              // LEVEL 3 — folders. Images stay at the next hierarchy level.
               const list = user.folders;
               // Browsing/deleting images works for ANY channel (shared or
               // not) — only the approve/flag/share-toggle actions differ
               // based on whether a CommunityLibraryFolder already exists.
               const FolderActions = ({ uf, sharedFolder }) => (
                 <div className="flex items-center gap-2.5 shrink-0 flex-wrap" onClick={e => e.stopPropagation()}>
-                  <button
-                    onClick={() => openAdminLibraryMove(uf, niche.niche)}
-                    className="inline-flex items-center gap-1 text-[#00c2ff] font-bold text-[11px] hover:underline"
-                  >
-                    <span className="material-symbols-outlined text-[14px]">drive_file_move</span>
-                    Déplacer vers…
-                  </button>
                   {sharedFolder ? (
                     <>
                       {uf.share_status !== 'approved' && (
@@ -12215,7 +12239,7 @@ export default function App() {
                         <div key={uf.channel_id} className="flex flex-col gap-2 p-4 bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-2xl">
                           <div className="flex items-start justify-between gap-2">
                             <button
-                              onClick={() => toggleAdminLibraryExpand(uf.channel_id)}
+                              onClick={() => openAdminLibraryFolder(uf, niche.niche)}
                               className="flex items-center gap-2 min-w-0 text-left"
                             >
                               <span className="material-symbols-outlined text-[18px] text-slate-500 shrink-0">videocam</span>
@@ -12229,7 +12253,7 @@ export default function App() {
                       ) : (
                         <div key={uf.channel_id} className="px-4 py-3 flex items-center gap-2.5">
                           <button
-                            onClick={() => toggleAdminLibraryExpand(uf.channel_id)}
+                            onClick={() => openAdminLibraryFolder(uf, niche.niche)}
                             className="flex items-center gap-2 flex-1 min-w-0 text-left"
                           >
                             <span className="material-symbols-outlined text-[16px] text-slate-500 shrink-0">videocam</span>
@@ -12240,78 +12264,35 @@ export default function App() {
                           <FolderActions uf={uf} sharedFolder={sharedFolder} />
                         </div>
                       );
-                    }).reduce((acc, el, i) => {
-                      acc.push(el);
-                      const uf = list[i];
-                      if (adminLibraryExpandedId === uf.channel_id) {
-                        acc.push(
-                          <div key={uf.channel_id + '-preview'} className={adminLibraryViewMode === 'grid' ? 'col-span-full bg-[var(--bg-input)]/40 rounded-2xl p-3' : 'bg-[var(--bg-input)]/40 p-3'}>
-                            {adminLibraryImages.length === 0 ? (
-                              <p className="text-slate-500 text-[11px]">Chargement de l'aperçu…</p>
-                            ) : (
-                              <div className="space-y-3">
-                                <div className="sticky top-2 z-10 flex items-center gap-3 flex-wrap bg-[var(--bg-surface)]/95 backdrop-blur border border-[var(--border)] rounded-xl px-3 py-2 shadow-lg">
-                                  <span className="text-[11px] font-bold text-white">{adminLibraryImageTotal.toLocaleString('fr-FR')} images</span>
-                                  <label className="ml-auto flex items-center gap-2 text-[10px] text-slate-400">
-                                    Taille
-                                    <input
-                                      type="range"
-                                      min="3"
-                                      max="10"
-                                      value={adminLibraryGridColumns}
-                                      onChange={e => setAdminLibraryGridColumns(Number(e.target.value))}
-                                      className="w-24 accent-[#00c2ff]"
-                                    />
-                                  </label>
-                                  <span className="text-[10px] text-slate-500">Clique une image pour l'agrandir</span>
-                                </div>
-                                <div
-                                  className="grid gap-2"
-                                  style={{ gridTemplateColumns: `repeat(${adminLibraryGridColumns}, minmax(0, 1fr))` }}
-                                >
-                                {adminLibraryImages.map((name, imageIndex) => (
-                                  <div key={name} className="relative group min-w-0">
-                                    <img
-                                      src={`${API_BASE}/admin/channel-library/${uf.channel_id}/images/${encodeURIComponent(name)}`}
-                                      alt={name}
-                                      onClick={() => { setAdminLibraryLightboxIndex(imageIndex); setAdminLibraryLightboxZoom(1); }}
-                                      className="w-full aspect-video object-cover rounded-lg border border-[var(--border)] hover:border-[#00c2ff] cursor-zoom-in transition-colors"
-                                      loading="lazy"
-                                    />
-                                    <button
-                                      type="button"
-                                      title="Supprimer cette image"
-                                      onClick={() => deleteAdminLibraryImage(uf.channel_id, name)}
-                                      className="absolute top-1 right-1 w-6 h-6 rounded-full bg-slate-950/80 text-rose-400 hover:bg-rose-500 hover:text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                                    >
-                                      <span className="material-symbols-outlined text-[14px]">delete</span>
-                                    </button>
-                                  </div>
-                                ))}
-                                </div>
-                                {adminLibraryImagesHasMore && (
-                                  <button
-                                    type="button"
-                                    onClick={() => loadMoreAdminLibraryImages(uf.channel_id)}
-                                    disabled={adminLibraryImagesLoadingMore}
-                                    className="mx-auto flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[var(--bg-surface-alt)] border border-[var(--border)] text-xs font-bold text-white hover:border-[#00c2ff]/60 disabled:opacity-50"
-                                  >
-                                    <span className={`material-symbols-outlined text-[16px] ${adminLibraryImagesLoadingMore ? 'animate-spin' : ''}`}>
-                                      {adminLibraryImagesLoadingMore ? 'progress_activity' : 'expand_more'}
-                                    </span>
-                                    {adminLibraryImagesLoadingMore ? 'Chargement…' : `Afficher 60 images de plus (${adminLibraryImages.length} / ${adminLibraryImageTotal})`}
-                                  </button>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        );
-                      }
-                      return acc;
-                    }, [])}
+                    })}
                   </div>
                 </div>
               );
+            } else {
+              // LEVEL 4 — selectable, infinitely scrolling image grid.
+              const selected = new Set(adminLibrarySelectedImages);
+              const toggleImage = name => setAdminLibrarySelectedImages(items => items.includes(name) ? items.filter(item => item !== name) : [...items, name]);
+              content = <div className="p-4 space-y-4">
+                <div className="sticky top-0 z-20 flex items-center gap-3 flex-wrap bg-[var(--bg-surface)]/95 backdrop-blur border border-[var(--border)] rounded-xl px-3 py-2 shadow-lg">
+                  <span className="text-xs font-bold text-white">{adminLibraryImageTotal.toLocaleString('fr-FR')} images</span>
+                  <span className="text-[11px] text-[#00c2ff]">{adminLibrarySelectedImages.length} sélectionnée{adminLibrarySelectedImages.length > 1 ? 's' : ''}</span>
+                  <button type="button" onClick={() => setAdminLibrarySelectedImages(adminLibrarySelectedImages.length === adminLibraryImages.length ? [] : [...adminLibraryImages])} className="text-[11px] font-bold text-slate-300 hover:text-white">{adminLibrarySelectedImages.length === adminLibraryImages.length && adminLibraryImages.length ? 'Tout désélectionner' : 'Sélectionner les images chargées'}</button>
+                  {adminLibrarySelectedImages.length > 0 && <button type="button" onClick={() => openAdminLibraryMove(folder, niche.niche)} className="inline-flex items-center gap-1 px-3 py-2 rounded-lg bg-[#00c2ff] text-slate-950 text-[11px] font-extrabold"><span className="material-symbols-outlined text-[15px]">drive_file_move</span>Déplacer vers…</button>}
+                  <button type="button" disabled={adminLibrarySelectedImages.length !== 1} onClick={() => { const index = adminLibraryImages.indexOf(adminLibrarySelectedImages[0]); setAdminLibraryLightboxIndex(index); setAdminLibraryLightboxZoom(1); }} className="inline-flex items-center gap-1 px-3 py-2 rounded-lg bg-[var(--bg-surface-alt)] border border-[var(--border)] text-white text-[11px] font-bold disabled:opacity-35"><span className="material-symbols-outlined text-[15px]">open_in_full</span>Agrandir</button>
+                  <label className="ml-auto flex items-center gap-2 text-[10px] text-slate-400">Taille<input type="range" min="3" max="10" value={adminLibraryGridColumns} onChange={e => setAdminLibraryGridColumns(Number(e.target.value))} className="w-28 accent-[#00c2ff]" /></label>
+                </div>
+                {adminLibraryImages.length === 0 && adminLibraryImageTotal === 0 ? <p className="py-16 text-center text-xs text-slate-500">Ce dossier ne contient aucune image.</p> : <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${adminLibraryGridColumns}, minmax(0, 1fr))` }}>
+                  {adminLibraryImages.map((name, imageIndex) => <div key={name} className={`relative group min-w-0 rounded-lg overflow-hidden border-2 transition-colors ${selected.has(name) ? 'border-[#00c2ff] ring-2 ring-[#00c2ff]/30' : 'border-[var(--border)] hover:border-slate-400'}`}>
+                    <button type="button" onClick={() => toggleImage(name)} onDoubleClick={() => { setAdminLibraryLightboxIndex(imageIndex); setAdminLibraryLightboxZoom(1); }} className="block w-full text-left">
+                      <img src={`${API_BASE}/admin/channel-library/${folder.channel_id}/images/${encodeURIComponent(name)}`} alt={name} className="w-full aspect-video object-cover" loading="lazy" />
+                      <span className={`absolute top-2 left-2 w-6 h-6 rounded-md flex items-center justify-center border ${selected.has(name) ? 'bg-[#00c2ff] border-[#00c2ff] text-slate-950' : 'bg-slate-950/70 border-white/50 text-transparent'}`}><span className="material-symbols-outlined text-[17px]">check</span></span>
+                      <span className="absolute inset-x-0 bottom-0 px-2 py-1.5 bg-gradient-to-t from-black/90 to-transparent text-[9px] text-white truncate text-left">{name}</span>
+                    </button>
+                    <button type="button" title="Supprimer cette image" onClick={() => deleteAdminLibraryImage(folder.channel_id, name)} className="absolute top-2 right-2 w-7 h-7 rounded-md bg-slate-950/80 text-rose-400 hover:bg-rose-500 hover:text-white flex items-center justify-center opacity-0 group-hover:opacity-100 focus:opacity-100"><span className="material-symbols-outlined text-[16px]">delete</span></button>
+                  </div>)}
+                </div>}
+                {adminLibraryImagesHasMore && <div ref={adminLibraryLoadMoreRef} className="flex justify-center py-6 text-xs text-slate-400"><span className={`material-symbols-outlined text-[18px] mr-2 ${adminLibraryImagesLoadingMore ? 'animate-spin' : ''}`}>progress_activity</span>{adminLibraryImagesLoadingMore ? 'Chargement…' : `Continuez à défiler · ${adminLibraryImages.length} / ${adminLibraryImageTotal}`}</div>}
+              </div>;
             }
 
             return (
@@ -12330,7 +12311,7 @@ export default function App() {
                   <span className="text-[11px] font-bold text-[#00c2ff] shrink-0">
                     {adminLibraryOverview.total_images.toLocaleString('fr-FR')} image{adminLibraryOverview.total_images > 1 ? 's' : ''} au total
                   </span>
-                  <ViewToggle />
+                  {!folder && <ViewToggle />}
                 </div>
               </div>
               {adminLibraryLoading ? (
@@ -12339,6 +12320,82 @@ export default function App() {
             </div>
             );
           })()}
+
+          {adminLibraryMoveFolder && (
+            <div className="fixed inset-0 z-[120] bg-black/75 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => !adminLibraryMoveBusy && setAdminLibraryMoveFolder(null)}>
+              <div className="w-full max-w-md bg-[var(--bg-surface)] border border-[var(--border)] rounded-2xl p-5 shadow-2xl" onClick={e => e.stopPropagation()}>
+                <div className="flex items-start gap-3">
+                  <span className="material-symbols-outlined text-[#00c2ff] text-[24px]">drive_file_move</span>
+                  <div className="min-w-0">
+                    <h3 className="text-sm font-extrabold text-white">Déplacer les images sélectionnées</h3>
+                    <p className="text-[11px] text-slate-400 mt-1">
+                      {adminLibrarySelectedImages.length} image{adminLibrarySelectedImages.length > 1 ? 's' : ''} du dossier « {adminLibraryMoveFolder.channel_name} » garderont leur nom. Seul leur classement dans la bibliothèque collaborative changera.
+                    </p>
+                  </div>
+                </div>
+                <label className="block text-[11px] font-bold text-slate-300 mt-5 mb-2">Niche de destination</label>
+                <select
+                  value={adminLibraryMoveNiche}
+                  onChange={e => setAdminLibraryMoveNiche(e.target.value)}
+                  className="w-full bg-[var(--bg-input)] border border-[var(--border)] rounded-xl px-3 py-3 text-xs text-white focus:border-[#00c2ff] outline-none"
+                >
+                  {NICHE_OPTIONS.map(option => <option key={option} value={option}>{option}</option>)}
+                </select>
+                <div className="flex justify-end gap-2 mt-5">
+                  <button type="button" onClick={() => setAdminLibraryMoveFolder(null)} disabled={adminLibraryMoveBusy} className="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-300 hover:bg-[var(--bg-hover)] disabled:opacity-50">Annuler</button>
+                  <button
+                    type="button"
+                    onClick={moveAdminLibraryFolder}
+                    disabled={adminLibraryMoveBusy || !adminLibraryMoveNiche || adminLibraryMoveNiche === adminLibraryMoveFolder.current_niche}
+                    className="px-4 py-2.5 rounded-xl bg-[#00c2ff] text-slate-950 text-xs font-extrabold disabled:opacity-40"
+                  >
+                    {adminLibraryMoveBusy ? 'Déplacement…' : 'Déplacer les images'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {adminLibraryLightboxIndex != null && adminLibraryImages[adminLibraryLightboxIndex] && (
+            <div className="fixed inset-0 z-[130] bg-black/95 flex flex-col" role="dialog" aria-modal="true" aria-label="Visionneuse de la bibliothèque">
+              <div className="flex items-center gap-2 px-4 py-3 border-b border-white/10">
+                <div className="min-w-0">
+                  <p className="text-xs font-bold text-white truncate">{adminLibraryImages[adminLibraryLightboxIndex]}</p>
+                  <p className="text-[10px] text-slate-500">{adminLibraryLightboxIndex + 1} / {adminLibraryImageTotal} · ← → naviguer · + − zoomer · Échap fermer</p>
+                </div>
+                <div className="ml-auto flex items-center gap-2">
+                  <button type="button" onClick={() => setAdminLibraryLightboxZoom(zoom => Math.max(0.5, zoom - 0.25))} className="w-9 h-9 rounded-lg bg-white/10 text-white font-bold">−</button>
+                  <span className="w-12 text-center text-[11px] text-slate-300">{Math.round(adminLibraryLightboxZoom * 100)}%</span>
+                  <button type="button" onClick={() => setAdminLibraryLightboxZoom(zoom => Math.min(3, zoom + 0.25))} className="w-9 h-9 rounded-lg bg-white/10 text-white font-bold">＋</button>
+                  <a
+                    href={`${API_BASE}/admin/channel-library/${adminLibraryExpandedId}/images/${encodeURIComponent(adminLibraryImages[adminLibraryLightboxIndex])}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="h-9 px-3 rounded-lg bg-white/10 text-white text-[11px] font-bold flex items-center gap-1.5"
+                  ><span className="material-symbols-outlined text-[15px]">open_in_new</span>Original</a>
+                  <button type="button" onClick={() => setAdminLibraryLightboxIndex(null)} className="w-9 h-9 rounded-lg bg-white/10 text-white"><span className="material-symbols-outlined text-[18px]">close</span></button>
+                </div>
+              </div>
+              <div className="flex-1 min-h-0 flex items-center gap-3 px-3 overflow-hidden">
+                <button type="button" aria-label="Image précédente" disabled={adminLibraryLightboxIndex === 0} onClick={() => setAdminLibraryLightboxIndex(index => Math.max(0, index - 1))} className="w-11 h-11 rounded-full bg-white/10 text-white disabled:opacity-20 shrink-0"><span className="material-symbols-outlined">chevron_left</span></button>
+                <div className="flex-1 h-full overflow-auto flex items-center justify-center p-5">
+                  <img
+                    src={`${API_BASE}/admin/channel-library/${adminLibraryExpandedId}/images/${encodeURIComponent(adminLibraryImages[adminLibraryLightboxIndex])}`}
+                    alt={adminLibraryImages[adminLibraryLightboxIndex]}
+                    className="max-w-full max-h-full object-contain rounded-lg transition-transform duration-150 origin-center"
+                    style={{ transform: `scale(${adminLibraryLightboxZoom})` }}
+                  />
+                </div>
+                <button type="button" aria-label="Image suivante" disabled={adminLibraryLightboxIndex >= adminLibraryImages.length - 1} onClick={() => setAdminLibraryLightboxIndex(index => Math.min(adminLibraryImages.length - 1, index + 1))} className="w-11 h-11 rounded-full bg-white/10 text-white disabled:opacity-20 shrink-0"><span className="material-symbols-outlined">chevron_right</span></button>
+              </div>
+              <div className="h-20 border-t border-white/10 flex items-center justify-center gap-2 px-4 overflow-x-auto">
+                {adminLibraryImages.slice(Math.max(0, adminLibraryLightboxIndex - 4), adminLibraryLightboxIndex + 5).map(name => {
+                  const index = adminLibraryImages.indexOf(name);
+                  return <button key={name} type="button" onClick={() => { setAdminLibraryLightboxIndex(index); setAdminLibraryLightboxZoom(1); }} className={`w-20 h-12 rounded-md overflow-hidden border-2 shrink-0 ${index === adminLibraryLightboxIndex ? 'border-[#00c2ff]' : 'border-transparent opacity-60 hover:opacity-100'}`}><img src={`${API_BASE}/admin/channel-library/${adminLibraryExpandedId}/images/${encodeURIComponent(name)}`} alt="" className="w-full h-full object-cover" /></button>;
+                })}
+              </div>
+            </div>
+          )}
 
           {adminTab === 'transactions' && (
             <div className="bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-2xl overflow-hidden">
