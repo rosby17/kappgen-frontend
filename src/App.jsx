@@ -4822,19 +4822,37 @@ export default function App() {
           ? { append: i > 0 ? 'true' : 'false', share_with_community: newChannel.image_style.share_with_community ? 'true' : 'false' }
           : (stagingToken ? { staging_token: stagingToken } : {});
         const batchBytes = batch.reduce((sum, f) => sum + f.size, 0);
-        lastData = await uploadOneLibraryBatch(batch, {
-          url, extraFields,
-          onBatchProgress: (ratio) => {
-            const doneBytes = bytesDoneBeforeCurrentBatch + ratio * batchBytes;
-            const percent = Math.min(96, Math.round(5 + (doneBytes / totalBytes) * 91));
-            setLibraryUploadProgress(percent);
-            setLibraryUploadMessage(
-              batches.length > 1
-                ? `Importation (lot ${i + 1}/${batches.length}) : ${Math.round((doneBytes / totalBytes) * files.length).toLocaleString('fr-FR')} / ${files.length.toLocaleString('fr-FR')} images`
-                : `Importation : ${Math.round(ratio * files.length).toLocaleString('fr-FR')} / ${files.length.toLocaleString('fr-FR')} images`
-            );
-          },
-        });
+        const onBatchProgress = (ratio) => {
+          const doneBytes = bytesDoneBeforeCurrentBatch + ratio * batchBytes;
+          const percent = Math.min(96, Math.round(5 + (doneBytes / totalBytes) * 91));
+          setLibraryUploadProgress(percent);
+          setLibraryUploadMessage(
+            batches.length > 1
+              ? `Importation (lot ${i + 1}/${batches.length}) : ${Math.round((doneBytes / totalBytes) * files.length).toLocaleString('fr-FR')} / ${files.length.toLocaleString('fr-FR')} images`
+              : `Importation : ${Math.round(ratio * files.length).toLocaleString('fr-FR')} / ${files.length.toLocaleString('fr-FR')} images`
+          );
+        };
+        // A transient network blip on any one batch used to abort the whole
+        // import immediately — for a large folder split into many batches,
+        // that meant losing everything already uploaded (e.g. 50% through
+        // 234 images) over one brief hiccup, with no way to resume short of
+        // starting over. Retries the SAME batch up to 3 times (a couple
+        // seconds apart) before actually giving up; a real rejection from
+        // the server (bad file, auth, etc.) still fails immediately since
+        // only the network-error case is worth retrying.
+        let attempt = 0;
+        for (;;) {
+          try {
+            lastData = await uploadOneLibraryBatch(batch, { url, extraFields, onBatchProgress });
+            break;
+          } catch (err) {
+            attempt += 1;
+            const isNetworkError = /Erreur réseau/.test(err.message);
+            if (!isNetworkError || attempt >= 3) throw err;
+            setLibraryUploadMessage(`Accroc réseau sur le lot ${i + 1}/${batches.length}, nouvelle tentative (${attempt}/3)…`);
+            await new Promise(r => setTimeout(r, 2000));
+          }
+        }
         bytesDoneBeforeCurrentBatch += batchBytes;
         if (!isDirectUpload) stagingToken = lastData.staging_token;
       }
