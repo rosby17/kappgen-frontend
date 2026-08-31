@@ -3681,7 +3681,23 @@ export default function App() {
     let cancelled = false;
     fetch(`${API_BASE}/channels/community-library/availability?niche=${encodeURIComponent(niche)}`)
       .then(res => res.ok ? res.json() : null)
-      .then(data => { if (!cancelled) setCommunityLibraryAvailability(data); })
+      .then(data => {
+        if (cancelled) return;
+        setCommunityLibraryAvailability(data);
+        // Auto-select the collaborative library the moment it's known to be
+        // available, instead of making the creator notice and tick a box
+        // themselves — but only while they haven't already made a real
+        // choice (still on the untouched default with nothing uploaded),
+        // so this never silently overrides a deliberate "own images" pick.
+        setNewChannel(prev => {
+          const style = prev.image_style || {};
+          const untouched = style.source === 'library' && !style.library_path && !(style.library_image_count > 0);
+          if (data?.available && untouched) {
+            return { ...prev, image_style: { ...style, source: 'community' } };
+          }
+          return prev;
+        });
+      })
       .catch(() => { if (!cancelled) setCommunityLibraryAvailability(null); });
     return () => { cancelled = true; };
   }, [view, wizardStep, newChannel?.niche]);
