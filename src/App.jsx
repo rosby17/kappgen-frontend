@@ -5708,24 +5708,50 @@ export default function App() {
     if (!adminLibraryMoveFolder || !adminLibraryMoveNiche) return;
     setAdminLibraryMoveBusy(true);
     try {
-      const res = await authFetch(`${API_BASE}/admin/channel-library/${adminLibraryMoveFolder.channel_id}/niche`, {
+      // Whole-folder merge (see mergeAdminLibraryFolder below, one-click
+      // "Fusionner ce dossier avec…") hits a dedicated endpoint that reads
+      // every file server-side — the per-image /niche route needs an
+      // explicit filenames list, capped by whatever's currently loaded in
+      // the grid (nowhere near enough for a folder of hundreds).
+      const url = adminLibraryMoveFolder.wholeFolder
+        ? `${API_BASE}/admin/channel-library/${adminLibraryMoveFolder.channel_id}/merge`
+        : `${API_BASE}/admin/channel-library/${adminLibraryMoveFolder.channel_id}/niche`;
+      const body = adminLibraryMoveFolder.wholeFolder
+        ? { niche: adminLibraryMoveNiche }
+        : { niche: adminLibraryMoveNiche, filenames: adminLibrarySelectedImages };
+      const res = await authFetch(url, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ niche: adminLibraryMoveNiche, filenames: adminLibrarySelectedImages }),
+        body: JSON.stringify(body),
       });
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || "Déplacement impossible.");
-      const movedCount = adminLibrarySelectedImages.length;
-      setAdminLibraryImages(images => images.filter(name => !adminLibrarySelectedImages.includes(name)));
-      setAdminLibraryImageTotal(total => Math.max(0, total - movedCount));
-      setAdminLibrarySelectedImages([]);
-      setAdminLibraryMoveFolder(null);
-      await fetchAdminLibraryOverview();
-      showToast(`${movedCount} image${movedCount > 1 ? 's ont' : ' a'} été classée${movedCount > 1 ? 's' : ''} dans ${adminLibraryMoveNiche}.`, 'success');
+      if (adminLibraryMoveFolder.wholeFolder) {
+        const data = await res.json();
+        setAdminLibraryMoveFolder(null);
+        await fetchAdminLibraryOverview();
+        showToast(`Dossier fusionné avec la niche « ${adminLibraryMoveNiche} » (${data.image_count} image${data.image_count > 1 ? 's' : ''}).`, 'success');
+      } else {
+        const movedCount = adminLibrarySelectedImages.length;
+        setAdminLibraryImages(images => images.filter(name => !adminLibrarySelectedImages.includes(name)));
+        setAdminLibraryImageTotal(total => Math.max(0, total - movedCount));
+        setAdminLibrarySelectedImages([]);
+        setAdminLibraryMoveFolder(null);
+        await fetchAdminLibraryOverview();
+        showToast(`${movedCount} image${movedCount > 1 ? 's ont' : ' a'} été classée${movedCount > 1 ? 's' : ''} dans ${adminLibraryMoveNiche}.`, 'success');
+      }
     } catch (err) {
       showToast(err.message, 'error');
     } finally {
       setAdminLibraryMoveBusy(false);
     }
+  };
+
+  // One-click folder-level shortcut for "Fusionner ce dossier avec…" — same
+  // move mechanism/modal as the per-image "Déplacer vers…", just targeting
+  // the whole folder server-side instead of a client-picked filename list.
+  const mergeAdminLibraryFolder = (uf, currentNiche) => {
+    setAdminLibraryMoveFolder({ channel_id: uf.channel_id, channel_name: uf.channel_name, current_niche: currentNiche, wholeFolder: true });
+    setAdminLibraryMoveNiche(currentNiche || '');
   };
 
   useEffect(() => {
@@ -12367,6 +12393,9 @@ export default function App() {
                       Partager quand même
                     </button>
                   )}
+                  <button onClick={() => mergeAdminLibraryFolder(uf, niche.niche)} className="text-slate-400 font-bold text-[11px] hover:underline">
+                    Fusionner avec…
+                  </button>
                 </div>
               );
               content = (
@@ -12469,9 +12498,13 @@ export default function App() {
                 <div className="flex items-start gap-3">
                   <span className="material-symbols-outlined text-[#00c2ff] text-[24px]">drive_file_move</span>
                   <div className="min-w-0">
-                    <h3 className="text-sm font-extrabold text-white">Déplacer les images sélectionnées</h3>
+                    <h3 className="text-sm font-extrabold text-white">
+                      {adminLibraryMoveFolder.wholeFolder ? 'Fusionner ce dossier avec une niche' : 'Déplacer les images sélectionnées'}
+                    </h3>
                     <p className="text-[11px] text-slate-400 mt-1">
-                      {adminLibrarySelectedImages.length} image{adminLibrarySelectedImages.length > 1 ? 's' : ''} du dossier « {adminLibraryMoveFolder.channel_name} » garderont leur nom. Seul leur classement dans la bibliothèque collaborative changera.
+                      {adminLibraryMoveFolder.wholeFolder
+                        ? <>Toutes les images du dossier « {adminLibraryMoveFolder.channel_name} » rejoindront le pool de la niche choisie — aucun fichier n'est déplacé ni copié, seul leur classement change.</>
+                        : <>{adminLibrarySelectedImages.length} image{adminLibrarySelectedImages.length > 1 ? 's' : ''} du dossier « {adminLibraryMoveFolder.channel_name} » garderont leur nom. Seul leur classement dans la bibliothèque collaborative changera.</>}
                     </p>
                   </div>
                 </div>
@@ -12491,7 +12524,7 @@ export default function App() {
                     disabled={adminLibraryMoveBusy || !adminLibraryMoveNiche || adminLibraryMoveNiche === adminLibraryMoveFolder.current_niche}
                     className="px-4 py-2.5 rounded-xl bg-[#00c2ff] text-slate-950 text-xs font-extrabold disabled:opacity-40"
                   >
-                    {adminLibraryMoveBusy ? 'Déplacement…' : 'Déplacer les images'}
+                    {adminLibraryMoveBusy ? 'Traitement…' : adminLibraryMoveFolder.wholeFolder ? 'Fusionner le dossier' : 'Déplacer les images'}
                   </button>
                 </div>
               </div>
