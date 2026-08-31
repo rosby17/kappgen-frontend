@@ -4794,8 +4794,19 @@ export default function App() {
   // photo folder (100+ images) blows past that in one shot and gets killed
   // with a 413 right as the browser finishes sending it. Split into batches
   // safely under that ceiling and upload them one after another instead.
-  const LIBRARY_UPLOAD_BATCH_MAX_BYTES = 80 * 1024 * 1024;
-  const LIBRARY_UPLOAD_BATCH_MAX_FILES = 60;
+  //
+  // Kept well under that 100MB ceiling (not just under it) for a second
+  // reason: Cloudflare's own proxy also has a ~100s idle/total timeout on a
+  // single request, and an 80MB batch on a slow/mobile connection can
+  // easily take longer than that to finish sending — the connection gets
+  // cut mid-upload, surfacing as a plain "Erreur réseau" with no HTTP status
+  // to explain it (seen in production: a creator's import stalled and died
+  // this way partway through, even with the retry-on-network-error below,
+  // because retrying the SAME oversized batch just hits the same timeout
+  // again). A smaller batch finishes well inside that window even on a slow
+  // connection, at the cost of a few more round-trips for a very large import.
+  const LIBRARY_UPLOAD_BATCH_MAX_BYTES = 20 * 1024 * 1024;
+  const LIBRARY_UPLOAD_BATCH_MAX_FILES = 25;
 
   const buildLibraryUploadBatches = (files) => {
     const batches = [];
@@ -4885,6 +4896,7 @@ export default function App() {
         // seconds apart) before actually giving up; a real rejection from
         // the server (bad file, auth, etc.) still fails immediately since
         // only the network-error case is worth retrying.
+        const MAX_BATCH_ATTEMPTS = 5;
         let attempt = 0;
         for (;;) {
           try {
@@ -4893,9 +4905,12 @@ export default function App() {
           } catch (err) {
             attempt += 1;
             const isNetworkError = /Erreur réseau/.test(err.message);
-            if (!isNetworkError || attempt >= 3) throw err;
-            setLibraryUploadMessage(`Accroc réseau sur le lot ${i + 1}/${batches.length}, nouvelle tentative (${attempt}/3)…`);
-            await new Promise(r => setTimeout(r, 2000));
+            if (!isNetworkError || attempt >= MAX_BATCH_ATTEMPTS) throw err;
+            setLibraryUploadMessage(`Accroc réseau sur le lot ${i + 1}/${batches.length}, nouvelle tentative (${attempt}/${MAX_BATCH_ATTEMPTS})…`);
+            // Backs off a bit longer each time — a connection that just had a
+            // multi-second hiccup needs more than a flat 2s to actually
+            // recover before the next (still sizeable) batch attempt.
+            await new Promise(r => setTimeout(r, 2000 * attempt));
           }
         }
         bytesDoneBeforeCurrentBatch += batchBytes;
