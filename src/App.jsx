@@ -5416,7 +5416,7 @@ export default function App() {
   const [adminLibraryImageTotal, setAdminLibraryImageTotal] = useState(0);
   const [adminLibraryImagesHasMore, setAdminLibraryImagesHasMore] = useState(false);
   const [adminLibraryImagesLoadingMore, setAdminLibraryImagesLoadingMore] = useState(false);
-  const [adminLibraryGridColumns, setAdminLibraryGridColumns] = useState(8);
+  const [adminLibraryGridColumns, setAdminLibraryGridColumns] = useState(5);
   const [adminLibraryLightboxIndex, setAdminLibraryLightboxIndex] = useState(null);
   const [adminLibraryLightboxZoom, setAdminLibraryLightboxZoom] = useState(1);
   const [adminLibraryMoveFolder, setAdminLibraryMoveFolder] = useState(null);
