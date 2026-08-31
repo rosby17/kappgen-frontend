@@ -2304,10 +2304,21 @@ async function getFolderHandle(channelKey) {
     return null;
   }
 }
+// Matches backend/src/config.py's IMAGE_UPLOAD_EXTENSIONS — kept as the
+// ONLY filter for a folder/drop selection. It used to be OR'd with a
+// `file.type.startsWith('image/')` MIME check, which is far too permissive:
+// the browser reports plenty of formats we don't actually accept (or even
+// derivative/sidecar files from a Photos.app export) as an "image/*" MIME
+// type, so a folder the creator was sure held under 50 real photos was
+// getting "227 images sélectionnées" — inflated by files this extension
+// list would have correctly excluded, some of which then failed partway
+// through upload as a confusing "erreur réseau".
+const LOCAL_IMAGE_EXTENSIONS_RE = /\.(jpg|jpeg|jfif|jpe|png|webp|gif|avif|bmp|tif|tiff|heic|heif)$/i;
+
 async function readImagesFromDirHandle(dirHandle) {
   const files = [];
   for await (const entry of dirHandle.values()) {
-    if (entry.kind === "file" && /\.(jpg|jpeg|png|webp|gif|avif)$/i.test(entry.name)) {
+    if (entry.kind === "file" && LOCAL_IMAGE_EXTENSIONS_RE.test(entry.name)) {
       const file = await entry.getFile();
       files.push(file);
     }
@@ -5004,7 +5015,7 @@ export default function App() {
 
   const handleLocalFolderSelect = (e) => {
     const files = Array.from(e.target.files).filter(f => 
-      f.type.startsWith('image/') || /\.(jpg|jpeg|png|webp|gif|avif)$/i.test(f.name)
+      LOCAL_IMAGE_EXTENSIONS_RE.test(f.name)
     );
     if (files.length > 0) {
       // Extract directory name from webkitRelativePath
@@ -5020,7 +5031,7 @@ export default function App() {
     setIsFolderDragging(false);
 
     const droppedFiles = Array.from(e.dataTransfer.files).filter(f => 
-      f.type.startsWith('image/') || /\.(jpg|jpeg|png|webp|gif|avif)$/i.test(f.name)
+      LOCAL_IMAGE_EXTENSIONS_RE.test(f.name)
     );
 
     if (droppedFiles.length > 0) {
@@ -8311,7 +8322,7 @@ export default function App() {
                             multiple
                             onChange={(e) => {
                               const files = Array.from(e.target.files).filter(f =>
-                                f.type.startsWith('image/') || /\.(jpg|jpeg|png|webp|gif|avif)$/i.test(f.name)
+                                LOCAL_IMAGE_EXTENSIONS_RE.test(f.name)
                               );
                               if (files.length > 0) {
                                 const firstPath = files[0].webkitRelativePath || '';
