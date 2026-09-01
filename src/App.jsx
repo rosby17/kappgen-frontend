@@ -5466,6 +5466,7 @@ export default function App() {
   const [editingLibraryLabelValue, setEditingLibraryLabelValue] = useState('');
   const [adminLibraryLoading, setAdminLibraryLoading] = useState(false);
   const [adminLibraryNicheFilter, setAdminLibraryNicheFilter] = useState('');
+  const [adminLibraryNicheSort, setAdminLibraryNicheSort] = useState('count'); // 'count' | 'alpha' | 'recent'
   const [adminLibraryExpandedId, setAdminLibraryExpandedId] = useState(null);
   const [adminLibraryImages, setAdminLibraryImages] = useState([]);
   const [adminLibraryImageTotal, setAdminLibraryImageTotal] = useState(0);
@@ -7905,34 +7906,22 @@ export default function App() {
                               or manually downloaded — the creator's own framing is that both
                               mean "out the door"), what's ready but still waiting, and the
                               channel's lifetime total. */}
-                          <div className="flex items-center justify-between gap-2 mt-3.5 pt-3.5 pb-0.5 border-t border-[var(--border-subtle)]">
-                            <div className="flex items-center gap-1.5 min-w-0">
-                              <span className="material-symbols-outlined text-[13px] text-[#00c2ff] shrink-0">hourglass_top</span>
-                              <div className="leading-none">
-                                <div className="text-base text-[#00c2ff] font-extrabold leading-none">{(chan.queued_count || 0) + (chan.rendering_count || 0)}</div>
-                                <div className="text-[8px] text-slate-500 whitespace-nowrap mt-1">En cours</div>
-                              </div>
+                          <div className="grid grid-cols-4 mt-3.5 pt-3.5 border-t border-[var(--border-subtle)]">
+                            <div className="text-center">
+                              <div className="text-base text-[#00c2ff] font-extrabold leading-none">{(chan.queued_count || 0) + (chan.rendering_count || 0)}</div>
+                              <div className="text-[9px] text-slate-500 mt-1">En cours</div>
                             </div>
-                            <div className="flex items-center gap-1.5 min-w-0">
-                              <span className="material-symbols-outlined text-[13px] text-emerald-400 shrink-0">check_circle</span>
-                              <div className="leading-none">
-                                <div className="text-base text-slate-200 font-extrabold leading-none">{chan.published_count || 0}</div>
-                                <div className="text-[8px] text-slate-500 whitespace-nowrap mt-1">Publiées</div>
-                              </div>
+                            <div className="text-center">
+                              <div className="text-base text-slate-200 font-extrabold leading-none">{chan.published_count || 0}</div>
+                              <div className="text-[9px] text-slate-500 mt-1">Publiées</div>
                             </div>
-                            <div className="flex items-center gap-1.5 min-w-0">
-                              <span className="material-symbols-outlined text-[13px] text-amber-400 shrink-0">schedule</span>
-                              <div className="leading-none">
-                                <div className="text-base text-slate-200 font-extrabold leading-none">{chan.unpublished_count || 0}</div>
-                                <div className="text-[8px] text-slate-500 whitespace-nowrap mt-1">À publier</div>
-                              </div>
+                            <div className="text-center">
+                              <div className="text-base text-slate-200 font-extrabold leading-none">{chan.unpublished_count || 0}</div>
+                              <div className="text-[9px] text-slate-500 mt-1">À publier</div>
                             </div>
-                            <div className="flex items-center gap-1.5 min-w-0">
-                              <span className="material-symbols-outlined text-[13px] text-slate-500 shrink-0">bar_chart</span>
-                              <div className="leading-none">
-                                <div className="text-base text-slate-300 font-extrabold leading-none">{chan.total_count || 0}</div>
-                                <div className="text-[8px] text-slate-500 whitespace-nowrap mt-1">Total</div>
-                              </div>
+                            <div className="text-center">
+                              <div className="text-base text-slate-300 font-extrabold leading-none">{chan.total_count || 0}</div>
+                              <div className="text-[9px] text-slate-500 mt-1">Total</div>
                             </div>
                           </div>
 
@@ -12587,8 +12576,17 @@ export default function App() {
 
             let content;
             if (!niche) {
-              // LEVEL 1 — every known niche, always shown even empty.
-              const list = allNiches.filter(n => !filterText || n.niche.toLowerCase().includes(filterText));
+              // LEVEL 1 — every known niche, always shown even empty. Server
+              // order is by image count desc; re-sort here for alpha/recency
+              // without another round-trip.
+              const list = allNiches
+                .filter(n => !filterText || n.niche.toLowerCase().includes(filterText))
+                .slice()
+                .sort((a, b) => {
+                  if (adminLibraryNicheSort === 'alpha') return a.niche.localeCompare(b.niche);
+                  if (adminLibraryNicheSort === 'recent') return (b.latest_activity || '').localeCompare(a.latest_activity || '');
+                  return 0; // 'count' — keep the server's image-count-desc order
+                });
               content = list.length === 0 ? (
                 <p className="px-4 py-10 text-center text-slate-500 text-xs">Aucune niche ne correspond à ce filtre.</p>
               ) : adminLibraryViewMode === 'grid' ? (
@@ -12784,12 +12782,23 @@ export default function App() {
                 <Breadcrumb />
                 <div className="flex items-center gap-3 flex-wrap">
                   {!niche && (
-                    <input
-                      value={adminLibraryNicheFilter}
-                      onChange={e => setAdminLibraryNicheFilter(e.target.value)}
-                      placeholder="Filtrer par niche..."
-                      className="bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-3 py-2 text-xs text-white focus:border-[#00c2ff] outline-none"
-                    />
+                    <>
+                      <input
+                        value={adminLibraryNicheFilter}
+                        onChange={e => setAdminLibraryNicheFilter(e.target.value)}
+                        placeholder="Filtrer par niche..."
+                        className="bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-3 py-2 text-xs text-white focus:border-[#00c2ff] outline-none"
+                      />
+                      <select
+                        value={adminLibraryNicheSort}
+                        onChange={e => setAdminLibraryNicheSort(e.target.value)}
+                        className="bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-2.5 py-2 text-xs text-white focus:border-[#00c2ff] outline-none"
+                      >
+                        <option value="count">Le plus d'images</option>
+                        <option value="alpha">Alphabétique</option>
+                        <option value="recent">Plus récent → plus ancien</option>
+                      </select>
+                    </>
                   )}
                   <span className="text-[11px] font-bold text-[#00c2ff] shrink-0">
                     {adminLibraryOverview.total_images.toLocaleString('fr-FR')} image{adminLibraryOverview.total_images > 1 ? 's' : ''} au total
