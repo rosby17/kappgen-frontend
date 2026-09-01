@@ -2079,10 +2079,10 @@ const applySubtitleCase = (text, caseMode) => {
 };
 
 const subtitleAlignClass = (align) => {
-  const normalized = String(align || 'center').toLowerCase();
-  if (normalized === 'left') return 'justify-start';
+  const normalized = String(align || 'left').toLowerCase();
   if (normalized === 'right') return 'justify-end';
-  return 'justify-center';
+  if (normalized === 'center') return 'justify-center';
+  return 'justify-start';
 };
 
 // Custom swatch + popover color picker, styled to match the app instead of
@@ -3775,7 +3775,7 @@ export default function App() {
       outline_color: '#000000',
       outline_width: 3,
       position: 'bottom',
-      align: 'center',
+      align: 'left',
       karaoke: true,
       highlight_mode: 'word',
       subtitle_mode: 'dynamic',
@@ -10757,9 +10757,9 @@ export default function App() {
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       {[
                         ['auto_ducking', 'Auto-Ducking', 'La musique descend automatiquement lorsque la voix parle.'],
-                        ['soundgoodizer_enabled', 'Enhancer — type Soundgoodizer', 'Ajoute présence, chaleur et compression à la musique.'],
-                        ['reverb_enabled', 'Réverbération — type Fruity Reeverb 2', 'Ajoute une profondeur légère sans masquer la narration.'],
-                        ['maximus_enabled', 'Mastering multibande — type Maximus', 'Équilibre graves, médiums et aigus puis protège des saturations.'],
+                        ['soundgoodizer_enabled', 'Enhancer — type Soundgoodizer', 'Ajoute présence, chaleur et compression à la voix.'],
+                        ['reverb_enabled', 'Réverbération — type Fruity Reeverb 2', 'Conserve la voix nette et ajoute une queue d’écho discrète en arrière-plan.'],
+                        ['maximus_enabled', 'Mastering multibande — type Maximus', 'Équilibre les fréquences de la voix et protège des saturations.'],
                       ].map(([field, label, help]) => {
                         const enabled = newChannel.music_preference[field] ?? (field === 'auto_ducking' || field === 'maximus_enabled');
                         const amountField = {
@@ -11147,7 +11147,7 @@ export default function App() {
                                     key={id}
                                     type="button"
                                     onClick={() => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, align: id } })}
-                                    className={`py-2.5 rounded-xl border transition-colors flex items-center justify-center ${(newChannel.subtitle_style.align || 'center') === id ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]' : 'bg-[var(--bg-surface-alt)] border-[var(--border)] text-slate-300 hover:border-slate-500'}`}
+                                    className={`py-2.5 rounded-xl border transition-colors flex items-center justify-center ${(newChannel.subtitle_style.align || 'left') === id ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]' : 'bg-[var(--bg-surface-alt)] border-[var(--border)] text-slate-300 hover:border-slate-500'}`}
                                   >
                                     <span className="material-symbols-outlined text-[18px]">{icon}</span>
                                   </button>
