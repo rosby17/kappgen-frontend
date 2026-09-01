@@ -5463,6 +5463,8 @@ export default function App() {
   const [adminVideosLoading, setAdminVideosLoading] = useState(false);
   const [adminVideosViewMode, setAdminVideosViewMode] = useState('list'); // 'list' | 'grid'
   const [adminLibraryFolders, setAdminLibraryFolders] = useState([]);
+  const [editingLibraryLabelChannelId, setEditingLibraryLabelChannelId] = useState(null);
+  const [editingLibraryLabelValue, setEditingLibraryLabelValue] = useState('');
   const [adminLibraryLoading, setAdminLibraryLoading] = useState(false);
   const [adminLibraryNicheFilter, setAdminLibraryNicheFilter] = useState('');
   const [adminLibraryExpandedId, setAdminLibraryExpandedId] = useState(null);
@@ -5851,6 +5853,24 @@ export default function App() {
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || "Échec du partage forcé.");
       fetchAdminLibraryOverview();
       showToast('Dossier partagé avec la communauté (décision admin).', 'success');
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  };
+
+  // Admin-only display label for the library folder — never touches the
+  // channel's real name, so the creator's own app is unaffected.
+  const renameAdminLibraryFolder = async (channelId, label) => {
+    try {
+      const res = await authFetch(`${API_BASE}/admin/channel-library/${channelId}/label`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ label }),
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || "Échec du renommage.");
+      setEditingLibraryLabelChannelId(null);
+      fetchAdminLibraryOverview();
+      showToast('Nom du dossier mis à jour.', 'success');
     } catch (err) {
       showToast(err.message, 'error');
     }
@@ -12494,6 +12514,39 @@ export default function App() {
               </div>
             );
 
+            // Admin-only rename of the folder label — click the pencil to edit
+            // inline, Enter/blur to save, Escape to cancel. Leaves the
+            // channel's real name untouched everywhere else in the app.
+            const FolderNameLabel = ({ uf, size = 'text-xs' }) => (
+              editingLibraryLabelChannelId === uf.channel_id ? (
+                <input
+                  autoFocus
+                  value={editingLibraryLabelValue}
+                  onChange={e => setEditingLibraryLabelValue(e.target.value)}
+                  onClick={e => e.stopPropagation()}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') renameAdminLibraryFolder(uf.channel_id, editingLibraryLabelValue);
+                    if (e.key === 'Escape') setEditingLibraryLabelChannelId(null);
+                  }}
+                  onBlur={() => renameAdminLibraryFolder(uf.channel_id, editingLibraryLabelValue)}
+                  placeholder={uf.real_channel_name || uf.channel_name}
+                  className={`min-w-0 flex-1 bg-[var(--bg-surface-alt)] border border-[#00c2ff] rounded-lg px-1.5 py-0.5 ${size} font-bold text-white outline-none`}
+                />
+              ) : (
+                <span className="flex items-center gap-1 min-w-0">
+                  <span className={`${size} font-bold text-white truncate`}>{uf.channel_name || '—'}</span>
+                  <button
+                    type="button"
+                    onClick={e => { e.stopPropagation(); setEditingLibraryLabelChannelId(uf.channel_id); setEditingLibraryLabelValue(uf.channel_name === uf.real_channel_name ? '' : (uf.channel_name || '')); }}
+                    title="Renommer ce dossier (n'affecte pas le vrai nom de la chaîne)"
+                    className="shrink-0 p-0.5 rounded text-slate-500 hover:text-white"
+                  >
+                    <span className="material-symbols-outlined text-[13px]">edit</span>
+                  </button>
+                </span>
+              )
+            );
+
             const StatusBadge = ({ status }) => (
               <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${
                 status === 'approved' ? 'bg-emerald-950/60 text-emerald-400'
@@ -12613,13 +12666,15 @@ export default function App() {
                       return adminLibraryViewMode === 'grid' ? (
                         <div key={uf.channel_id} className="flex flex-col gap-2 p-4 bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-2xl">
                           <div className="flex items-start justify-between gap-2">
-                            <button
-                              onClick={() => openAdminLibraryFolder(uf, niche.niche)}
-                              className="flex items-center gap-2 min-w-0 text-left"
-                            >
-                              <span className="material-symbols-outlined text-[18px] text-slate-500 shrink-0">videocam</span>
-                              <span className="text-xs font-bold text-white truncate">{uf.channel_name || '—'}</span>
-                            </button>
+                            <div className="flex items-center gap-2 min-w-0">
+                              <button
+                                onClick={() => openAdminLibraryFolder(uf, niche.niche)}
+                                className="shrink-0"
+                              >
+                                <span className="material-symbols-outlined text-[18px] text-slate-500">videocam</span>
+                              </button>
+                              <FolderNameLabel uf={uf} />
+                            </div>
                             <StatusBadge status={uf.share_status} />
                           </div>
                           <span className="text-[10px] text-slate-500">{uf.image_count} image{uf.image_count > 1 ? 's' : ''}</span>
@@ -12629,12 +12684,14 @@ export default function App() {
                         <div key={uf.channel_id} className="px-4 py-3 flex items-center gap-2.5">
                           <button
                             onClick={() => openAdminLibraryFolder(uf, niche.niche)}
-                            className="flex items-center gap-2 flex-1 min-w-0 text-left"
+                            className="shrink-0"
                           >
-                            <span className="material-symbols-outlined text-[16px] text-slate-500 shrink-0">videocam</span>
-                            <span className="text-xs font-bold text-white truncate">{uf.channel_name || '—'}</span>
-                            <span className="text-[10px] text-slate-500 shrink-0">{uf.image_count} image{uf.image_count > 1 ? 's' : ''}</span>
+                            <span className="material-symbols-outlined text-[16px] text-slate-500">videocam</span>
                           </button>
+                          <div className="flex-1 min-w-0 flex items-center gap-2">
+                            <FolderNameLabel uf={uf} />
+                            <span className="text-[10px] text-slate-500 shrink-0">{uf.image_count} image{uf.image_count > 1 ? 's' : ''}</span>
+                          </div>
                           <StatusBadge status={uf.share_status} />
                           <FolderActions uf={uf} sharedFolder={sharedFolder} />
                         </div>
