@@ -3291,6 +3291,53 @@ export default function App() {
   const musicInputRef = useRef(null);
   const [aiMusicGenerating, setAiMusicGenerating] = useState(false);
   const [aiMusicPreviewUrl, setAiMusicPreviewUrl] = useState(null);
+  const [mixPreviewVoiceFile, setMixPreviewVoiceFile] = useState(null);
+  const [mixPreviewVoiceUrl, setMixPreviewVoiceUrl] = useState(null);
+  const [studioMixPreviewUrl, setStudioMixPreviewUrl] = useState(null);
+  const [studioMixPreviewing, setStudioMixPreviewing] = useState(false);
+
+  const handleMixPreviewVoiceSelect = (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    if (mixPreviewVoiceUrl) URL.revokeObjectURL(mixPreviewVoiceUrl);
+    if (studioMixPreviewUrl) URL.revokeObjectURL(studioMixPreviewUrl);
+    setMixPreviewVoiceFile(file);
+    setMixPreviewVoiceUrl(URL.createObjectURL(file));
+    setStudioMixPreviewUrl(null);
+  };
+
+  const handleStudioMixPreview = async () => {
+    if (!mixPreviewVoiceFile) {
+      showToast("Importez d’abord un extrait de voix.", "error");
+      return;
+    }
+    setStudioMixPreviewing(true);
+    try {
+      const formData = new FormData();
+      formData.append('voice_sample', mixPreviewVoiceFile);
+      formData.append('settings_json', JSON.stringify(newChannel.music_preference));
+      if (editingChannelId) formData.append('channel_id', editingChannelId);
+      if (musicFiles[0]) {
+        formData.append('music_sample', musicFiles[0]);
+      } else if (aiMusicPreviewUrl) {
+        const aiBlob = await fetch(aiMusicPreviewUrl).then(r => r.blob());
+        formData.append('music_sample', new File([aiBlob], 'musique-ia.mp3', { type: aiBlob.type || 'audio/mpeg' }));
+      }
+      const res = await authFetch(`${API_BASE}/channels/preview-audio-mix`, { method: 'POST', body: formData });
+      if (!res.ok) {
+        const detail = await res.json().catch(() => ({}));
+        throw new Error(detail.detail || "Impossible de produire l’aperçu.");
+      }
+      const blob = await res.blob();
+      if (studioMixPreviewUrl) URL.revokeObjectURL(studioMixPreviewUrl);
+      setStudioMixPreviewUrl(URL.createObjectURL(blob));
+    } catch (err) {
+      showToast(err.message || "Erreur pendant la préécoute du mixage.", "error");
+    } finally {
+      setStudioMixPreviewing(false);
+    }
+  };
 
   const handleGenerateMusicPreview = async () => {
     setAiMusicGenerating(true);
@@ -6782,6 +6829,46 @@ export default function App() {
   const [studioPreviewPlayingId, setStudioPreviewPlayingId] = useState(null);
   const [studioVoiceDraft, setStudioVoiceDraft] = useState(null);
   const [studioRegeneratingVoice, setStudioRegeneratingVoice] = useState(false);
+  const [studioLogoOpen, setStudioLogoOpen] = useState(false);
+  const [studioLogoSaving, setStudioLogoSaving] = useState(false);
+  const [studioLogoChannel, setStudioLogoChannel] = useState(null);
+  const studioLogoDebounceRef = useRef(null);
+
+  // Repositions the channel logo and reassembles this video with it. There's
+  // no per-video logo override in the data model — the logo is channel
+  // branding — so this updates the channel (same as the wizard's logo
+  // controls) and the new position also applies to this channel's future
+  // videos, which the Studio UI says explicitly.
+  const updateStudioLogo = async (patch) => {
+    if (!studioVideo) return;
+    setStudioLogoSaving(true);
+    try {
+      const res = await authFetch(`${API_BASE}/videos/${studioVideo.id}/logo`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(patch),
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || 'Échec de la mise à jour du logo');
+      const updatedVideo = await res.json();
+      setStudioLogoChannel(prev => ({ ...(prev || {}), branding: { ...(prev?.branding || {}), ...patch } }));
+      setStudioReassembling(true);
+      pollReassembly(updatedVideo.id);
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setStudioLogoSaving(false);
+    }
+  };
+
+  // Sliders fire onChange on every tick while dragging — calling
+  // updateStudioLogo directly would queue a full reassembly per pixel of
+  // drag. This updates the on-screen value immediately but only commits
+  // (and reassembles) 500ms after the user stops moving the slider.
+  const updateStudioLogoDraft = (patch) => {
+    setStudioLogoChannel(prev => ({ ...(prev || {}), branding: { ...(prev?.branding || {}), ...patch } }));
+    if (studioLogoDebounceRef.current) clearTimeout(studioLogoDebounceRef.current);
+    studioLogoDebounceRef.current = setTimeout(() => updateStudioLogo(patch), 500);
+  };
 
   const openStudio = async (vid) => {
     setStudioVideo(vid);
@@ -6797,6 +6884,8 @@ export default function App() {
     setStudioSeekTo(null);
     setStudioVoiceMenuOpen(false);
     setStudioVoiceDraft(vid.voice_id || null);
+    setStudioLogoOpen(false);
+    setStudioLogoChannel(channels.find(c => c.id === vid.channel_id) || null);
     try {
       const res = await authFetch(`${API_BASE}/videos/${vid.id}/scenes`);
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || 'Scènes indisponibles');
@@ -10512,6 +10601,36 @@ export default function App() {
                         <p className="text-[10px] text-slate-500 mt-1">Équivalents serveur des traitements FL Studio. La voix reste toujours prioritaire.</p>
                       </div>
 
+                      <div className="rounded-xl border border-[#00c2ff]/30 bg-[#00c2ff]/5 p-3 space-y-3">
+                        <div>
+                          <p className="text-[11px] font-extrabold text-white">Banc d’essai — écouter le rendu final</p>
+                          <p className="text-[9px] text-slate-400 mt-0.5">Importez un court extrait de voix. Il sera mixé avec la musique sélectionnée en utilisant exactement les effets ci-dessous.</p>
+                        </div>
+                        <label className="flex items-center justify-center gap-2 w-full py-2 rounded-lg border border-dashed border-[#00c2ff]/50 text-[#55d8ff] hover:bg-[#00c2ff]/10 cursor-pointer text-[10px] font-bold transition-colors">
+                          <span className="material-symbols-outlined text-[16px]">mic</span>
+                          {mixPreviewVoiceFile ? `Changer la voix test — ${mixPreviewVoiceFile.name}` : 'Importer un extrait de voix test'}
+                          <input type="file" accept="audio/mpeg,audio/wav,audio/mp4,audio/ogg,.mp3,.wav,.m4a,.ogg" className="hidden" onChange={handleMixPreviewVoiceSelect} />
+                        </label>
+                        {mixPreviewVoiceUrl && (
+                          <audio controls src={mixPreviewVoiceUrl} className="w-full h-9" />
+                        )}
+                        <button
+                          type="button"
+                          onClick={handleStudioMixPreview}
+                          disabled={studioMixPreviewing || !mixPreviewVoiceFile}
+                          className="w-full py-2.5 rounded-lg bg-[#00c2ff] hover:bg-[#38d0ff] text-slate-950 text-[11px] font-extrabold disabled:opacity-40 flex items-center justify-center gap-2"
+                        >
+                          <span className={`material-symbols-outlined text-[16px] ${studioMixPreviewing ? 'animate-spin' : ''}`}>{studioMixPreviewing ? 'progress_activity' : 'hearing'}</span>
+                          {studioMixPreviewing ? 'Application des effets…' : (studioMixPreviewUrl ? 'Actualiser avec les nouveaux réglages' : 'Appliquer les effets et écouter')}
+                        </button>
+                        {studioMixPreviewUrl && (
+                          <div className="rounded-lg bg-black/20 p-2">
+                            <p className="text-[9px] font-bold text-emerald-400 mb-1">APERÇU DU MIXAGE FINAL</p>
+                            <audio controls autoPlay src={studioMixPreviewUrl} className="w-full h-9" />
+                          </div>
+                        )}
+                      </div>
+
                       {[
                         ['auto_ducking', 'Auto-Ducking', 'La musique descend automatiquement lorsque la voix parle.'],
                         ['soundgoodizer_enabled', 'Enhancer — type Soundgoodizer', 'Ajoute présence, chaleur et compression à la musique.'],
@@ -14130,6 +14249,63 @@ export default function App() {
                       <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Audio</div>
                       <ServerAudioPreview src={`${API_BASE}/videos/${studioVideo.id}/audio`} name="Voix off" />
                     </div>
+                    {studioLogoChannel && (
+                      <div>
+                        <button
+                          onClick={() => setStudioLogoOpen(o => !o)}
+                          className="w-full flex items-center justify-between gap-2 text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 hover:text-slate-300"
+                        >
+                          <span>Logo</span>
+                          <span className={`material-symbols-outlined text-[14px] transition-transform ${studioLogoOpen ? 'rotate-180' : ''}`}>expand_more</span>
+                        </button>
+                        {studioLogoOpen && (() => {
+                          const branding = studioLogoChannel.branding || {};
+                          const logoEnabled = branding.logo_enabled ?? true;
+                          const logoSize = branding.logo_size_percent ?? 14;
+                          const logoX = branding.logo_x_percent ?? presetXY(branding.logo_corner, logoSize).x;
+                          const logoY = branding.logo_y_percent ?? presetXY(branding.logo_corner, logoSize).y;
+                          if (!branding.logo_path) return <p className="text-[10px] text-slate-500">Aucun logo configuré pour cette chaîne.</p>;
+                          return (
+                            <div className="space-y-2.5">
+                              <p className="text-[10px] text-slate-500 leading-snug">S'applique à cette chaîne — donc aussi aux prochaines vidéos, pas seulement celle-ci.</p>
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="flex items-center gap-1">
+                                  {[{ id: 'top-left', icon: 'north_west' }, { id: 'top-right', icon: 'north_east' }, { id: 'bottom-left', icon: 'south_west' }, { id: 'bottom-right', icon: 'south_east' }].map(c => (
+                                    <button
+                                      key={c.id}
+                                      disabled={studioLogoSaving}
+                                      onClick={() => { const t = presetXY(c.id, logoSize); updateStudioLogo({ logo_corner: c.id, logo_x_percent: t.x, logo_y_percent: t.y }); }}
+                                      className={`w-6 h-6 flex items-center justify-center rounded-md border transition-colors disabled:opacity-40 ${
+                                        (branding.logo_corner || 'top-right') === c.id ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#38d0ff]' : 'bg-[var(--bg-input)] border-[var(--border)] text-slate-400 hover:border-slate-500'
+                                      }`}
+                                      title={c.id}
+                                    >
+                                      <span className="material-symbols-outlined text-[13px]">{c.icon}</span>
+                                    </button>
+                                  ))}
+                                </div>
+                                <ShapePicker value={branding.logo_shape || 'rectangle'} onChange={(v) => updateStudioLogo({ logo_shape: v })} />
+                                <button
+                                  onClick={() => updateStudioLogo({ logo_enabled: !logoEnabled })}
+                                  disabled={studioLogoSaving}
+                                  className={`text-[9px] font-bold px-2 py-1 rounded-md border disabled:opacity-40 ${logoEnabled ? 'text-slate-400 border-[var(--border)] hover:border-slate-500' : 'text-[#38d0ff] border-[#00c2ff]/50 bg-[#00c2ff]/10'}`}
+                                >
+                                  {logoEnabled ? 'Masquer' : 'Afficher'}
+                                </button>
+                              </div>
+                              {logoEnabled && (
+                                <div className="grid grid-cols-3 gap-2">
+                                  <MiniSlider label="Taille" value={logoSize} min={3} max={35} onChange={(v) => updateStudioLogoDraft({ logo_size_percent: v })} />
+                                  <MiniSlider label="X" value={logoX} min={-20} max={120} onChange={(v) => updateStudioLogoDraft({ logo_x_percent: v })} />
+                                  <MiniSlider label="Y" value={logoY} min={-20} max={120} onChange={(v) => updateStudioLogoDraft({ logo_y_percent: v })} />
+                                </div>
+                              )}
+                              {studioLogoSaving && <p className="text-[10px] text-[#38d0ff] flex items-center gap-1"><span className="material-symbols-outlined text-[12px] animate-spin">progress_activity</span>Mise à jour…</p>}
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    )}
                   </div>
                   <div className="px-4 py-3 overflow-y-auto flex-1 min-h-0">
                     <div className="flex items-center justify-between mb-2">
