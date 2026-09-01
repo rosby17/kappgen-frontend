@@ -5461,6 +5461,7 @@ export default function App() {
   const [adminVideosLoading, setAdminVideosLoading] = useState(false);
   const [adminVideosViewMode, setAdminVideosViewMode] = useState('list'); // 'list' | 'grid'
   const [adminLibraryFolders, setAdminLibraryFolders] = useState([]);
+  const [adminLibraryNamePattern, setAdminLibraryNamePattern] = useState('');
   const [editingLibraryLabelChannelId, setEditingLibraryLabelChannelId] = useState(null);
   const [editingLibraryLabelValue, setEditingLibraryLabelValue] = useState('');
   const [adminLibraryLoading, setAdminLibraryLoading] = useState(false);
@@ -5900,6 +5901,24 @@ export default function App() {
       setAdminLibraryImageTotal(total => Math.max(0, total - 1));
       fetchAdminLibraryOverview();
       showToast('Image supprimée.', 'success');
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  };
+
+  const deleteSelectedAdminLibraryImages = async (channelId, filenames) => {
+    if (!filenames.length) return;
+    if (!window.confirm(`Supprimer définitivement ${filenames.length} image${filenames.length > 1 ? 's' : ''} ?`)) return;
+    try {
+      const results = await Promise.all(filenames.map(filename =>
+        authFetch(`${API_BASE}/admin/channel-library/${channelId}/images/${encodeURIComponent(filename)}`, { method: 'DELETE' })
+      ));
+      const deleted = new Set(filenames.filter((_, i) => results[i].ok));
+      setAdminLibraryImages(prev => prev.filter(name => !deleted.has(name)));
+      setAdminLibrarySelectedImages(prev => prev.filter(name => !deleted.has(name)));
+      setAdminLibraryImageTotal(total => Math.max(0, total - deleted.size));
+      fetchAdminLibraryOverview();
+      showToast(`${deleted.size} image${deleted.size > 1 ? 's' : ''} supprimée${deleted.size > 1 ? 's' : ''}.`, deleted.size === filenames.length ? 'success' : 'error');
     } catch (err) {
       showToast(err.message, 'error');
     }
@@ -12658,6 +12677,22 @@ export default function App() {
                   <span className="text-xs font-bold text-white">{adminLibraryImageTotal.toLocaleString('fr-FR')} images</span>
                   <span className="text-[11px] text-[#00c2ff]">{adminLibrarySelectedImages.length} sélectionnée{adminLibrarySelectedImages.length > 1 ? 's' : ''}</span>
                   <button type="button" onClick={() => setAdminLibrarySelectedImages(adminLibrarySelectedImages.length === adminLibraryImages.length ? [] : [...adminLibraryImages])} className="text-[11px] font-bold text-slate-300 hover:text-white">{adminLibrarySelectedImages.length === adminLibraryImages.length && adminLibraryImages.length ? 'Tout désélectionner' : 'Sélectionner les images chargées'}</button>
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      value={adminLibraryNamePattern}
+                      onChange={e => setAdminLibraryNamePattern(e.target.value)}
+                      placeholder="Motif du nom (ex: img_)"
+                      className="w-40 bg-[var(--bg-input)] border border-[var(--border)] rounded-lg px-2 py-1.5 text-[11px] text-white focus:border-[#00c2ff] outline-none"
+                    />
+                    <button
+                      type="button"
+                      disabled={!adminLibraryNamePattern.trim()}
+                      onClick={() => setAdminLibrarySelectedImages(adminLibraryImages.filter(name => name.toLowerCase().includes(adminLibraryNamePattern.trim().toLowerCase())))}
+                      className="text-[11px] font-bold text-[#00c2ff] hover:underline disabled:opacity-40 disabled:no-underline"
+                    >
+                      Sélectionner par nom
+                    </button>
+                  </div>
                   {adminLibrarySelectedImages.length > 0 && <button type="button" onClick={() => openAdminLibraryMove(folder, niche.niche)} className="inline-flex items-center gap-1 px-3 py-2 rounded-lg bg-[#00c2ff] text-slate-950 text-[11px] font-extrabold"><span className="material-symbols-outlined text-[15px]">drive_file_move</span>Déplacer vers…</button>}
                   <button type="button" disabled={adminLibrarySelectedImages.length !== 1} onClick={() => { const index = adminLibraryImages.indexOf(adminLibrarySelectedImages[0]); setAdminLibraryLightboxIndex(index); setAdminLibraryLightboxZoom(1); }} className="inline-flex items-center gap-1 px-3 py-2 rounded-lg bg-[var(--bg-surface-alt)] border border-[var(--border)] text-white text-[11px] font-bold disabled:opacity-35"><span className="material-symbols-outlined text-[15px]">open_in_full</span>Agrandir</button>
                   <label className="ml-auto flex items-center gap-2 text-[10px] text-slate-400">Taille<input type="range" min="3" max="10" value={adminLibraryGridColumns} onChange={e => setAdminLibraryGridColumns(Number(e.target.value))} className="w-28 accent-[#00c2ff]" /></label>
@@ -12673,6 +12708,14 @@ export default function App() {
                   </div>)}
                 </div>}
                 {adminLibraryImagesHasMore && <div ref={adminLibraryLoadMoreRef} className="flex justify-center py-6 text-xs text-slate-400"><span className={`material-symbols-outlined text-[18px] mr-2 ${adminLibraryImagesLoadingMore ? 'animate-spin' : ''}`}>progress_activity</span>{adminLibraryImagesLoadingMore ? 'Chargement…' : `Continuez à défiler · ${adminLibraryImages.length} / ${adminLibraryImageTotal}`}</div>}
+                {adminLibrarySelectedImages.length > 0 && (
+                  <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-2 bg-[var(--bg-surface)]/95 backdrop-blur border border-[var(--border)] rounded-2xl px-3 py-2 shadow-2xl">
+                    <span className="text-[11px] font-bold text-[#00c2ff] px-1.5">{adminLibrarySelectedImages.length} sélectionnée{adminLibrarySelectedImages.length > 1 ? 's' : ''}</span>
+                    <button type="button" onClick={() => openAdminLibraryMove(folder, niche.niche)} className="inline-flex items-center gap-1 px-3 py-2 rounded-lg bg-[#00c2ff] text-slate-950 text-[11px] font-extrabold"><span className="material-symbols-outlined text-[15px]">drive_file_move</span>Déplacer vers…</button>
+                    <button type="button" onClick={() => deleteSelectedAdminLibraryImages(folder.channel_id, adminLibrarySelectedImages)} className="inline-flex items-center gap-1 px-3 py-2 rounded-lg bg-rose-500 text-white text-[11px] font-extrabold"><span className="material-symbols-outlined text-[15px]">delete</span>Effacer</button>
+                    <button type="button" onClick={() => setAdminLibrarySelectedImages([])} className="p-2 rounded-lg text-slate-400 hover:text-white" title="Désélectionner"><span className="material-symbols-outlined text-[15px]">close</span></button>
+                  </div>
+                )}
               </div>;
             }
 
