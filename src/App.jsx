@@ -2069,7 +2069,7 @@ const subtitlePositionClass = (position) => {
   const normalized = String(position || 'bottom').toLowerCase();
   if (normalized === 'top') return 'top-[12%]';
   if (normalized === 'center') return 'top-1/2 -translate-y-1/2';
-  return 'bottom-[12%]';
+  return 'bottom-[18%]';
 };
 
 const applySubtitleCase = (text, caseMode) => {
@@ -3749,11 +3749,15 @@ export default function App() {
       align: 'center',
       karaoke: true,
       highlight_mode: 'word',
+      subtitle_mode: 'dynamic',
+      paragraph_duration_seconds: 45,
+      paragraph_max_words: 90,
+      paragraph_words_per_line: 10,
       box_color: 'transparent',
       box_padding: 10,
       words_per_line: 6,
       text_case: 'none',
-      bold: false,
+      bold: true,
       italic: false,
       letter_spacing: 0,
       opacity: 100,
@@ -3812,6 +3816,7 @@ export default function App() {
       color_grade: 'warm',
       grain_intensity: 50,
       vignette_intensity: 50,
+      particle_intensity: 50,
       zoom_min_pct: 1.0,
       zoom_max_pct: 1.15,
       watermark_enabled: true
@@ -10834,6 +10839,18 @@ export default function App() {
                                         ...preset,
                                         id: undefined,
                                         name: undefined,
+                                        // A preset is a visual skin, never a placement reset.
+                                        // Preserve every positioning/flow decision the creator
+                                        // already made before browsing visual designs.
+                                        position: prev.subtitle_style.position,
+                                        align: prev.subtitle_style.align,
+                                        x_offset: prev.subtitle_style.x_offset,
+                                        y_offset: prev.subtitle_style.y_offset,
+                                        rotation: prev.subtitle_style.rotation,
+                                        subtitle_mode: prev.subtitle_style.subtitle_mode,
+                                        paragraph_duration_seconds: prev.subtitle_style.paragraph_duration_seconds,
+                                        paragraph_max_words: prev.subtitle_style.paragraph_max_words,
+                                        paragraph_words_per_line: prev.subtitle_style.paragraph_words_per_line,
                                       }
                                     }));
                                   }}
@@ -10879,6 +10896,42 @@ export default function App() {
                         {/* Custom Controls */}
                         {subtitleTab === 'customize' && (
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div className="sm:col-span-2 rounded-xl border border-[#00c2ff]/25 bg-[#00c2ff]/5 p-3">
+                            <label className="block text-xs font-bold text-slate-200 mb-2">Mode d’affichage</label>
+                            <div className="grid grid-cols-2 gap-2">
+                              {[
+                                { id: 'dynamic', label: 'Dynamique', help: 'Les sous-titres suivent la prononciation.' },
+                                { id: 'paragraph', label: 'Paragraphes', help: 'Un long bloc reste affiché puis change.' },
+                              ].map(mode => (
+                                <button key={mode.id} type="button"
+                                  onClick={() => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, subtitle_mode: mode.id, ...(mode.id === 'paragraph' ? { align: 'left', position: 'center', highlight_mode: 'none', karaoke: false } : {}) } })}
+                                  className={`rounded-lg border p-2.5 text-left transition-colors ${(newChannel.subtitle_style.subtitle_mode || 'dynamic') === mode.id ? 'border-[#00c2ff] bg-[#00c2ff]/10' : 'border-[var(--border)] bg-[var(--bg-surface-alt)]'}`}
+                                >
+                                  <span className="block text-[11px] font-extrabold text-white">{mode.label}</span>
+                                  <span className="block text-[9px] text-slate-400 mt-0.5">{mode.help}</span>
+                                </button>
+                              ))}
+                            </div>
+                            {(newChannel.subtitle_style.subtitle_mode || 'dynamic') === 'paragraph' && (
+                              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3 pt-3 border-t border-[#00c2ff]/15">
+                                <label className="text-[9px] font-bold text-slate-400">Durée maximale
+                                  <div className="mt-1 flex items-center gap-1"><input type="number" min="5" max="120" step="5" value={newChannel.subtitle_style.paragraph_duration_seconds ?? 45}
+                                    onChange={e => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, paragraph_duration_seconds: Math.max(5, Math.min(120, parseInt(e.target.value) || 45)) } })}
+                                    className="w-full rounded-md border border-[var(--border)] bg-[var(--bg-input-alt)] px-2 py-1.5 text-white" /><span>sec.</span></div>
+                                </label>
+                                <label className="text-[9px] font-bold text-slate-400">Mots par paragraphe
+                                  <input type="number" min="10" max="250" step="5" value={newChannel.subtitle_style.paragraph_max_words ?? 90}
+                                    onChange={e => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, paragraph_max_words: Math.max(10, Math.min(250, parseInt(e.target.value) || 90)) } })}
+                                    className="mt-1 w-full rounded-md border border-[var(--border)] bg-[var(--bg-input-alt)] px-2 py-1.5 text-white" />
+                                </label>
+                                <label className="text-[9px] font-bold text-slate-400">Mots par ligne
+                                  <input type="number" min="3" max="20" value={newChannel.subtitle_style.paragraph_words_per_line ?? 10}
+                                    onChange={e => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, paragraph_words_per_line: Math.max(3, Math.min(20, parseInt(e.target.value) || 10)) } })}
+                                    className="mt-1 w-full rounded-md border border-[var(--border)] bg-[var(--bg-input-alt)] px-2 py-1.5 text-white" />
+                                </label>
+                              </div>
+                            )}
+                          </div>
                           <div>
                             <label className="block text-xs font-bold text-slate-300 mb-2">Police (Font)</label>
                             <button
@@ -10963,6 +11016,26 @@ export default function App() {
                           )}
 
                           <div>
+                            <label className="block text-xs font-bold text-slate-300 mb-2">Couleur d’arrière-plan</label>
+                            <ColorPickerButton
+                              allowNone
+                              value={newChannel.subtitle_style.box_color || 'transparent'}
+                              onChange={hex => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, box_color: hex } })}
+                              label="Couleur d’arrière-plan"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-xs font-bold text-slate-300 mb-2">Épaisseur de la bulle ({newChannel.subtitle_style.box_padding ?? 10}px)</label>
+                            <input
+                              type="range" min="0" max="40"
+                              value={newChannel.subtitle_style.box_padding ?? 10}
+                              onChange={e => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, box_padding: parseInt(e.target.value) || 0 } })}
+                              className="w-full accent-[#00c2ff] mt-3"
+                            />
+                          </div>
+
+                          <div>
                             <label className="block text-xs font-bold text-slate-300 mb-2">Longueur des sous-titres ({newChannel.subtitle_style.words_per_line || 6} mots)</label>
                             <input
                               type="range"
@@ -11043,7 +11116,7 @@ export default function App() {
                               </div>
                             </div>
 
-                            <div>
+                            <div className="sm:col-span-2">
                               <label className="block text-[11px] font-bold text-slate-300 mb-2">Position</label>
                               <div className="grid grid-cols-3 gap-2">
                                 {[
@@ -11054,12 +11127,55 @@ export default function App() {
                                   <button
                                     key={id}
                                     type="button"
-                                    onClick={() => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, position: id } })}
+                                    onClick={() => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, position: id, x_offset: 0, y_offset: 0 } })}
                                     className={`py-2.5 rounded-xl border transition-colors flex items-center justify-center ${(newChannel.subtitle_style.position || 'bottom') === id ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]' : 'bg-[var(--bg-surface-alt)] border-[var(--border)] text-slate-300 hover:border-slate-500'}`}
                                   >
                                     <span className="material-symbols-outlined text-[18px]">{icon}</span>
                                   </button>
                                 ))}
+                              </div>
+                              <div className="mt-3 rounded-xl border border-[var(--border)] bg-[var(--bg-surface-alt)] p-3">
+                                <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                                  <div>
+                                    <label className="text-[11px] font-bold text-slate-300">Décalage précis de la position</label>
+                                    <p className="mt-0.5 text-[9px] text-slate-500">Affinez la position sélectionnée avec X et Y.</p>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, position: 'bottom', align: 'center', x_offset: 0, y_offset: 0, rotation: 0 } })}
+                                    className="rounded-lg border border-[#00c2ff]/40 bg-[#00c2ff]/10 px-2.5 py-1.5 text-[9px] font-bold text-[#00c2ff] hover:bg-[#00c2ff]/20"
+                                  >Revenir à la position par défaut</button>
+                                </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                  <div>
+                                    <div className="flex items-center justify-between gap-2 mb-1">
+                                      <label className="text-[10px] font-bold text-slate-400">Horizontal X</label>
+                                      <div className="flex items-center gap-1">
+                                        <input type="number" min="-700" max="700" step="1" value={newChannel.subtitle_style.x_offset || 0}
+                                          onChange={e => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, x_offset: Math.max(-700, Math.min(700, parseInt(e.target.value) || 0)) } })}
+                                          className="w-16 rounded-md border border-[var(--border)] bg-[var(--bg-input-alt)] px-1.5 py-1 text-right text-[10px] text-white" />
+                                        <span className="text-[9px] text-slate-500">px</span>
+                                      </div>
+                                    </div>
+                                    <input type="range" min="-700" max="700" step="1" value={newChannel.subtitle_style.x_offset || 0}
+                                      onChange={e => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, x_offset: parseInt(e.target.value) || 0 } })}
+                                      className="w-full accent-[#00c2ff] mt-3" />
+                                  </div>
+                                  <div>
+                                    <div className="flex items-center justify-between gap-2 mb-1">
+                                      <label className="text-[10px] font-bold text-slate-400">Vertical Y</label>
+                                      <div className="flex items-center gap-1">
+                                        <input type="number" min="-500" max="500" step="1" value={newChannel.subtitle_style.y_offset || 0}
+                                          onChange={e => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, y_offset: Math.max(-500, Math.min(500, parseInt(e.target.value) || 0)) } })}
+                                          className="w-16 rounded-md border border-[var(--border)] bg-[var(--bg-input-alt)] px-1.5 py-1 text-right text-[10px] text-white" />
+                                        <span className="text-[9px] text-slate-500">px</span>
+                                      </div>
+                                    </div>
+                                    <input type="range" min="-500" max="500" step="1" value={newChannel.subtitle_style.y_offset || 0}
+                                      onChange={e => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, y_offset: parseInt(e.target.value) || 0 } })}
+                                      className="w-full accent-[#00c2ff] mt-3" />
+                                  </div>
+                                </div>
                               </div>
                             </div>
 
@@ -11120,62 +11236,7 @@ export default function App() {
                               />
                             </div>
 
-                            <div className="grid grid-cols-2 gap-3">
-                              <div>
-                                <label className="block text-[11px] font-bold text-slate-300 mb-2">Décalage X ({newChannel.subtitle_style.x_offset || 0}px)</label>
-                                <input
-                                  type="range"
-                                  min="-400"
-                                  max="400"
-                                  value={newChannel.subtitle_style.x_offset || 0}
-                                  onChange={e => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, x_offset: parseInt(e.target.value) || 0 } })}
-                                  className="w-full accent-[#00c2ff] mt-3"
-                                />
-                              </div>
-                              <div>
-                                <label className="block text-[11px] font-bold text-slate-300 mb-2">Décalage Y ({newChannel.subtitle_style.y_offset || 0}px)</label>
-                                <input
-                                  type="range"
-                                  min="-400"
-                                  max="400"
-                                  value={newChannel.subtitle_style.y_offset || 0}
-                                  onChange={e => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, y_offset: parseInt(e.target.value) || 0 } })}
-                                  className="w-full accent-[#00c2ff] mt-3"
-                                />
-                              </div>
-                            </div>
                           </div>
-                        </div>
-                        )}
-
-                        {/* Arrière-plan (boîte) */}
-                        {subtitleTab === 'customize' && (
-                        <div className="space-y-4">
-                          <label className="block text-xs font-bold text-[#00c2ff]">Arrière-plan (rectangle derrière le texte)</label>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div>
-                              <label className="block text-[11px] font-bold text-slate-300 mb-2">Couleur</label>
-                              <ColorPickerButton
-                                allowNone
-                                value={newChannel.subtitle_style.box_color}
-                                onChange={hex => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, box_color: hex } })}
-                                label="Couleur de fond"
-                              />
-                            </div>
-
-                            <div>
-                              <label className="block text-[11px] font-bold text-slate-300 mb-2">Épaisseur de la bulle ({newChannel.subtitle_style.box_padding ?? 10}px)</label>
-                              <input
-                                type="range"
-                                min="0"
-                                max="40"
-                                value={newChannel.subtitle_style.box_padding ?? 10}
-                                onChange={e => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, box_padding: parseInt(e.target.value) || 0 } })}
-                                className="w-full accent-[#00c2ff] mt-3"
-                              />
-                            </div>
-                          </div>
-                          <p className="text-[10px] text-slate-500">Le moteur de rendu vidéo dessine un rectangle plein autour du texte — les coins arrondis ne s'appliquent qu'à cet aperçu, pas encore au rendu final.</p>
                         </div>
                         )}
 
@@ -11234,9 +11295,24 @@ export default function App() {
                                 opacity: (newChannel.subtitle_style.opacity ?? 100) / 100,
                                 transform: `translateX(${(newChannel.subtitle_style.x_offset || 0) * wizardSubtitlePreviewScale}px) translateY(${(newChannel.subtitle_style.y_offset || 0) * wizardSubtitlePreviewScale}px) rotate(${newChannel.subtitle_style.rotation || 0}deg)`
                               }}
-                              className="flex flex-wrap justify-center items-center gap-2 text-center"
+                              className={`flex flex-wrap items-center gap-2 ${newChannel.subtitle_style.align === 'left' ? 'justify-start text-left max-w-[58%]' : newChannel.subtitle_style.align === 'right' ? 'justify-end text-right max-w-[58%] ml-auto' : 'justify-center text-center'}`}
                             >
-                              {sampleWords.map((wordObj, i) => {
+                              {(newChannel.subtitle_style.subtitle_mode || 'dynamic') === 'paragraph' ? (
+                                <p style={{
+                                  fontFamily: newChannel.subtitle_style.font,
+                                  fontSize: `${Math.max(10, (newChannel.subtitle_style.size || 44) * wizardSubtitlePreviewScale * 0.78)}px`,
+                                  fontWeight: newChannel.subtitle_style.bold ? '900' : '700',
+                                  fontStyle: newChannel.subtitle_style.italic ? 'italic' : 'normal',
+                                  letterSpacing: `${(newChannel.subtitle_style.letter_spacing || 0) * wizardSubtitlePreviewScale}px`,
+                                  color: newChannel.subtitle_style.base_color || '#FFFFFF',
+                                  WebkitTextStroke: (newChannel.subtitle_style.outline_width ?? 3) > 0 ? `${(newChannel.subtitle_style.outline_width ?? 3) * wizardSubtitlePreviewScale}px ${newChannel.subtitle_style.outline_color || '#000000'}` : 'none',
+                                  paintOrder: 'stroke fill',
+                                  lineHeight: 1.45,
+                                  textShadow: newChannel.subtitle_style.shadow ? `${newChannel.subtitle_style.shadow_distance ?? 3}px ${newChannel.subtitle_style.shadow_distance ?? 3}px 4px ${newChannel.subtitle_style.shadow_color || '#000000'}` : 'none'
+                                }}>
+                                  Dans ce mode, un paragraphe complet reste affiché suffisamment longtemps pour être lu confortablement. Il est ensuite remplacé par le paragraphe suivant, sans animation mot par mot.
+                                </p>
+                              ) : sampleWords.map((wordObj, i) => {
                                 const highlightMode = newChannel.subtitle_style.highlight_mode || (newChannel.subtitle_style.karaoke === false ? 'line' : 'word');
                                 const isColored = highlightMode === 'line' || (highlightMode === 'word' && wordObj.highlight);
                                 const displayText = applySubtitleCase(wordObj.text, newChannel.subtitle_style.text_case);
@@ -11286,11 +11362,44 @@ export default function App() {
                   const hasVignette = overlayEffects.includes('vignette');
                   const grainIntensity = (newChannel.effects_config.grain_intensity ?? 50) / 100;
                   const vignetteIntensity = (newChannel.effects_config.vignette_intensity ?? 50) / 100;
+                  const particleIntensity = (newChannel.effects_config.particle_intensity ?? 50) / 100;
                   const hasChromaticAberration = overlayEffects.includes('chromatic_aberration');
                   const hasOldFilm = overlayEffects.includes('old_film');
                   const hasFlicker = overlayEffects.includes('flicker');
                   const hasSoftFocus = overlayEffects.includes('soft_focus');
                   const hasSharpen = overlayEffects.includes('sharpen');
+                  const atmosphericEffects = ['stars', 'dust', 'snow', 'rain', 'fog', 'sparks'];
+                  const hasAtmosphere = atmosphericEffects.some(id => overlayEffects.includes(id));
+                  const effectGroups = [
+                    { title: 'Particules & météo', icon: 'weather_mix', effects: [
+                      { id: 'stars', label: 'Étoiles', icon: 'star' },
+                      { id: 'dust', label: 'Poussière', icon: 'grain' },
+                      { id: 'snow', label: 'Neige', icon: 'ac_unit' },
+                      { id: 'rain', label: 'Pluie', icon: 'rainy' },
+                      { id: 'fog', label: 'Brouillard', icon: 'foggy' },
+                      { id: 'sparks', label: 'Étincelles', icon: 'flare' },
+                    ]},
+                    { title: 'Lumière & émotion', icon: 'light_mode', effects: [
+                      { id: 'light_leak', label: 'Fuite de lumière', icon: 'wb_twilight' },
+                      { id: 'dream_glow', label: 'Halo onirique', icon: 'blur_on' },
+                      { id: 'soft_focus', label: 'Flou artistique', icon: 'filter_b_and_w' },
+                      { id: 'flicker', label: 'Scintillement', icon: 'flash_on' },
+                      { id: 'horror', label: 'Ambiance horreur', icon: 'skull' },
+                      { id: 'vignette', label: 'Vignette', icon: 'vignette' },
+                    ]},
+                    { title: 'Cinéma & textures', icon: 'movie', effects: [
+                      { id: 'grain', label: 'Grain cinéma', icon: 'texture' },
+                      { id: 'white_noise', label: 'Bruit blanc', icon: 'blur_linear' },
+                      { id: 'black_noise', label: 'Bruit noir', icon: 'noise_aware' },
+                      { id: 'film_scratches', label: 'Rayures pellicule', icon: 'movie_edit' },
+                      { id: 'old_film', label: 'Vieux film', icon: 'theaters' },
+                      { id: 'sharpen', label: 'Netteté HD', icon: 'hd' },
+                    ]},
+                    { title: 'Numérique & distorsion', icon: 'graphic_eq', effects: [
+                      { id: 'chromatic_aberration', label: 'Aberration chromatique', icon: 'colors' },
+                      { id: 'vhs_glitch', label: 'VHS / Glitch', icon: 'broken_image' },
+                    ]},
+                  ];
 
                   const colorGradeFilter = ({
                     warm: 'saturate(1.25) sepia(0.12) brightness(1.05)',
@@ -11361,37 +11470,33 @@ export default function App() {
                           </div>
 
                           <div>
-                            <label className="block text-xs font-bold text-slate-300 mb-2">Texture / Effets superposés — combinables entre eux</label>
-                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                              {[
-                                { id: 'grain', label: 'Grain léger' },
-                                { id: 'white_noise', label: 'Bruit blanc' },
-                                { id: 'vignette', label: 'Vignette' },
-                                { id: 'chromatic_aberration', label: 'Aberration chromatique' },
-                                { id: 'old_film', label: 'Vieux film' },
-                                { id: 'flicker', label: 'Scintillement' },
-                                { id: 'soft_focus', label: 'Flou artistique' },
-                                { id: 'sharpen', label: 'Netteté HD' },
-                              ].map(({ id, label }) => (
-                                <button
-                                  key={id}
-                                  type="button"
-                                  onClick={() => toggleOverlayEffect(id)}
-                                  aria-pressed={overlayEffects.includes(id)}
-                                  className={`px-3 py-2 rounded-xl text-xs font-bold border transition-colors flex items-center justify-center gap-1.5 ${
-                                    overlayEffects.includes(id)
-                                      ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]'
-                                      : 'bg-[var(--bg-surface-alt)] border-[var(--border)] text-slate-300 hover:border-slate-500'
-                                  }`}
-                                >
-                                  {overlayEffects.includes(id) && <span className="material-symbols-outlined text-[14px]">check</span>}
-                                  {label}
-                                </button>
+                            <div className="flex items-center justify-between gap-3 mb-3">
+                              <label className="block text-xs font-bold text-slate-300">Bibliothèque d’effets — combinables entre eux</label>
+                              <span className="text-[10px] font-bold text-[#00c2ff]">{overlayEffects.length} sélectionné{overlayEffects.length > 1 ? 's' : ''}</span>
+                            </div>
+                            <div className="space-y-4">
+                              {effectGroups.map(group => (
+                                <div key={group.title} className="rounded-2xl border border-[var(--border)] bg-[var(--bg-surface-alt)]/40 p-3">
+                                  <div className="mb-2 flex items-center gap-2 text-[11px] font-bold text-slate-400">
+                                    <span className="material-symbols-outlined text-[16px]">{group.icon}</span>{group.title}
+                                  </div>
+                                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                                    {group.effects.map(({ id, label, icon }) => (
+                                      <button key={id} type="button" onClick={() => toggleOverlayEffect(id)} aria-pressed={overlayEffects.includes(id)}
+                                        className={`min-h-16 rounded-xl border px-2.5 py-2 text-left transition-all ${overlayEffects.includes(id) ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff] shadow-[0_0_18px_rgba(0,194,255,0.08)]' : 'bg-[var(--bg-surface-alt)] border-[var(--border)] text-slate-300 hover:border-slate-500'}`}>
+                                        <span className="flex items-center gap-2">
+                                          <span className="material-symbols-outlined text-[19px]">{overlayEffects.includes(id) ? 'check_circle' : icon}</span>
+                                          <span className="text-[10px] font-bold leading-tight">{label}</span>
+                                        </span>
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
                               ))}
                             </div>
                           </div>
 
-                          {(hasGrain || hasVignette) && (
+                          {(hasGrain || hasVignette || hasAtmosphere) && (
                             <div className="pt-2 border-t border-[var(--border-soft)] space-y-4">
                               <label className="block text-xs font-bold text-[#00c2ff]">Intensité</label>
                               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -11423,6 +11528,14 @@ export default function App() {
                                       onChange={e => setNewChannel({ ...newChannel, effects_config: { ...newChannel.effects_config, vignette_intensity: parseInt(e.target.value) } })}
                                       className="w-full accent-[#00c2ff]"
                                     />
+                                  </div>
+                                )}
+                                {hasAtmosphere && (
+                                  <div>
+                                    <label className="block text-[11px] font-bold text-slate-300 mb-2">Particules / Atmosphère ({newChannel.effects_config.particle_intensity ?? 50}%)</label>
+                                    <input type="range" min="0" max="100" value={newChannel.effects_config.particle_intensity ?? 50}
+                                      onChange={e => setNewChannel({ ...newChannel, effects_config: { ...newChannel.effects_config, particle_intensity: parseInt(e.target.value) } })}
+                                      className="w-full accent-[#00c2ff]" />
                                   </div>
                                 )}
                               </div>
@@ -11471,6 +11584,42 @@ export default function App() {
                             )}
                             {hasFlicker && (
                               <div className="absolute inset-0 bg-white animate-pulse" style={{ opacity: 0.06 }} />
+                            )}
+                            {overlayEffects.includes('stars') && (
+                              <div className="absolute inset-0 mix-blend-screen" style={{ opacity: 0.25 + particleIntensity * 0.65, backgroundImage: 'radial-gradient(circle at 12% 18%, white 0 1px, transparent 2px), radial-gradient(circle at 72% 24%, #dff6ff 0 1.5px, transparent 2.5px), radial-gradient(circle at 42% 68%, white 0 1px, transparent 2px), radial-gradient(circle at 88% 76%, #fff6cc 0 1.5px, transparent 2.5px)', backgroundSize: '90px 75px, 130px 105px, 70px 95px, 160px 125px' }} />
+                            )}
+                            {overlayEffects.includes('dust') && (
+                              <div className="absolute inset-0 mix-blend-screen" style={{ opacity: 0.18 + particleIntensity * 0.35, backgroundImage: 'radial-gradient(circle, rgba(255,225,170,.8) 0 1px, transparent 2px)', backgroundSize: '34px 41px', filter: 'blur(.5px)' }} />
+                            )}
+                            {overlayEffects.includes('snow') && (
+                              <div className="absolute inset-0 mix-blend-screen" style={{ opacity: 0.3 + particleIntensity * 0.6, backgroundImage: 'radial-gradient(circle, white 0 2px, transparent 3px), radial-gradient(circle, white 0 1px, transparent 2px)', backgroundSize: '48px 55px, 29px 37px', backgroundPosition: '0 0, 13px 17px' }} />
+                            )}
+                            {overlayEffects.includes('rain') && (
+                              <div className="absolute inset-0 mix-blend-screen" style={{ opacity: 0.2 + particleIntensity * 0.45, backgroundImage: 'repeating-linear-gradient(105deg, transparent 0 18px, rgba(190,225,255,.75) 19px, transparent 21px)', transform: 'scale(1.2)' }} />
+                            )}
+                            {overlayEffects.includes('fog') && (
+                              <div className="absolute inset-0" style={{ opacity: 0.15 + particleIntensity * 0.45, background: 'linear-gradient(165deg, transparent 5%, rgba(225,235,240,.75) 48%, transparent 88%)', filter: 'blur(10px)' }} />
+                            )}
+                            {overlayEffects.includes('sparks') && (
+                              <div className="absolute inset-0 mix-blend-screen" style={{ opacity: 0.25 + particleIntensity * 0.65, backgroundImage: 'radial-gradient(circle, #fff 0 1px, #ff9d00 2px, transparent 4px)', backgroundSize: '67px 83px', filter: 'blur(.3px)' }} />
+                            )}
+                            {overlayEffects.includes('light_leak') && (
+                              <div className="absolute inset-0 mix-blend-screen" style={{ opacity: 0.18 + particleIntensity * 0.4, background: 'radial-gradient(circle at 0% 35%, rgba(255,70,20,.95), rgba(255,180,50,.35) 25%, transparent 55%)' }} />
+                            )}
+                            {overlayEffects.includes('dream_glow') && (
+                              <div className="absolute inset-0 mix-blend-screen" style={{ opacity: 0.14 + particleIntensity * 0.25, background: 'radial-gradient(circle at 50% 45%, rgba(255,220,255,.9), rgba(120,180,255,.25) 35%, transparent 70%)', filter: 'blur(8px)' }} />
+                            )}
+                            {overlayEffects.includes('horror') && (
+                              <div className="absolute inset-0 mix-blend-multiply" style={{ background: 'radial-gradient(circle, rgba(30,0,0,.05) 25%, rgba(70,0,0,.75) 100%)' }} />
+                            )}
+                            {overlayEffects.includes('black_noise') && (
+                              <div className="absolute inset-0 mix-blend-multiply" style={{ opacity: 0.25 + particleIntensity * 0.45, backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='90' height='90'%3E%3Cfilter id='n'%3E%3CfeTurbulence baseFrequency='.8' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")" }} />
+                            )}
+                            {overlayEffects.includes('film_scratches') && (
+                              <div className="absolute inset-0 mix-blend-screen" style={{ opacity: 0.2 + particleIntensity * 0.35, backgroundImage: 'repeating-linear-gradient(90deg, transparent 0 37px, rgba(255,255,255,.45) 38px, transparent 39px, transparent 71px)' }} />
+                            )}
+                            {overlayEffects.includes('vhs_glitch') && (
+                              <div className="absolute inset-0 mix-blend-screen" style={{ opacity: 0.3 + particleIntensity * 0.35, backgroundImage: 'repeating-linear-gradient(0deg, transparent 0 5px, rgba(0,210,255,.2) 6px, rgba(255,0,80,.16) 7px, transparent 8px)' }} />
                             )}
                           </div>
                           <p className="text-[10px] text-slate-500 mt-2">Aperçu approximatif — le rendu final vidéo peut légèrement varier.</p>
