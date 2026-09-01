@@ -5494,6 +5494,33 @@ export default function App() {
   const [adminLibraryDrillNiche, setAdminLibraryDrillNiche] = useState(null);
   const [adminLibraryDrillUserKey, setAdminLibraryDrillUserKey] = useState(null);
   const [adminLibraryDrillFolder, setAdminLibraryDrillFolder] = useState(null);
+  // Flat "every image in this niche" view — an alternative to drilling into
+  // each user then each channel, which gets unwieldy to navigate as more
+  // creators contribute to a niche. Each entry carries its own channel_id
+  // since images physically live under different channels' folders.
+  const [adminLibraryNicheAllImagesMode, setAdminLibraryNicheAllImagesMode] = useState(false);
+  const [adminLibraryNicheImages, setAdminLibraryNicheImages] = useState([]);
+  const [adminLibraryNicheImageTotal, setAdminLibraryNicheImageTotal] = useState(0);
+  const [adminLibraryNicheImagesHasMore, setAdminLibraryNicheImagesHasMore] = useState(false);
+  const [adminLibraryNicheImagesLoadingMore, setAdminLibraryNicheImagesLoadingMore] = useState(false);
+
+  const fetchAdminNicheImages = async (nicheName, reset) => {
+    if (adminLibraryNicheImagesLoadingMore) return;
+    setAdminLibraryNicheImagesLoadingMore(true);
+    try {
+      const offset = reset ? 0 : adminLibraryNicheImages.length;
+      const res = await authFetch(`${API_BASE}/admin/community-library/niche/${encodeURIComponent(nicheName)}/images?offset=${offset}&limit=60`);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || "Chargement impossible.");
+      setAdminLibraryNicheImages(prev => reset ? (data.images || []) : [...prev, ...(data.images || [])]);
+      setAdminLibraryNicheImageTotal(data.total || 0);
+      setAdminLibraryNicheImagesHasMore(Boolean(data.has_more));
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setAdminLibraryNicheImagesLoadingMore(false);
+    }
+  };
   const [adminLibrarySelectedImages, setAdminLibrarySelectedImages] = useState([]);
   // Which niche sections are collapsed, by niche name — folders now
   // auto-accumulate for every channel (see _persist_generated_images_to_channel_library
@@ -5856,6 +5883,22 @@ export default function App() {
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || "Échec du partage forcé.");
       fetchAdminLibraryOverview();
       showToast('Dossier partagé avec la communauté (décision admin).', 'success');
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  };
+
+  // For cleaning up a creator's own mistake (e.g. a duplicate channel made
+  // by accident) straight from the library curation view — permanently
+  // deletes the channel (and its videos), not just its library-sharing
+  // status. Confirmed inline since it's irreversible.
+  const deleteAdminLibraryChannel = async (channelId, channelName) => {
+    if (!window.confirm(`Supprimer définitivement la chaîne « ${channelName || channelId} » et toutes ses vidéos ? Cette action est irréversible.`)) return;
+    try {
+      const res = await authFetch(`${API_BASE}/admin/channels/${channelId}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || "Suppression impossible.");
+      fetchAdminLibraryOverview();
+      showToast('Chaîne supprimée.', 'success');
     } catch (err) {
       showToast(err.message, 'error');
     }
@@ -12504,7 +12547,7 @@ export default function App() {
             const Breadcrumb = () => (
               <div className="flex items-center gap-1.5 text-xs font-bold flex-wrap">
                 <button
-                  onClick={() => { setAdminLibraryDrillNiche(null); setAdminLibraryDrillUserKey(null); setAdminLibraryDrillFolder(null); }}
+                  onClick={() => { setAdminLibraryDrillNiche(null); setAdminLibraryDrillUserKey(null); setAdminLibraryDrillFolder(null); setAdminLibraryNicheAllImagesMode(false); }}
                   className={!niche ? 'text-white' : 'text-slate-400 hover:text-white'}
                 >
                   Bibliothèque
@@ -12513,8 +12556,8 @@ export default function App() {
                   <>
                     <span className="material-symbols-outlined text-[14px] text-slate-600">chevron_right</span>
                     <button
-                      onClick={() => { setAdminLibraryDrillUserKey(null); setAdminLibraryDrillFolder(null); }}
-                      className={!user ? 'text-white' : 'text-slate-400 hover:text-white'}
+                      onClick={() => { setAdminLibraryDrillUserKey(null); setAdminLibraryDrillFolder(null); setAdminLibraryNicheAllImagesMode(false); }}
+                      className={!user && !adminLibraryNicheAllImagesMode ? 'text-white' : 'text-slate-400 hover:text-white'}
                     >
                       {niche.niche}
                     </button>
@@ -12618,6 +12661,44 @@ export default function App() {
                   ))}
                 </div>
               );
+            } else if (!user && adminLibraryNicheAllImagesMode) {
+              // Flat "every image in this niche" grid — skips the
+              // user -> channel drill-down entirely.
+              content = adminLibraryNicheImages.length === 0 && !adminLibraryNicheImagesLoadingMore ? (
+                <p className="px-4 py-10 text-center text-slate-500 text-xs">Aucune image dans cette niche pour l'instant.</p>
+              ) : (
+                <div className="p-4">
+                  <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${adminLibraryGridColumns}, minmax(0, 1fr))` }}>
+                    {adminLibraryNicheImages.map((img, idx) => (
+                      <div key={`${img.channel_id}/${img.filename}`} className="relative group min-w-0 rounded-lg overflow-hidden border-2 border-[var(--border)] hover:border-slate-400 transition-colors">
+                        <img
+                          src={`${API_BASE}/admin/channel-library/${img.channel_id}/images/${encodeURIComponent(img.filename)}`}
+                          alt={img.filename}
+                          className="w-full aspect-video object-cover"
+                          loading="lazy"
+                          title={img.channel_name || ''}
+                        />
+                        <span className="absolute bottom-0 inset-x-0 bg-slate-950/70 text-[9px] text-white px-1.5 py-0.5 truncate opacity-0 group-hover:opacity-100 transition-opacity">
+                          {img.channel_name || '—'}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                  {adminLibraryNicheImagesHasMore && (
+                    <div className="flex justify-center py-6">
+                      <button
+                        type="button"
+                        onClick={() => fetchAdminNicheImages(niche.niche, false)}
+                        disabled={adminLibraryNicheImagesLoadingMore}
+                        className="text-xs font-bold text-[#00c2ff] hover:underline disabled:opacity-50 flex items-center gap-1.5"
+                      >
+                        <span className={`material-symbols-outlined text-[16px] ${adminLibraryNicheImagesLoadingMore ? 'animate-spin' : ''}`}>progress_activity</span>
+                        {adminLibraryNicheImagesLoadingMore ? 'Chargement…' : `Charger plus · ${adminLibraryNicheImages.length} / ${adminLibraryNicheImageTotal}`}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
             } else if (!user) {
               // LEVEL 2 — users who have images in this niche.
               const list = niche.users;
@@ -12677,6 +12758,9 @@ export default function App() {
                   )}
                   <button onClick={() => mergeAdminLibraryFolder(uf, niche.niche)} className="text-slate-400 font-bold text-[11px] hover:underline">
                     Fusionner avec…
+                  </button>
+                  <button onClick={() => deleteAdminLibraryChannel(uf.channel_id, uf.channel_name)} className="text-rose-500 font-bold text-[11px] hover:underline">
+                    Supprimer la chaîne
                   </button>
                 </div>
               );
@@ -12799,6 +12883,24 @@ export default function App() {
                         <option value="recent">Plus récent → plus ancien</option>
                       </select>
                     </>
+                  )}
+                  {niche && !user && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const next = !adminLibraryNicheAllImagesMode;
+                        setAdminLibraryNicheAllImagesMode(next);
+                        if (next) { setAdminLibraryNicheImages([]); fetchAdminNicheImages(niche.niche, true); }
+                      }}
+                      className={`px-3 py-2 rounded-xl text-[11px] font-bold border transition-colors flex items-center gap-1.5 ${
+                        adminLibraryNicheAllImagesMode
+                          ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]'
+                          : 'bg-[var(--bg-surface-alt)] border-[var(--border)] text-slate-300 hover:border-slate-500'
+                      }`}
+                    >
+                      <span className="material-symbols-outlined text-[15px]">{adminLibraryNicheAllImagesMode ? 'group' : 'grid_view'}</span>
+                      {adminLibraryNicheAllImagesMode ? 'Voir par utilisateur' : 'Voir toutes les images'}
+                    </button>
                   )}
                   <span className="text-[11px] font-bold text-[#00c2ff] shrink-0">
                     {adminLibraryOverview.total_images.toLocaleString('fr-FR')} image{adminLibraryOverview.total_images > 1 ? 's' : ''} au total
