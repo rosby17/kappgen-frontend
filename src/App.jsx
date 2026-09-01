@@ -3145,6 +3145,7 @@ export default function App() {
   const [timezoneMenuOpen, setTimezoneMenuOpen] = useState(false);
   const [timezoneSearch, setTimezoneSearch] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [channelSortBy, setChannelSortBy] = useState('recent');
   const [videoFilterChannelId, setVideoFilterChannelId] = useState('all');
   const [toast, setToast] = useState(null); // { message, type: 'success' | 'error' }
   const [librarySyncHasHandle, setLibrarySyncHasHandle] = useState(false);
@@ -7512,6 +7513,15 @@ export default function App() {
     c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     c.niche.toLowerCase().includes(searchQuery.toLowerCase())
   );
+  // "Plus/moins utilisée" ranks by a channel's total video count — the
+  // closest proxy to "how much I actually work in this channel" already
+  // available per channel, without needing a separate activity-tracking table.
+  const sortedFilteredChannels = channelSortBy === 'recent'
+    ? filteredChannels
+    : [...filteredChannels].sort((a, b) => {
+        const diff = (a.total_count || 0) - (b.total_count || 0);
+        return channelSortBy === 'most_used' ? -diff : diff;
+      });
 
   const totalQueued = channels.reduce((acc, c) => acc + (c.queued_count || 0) + (c.rendering_count || 0), 0);
   const totalCompleted = channels.reduce((acc, c) => acc + (c.done_count || 0), 0);
@@ -8065,9 +8075,22 @@ export default function App() {
             {/* VIEW 2: MES CHAÎNES (Dedicated Channel Pipelines Cards List with 3-Dots Menu) */}
             {view === 'channels' && (
               <section className="space-y-6">
-                <div>
-                  <h2 className="text-xl font-extrabold text-white">Vos Pipelines de Chaînes</h2>
-                  <p className="text-xs text-slate-400 mt-1">Configurez l'identité, les sous-titres et les effets de vos chaînes automatiques.</p>
+                <div className="flex items-start justify-between gap-4 flex-wrap">
+                  <div>
+                    <h2 className="text-xl font-extrabold text-white">Vos Pipelines de Chaînes</h2>
+                    <p className="text-xs text-slate-400 mt-1">Configurez l'identité, les sous-titres et les effets de vos chaînes automatiques.</p>
+                  </div>
+                  {productChannels.length > 1 && (
+                    <select
+                      value={channelSortBy}
+                      onChange={e => setChannelSortBy(e.target.value)}
+                      className="bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-3 py-2 text-xs text-white focus:border-[#00c2ff] outline-none"
+                    >
+                      <option value="recent">Trier : récentes</option>
+                      <option value="most_used">Trier : plus utilisées</option>
+                      <option value="least_used">Trier : moins utilisées</option>
+                    </select>
+                  )}
                 </div>
 
                 {!channelsLoaded ? (
@@ -8081,7 +8104,7 @@ export default function App() {
                       Réessayer
                     </button>
                   </div>
-                ) : filteredChannels.length === 0 ? (
+                ) : sortedFilteredChannels.length === 0 ? (
                   <div className="bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-2xl p-12 text-center">
                     <span className="material-symbols-outlined text-[54px] text-slate-500 mb-4">video_settings</span>
                     <h3 className="text-lg font-bold text-white mb-2">Aucune chaîne trouvée</h3>
@@ -8114,7 +8137,7 @@ export default function App() {
                       <span className="font-bold text-sm">Ajouter une Chaîne</span>
                     </button>
 
-                    {filteredChannels.map(chan => {
+                    {sortedFilteredChannels.map(chan => {
                       const logoUrl = getChannelLogoUrl(chan);
                       const statusInfo = getChannelStatusInfo(chan);
                       const isMenuOpen = openChannelMenuId === chan.id;
