@@ -7802,12 +7802,16 @@ export default function App() {
                     {/* Add Channel Card — kept first so it stays easy to find as the
                         channel list grows, instead of getting pushed further down
                         every time a new channel is added. */}
+                    {/* Same natural height as the now-compact channel cards below it —
+                        this used to be pinned to a tall min-h-[220px], which (being a
+                        grid sibling) stretched every card in its row to match, undoing
+                        the height reduction on the two/three cards next to it. */}
                     <button
                       onClick={() => openCreateWizard(activeProductContentType)}
-                      className="rounded-2xl p-5 border-2 border-dashed border-[var(--border)] hover:border-[#00c2ff] hover:bg-[var(--bg-surface)] transition-all flex flex-col items-center justify-center gap-3 min-h-[220px] text-slate-400 hover:text-[#00c2ff] group"
+                      className="rounded-2xl p-4 border-2 border-dashed border-[var(--border)] hover:border-[#00c2ff] hover:bg-[var(--bg-surface)] transition-all flex items-center justify-center gap-2.5 text-slate-400 hover:text-[#00c2ff] group"
                     >
-                      <div className="w-14 h-14 rounded-full bg-[var(--bg-surface-alt)] group-hover:bg-[#00c2ff]/10 flex items-center justify-center transition-colors">
-                        <span className="material-symbols-outlined text-[28px]">add</span>
+                      <div className="w-8 h-8 rounded-full bg-[var(--bg-surface-alt)] group-hover:bg-[#00c2ff]/10 flex items-center justify-center transition-colors shrink-0">
+                        <span className="material-symbols-outlined text-[18px]">add</span>
                       </div>
                       <span className="font-bold text-sm">Ajouter une Chaîne</span>
                     </button>
@@ -7891,27 +7895,40 @@ export default function App() {
                             </div>
                           </div>
 
-                          {/* Compact stat strip — one line, 4 metrics instead of the old
-                              2-tile grid: what's generating, what's published (YouTube or
-                              manually downloaded — the creator's own framing is that both
+                          {/* Compact stat strip, one line, but with a real text label under
+                              each number now (not just an icon + count with no way to tell
+                              what it means) — what's generating, what's published (YouTube
+                              or manually downloaded — the creator's own framing is that both
                               mean "out the door"), what's ready but still waiting, and the
                               channel's lifetime total. */}
-                          <div className="flex items-center gap-3.5 mt-3 pt-3 border-t border-[var(--border-subtle)]">
-                            <div className="flex items-center gap-1.5 min-w-0" title="En file (génération en cours)">
+                          <div className="flex items-start gap-3.5 mt-3 pt-3 border-t border-[var(--border-subtle)]">
+                            <div className="flex items-center gap-1.5 min-w-0">
                               <span className="material-symbols-outlined text-[15px] text-[#00c2ff] shrink-0">hourglass_top</span>
-                              <span className="text-sm text-[#00c2ff] font-extrabold">{(chan.queued_count || 0) + (chan.rendering_count || 0)}</span>
+                              <div className="leading-tight">
+                                <div className="text-sm text-[#00c2ff] font-extrabold">{(chan.queued_count || 0) + (chan.rendering_count || 0)}</div>
+                                <div className="text-[9px] text-slate-500 font-bold uppercase tracking-wide whitespace-nowrap">En cours</div>
+                              </div>
                             </div>
-                            <div className="flex items-center gap-1.5 min-w-0" title="Publiées (YouTube ou téléchargées)">
+                            <div className="flex items-center gap-1.5 min-w-0">
                               <span className="material-symbols-outlined text-[15px] text-emerald-400 shrink-0">check_circle</span>
-                              <span className="text-sm text-white font-extrabold">{chan.published_count || 0}</span>
+                              <div className="leading-tight">
+                                <div className="text-sm text-white font-extrabold">{chan.published_count || 0}</div>
+                                <div className="text-[9px] text-slate-500 font-bold uppercase tracking-wide whitespace-nowrap">Publiées</div>
+                              </div>
                             </div>
-                            <div className="flex items-center gap-1.5 min-w-0" title="Prêtes, en attente de publication">
+                            <div className="flex items-center gap-1.5 min-w-0">
                               <span className="material-symbols-outlined text-[15px] text-amber-400 shrink-0">schedule</span>
-                              <span className="text-sm text-white font-extrabold">{chan.unpublished_count || 0}</span>
+                              <div className="leading-tight">
+                                <div className="text-sm text-white font-extrabold">{chan.unpublished_count || 0}</div>
+                                <div className="text-[9px] text-slate-500 font-bold uppercase tracking-wide whitespace-nowrap">À publier</div>
+                              </div>
                             </div>
-                            <div className="flex items-center gap-1.5 min-w-0 ml-auto" title="Total généré sur cette chaîne">
+                            <div className="flex items-center gap-1.5 min-w-0 ml-auto">
                               <span className="material-symbols-outlined text-[15px] text-slate-500 shrink-0">bar_chart</span>
-                              <span className="text-sm text-slate-300 font-extrabold">{chan.total_count || 0}</span>
+                              <div className="leading-tight">
+                                <div className="text-sm text-slate-300 font-extrabold">{chan.total_count || 0}</div>
+                                <div className="text-[9px] text-slate-500 font-bold uppercase tracking-wide whitespace-nowrap">Total</div>
+                              </div>
                             </div>
                           </div>
 
