@@ -7860,12 +7860,16 @@ export default function App() {
                                   setOpenChannelMenuId(isMenuOpen ? null : chan.id);
                                 }}
                                 className="p-2 rounded-xl hover:bg-[#2a3547] text-slate-400 hover:text-white transition-colors"
-                                title="Actions chaîne"
+                                aria-label="Actions chaîne"
                               >
                                 <span className="material-symbols-outlined text-[20px]">more_vert</span>
                               </button>
 
-                              {/* Dropdown Popup Menu */}
+                              {/* Dropdown Popup Menu — the native title="Actions chaîne"
+                                  tooltip used to render half-clipped right at the card's
+                                  edge (title tooltips can't be positioned/styled); the icon
+                                  is self-explanatory enough on its own, so dropped it in
+                                  favor of an aria-label (screen readers only, nothing shown). */}
                               {isMenuOpen && (
                                 <div className="absolute right-0 top-10 w-48 bg-[var(--bg-dropdown)] border border-[var(--border-dropdown)] rounded-xl shadow-2xl z-50 py-1.5 animate-in fade-in duration-150">
                                   <button
@@ -7901,33 +7905,33 @@ export default function App() {
                               or manually downloaded — the creator's own framing is that both
                               mean "out the door"), what's ready but still waiting, and the
                               channel's lifetime total. */}
-                          <div className="flex items-center gap-4 mt-3.5 pt-3.5 pb-0.5 border-t border-[var(--border-subtle)]">
+                          <div className="flex items-center justify-between gap-2 mt-3.5 pt-3.5 pb-0.5 border-t border-[var(--border-subtle)]">
                             <div className="flex items-center gap-1.5 min-w-0">
-                              <span className="material-symbols-outlined text-[14px] text-[#00c2ff] shrink-0">hourglass_top</span>
-                              <div className="leading-tight">
-                                <div className="text-xs text-[#00c2ff] font-bold">{(chan.queued_count || 0) + (chan.rendering_count || 0)}</div>
-                                <div className="text-[8px] text-slate-500 whitespace-nowrap">En cours</div>
+                              <span className="material-symbols-outlined text-[13px] text-[#00c2ff] shrink-0">hourglass_top</span>
+                              <div className="leading-none">
+                                <div className="text-base text-[#00c2ff] font-extrabold leading-none">{(chan.queued_count || 0) + (chan.rendering_count || 0)}</div>
+                                <div className="text-[8px] text-slate-500 whitespace-nowrap mt-1">En cours</div>
                               </div>
                             </div>
                             <div className="flex items-center gap-1.5 min-w-0">
-                              <span className="material-symbols-outlined text-[14px] text-emerald-400 shrink-0">check_circle</span>
-                              <div className="leading-tight">
-                                <div className="text-xs text-slate-200 font-bold">{chan.published_count || 0}</div>
-                                <div className="text-[8px] text-slate-500 whitespace-nowrap">Publiées</div>
+                              <span className="material-symbols-outlined text-[13px] text-emerald-400 shrink-0">check_circle</span>
+                              <div className="leading-none">
+                                <div className="text-base text-slate-200 font-extrabold leading-none">{chan.published_count || 0}</div>
+                                <div className="text-[8px] text-slate-500 whitespace-nowrap mt-1">Publiées</div>
                               </div>
                             </div>
                             <div className="flex items-center gap-1.5 min-w-0">
-                              <span className="material-symbols-outlined text-[14px] text-amber-400 shrink-0">schedule</span>
-                              <div className="leading-tight">
-                                <div className="text-xs text-slate-200 font-bold">{chan.unpublished_count || 0}</div>
-                                <div className="text-[8px] text-slate-500 whitespace-nowrap">À publier</div>
+                              <span className="material-symbols-outlined text-[13px] text-amber-400 shrink-0">schedule</span>
+                              <div className="leading-none">
+                                <div className="text-base text-slate-200 font-extrabold leading-none">{chan.unpublished_count || 0}</div>
+                                <div className="text-[8px] text-slate-500 whitespace-nowrap mt-1">À publier</div>
                               </div>
                             </div>
-                            <div className="flex items-center gap-1.5 min-w-0 ml-auto">
-                              <span className="material-symbols-outlined text-[14px] text-slate-500 shrink-0">bar_chart</span>
-                              <div className="leading-tight">
-                                <div className="text-xs text-slate-300 font-bold">{chan.total_count || 0}</div>
-                                <div className="text-[8px] text-slate-500 whitespace-nowrap">Total</div>
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <span className="material-symbols-outlined text-[13px] text-slate-500 shrink-0">bar_chart</span>
+                              <div className="leading-none">
+                                <div className="text-base text-slate-300 font-extrabold leading-none">{chan.total_count || 0}</div>
+                                <div className="text-[8px] text-slate-500 whitespace-nowrap mt-1">Total</div>
                               </div>
                             </div>
                           </div>
