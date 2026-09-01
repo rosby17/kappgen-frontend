@@ -5715,7 +5715,11 @@ export default function App() {
     setAdminLibraryImageTotal(0);
     setAdminLibraryImagesHasMore(false);
     try {
-      const res = await authFetch(`${API_BASE}/admin/channel-library/${channelId}/images?niche=${encodeURIComponent(nicheName)}&offset=0&limit=60`);
+      // No niche filter here: the folder is always browsed under its own
+      // channel's niche now, so opening it should show every image inside —
+      // including ones individually moved to another niche's pool — not
+      // just the subset still assigned to this niche.
+      const res = await authFetch(`${API_BASE}/admin/channel-library/${channelId}/images?offset=0&limit=60`);
       if (res.ok) {
         const data = await res.json();
         setAdminLibraryImages(data.filenames || []);
@@ -5731,8 +5735,7 @@ export default function App() {
     if (adminLibraryImagesLoadingMore || !adminLibraryImagesHasMore) return;
     setAdminLibraryImagesLoadingMore(true);
     try {
-      const nicheParam = adminLibraryDrillFolder?.current_niche ? `niche=${encodeURIComponent(adminLibraryDrillFolder.current_niche)}&` : '';
-      const res = await authFetch(`${API_BASE}/admin/channel-library/${channelId}/images?${nicheParam}offset=${adminLibraryImages.length}&limit=60`);
+      const res = await authFetch(`${API_BASE}/admin/channel-library/${channelId}/images?offset=${adminLibraryImages.length}&limit=60`);
       if (!res.ok) throw new Error("Chargement impossible.");
       const data = await res.json();
       setAdminLibraryImages(prev => [...prev, ...(data.filenames || [])]);
