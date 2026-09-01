@@ -691,6 +691,27 @@ function writeVoiceMetaCache(cache) {
   try { localStorage.setItem(VOICE_META_CACHE_KEY, JSON.stringify(cache)); } catch { /* ignore quota/private mode */ }
 }
 
+// Visual sources a channel can enable — any combination now, tried in this
+// fixed priority order at render time (AI first, then the channel's own
+// library, then the niche's community library — see the identical
+// resolve_enabled_image_sources in backend/src/pipeline/images.py, which
+// this must stay in sync with). `sources` (a list) is the current shape on
+// image_style; `source` (a single exclusive string) is the old one, read
+// here for every channel saved before this existed.
+const IMAGE_SOURCE_PRIORITY = ['ai_generated', 'library', 'community'];
+function resolveEnabledImageSources(imageStyle) {
+  if (!imageStyle) return ['library'];
+  const sources = imageStyle.sources;
+  if (Array.isArray(sources) && sources.length) {
+    const enabled = IMAGE_SOURCE_PRIORITY.filter(s => sources.includes(s));
+    if (enabled.length) return enabled;
+  }
+  const legacy = imageStyle.source || 'library';
+  if (legacy === 'hybrid') return ['ai_generated', 'library'];
+  if (IMAGE_SOURCE_PRIORITY.includes(legacy)) return [legacy];
+  return ['library'];
+}
+
 // Raw Izivoice catalog items are passed through as-is by the backend, so
 // their exact schema isn't fixed — this keeps the fields the picker actually
 // filters/sorts on (language, gender, accent, usage) alongside the flattened
@@ -5138,7 +5159,7 @@ export default function App() {
 
   const handleSaveChannel = async () => {
     if (!newChannel.name) return showToast("Veuillez saisir un nom de chaîne.", "error");
-    const needsLibrary = newChannel.image_style.source === 'library' || newChannel.image_style.source === 'hybrid';
+    const needsLibrary = resolveEnabledImageSources(newChannel.image_style).includes('library');
     const uploadReady = libraryUploadStatus === 'success';
     const hasStoredLibrary = Number(newChannel.image_style.library_image_count || 0) > 0
       && String(newChannel.image_style.library_path || '').startsWith('channels/');
@@ -5416,7 +5437,7 @@ export default function App() {
   const [adminLibraryImageTotal, setAdminLibraryImageTotal] = useState(0);
   const [adminLibraryImagesHasMore, setAdminLibraryImagesHasMore] = useState(false);
   const [adminLibraryImagesLoadingMore, setAdminLibraryImagesLoadingMore] = useState(false);
-  const [adminLibraryGridColumns, setAdminLibraryGridColumns] = useState(8);
+  const [adminLibraryGridColumns, setAdminLibraryGridColumns] = useState(5);
   const [adminLibraryLightboxIndex, setAdminLibraryLightboxIndex] = useState(null);
   const [adminLibraryLightboxZoom, setAdminLibraryLightboxZoom] = useState(1);
   const [adminLibraryMoveFolder, setAdminLibraryMoveFolder] = useState(null);
@@ -9508,40 +9529,42 @@ export default function App() {
 
                 {/* STEP 4: VISUELS & SOURCES D'IMAGES (OPTION A & OPTION B COCHABLES) */}
                 {wizardStep === 4 && (() => {
-                  const isCommunityChecked = newChannel.image_style.source === 'community';
-                  const isOptionAChecked = !isCommunityChecked && (newChannel.image_style.source === 'library' || newChannel.image_style.source === 'hybrid');
-                  const isOptionBChecked = !isCommunityChecked && (newChannel.image_style.source === 'ai_generated' || newChannel.image_style.source === 'hybrid');
+                  // All three independently toggleable now — tried in fixed
+                  // priority order at render time (AI, then local library,
+                  // then community), not mutually exclusive modes anymore.
+                  // See resolveEnabledImageSources / the identical priority
+                  // in backend/src/pipeline/images.py.
+                  const enabledImageSources = resolveEnabledImageSources(newChannel.image_style);
+                  const isOptionAChecked = enabledImageSources.includes('library');
+                  const isOptionBChecked = enabledImageSources.includes('ai_generated');
+                  const isCommunityChecked = enabledImageSources.includes('community');
 
-                  const toggleOptionA = () => {
-                    let nextA = !isOptionAChecked;
-                    let nextB = isOptionBChecked;
-                    if (!nextA && !nextB) nextA = true;
-                    let source = nextA && nextB ? 'hybrid' : nextA ? 'library' : 'ai_generated';
-                    setNewChannel({ ...newChannel, image_style: { ...newChannel.image_style, source } });
+                  const setEnabledImageSources = (next) => {
+                    // Never let every source end up disabled — a channel
+                    // with nothing checked can't render at all, so falls
+                    // back to "library" rather than leaving it empty.
+                    const cleaned = IMAGE_SOURCE_PRIORITY.filter(s => next.includes(s));
+                    const sources = cleaned.length ? cleaned : ['library'];
+                    setNewChannel({ ...newChannel, image_style: { ...newChannel.image_style, sources, source: sources[0] } });
                   };
 
+                  const toggleOptionA = () => {
+                    setEnabledImageSources(isOptionAChecked ? enabledImageSources.filter(s => s !== 'library') : [...enabledImageSources, 'library']);
+                  };
 
                   const toggleOptionB = () => {
                     if (!isOptionBChecked && !canGenerateAIImages) {
                       showToast(`Crédits insuffisants pour la génération d'images IA (~${IMAGE_GENERATION_CREDITS_MIN.toLocaleString()}–${IMAGE_GENERATION_CREDITS_MAX.toLocaleString()} crédits/image).`, 'error');
                       return;
                     }
-                    let nextA = isOptionAChecked;
-                    let nextB = !isOptionBChecked;
-                    if (!nextA && !nextB) nextB = true;
-                    let source = nextA && nextB ? 'hybrid' : nextA ? 'library' : 'ai_generated';
-                    setNewChannel({ ...newChannel, image_style: { ...newChannel.image_style, source } });
+                    setEnabledImageSources(isOptionBChecked ? enabledImageSources.filter(s => s !== 'ai_generated') : [...enabledImageSources, 'ai_generated']);
                   };
 
-                  // Exclusive with A/B — a video's visual source is either the
-                  // creator's own setup (library/AI/hybrid) or the community's,
-                  // never a mix, to keep the mental model simple.
+                  // Combinable with A/B now, not exclusive — checking it adds
+                  // the niche's shared pool as a further fallback tier below
+                  // whatever else is enabled, instead of replacing it.
                   const toggleCommunity = () => {
-                    if (isCommunityChecked) {
-                      setNewChannel({ ...newChannel, image_style: { ...newChannel.image_style, source: 'library' } });
-                    } else {
-                      setNewChannel({ ...newChannel, image_style: { ...newChannel.image_style, source: 'community' } });
-                    }
+                    setEnabledImageSources(isCommunityChecked ? enabledImageSources.filter(s => s !== 'community') : [...enabledImageSources, 'community']);
                   };
 
                   // How many distinct AI images to generate for this video — the
@@ -9901,10 +9924,14 @@ export default function App() {
                         );
                       })()}
 
-                      {isOptionAChecked && isOptionBChecked && (
+                      {enabledImageSources.length > 1 && (
                         <div className="bg-[#00c2ff]/10 border border-[#00c2ff]/30 p-3 rounded-xl flex items-center gap-2.5 text-xs text-[#00c2ff]">
                           <span className="material-symbols-outlined text-[20px]">info</span>
-                          <span><strong>Mode Hybride activé !</strong> Le système utilisera vos images locales prioritaires et l'IA pour compléter les scènes manquantes.</span>
+                          <span>
+                            <strong>{enabledImageSources.length} sources activées.</strong> Ordre de priorité à la génération : {enabledImageSources.map((s, i) => (
+                              <span key={s}>{i > 0 ? ' → ' : ''}{s === 'ai_generated' ? 'IA' : s === 'library' ? 'dossier local' : 'bibliothèque collaborative'}</span>
+                            ))}. Chaque source n'est utilisée que si la précédente échoue ou manque d'images.
+                          </span>
                         </div>
                       )}
 
@@ -11356,7 +11383,7 @@ export default function App() {
                                 alt="Aperçu visuel de la vidéo"
                                 className="w-full h-full object-cover opacity-85"
                               />
-                            ) : newChannel.image_style.source !== 'ai_generated' && wizardMode === 'edit' && activeChannel ? (
+                            ) : resolveEnabledImageSources(newChannel.image_style).includes('library') && wizardMode === 'edit' && activeChannel ? (
                               <img
                                 key={activeChannel.id}
                                 src={`${API_BASE}/channels/${activeChannel.id}/library-preview`}
@@ -11528,7 +11555,7 @@ export default function App() {
                     {wizardStep < 9 ? (
                     <button
                       onClick={() => {
-                        const needsLibrary = newChannel.image_style.source === 'library' || newChannel.image_style.source === 'hybrid';
+                        const needsLibrary = resolveEnabledImageSources(newChannel.image_style).includes('library');
                         const stored = Number(newChannel.image_style.library_image_count || 0) > 0
                           && String(newChannel.image_style.library_path || '').startsWith('channels/');
                         const ready = libraryUploadStatus === 'success' && (stagedLibraryToken || wizardMode === 'edit');
@@ -13284,7 +13311,7 @@ export default function App() {
                   <div>
                     <div className="text-xs text-slate-400 mb-2">Aperçu visuel du rendu final</div>
                     <div ref={submitSubtitlePreviewRef} className="w-full aspect-video rounded-2xl overflow-hidden relative border border-[var(--border)] shadow-lg">
-                      {activeChannel.image_style?.source !== 'ai_generated' && (
+                      {resolveEnabledImageSources(activeChannel.image_style).includes('library') && (
                         <img
                           src={`${API_BASE}/channels/${activeChannel.id}/library-preview`}
                           alt="Image aléatoire de la bibliothèque"
