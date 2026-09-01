@@ -3670,7 +3670,17 @@ export default function App() {
       enabled: false,
       mode: 'library',
       track_id_or_style: 'ambient',
-      volume: 0.10
+      volume: 0.10,
+      auto_ducking: true,
+      ducking_amount: 0.70,
+      fade_in_seconds: 2,
+      fade_out_seconds: 3,
+      soundgoodizer_enabled: false,
+      soundgoodizer_amount: 0.35,
+      reverb_enabled: false,
+      reverb_amount: 0.15,
+      maximus_enabled: true,
+      maximus_amount: 0.40
     },
     image_style: {
       source: 'library',
@@ -10491,6 +10501,74 @@ export default function App() {
                         onChange={e => setNewChannel({ ...newChannel, music_preference: { ...newChannel.music_preference, volume: parseFloat(e.target.value) } })}
                         className="w-full accent-[#00c2ff]"
                       />
+                    </div>
+
+                    <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-surface-soft)] p-4 space-y-4">
+                      <div>
+                        <h4 className="text-xs font-extrabold text-white flex items-center gap-2">
+                          <span className="material-symbols-outlined text-[#00c2ff] text-[18px]">graphic_eq</span>
+                          Mixage studio avancé
+                        </h4>
+                        <p className="text-[10px] text-slate-500 mt-1">Équivalents serveur des traitements FL Studio. La voix reste toujours prioritaire.</p>
+                      </div>
+
+                      {[
+                        ['auto_ducking', 'Auto-Ducking', 'La musique descend automatiquement lorsque la voix parle.'],
+                        ['soundgoodizer_enabled', 'Enhancer — type Soundgoodizer', 'Ajoute présence, chaleur et compression à la musique.'],
+                        ['reverb_enabled', 'Réverbération — type Fruity Reeverb 2', 'Ajoute une profondeur légère sans masquer la narration.'],
+                        ['maximus_enabled', 'Mastering multibande — type Maximus', 'Équilibre graves, médiums et aigus puis protège des saturations.'],
+                      ].map(([field, label, help]) => {
+                        const enabled = newChannel.music_preference[field] ?? (field === 'auto_ducking' || field === 'maximus_enabled');
+                        const amountField = {
+                          auto_ducking: 'ducking_amount', soundgoodizer_enabled: 'soundgoodizer_amount',
+                          reverb_enabled: 'reverb_amount', maximus_enabled: 'maximus_amount',
+                        }[field];
+                        const amount = newChannel.music_preference[amountField] ?? 0.4;
+                        return (
+                          <div key={field} className="rounded-xl border border-[var(--border-soft)] bg-[var(--bg-input-alt)] p-3">
+                            <div className="flex items-center justify-between gap-3">
+                              <div>
+                                <p className="text-[11px] font-bold text-slate-200">{label}</p>
+                                <p className="text-[9px] text-slate-500">{help}</p>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => setNewChannel({ ...newChannel, music_preference: { ...newChannel.music_preference, [field]: !enabled } })}
+                                className={`relative shrink-0 w-9 h-5 rounded-full transition-colors ${enabled ? 'bg-[#00c2ff]' : 'bg-[var(--border)]'}`}
+                              >
+                                <span className={`absolute left-0.5 top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${enabled ? 'translate-x-4' : 'translate-x-0'}`} />
+                              </button>
+                            </div>
+                            {enabled && (
+                              <div className="mt-3 flex items-center gap-3">
+                                <input
+                                  type="range" min="0" max="1" step="0.05" value={amount}
+                                  onChange={e => setNewChannel({ ...newChannel, music_preference: { ...newChannel.music_preference, [amountField]: parseFloat(e.target.value) } })}
+                                  className="flex-1 accent-[#00c2ff]"
+                                />
+                                <span className="text-[10px] font-bold text-[#00c2ff] w-9 text-right">{Math.round(amount * 100)}%</span>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+
+                      <div className="grid grid-cols-2 gap-3">
+                        {[['fade_in_seconds', 'Fondu d’entrée'], ['fade_out_seconds', 'Fondu de sortie']].map(([field, label]) => (
+                          <label key={field} className="text-[10px] font-bold text-slate-400">
+                            {label}
+                            <div className="mt-1 flex items-center gap-2">
+                              <input
+                                type="number" min="0" max="10" step="0.5"
+                                value={newChannel.music_preference[field] ?? (field === 'fade_in_seconds' ? 2 : 3)}
+                                onChange={e => setNewChannel({ ...newChannel, music_preference: { ...newChannel.music_preference, [field]: parseFloat(e.target.value) || 0 } })}
+                                className="w-full bg-[var(--bg-input-alt)] border border-[var(--border)] rounded-lg px-2 py-1.5 text-white outline-none focus:border-[#00c2ff]"
+                              />
+                              <span className="text-slate-500">sec.</span>
+                            </div>
+                          </label>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 )}
