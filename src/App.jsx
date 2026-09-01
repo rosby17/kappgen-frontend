@@ -576,6 +576,66 @@ const SUBTITLE_PRESETS = [
     position: 'bottom',
     karaoke: true,
     box_color: 'transparent'
+  },
+  {
+    id: 'documentary_gold', name: 'Documentaire Or 🎬', font: 'League Spartan', size: 48,
+    color: '#F7C948', base_color: '#FFFFFF', outline_color: '#111111', outline_width: 4,
+    position: 'center', karaoke: true, box_color: 'rgba(0,0,0,0.45)', box_padding: 12, shadow: true
+  },
+  {
+    id: 'clean_news', name: 'Actualité Pro 📰', font: 'Roboto', size: 42,
+    color: '#FFFFFF', base_color: '#FFFFFF', outline_color: '#0B2239', outline_width: 2,
+    position: 'bottom', karaoke: false, box_color: '#0B5ED7', box_padding: 10
+  },
+  {
+    id: 'meditation_soft', name: 'Méditation Douce 🕊️', font: 'Quicksand', size: 42,
+    color: '#CFFAFE', base_color: '#FFFFFF', outline_color: '#164E63', outline_width: 2,
+    position: 'center', karaoke: true, box_color: 'rgba(8,47,73,0.45)', box_padding: 14, shadow: true
+  },
+  {
+    id: 'history_parchment', name: 'Histoire Parchemin 📜', font: 'EB Garamond', size: 48,
+    color: '#F4D58D', base_color: '#FFF8E7', outline_color: '#3C2415', outline_width: 3,
+    position: 'bottom', karaoke: true, box_color: 'rgba(48,31,20,0.55)', box_padding: 12
+  },
+  {
+    id: 'finance_lime', name: 'Finance Premium 📈', font: 'Manrope', size: 44,
+    color: '#A3FF12', base_color: '#FFFFFF', outline_color: '#071A0D', outline_width: 4,
+    position: 'center', karaoke: true, box_color: 'rgba(0,0,0,0.5)', box_padding: 10
+  },
+  {
+    id: 'truecrime_stamp', name: 'Dossier Crime 🔍', font: 'Courier Prime', size: 42,
+    color: '#FF3B30', base_color: '#E5E7EB', outline_color: '#120000', outline_width: 4,
+    position: 'bottom', karaoke: true, box_color: 'rgba(15,15,15,0.72)', box_padding: 11, letter_spacing: 1
+  },
+  {
+    id: 'sport_score', name: 'Sport Impact 🏆', font: 'Bebas Neue', size: 54,
+    color: '#FDE047', base_color: '#FFFFFF', outline_color: '#061B3A', outline_width: 5,
+    position: 'center', karaoke: true, box_color: 'transparent', bold: true, italic: true
+  },
+  {
+    id: 'luxury_serif', name: 'Luxe Éditorial ✨', font: 'Vollkorn', size: 44,
+    color: '#D6B36A', base_color: '#F8F5EC', outline_color: '#19150D', outline_width: 2,
+    position: 'bottom', karaoke: false, box_color: 'rgba(0,0,0,0.38)', box_padding: 12, letter_spacing: 2
+  },
+  {
+    id: 'kids_bubble', name: 'Kids Pop 🎈', font: 'Comic Neue', size: 48,
+    color: '#FF4FA3', base_color: '#FFFFFF', outline_color: '#4C1D95', outline_width: 5,
+    position: 'center', karaoke: true, box_color: '#FDE68A', box_padding: 12, shadow: true
+  },
+  {
+    id: 'tech_neon', name: 'Tech Néon 🤖', font: 'Jura', size: 46,
+    color: '#22D3EE', base_color: '#E0F2FE', outline_color: '#082F49', outline_width: 4,
+    position: 'bottom', karaoke: true, box_color: 'rgba(2,6,23,0.68)', box_padding: 10, letter_spacing: 2
+  },
+  {
+    id: 'prayer_light', name: 'Prière Lumière 🙏', font: 'Cardo', size: 46,
+    color: '#FFF1A8', base_color: '#FFFFFF', outline_color: '#3F2B00', outline_width: 3,
+    position: 'center', karaoke: true, box_color: 'transparent', shadow: true, shadow_distance: 4
+  },
+  {
+    id: 'minimal_caps', name: 'Minimal Capitales ◻️', font: 'Inter', size: 40,
+    color: '#FFFFFF', base_color: '#CBD5E1', outline_color: '#000000', outline_width: 1,
+    position: 'bottom', karaoke: true, box_color: 'rgba(0,0,0,0.62)', box_padding: 9, text_case: 'upper', letter_spacing: 3
   }
 ];
 
@@ -3283,7 +3343,7 @@ export default function App() {
   const [wizardContentType, setWizardContentType] = useState('narration');
   const [fontPickerOpen, setFontPickerOpen] = useState(false);
   const [fontSearchQuery, setFontSearchQuery] = useState('');
-  const [subtitleTab, setSubtitleTab] = useState('presets');
+  const [subtitleTab, setSubtitleTab] = useState('customize');
   const [nicheMode, setNicheMode] = useState('preset');
   const [styleAnalyzing, setStyleAnalyzing] = useState(false);
   const [musicFiles, setMusicFiles] = useState([]);
@@ -10723,15 +10783,9 @@ export default function App() {
                 {/* STEP 6: SOUS-TITRES & KARAOKÉ ASS */}
                 {wizardStep === 6 && (
                   <div className="space-y-6">
-                    <h3 className="text-base font-bold text-white">6. Personnalisation Avancée des Sous-Titres</h3>
-                    <div className="-mt-4 flex items-center gap-2 flex-wrap">
-                      <p className="text-[11px] text-slate-400">
-                        Le style ci-dessous est gratuit. Le texte, lui, dépend de la transcription choisie à l'envoi de chaque vidéo.
-                      </p>
-                      <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-amber-400/15 border border-amber-400/40 text-amber-300 text-[11px] font-extrabold whitespace-nowrap">
-                        <span className="material-symbols-outlined text-[14px]">bolt</span>
-                        Transcription IA : {TRANSCRIPTION_CREDITS_PER_SEC} crédits/sec d'audio
-                      </span>
+                    <div>
+                      <h3 className="text-base font-bold text-white">6. Personnalisation des sous-titres</h3>
+                      <p className="text-[11px] text-slate-400 mt-1">Réglez directement la position, la police, les couleurs, le fond et l’ombre, avec un aperçu fidèle du résultat.</p>
                     </div>
 
                     <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_520px] gap-8 items-start">
@@ -10741,11 +10795,8 @@ export default function App() {
                       <div className="space-y-4 min-w-0">
                         <div className="flex w-full bg-[var(--bg-surface-alt)] rounded-xl p-1 mb-1 overflow-x-auto">
                           {[
+                            { id: 'customize', label: 'Personnalisation', icon: 'tune' },
                             { id: 'presets', label: 'Préréglages', icon: 'style' },
-                            { id: 'text', label: 'Police & Couleurs', icon: 'text_fields' },
-                            { id: 'format', label: 'Mise en Forme', icon: 'tune' },
-                            { id: 'background', label: 'Arrière-plan', icon: 'crop_square' },
-                            { id: 'shadow', label: 'Ombre', icon: 'flare' },
                           ].map(tab => (
                             <button
                               key={tab.id}
@@ -10780,12 +10831,9 @@ export default function App() {
                                       ...prev,
                                       subtitle_style: {
                                         ...prev.subtitle_style,
-                                        font: preset.font,
-                                        size: preset.size,
-                                        color: preset.color,
-                                        outline_color: preset.outline_color,
-                                        outline_width: preset.outline_width,
-                                        box_color: preset.box_color
+                                        ...preset,
+                                        id: undefined,
+                                        name: undefined,
                                       }
                                     }));
                                   }}
@@ -10829,7 +10877,7 @@ export default function App() {
                         )}
 
                         {/* Custom Controls */}
-                        {subtitleTab === 'text' && (
+                        {subtitleTab === 'customize' && (
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div>
                             <label className="block text-xs font-bold text-slate-300 mb-2">Police (Font)</label>
@@ -10931,7 +10979,7 @@ export default function App() {
                         )}
 
                         {/* Mise en forme du texte */}
-                        {subtitleTab === 'format' && (
+                        {subtitleTab === 'customize' && (
                         <div className="space-y-4">
                           <label className="block text-xs font-bold text-[#00c2ff]">Mise en Forme du Texte</label>
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -11101,7 +11149,7 @@ export default function App() {
                         )}
 
                         {/* Arrière-plan (boîte) */}
-                        {subtitleTab === 'background' && (
+                        {subtitleTab === 'customize' && (
                         <div className="space-y-4">
                           <label className="block text-xs font-bold text-[#00c2ff]">Arrière-plan (rectangle derrière le texte)</label>
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -11132,7 +11180,7 @@ export default function App() {
                         )}
 
                         {/* Ombre */}
-                        {subtitleTab === 'shadow' && (
+                        {subtitleTab === 'customize' && (
                         <div className="space-y-4">
                           <div className="flex items-center gap-3">
                             <input
