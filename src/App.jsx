@@ -1654,6 +1654,20 @@ function VoiceCloneModal({ onClose, onSubmit, submitting }) {
 // bolted-on plain form next to Montage Simple.
 const MUSIC_WIZARD_STEPS = ['Identité', 'Style & Musique', 'Montage', 'Publication'];
 
+// Ready-made styles for creators with zero music vocabulary — clicking one
+// fills the field completely instead of staring at a blank textarea with
+// "lofi/BPM/ambient" jargon they don't recognize.
+const MUSIC_STYLE_PRESETS = [
+  { id: 'lofi', icon: 'menu_book', label: 'Lofi étude', prompt: 'lofi hip-hop mélancolique, piano doux, boucle de pluie légère en fond, tempo lent et régulier, ambiance studieuse et apaisante', titles: 'Lofi pour réviser toute la nuit\nBeats calmes pour se concentrer\nLofi de fin de journée' },
+  { id: 'sleep', icon: 'bedtime', label: 'Sommeil profond', prompt: 'ambient minimaliste, nappes de synthé très douces, sans percussion, très lent, texture enveloppante et apaisante pour l\'endormissement', titles: 'Musique pour dormir profondément\nSommeil paisible en 8 heures\nAmbiance douce pour la nuit' },
+  { id: 'piano', icon: 'piano', label: 'Piano relaxant', prompt: 'piano solo mélancolique et délicat, tempo lent, résonance légère, mélodies simples et émouvantes, ambiance intime et chaleureuse', titles: 'Piano relaxant pour se détendre\nMélodies douces au piano\nMoments calmes au piano' },
+  { id: 'nature', icon: 'forest', label: 'Nature & pluie', prompt: 'sons de nature organiques mêlés à une nappe musicale douce, pluie, forêt, ruisseau, tempo très lent, ambiance immersive et apaisante', titles: 'Pluie et forêt pour se relaxer\nSons de la nature pour méditer\nAmbiance nature apaisante' },
+  { id: 'focus', icon: 'psychology', label: 'Concentration', prompt: 'musique instrumentale électronique minimaliste, rythme régulier discret, pas de paroles, énergie stable et neutre, idéale pour le travail de fond', titles: 'Musique pour se concentrer au travail\nFocus profond sans distraction\nProductivité en musique' },
+  { id: 'jazz', icon: 'nightlife', label: 'Jazz café', prompt: 'jazz doux instrumental, contrebasse et piano feutré, léger bruit de vinyle, ambiance chaleureuse de café le soir, tempo modéré et élégant', titles: 'Jazz doux pour un café tranquille\nAmbiance jazzy du soir\nJazz feutré pour se détendre' },
+  { id: 'synthwave', icon: 'nights_stay', label: 'Synthwave nuit', prompt: 'synthwave rétro années 80, nappes de synthétiseur, rythme électronique modéré, ambiance nocturne et nostalgique, énergie posée', titles: 'Synthwave pour conduire la nuit\nAmbiance rétro années 80\nNéon et synthés le soir' },
+  { id: 'meditation', icon: 'self_improvement', label: 'Méditation', prompt: 'musique méditative minimaliste, bols tibétains et nappes très douces, tempo extrêmement lent, silence habité, ambiance spirituelle et sereine', titles: 'Musique pour méditer profondément\n10 minutes de pleine conscience\nCalme intérieur en musique' },
+];
+
 function MusicChannelWizard({ authFetch, showToast, onCreated, onBack }) {
   const [step, setStep] = useState(1);
   const [form, setForm] = useState({
@@ -1760,6 +1774,36 @@ function MusicChannelWizard({ authFetch, showToast, onCreated, onBack }) {
     } catch (err) {
       showToast(err.message, 'error');
       setConnectingYoutube(false);
+    }
+  };
+
+  // AI assist for the one field this wizard can't function without, aimed at
+  // creators with no music vocabulary at all — works both from nothing
+  // ("no idea") and from a rough hint the creator DOES have, correcting/
+  // expanding it into a usable prompt rather than requiring them to already
+  // know terms like "lofi" or "ambient".
+  const [styleHintOpen, setStyleHintOpen] = useState(false);
+  const [styleHint, setStyleHint] = useState('');
+  const [styleSuggesting, setStyleSuggesting] = useState(false);
+
+  const handleSuggestStyle = async () => {
+    setStyleSuggesting(true);
+    try {
+      const res = await authFetch(`${API_BASE}/channels/music-style/suggest`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ hint: styleHint.trim() }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || 'Suggestion impossible.');
+      setForm(f => ({ ...f, style_prompt: data.style_prompt, title_examples: data.title_examples || f.title_examples }));
+      setStyleHintOpen(false);
+      setStyleHint('');
+      showToast('Style suggéré — modifie-le si besoin.', 'success');
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setStyleSuggesting(false);
     }
   };
 
@@ -1995,8 +2039,60 @@ function MusicChannelWizard({ authFetch, showToast, onCreated, onBack }) {
         {step === 2 && (
           <div className="space-y-6">
             <h3 className="text-base font-bold text-white">2. Style & Musique</h3>
+
             <div>
-              <label className="block text-xs font-bold text-slate-300 mb-2">Style musical</label>
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-xs font-bold text-slate-300">Aucune idée du style musical ? Choisis un point de départ</label>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {MUSIC_STYLE_PRESETS.map(p => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => setForm({ ...form, style_prompt: p.prompt, title_examples: form.title_examples.trim() ? form.title_examples : p.titles })}
+                    className={`p-2.5 rounded-xl border text-left transition-colors ${form.style_prompt === p.prompt ? 'bg-[#00c2ff]/10 border-[#00c2ff]' : 'bg-[var(--bg-surface-alt)] border-[var(--border)] hover:border-slate-500'}`}
+                  >
+                    <span className="material-symbols-outlined text-[18px] text-[#00c2ff] block mb-1">{p.icon}</span>
+                    <span className="text-[11px] font-bold text-white block">{p.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-xs font-bold text-slate-300">Style musical</label>
+                <button
+                  type="button"
+                  onClick={() => setStyleHintOpen(o => !o)}
+                  className="text-[10px] font-bold text-[#00c2ff] hover:text-[#38d0ff] flex items-center gap-1"
+                >
+                  <span className="material-symbols-outlined text-[13px]">auto_awesome</span>
+                  Aide-moi avec l'IA
+                </button>
+              </div>
+              {styleHintOpen && (
+                <div className="mb-2 bg-[#00c2ff]/5 border border-[#00c2ff]/30 rounded-xl p-3 space-y-2">
+                  <p className="text-[11px] text-slate-300">Décris en langage simple ce que tu veux (même vague, même "je sais pas trop") — ou laisse vide et je propose une idée qui marche bien sur YouTube.</p>
+                  <div className="flex items-center gap-2">
+                    <input
+                      value={styleHint}
+                      onChange={e => setStyleHint(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') handleSuggestStyle(); }}
+                      placeholder="Ex : quelque chose de calme pour travailler, ou rien du tout"
+                      className="flex-1 bg-[var(--bg-input)] border border-[var(--border)] rounded-lg px-3 py-2 text-xs text-white focus:border-[#00c2ff] outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleSuggestStyle}
+                      disabled={styleSuggesting}
+                      className="shrink-0 px-4 py-2 rounded-lg bg-[#00c2ff] text-slate-950 text-xs font-bold hover:bg-[#38d0ff] disabled:opacity-50 transition-all"
+                    >
+                      {styleSuggesting ? 'Génération…' : 'Suggérer'}
+                    </button>
+                  </div>
+                </div>
+              )}
               <textarea
                 rows={3}
                 value={form.style_prompt}
