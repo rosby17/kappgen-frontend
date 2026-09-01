@@ -3639,6 +3639,11 @@ export default function App() {
   // Submission Form State (Nouvelle Vidéo)
   const [submitMode, setSubmitMode] = useState('text'); // 'text' | 'audio_upload'
   const [singleScriptText, setSingleScriptText] = useState('');
+  // Optional — lets a creator name the video upfront instead of it sitting
+  // as "(sans titre)" in the queue until the AI metadata step eventually
+  // runs (only once rendering starts, not while just queued), and skips
+  // that guesswork entirely once set.
+  const [submitVideoTitle, setSubmitVideoTitle] = useState('');
   const [selectedVoice, setSelectedVoice] = useState('fr-FR-Thomas');
   const [availableVoices, setAvailableVoices] = useState(VOICE_MODELS);
   const defaultVoicesRef = useRef(VOICE_MODELS);
@@ -5883,6 +5888,7 @@ export default function App() {
     formData.append("channel_id", activeChannel.id);
     formData.append("input_type", submitMode === 'audio_upload' ? 'audio' : 'text');
     formData.append("voice_id", selectedVoice);
+    if (submitVideoTitle.trim()) formData.append("title", submitVideoTitle.trim());
 
     if (submitMode === 'text') {
       if (!singleScriptText.trim()) return showToast("Veuillez saisir le texte de votre script.", "error");
@@ -5908,6 +5914,7 @@ export default function App() {
       });
       if (res.ok) {
         setSingleScriptText('');
+        setSubmitVideoTitle('');
         setAudioFilesList([]);
         setShowSubmitModal(false);
         fetchChannelVideos(activeChannel.id);
@@ -6945,11 +6952,42 @@ export default function App() {
   const handleCloneVoice = async (file, name, gender) => {
     // Voice is a channel-level setting: cloned either from the "Nouvelle
     // vidéo" modal (activeChannel already saved) or from the wizard's voice
-    // section while editing an existing channel (editingChannelId) — cloning
-    // needs a real channel id to attach to, so it's unavailable while still
-    // creating a brand-new, unsaved channel.
-    const targetChannelId = view === 'wizard' ? editingChannelId : activeChannel?.id;
-    if (!file || !targetChannelId || !name?.trim()) return;
+    // section. Cloning needs a real channel id to attach to — while still
+    // creating a brand-new, unsaved channel this used to silently do nothing
+    // (targetChannelId was null, the guard below just returned), which read
+    // as "cloning failed" with no explanation and forced recloning after
+    // saving. Same lazy-create fix as handleConnectYouTubeFromWizard: create
+    // the channel now (with whatever's filled in so far) so there's a real
+    // id to clone onto, instead of requiring the channel to already exist.
+    if (!file || !name?.trim()) return;
+    let targetChannelId = view === 'wizard' ? editingChannelId : activeChannel?.id;
+    if (!targetChannelId && view === 'wizard') {
+      setCloningVoice(true);
+      try {
+        const res = await authFetch(`${API_BASE}/channels`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...newChannel, name: newChannel.name.trim() || 'Nouvelle chaîne' }),
+        });
+        if (!res.ok) {
+          const detail = await res.json().catch(() => ({}));
+          throw new Error(detail.detail || "Impossible de créer la chaîne avant le clonage.");
+        }
+        const created = await res.json();
+        targetChannelId = created.id;
+        setWizardMode('edit');
+        setEditingChannelId(targetChannelId);
+        await fetchChannels();
+      } catch (err) {
+        showToast(err.message, 'error');
+        setCloningVoice(false);
+        return;
+      }
+    }
+    if (!targetChannelId) {
+      showToast("Enregistre d'abord la chaîne avant de cloner une voix.", 'error');
+      return;
+    }
     setCloningVoice(true);
     try {
       const clip = await trimAudioClientSide(file, 32);
@@ -14443,6 +14481,22 @@ export default function App() {
                   >
                     Fichiers Audio Importés
                   </button>
+                </div>
+
+                {/* Optional — a creator-given title shows immediately (even
+                    while the video just sits queued) instead of "(sans
+                    titre)" until the AI metadata step eventually runs, and
+                    skips that guesswork entirely once one is set here. */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-300 mb-2">Titre de la vidéo <span className="text-slate-500 font-normal normal-case">(optionnel — sinon proposé automatiquement)</span></label>
+                  <input
+                    type="text"
+                    value={submitVideoTitle}
+                    onChange={e => setSubmitVideoTitle(e.target.value)}
+                    maxLength={100}
+                    className="w-full bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-3.5 py-2.5 text-xs text-white focus:border-[#00c2ff] outline-none placeholder-slate-500"
+                    placeholder="Ex : Pourquoi Dieu reste silencieux avant de répondre à tes prières"
+                  />
                 </div>
 
                 {/* La voix est un réglage de chaîne (configuré une fois dans les
