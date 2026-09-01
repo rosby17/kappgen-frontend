@@ -3115,9 +3115,38 @@ export default function App() {
   // Each subtitle preview box is a different pixel width on screen, so each
   // needs its own live-measured scale relative to the real 1920-wide render.
   const [wizardSubtitlePreviewRef, wizardSubtitlePreviewScale] = useSubtitlePreviewScale();
+  const wizardSubtitleDragRef = useRef(null);
   const [mockupSubtitlePreviewRef, mockupSubtitlePreviewScale] = useSubtitlePreviewScale();
   const [submitSubtitlePreviewRef, submitSubtitlePreviewScale] = useSubtitlePreviewScale();
   const [confirmDialog, setConfirmDialog] = useState(null); // { title, message, danger, resolve }
+
+  const handleWizardSubtitlePointerDown = (event) => {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    wizardSubtitleDragRef.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      offsetX: newChannel.subtitle_style.x_offset || 0,
+      offsetY: newChannel.subtitle_style.y_offset || 0,
+    };
+  };
+
+  const handleWizardSubtitlePointerMove = (event) => {
+    const drag = wizardSubtitleDragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    const scale = Math.max(0.01, wizardSubtitlePreviewScale || 1);
+    const xOffset = Math.max(-700, Math.min(700, Math.round(drag.offsetX + (event.clientX - drag.startX) / scale)));
+    const yOffset = Math.max(-500, Math.min(500, Math.round(drag.offsetY + (event.clientY - drag.startY) / scale)));
+    setNewChannel(prev => ({ ...prev, subtitle_style: { ...prev.subtitle_style, x_offset: xOffset, y_offset: yOffset } }));
+  };
+
+  const handleWizardSubtitlePointerUp = (event) => {
+    if (wizardSubtitleDragRef.current?.pointerId !== event.pointerId) return;
+    wizardSubtitleDragRef.current = null;
+    event.currentTarget.releasePointerCapture?.(event.pointerId);
+  };
 
   const showToast = (message, type = 'success') => {
     setToast({ message, type });
@@ -3813,7 +3842,7 @@ export default function App() {
       grain: true,
       overlay_effect: 'grain',
       overlay_effects: ['grain'],
-      color_grade: 'warm',
+      color_grade: 'none',
       grain_intensity: 50,
       vignette_intensity: 50,
       particle_intensity: 50,
@@ -10816,6 +10845,16 @@ export default function App() {
                             </button>
                           ))}
                         </div>
+                        <div className="flex justify-end">
+                          <button
+                            type="button"
+                            onClick={() => setNewChannel(prev => ({ ...prev, subtitle_style: { ...defaultChannelForm.subtitle_style } }))}
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--bg-surface-alt)] px-3 py-1.5 text-[10px] font-bold text-slate-300 transition-colors hover:border-[#00c2ff] hover:text-[#00c2ff]"
+                          >
+                            <span className="material-symbols-outlined text-[15px]">restart_alt</span>
+                            Tout remettre par défaut
+                          </button>
+                        </div>
 
                         {/* Presets Grid — CapCut-style: a square tile rendering the actual
                             style ("ABC123") so you pick by look, with the name below it. */}
@@ -11134,48 +11173,17 @@ export default function App() {
                                   </button>
                                 ))}
                               </div>
-                              <div className="mt-3 rounded-xl border border-[var(--border)] bg-[var(--bg-surface-alt)] p-3">
-                                <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-                                  <div>
-                                    <label className="text-[11px] font-bold text-slate-300">Décalage précis de la position</label>
-                                    <p className="mt-0.5 text-[9px] text-slate-500">Affinez la position sélectionnée avec X et Y.</p>
-                                  </div>
-                                  <button
-                                    type="button"
-                                    onClick={() => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, position: 'bottom', align: 'center', x_offset: 0, y_offset: 0, rotation: 0 } })}
-                                    className="rounded-lg border border-[#00c2ff]/40 bg-[#00c2ff]/10 px-2.5 py-1.5 text-[9px] font-bold text-[#00c2ff] hover:bg-[#00c2ff]/20"
-                                  >Revenir à la position par défaut</button>
-                                </div>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                  <div>
-                                    <div className="flex items-center justify-between gap-2 mb-1">
-                                      <label className="text-[10px] font-bold text-slate-400">Horizontal X</label>
-                                      <div className="flex items-center gap-1">
-                                        <input type="number" min="-700" max="700" step="1" value={newChannel.subtitle_style.x_offset || 0}
-                                          onChange={e => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, x_offset: Math.max(-700, Math.min(700, parseInt(e.target.value) || 0)) } })}
-                                          className="w-16 rounded-md border border-[var(--border)] bg-[var(--bg-input-alt)] px-1.5 py-1 text-right text-[10px] text-white" />
-                                        <span className="text-[9px] text-slate-500">px</span>
-                                      </div>
-                                    </div>
-                                    <input type="range" min="-700" max="700" step="1" value={newChannel.subtitle_style.x_offset || 0}
-                                      onChange={e => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, x_offset: parseInt(e.target.value) || 0 } })}
-                                      className="w-full accent-[#00c2ff] mt-3" />
-                                  </div>
-                                  <div>
-                                    <div className="flex items-center justify-between gap-2 mb-1">
-                                      <label className="text-[10px] font-bold text-slate-400">Vertical Y</label>
-                                      <div className="flex items-center gap-1">
-                                        <input type="number" min="-500" max="500" step="1" value={newChannel.subtitle_style.y_offset || 0}
-                                          onChange={e => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, y_offset: Math.max(-500, Math.min(500, parseInt(e.target.value) || 0)) } })}
-                                          className="w-16 rounded-md border border-[var(--border)] bg-[var(--bg-input-alt)] px-1.5 py-1 text-right text-[10px] text-white" />
-                                        <span className="text-[9px] text-slate-500">px</span>
-                                      </div>
-                                    </div>
-                                    <input type="range" min="-500" max="500" step="1" value={newChannel.subtitle_style.y_offset || 0}
-                                      onChange={e => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, y_offset: parseInt(e.target.value) || 0 } })}
-                                      className="w-full accent-[#00c2ff] mt-3" />
-                                  </div>
-                                </div>
+                              <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <label className="text-[9px] font-bold text-slate-500">Horizontal
+                                  <input type="range" min="-700" max="700" step="1" value={newChannel.subtitle_style.x_offset || 0}
+                                    onChange={e => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, x_offset: parseInt(e.target.value) || 0 } })}
+                                    className="mt-1.5 w-full accent-[#00c2ff]" />
+                                </label>
+                                <label className="text-[9px] font-bold text-slate-500">Vertical
+                                  <input type="range" min="-500" max="500" step="1" value={newChannel.subtitle_style.y_offset || 0}
+                                    onChange={e => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, y_offset: parseInt(e.target.value) || 0 } })}
+                                    className="mt-1.5 w-full accent-[#00c2ff]" />
+                                </label>
                               </div>
                             </div>
 
@@ -11288,6 +11296,11 @@ export default function App() {
                           <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(0,194,255,0.08),transparent_70%)]"></div>
                           <div className={`absolute inset-x-6 z-10 flex ${subtitleAlignClass(newChannel.subtitle_style.align)} ${subtitlePositionClass(newChannel.subtitle_style.position)}`}>
                             <div
+                              onPointerDown={handleWizardSubtitlePointerDown}
+                              onPointerMove={handleWizardSubtitlePointerMove}
+                              onPointerUp={handleWizardSubtitlePointerUp}
+                              onPointerCancel={handleWizardSubtitlePointerUp}
+                              title="Glissez pour déplacer les sous-titres"
                               style={{
                                 backgroundColor: newChannel.subtitle_style.box_color && newChannel.subtitle_style.box_color !== 'transparent' ? newChannel.subtitle_style.box_color : 'transparent',
                                 padding: `${Math.max(2, (newChannel.subtitle_style.box_padding ?? 10) * 0.6)}px ${Math.max(4, (newChannel.subtitle_style.box_padding ?? 10) * 0.9)}px`,
@@ -11295,7 +11308,7 @@ export default function App() {
                                 opacity: (newChannel.subtitle_style.opacity ?? 100) / 100,
                                 transform: `translateX(${(newChannel.subtitle_style.x_offset || 0) * wizardSubtitlePreviewScale}px) translateY(${(newChannel.subtitle_style.y_offset || 0) * wizardSubtitlePreviewScale}px) rotate(${newChannel.subtitle_style.rotation || 0}deg)`
                               }}
-                              className={`flex flex-wrap items-center gap-2 ${newChannel.subtitle_style.align === 'left' ? 'justify-start text-left max-w-[58%]' : newChannel.subtitle_style.align === 'right' ? 'justify-end text-right max-w-[58%] ml-auto' : 'justify-center text-center'}`}
+                              className={`flex cursor-grab touch-none select-none flex-wrap items-center gap-2 active:cursor-grabbing ${newChannel.subtitle_style.align === 'left' ? 'justify-start text-left max-w-[58%]' : newChannel.subtitle_style.align === 'right' ? 'justify-end text-right max-w-[58%] ml-auto' : 'justify-center text-center'}`}
                             >
                               {(newChannel.subtitle_style.subtitle_mode || 'dynamic') === 'paragraph' ? (
                                 <p style={{
@@ -11352,7 +11365,7 @@ export default function App() {
                     (couleur/texture sur une vraie image), distinct de l'Aperçu Final complet
                     de l'étape 8 qui montre tous les réglages ensemble (sous-titres, logo...). */}
                 {wizardStep === 7 && (() => {
-                  const colorGrade = newChannel.effects_config.color_grade || 'warm';
+                  const colorGrade = newChannel.effects_config.color_grade || 'none';
                   const overlayEffects = newChannel.effects_config.overlay_effects || ['grain'];
                   const toggleOverlayEffect = (id) => {
                     const next = overlayEffects.includes(id) ? overlayEffects.filter(e => e !== id) : [...overlayEffects, id];
@@ -11443,6 +11456,7 @@ export default function App() {
                             <label className="block text-xs font-bold text-slate-300 mb-2">Étalonnage des couleurs</label>
                             <div className="grid grid-cols-3 gap-2">
                               {[
+                                { id: 'none', label: 'Aucun' },
                                 { id: 'warm', label: 'Chaud' },
                                 { id: 'vintage', label: 'Vintage' },
                                 { id: 'dramatic', label: 'Dramatique' },
@@ -11456,7 +11470,7 @@ export default function App() {
                                 <button
                                   key={id}
                                   type="button"
-                                  onClick={() => setNewChannel({ ...newChannel, effects_config: { ...newChannel.effects_config, color_grade: id } })}
+                                  onClick={() => setNewChannel({ ...newChannel, effects_config: { ...newChannel.effects_config, color_grade: colorGrade === id ? 'none' : id } })}
                                   className={`px-3 py-2 rounded-xl text-xs font-bold border transition-colors ${
                                     colorGrade === id
                                       ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]'
@@ -11586,25 +11600,28 @@ export default function App() {
                               <div className="absolute inset-0 bg-white animate-pulse" style={{ opacity: 0.06 }} />
                             )}
                             {overlayEffects.includes('stars') && (
-                              <div className="absolute inset-0 mix-blend-screen" style={{ opacity: 0.25 + particleIntensity * 0.65, backgroundImage: 'radial-gradient(circle at 12% 18%, white 0 1px, transparent 2px), radial-gradient(circle at 72% 24%, #dff6ff 0 1.5px, transparent 2.5px), radial-gradient(circle at 42% 68%, white 0 1px, transparent 2px), radial-gradient(circle at 88% 76%, #fff6cc 0 1.5px, transparent 2.5px)', backgroundSize: '90px 75px, 130px 105px, 70px 95px, 160px 125px' }} />
+                              <div className="effect-preview-stars absolute inset-[-10%] mix-blend-screen" style={{ opacity: 0.25 + particleIntensity * 0.65, backgroundImage: 'radial-gradient(circle at 12% 18%, white 0 1px, transparent 2px), radial-gradient(circle at 72% 24%, #dff6ff 0 1.5px, transparent 2.5px), radial-gradient(circle at 42% 68%, white 0 1px, transparent 2px), radial-gradient(circle at 88% 76%, #fff6cc 0 1.5px, transparent 2.5px)', backgroundSize: '90px 75px, 130px 105px, 70px 95px, 160px 125px' }} />
                             )}
                             {overlayEffects.includes('dust') && (
-                              <div className="absolute inset-0 mix-blend-screen" style={{ opacity: 0.18 + particleIntensity * 0.35, backgroundImage: 'radial-gradient(circle, rgba(255,225,170,.8) 0 1px, transparent 2px)', backgroundSize: '34px 41px', filter: 'blur(.5px)' }} />
+                              <>
+                                <div className="effect-preview-dust-near absolute inset-[-20%] mix-blend-screen" style={{ opacity: 0.12 + particleIntensity * 0.32, backgroundImage: 'radial-gradient(circle, rgba(255,225,170,.9) 0 1px, transparent 3px)', backgroundSize: '47px 63px', filter: 'blur(.7px)' }} />
+                                <div className="effect-preview-dust-far absolute inset-[-20%] mix-blend-screen" style={{ opacity: 0.1 + particleIntensity * 0.2, backgroundImage: 'radial-gradient(circle, rgba(255,240,205,.75) 0 .6px, transparent 2px)', backgroundSize: '29px 37px', filter: 'blur(.2px)' }} />
+                              </>
                             )}
                             {overlayEffects.includes('snow') && (
-                              <div className="absolute inset-0 mix-blend-screen" style={{ opacity: 0.3 + particleIntensity * 0.6, backgroundImage: 'radial-gradient(circle, white 0 2px, transparent 3px), radial-gradient(circle, white 0 1px, transparent 2px)', backgroundSize: '48px 55px, 29px 37px', backgroundPosition: '0 0, 13px 17px' }} />
+                              <div className="effect-preview-snow absolute inset-[-30%] mix-blend-screen" style={{ opacity: 0.3 + particleIntensity * 0.6, backgroundImage: 'radial-gradient(circle, white 0 2px, transparent 3px), radial-gradient(circle, white 0 1px, transparent 2px)', backgroundSize: '48px 55px, 29px 37px', backgroundPosition: '0 0, 13px 17px' }} />
                             )}
                             {overlayEffects.includes('rain') && (
-                              <div className="absolute inset-0 mix-blend-screen" style={{ opacity: 0.2 + particleIntensity * 0.45, backgroundImage: 'repeating-linear-gradient(105deg, transparent 0 18px, rgba(190,225,255,.75) 19px, transparent 21px)', transform: 'scale(1.2)' }} />
+                              <div className="effect-preview-rain absolute inset-[-40%] mix-blend-screen" style={{ opacity: 0.2 + particleIntensity * 0.45, backgroundImage: 'repeating-linear-gradient(105deg, transparent 0 18px, rgba(190,225,255,.75) 19px, transparent 21px)' }} />
                             )}
                             {overlayEffects.includes('fog') && (
-                              <div className="absolute inset-0" style={{ opacity: 0.15 + particleIntensity * 0.45, background: 'linear-gradient(165deg, transparent 5%, rgba(225,235,240,.75) 48%, transparent 88%)', filter: 'blur(10px)' }} />
+                              <div className="effect-preview-fog absolute inset-[-25%]" style={{ opacity: 0.15 + particleIntensity * 0.45, background: 'linear-gradient(165deg, transparent 5%, rgba(225,235,240,.75) 48%, transparent 88%)', filter: 'blur(10px)' }} />
                             )}
                             {overlayEffects.includes('sparks') && (
-                              <div className="absolute inset-0 mix-blend-screen" style={{ opacity: 0.25 + particleIntensity * 0.65, backgroundImage: 'radial-gradient(circle, #fff 0 1px, #ff9d00 2px, transparent 4px)', backgroundSize: '67px 83px', filter: 'blur(.3px)' }} />
+                              <div className="effect-preview-sparks absolute inset-[-30%] mix-blend-screen" style={{ opacity: 0.25 + particleIntensity * 0.65, backgroundImage: 'radial-gradient(circle, #fff 0 1px, #ff9d00 2px, transparent 4px)', backgroundSize: '67px 83px', filter: 'blur(.3px)' }} />
                             )}
                             {overlayEffects.includes('light_leak') && (
-                              <div className="absolute inset-0 mix-blend-screen" style={{ opacity: 0.18 + particleIntensity * 0.4, background: 'radial-gradient(circle at 0% 35%, rgba(255,70,20,.95), rgba(255,180,50,.35) 25%, transparent 55%)' }} />
+                              <div className="effect-preview-light-leak absolute inset-[-15%] mix-blend-screen" style={{ opacity: 0.18 + particleIntensity * 0.4, background: 'radial-gradient(circle at 0% 35%, rgba(255,70,20,.95), rgba(255,180,50,.35) 25%, transparent 55%)' }} />
                             )}
                             {overlayEffects.includes('dream_glow') && (
                               <div className="absolute inset-0 mix-blend-screen" style={{ opacity: 0.14 + particleIntensity * 0.25, background: 'radial-gradient(circle at 50% 45%, rgba(255,220,255,.9), rgba(120,180,255,.25) 35%, transparent 70%)', filter: 'blur(8px)' }} />

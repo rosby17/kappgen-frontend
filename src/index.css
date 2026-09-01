@@ -144,3 +144,59 @@ body {
 .animate-karaoke {
   animation: karaokeGlow 1.5s infinite ease-in-out;
 }
+
+/* Live visual-effects preview. Multiple speeds and directions create depth;
+   transforms stay GPU-friendly so the wizard remains responsive. */
+@keyframes effectStarsDrift {
+  0% { transform: translate3d(-1%, 1%, 0) scale(1); filter: brightness(.75); }
+  45% { filter: brightness(1.35); }
+  100% { transform: translate3d(3%, -2%, 0) scale(1.035); filter: brightness(.9); }
+}
+@keyframes effectDustNear {
+  0% { transform: translate3d(-7%, 7%, 0) rotate(-2deg); }
+  50% { transform: translate3d(3%, -1%, 0) rotate(1deg); }
+  100% { transform: translate3d(8%, -8%, 0) rotate(3deg); }
+}
+@keyframes effectDustFar {
+  0% { transform: translate3d(5%, 2%, 0); opacity: .45; }
+  50% { opacity: 1; }
+  100% { transform: translate3d(-6%, -5%, 0); opacity: .55; }
+}
+@keyframes effectSnowFall {
+  0% { transform: translate3d(-3%, -18%, 0) rotate(0deg); }
+  50% { transform: translate3d(3%, 0, 0) rotate(1deg); }
+  100% { transform: translate3d(-1%, 18%, 0) rotate(-1deg); }
+}
+@keyframes effectRainFall {
+  0% { transform: translate3d(-4%, -22%, 0) skewX(-10deg); }
+  100% { transform: translate3d(4%, 22%, 0) skewX(-10deg); }
+}
+@keyframes effectFogFloat {
+  0%, 100% { transform: translate3d(-9%, 1%, 0) scale(1.05); opacity: .55; }
+  50% { transform: translate3d(9%, -2%, 0) scale(1.14); opacity: 1; }
+}
+@keyframes effectSparksRise {
+  0% { transform: translate3d(-2%, 16%, 0) scale(.95); opacity: .15; }
+  35% { opacity: 1; }
+  100% { transform: translate3d(4%, -18%, 0) scale(1.08); opacity: .05; }
+}
+@keyframes effectLightLeakMove {
+  0%, 100% { transform: translate3d(-10%, 0, 0) scale(.9); opacity: .35; }
+  45% { transform: translate3d(7%, -3%, 0) scale(1.18); opacity: 1; }
+  70% { transform: translate3d(2%, 4%, 0) scale(1.05); opacity: .65; }
+}
+
+.effect-preview-stars { animation: effectStarsDrift 7s ease-in-out infinite alternate; }
+.effect-preview-dust-near { animation: effectDustNear 8s ease-in-out infinite alternate; }
+.effect-preview-dust-far { animation: effectDustFar 13s ease-in-out infinite alternate; }
+.effect-preview-snow { animation: effectSnowFall 4.8s linear infinite; }
+.effect-preview-rain { animation: effectRainFall .75s linear infinite; }
+.effect-preview-fog { animation: effectFogFloat 9s ease-in-out infinite; }
+.effect-preview-sparks { animation: effectSparksRise 2.7s ease-out infinite; }
+.effect-preview-light-leak { animation: effectLightLeakMove 6s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .effect-preview-stars, .effect-preview-dust-near, .effect-preview-dust-far,
+  .effect-preview-snow, .effect-preview-rain, .effect-preview-fog,
+  .effect-preview-sparks, .effect-preview-light-leak { animation: none; }
+}
