@@ -820,8 +820,22 @@ function stopVoicePreview() {
   __voicePreviewOnStop = null;
 }
 
+// DiceBear's avataaars style has no gender concept — it just hashes the seed
+// into whichever hairstyle/beard combo comes out, which is how a clearly-male
+// voice ("Liam", "Noah"...) can end up with a bun and no beard. Constraining
+// which traits are eligible (masculine-coded hairstyles + a chance of facial
+// hair for "male", feminine-coded hairstyles + none for "female") keeps a
+// unique avatar per voice while actually matching the labeled gender —
+// verified by hand against real renders, not guessed from name semantics.
+const AVATAR_TRAIT_PARAMS = {
+  male: 'top[]=shortFlat&top[]=shortRound&top[]=shortWaved&top[]=theCaesar&top[]=shortCurly&top[]=sides&facialHairProbability=60',
+  female: 'top[]=longButNotTooLong&top[]=bigHair&top[]=bob&top[]=curly&top[]=curvy&top[]=straight01&top[]=straight02&facialHairProbability=0',
+};
+
 function VoiceAvatar({ voice, size = 40, playable = false, playing = false, generating = false, onTogglePlay }) {
   const seed = voice?.id || voice?.name || 'voice';
+  const genderKey = String(voice?.gender || '').toLowerCase();
+  const traitParams = AVATAR_TRAIT_PARAMS[genderKey] || '';
   return (
     <div
       className={`group relative shrink-0 rounded-full overflow-hidden bg-[var(--bg-surface-alt)] ${playable ? 'cursor-pointer' : ''}`}
@@ -830,7 +844,7 @@ function VoiceAvatar({ voice, size = 40, playable = false, playing = false, gene
       title={playable ? (generating ? 'Génération de l’aperçu…' : playing ? 'Mettre en pause' : 'Écouter un extrait') : undefined}
     >
       <img
-        src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(seed)}&backgroundColor=1b2230,11151c`}
+        src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(seed)}&backgroundColor=1b2230,11151c${traitParams ? `&${traitParams}` : ''}`}
         alt=""
         className="w-full h-full object-cover"
         loading="lazy"
@@ -1525,7 +1539,12 @@ function VoiceCloneModal({ onClose, onSubmit, submitting }) {
     clearInterval(timerRef.current);
   };
 
-  const canSubmit = file && name.trim() && !submitting;
+  // No default — an unset gender falls back to DiceBear's unconstrained
+  // (essentially random) avatar, the exact bug this picker exists to avoid.
+  // Requiring an explicit choice before submit means every cloned voice
+  // gets a gender-appropriate avatar from the start.
+  const [gender, setGender] = useState(null);
+  const canSubmit = file && name.trim() && gender && !submitting;
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm" onClick={onClose}>
@@ -1586,6 +1605,25 @@ function VoiceCloneModal({ onClose, onSubmit, submitting }) {
             />
           </div>
 
+          <div>
+            <label className="block text-xs font-bold text-slate-300 mb-1.5">Genre de la voix</label>
+            <p className="text-[10px] text-slate-500 mb-2">Sert uniquement à choisir un avatar cohérent — n'affecte pas le rendu de la voix elle-même.</p>
+            <div className="grid grid-cols-2 gap-2">
+              {[{ id: 'female', label: 'Femme' }, { id: 'male', label: 'Homme' }].map(g => (
+                <button
+                  key={g.id}
+                  type="button"
+                  onClick={() => setGender(g.id)}
+                  className={`py-2.5 rounded-xl text-xs font-bold border transition-colors ${
+                    gender === g.id ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]' : 'bg-[var(--bg-surface-alt)] border-[var(--border)] text-slate-300 hover:border-slate-500'
+                  }`}
+                >
+                  {g.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
         </div>
 
         <div className="flex items-center gap-3 px-5 py-4 border-t border-[var(--border-subtle)]">
@@ -1595,7 +1633,7 @@ function VoiceCloneModal({ onClose, onSubmit, submitting }) {
           <button
             type="button"
             disabled={!canSubmit}
-            onClick={() => onSubmit(file, name.trim())}
+            onClick={() => onSubmit(file, name.trim(), gender)}
             className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-[#65e0ff] to-[#1a9cff] text-[var(--bg-deep)] font-extrabold text-xs disabled:opacity-40"
           >
             {submitting ? 'Clonage…' : 'Cloner la voix'}
@@ -3774,7 +3812,7 @@ export default function App() {
       base_color: '#FFFFFF',
       outline_color: '#000000',
       outline_width: 3,
-      position: 'bottom',
+      position: 'center',
       align: 'left',
       karaoke: true,
       highlight_mode: 'word',
@@ -3785,7 +3823,7 @@ export default function App() {
       box_color: 'transparent',
       box_padding: 10,
       words_per_line: 6,
-      text_case: 'none',
+      text_case: 'upper',
       bold: true,
       italic: false,
       letter_spacing: 0,
@@ -6439,7 +6477,7 @@ export default function App() {
         const serverVoices = data.voices || [];
         if (!serverVoices.length) return;
         const mapped = serverVoices.map(v => ({
-          id: v.id, name: v.name, desc: 'Voix personnelle clonée', cloned: true,
+          id: v.id, name: v.name, gender: v.gender, desc: 'Voix personnelle clonée', cloned: true,
           preview_url: v.preview_url ? `${API_BASE}${v.preview_url}` : null,
         }));
         setAvailableVoices(prev => {
@@ -6605,7 +6643,7 @@ export default function App() {
     showToast('Voix ajoutée et sélectionnée.', 'success');
   };
 
-  const handleCloneVoice = async (file, name) => {
+  const handleCloneVoice = async (file, name, gender) => {
     // Voice is a channel-level setting: cloned either from the "Nouvelle
     // vidéo" modal (activeChannel already saved) or from the wizard's voice
     // section while editing an existing channel (editingChannelId) — cloning
@@ -6618,6 +6656,7 @@ export default function App() {
       const clip = await trimAudioClientSide(file, 32);
       const form = new FormData();
       form.append('name', name.trim());
+      form.append('gender', gender || 'neutral');
       if (currentUser) form.append('user_id', currentUser.id);
       form.append('audio', clip);
       const res = await authFetch(`${API_BASE}/channels/${targetChannelId}/voice/clone`, { method: 'POST', body: form, timeoutMs: 60000 });
@@ -6653,6 +6692,7 @@ export default function App() {
       const voice = {
         id: body.voice_id,
         name: body.name,
+        gender,
         desc: 'Voix personnelle clonée',
         cloned: true,
         // Relative to our own API (unlike catalog voices' preview_url, which
