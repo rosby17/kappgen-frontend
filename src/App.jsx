@@ -2742,6 +2742,38 @@ function SkeletonGrid({ count = 6, cardClassName = "min-h-[220px]" }) {
   );
 }
 
+// Table-row shimmer for admin lists still loading — same animate-pulse
+// language as SkeletonGrid above, just shaped like table rows instead of
+// cards, so every admin page reads as "loading" instead of flashing a
+// bare "Chargement..." line before data replaces it.
+function AdminSkeletonRows({ rows = 6, cols = 5 }) {
+  return (
+    <>
+      {Array.from({ length: rows }).map((_, i) => (
+        <tr key={i} className="border-b border-[var(--border-subtle)]">
+          {Array.from({ length: cols }).map((__, j) => (
+            <td key={j} className="px-4 py-3">
+              <div className="h-3 rounded bg-[var(--border-soft)] animate-pulse" style={{ width: `${45 + ((i * 7 + j * 13) % 40)}%` }} />
+            </td>
+          ))}
+        </tr>
+      ))}
+    </>
+  );
+}
+
+// Same shimmer language, for card/tile grids instead of tables (admin video
+// grid view, resource/status cards, etc.) — content-agnostic, just a box.
+function AdminSkeletonCards({ count = 6, className = "aspect-video" }) {
+  return (
+    <>
+      {Array.from({ length: count }).map((_, i) => (
+        <div key={i} className={`rounded-2xl bg-[var(--bg-surface-alt)] border border-[var(--border)] animate-pulse ${className}`} />
+      ))}
+    </>
+  );
+}
+
 function viewFromPath(path) {
   if (path === '/' || path === '/dashboard' || path === '/home') return 'home';
   if (path === '/channels') return 'channels';
@@ -12123,7 +12155,7 @@ export default function App() {
                   {adminActivity ? (
                     <AdminActivityChart series={adminActivity.series} />
                   ) : (
-                    <p className="text-xs text-slate-500 py-10 text-center">Chargement...</p>
+                    <div className="h-40 rounded-xl bg-[var(--border-soft)] animate-pulse" />
                   )}
                 </div>
 
@@ -12171,7 +12203,7 @@ export default function App() {
                   </thead>
                   <tbody>
                     {adminUsersLoading ? (
-                      <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-500">Chargement...</td></tr>
+                      <AdminSkeletonRows cols={7} />
                     ) : adminUsers.length === 0 ? (
                       <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-500">Aucun utilisateur.</td></tr>
                     ) : adminUsers.map(u => (
@@ -12270,7 +12302,9 @@ export default function App() {
               {adminVideosViewMode === 'grid' ? (
                 <div className="p-4">
                   {adminVideosLoading ? (
-                    <p className="text-center text-slate-500 text-xs py-8">Chargement...</p>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                      <AdminSkeletonCards count={8} className="aspect-[3/4]" />
+                    </div>
                   ) : adminVideos.length === 0 ? (
                     <p className="text-center text-slate-500 text-xs py-8">Aucune vidéo.</p>
                   ) : (
@@ -12354,7 +12388,7 @@ export default function App() {
                   </thead>
                   <tbody>
                     {adminVideosLoading ? (
-                      <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-500">Chargement...</td></tr>
+                      <AdminSkeletonRows cols={7} />
                     ) : adminVideos.length === 0 ? (
                       <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-500">Aucune vidéo.</td></tr>
                     ) : adminVideos.map(v => (
@@ -12656,7 +12690,9 @@ export default function App() {
                 </div>
               </div>
               {adminLibraryLoading ? (
-                <p className="px-4 py-10 text-center text-slate-500 text-xs">Chargement…</p>
+                <div className="p-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                  <AdminSkeletonCards count={8} />
+                </div>
               ) : content}
             </div>
             );
@@ -12758,7 +12794,7 @@ export default function App() {
                   </thead>
                   <tbody>
                     {adminOrdersLoading ? (
-                      <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-500">Chargement...</td></tr>
+                      <AdminSkeletonRows cols={6} />
                     ) : adminOrders.length === 0 ? (
                       <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-500">Aucune transaction.</td></tr>
                     ) : adminOrders.map(o => (
@@ -12803,7 +12839,14 @@ export default function App() {
               </div>
 
               {adminCostsLoading || !adminCosts ? (
-                <div className="text-center text-slate-500 text-xs py-10">Chargement...</div>
+                <div className="space-y-5">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <AdminSkeletonCards count={2} className="h-24" />
+                  </div>
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                    <AdminSkeletonCards count={2} className="h-40" />
+                  </div>
+                </div>
               ) : (
                 <>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -12989,7 +13032,9 @@ export default function App() {
                 </div>
 
                 {hfAccountsLoading ? (
-                  <p className="text-xs text-slate-500">Chargement...</p>
+                  <div className="space-y-2">
+                    <AdminSkeletonCards count={3} className="h-14" />
+                  </div>
                 ) : hfAccounts.length === 0 ? (
                   <p className="text-xs text-slate-500">Aucun compte Hugging Face enregistré.</p>
                 ) : (
@@ -13208,7 +13253,10 @@ export default function App() {
             </div>
 
             {adminVideoDetailLoading ? (
-              <p className="text-xs text-slate-500 py-6 text-center">Chargement...</p>
+              <div className="space-y-3">
+                <div className="w-full aspect-video rounded-2xl bg-[var(--bg-surface-alt)] border border-[var(--border)] animate-pulse" />
+                <AdminSkeletonCards count={3} className="h-8" />
+              </div>
             ) : (
               <>
                 {adminVideoDetail.output_path && (
