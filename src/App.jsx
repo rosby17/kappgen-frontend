@@ -7821,20 +7821,29 @@ export default function App() {
                         <div
                           key={chan.id}
                           onClick={() => { setActiveChannel(chan); fetchChannelVideos(chan.id); setView('channel_detail'); }}
-                          className="bg-[var(--bg-surface)] hover:bg-[var(--bg-hover)] border border-[var(--border-soft)] hover:border-[#00c2ff]/40 rounded-2xl p-5 transition-all cursor-pointer group flex flex-col justify-between min-h-[220px] shadow-lg relative card-warm-hover channel-menu-container"
+                          className="bg-[var(--bg-surface)] hover:bg-[var(--bg-hover)] border border-[var(--border-soft)] hover:border-[#00c2ff]/40 rounded-2xl p-4 transition-all cursor-pointer group shadow-lg relative card-warm-hover channel-menu-container"
                         >
-                          {/* Card Header & 3-Dots Action Button */}
+                          {/* Card Header & 3-Dots Action Button — status badge sits right next
+                              to the name instead of on its own row, and the niche/counters
+                              below are compressed onto fewer lines, so the whole card takes
+                              noticeably less vertical space than the old avatar-then-badge-
+                              then-counters-grid stack. */}
                           <div className="flex items-start justify-between gap-3">
-                            <div className="flex items-center gap-3.5 min-w-0">
+                            <div className="flex items-center gap-3 min-w-0">
                               <div className="relative shrink-0">
-                                <ChannelAvatar channel={chan} logoUrl={logoUrl} sizeClass="w-12 h-12" textClass="text-lg" />
+                                <ChannelAvatar channel={chan} logoUrl={logoUrl} sizeClass="w-11 h-11" textClass="text-lg" />
                                 <span
                                   className={`absolute top-0.5 right-0.5 w-2.5 h-2.5 rounded-full ${getChannelStatusDotColor(chan)} ring-2 ring-[var(--bg-surface)]`}
                                   title={chan.is_render_ready ? (chan.failed_count > 0 ? 'Échec de rendu à corriger' : 'Chaîne active') : 'Configuration incomplète'}
                                 />
                               </div>
                               <div className="min-w-0">
-                                <h4 className="font-bold text-base text-white group-hover:text-[#00c2ff] transition-colors truncate">{chan.name}</h4>
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <h4 className="font-bold text-sm text-white group-hover:text-[#00c2ff] transition-colors truncate">{chan.name}</h4>
+                                  <span className={`shrink-0 px-2 py-0.5 rounded-md text-[9px] font-bold ${statusInfo.className}`}>
+                                    {statusInfo.label}
+                                  </span>
+                                </div>
                                 <span className="text-xs font-medium text-slate-400 truncate block mt-0.5">{chan.niche}</span>
                               </div>
                             </div>
@@ -7882,22 +7891,27 @@ export default function App() {
                             </div>
                           </div>
 
-                          {/* Status Tag */}
-                          <div className="mt-4">
-                            <span className={`inline-block px-3 py-1 rounded-lg text-[11px] font-bold ${statusInfo.className}`}>
-                              {statusInfo.label}
-                            </span>
-                          </div>
-
-                          {/* Counters Grid */}
-                          <div className="grid grid-cols-2 gap-2 mt-4">
-                            <div className="bg-[var(--bg-input)] p-2.5 rounded-xl border border-[var(--border-subtle)]">
-                              <div className="text-[10px] font-bold uppercase text-slate-400 tracking-wider">En File</div>
-                              <div className="text-base text-[#00c2ff] font-extrabold mt-0.5">{(chan.queued_count || 0) + (chan.rendering_count || 0)}</div>
+                          {/* Compact stat strip — one line, 4 metrics instead of the old
+                              2-tile grid: what's generating, what's published (YouTube or
+                              manually downloaded — the creator's own framing is that both
+                              mean "out the door"), what's ready but still waiting, and the
+                              channel's lifetime total. */}
+                          <div className="flex items-center gap-3.5 mt-3 pt-3 border-t border-[var(--border-subtle)]">
+                            <div className="flex items-center gap-1.5 min-w-0" title="En file (génération en cours)">
+                              <span className="material-symbols-outlined text-[15px] text-[#00c2ff] shrink-0">hourglass_top</span>
+                              <span className="text-sm text-[#00c2ff] font-extrabold">{(chan.queued_count || 0) + (chan.rendering_count || 0)}</span>
                             </div>
-                            <div className="bg-[var(--bg-input)] p-2.5 rounded-xl border border-[var(--border-subtle)]">
-                              <div className="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Vidéos Prêtes</div>
-                              <div className="text-base text-white font-extrabold mt-0.5">{chan.done_count || 0}</div>
+                            <div className="flex items-center gap-1.5 min-w-0" title="Publiées (YouTube ou téléchargées)">
+                              <span className="material-symbols-outlined text-[15px] text-emerald-400 shrink-0">check_circle</span>
+                              <span className="text-sm text-white font-extrabold">{chan.published_count || 0}</span>
+                            </div>
+                            <div className="flex items-center gap-1.5 min-w-0" title="Prêtes, en attente de publication">
+                              <span className="material-symbols-outlined text-[15px] text-amber-400 shrink-0">schedule</span>
+                              <span className="text-sm text-white font-extrabold">{chan.unpublished_count || 0}</span>
+                            </div>
+                            <div className="flex items-center gap-1.5 min-w-0 ml-auto" title="Total généré sur cette chaîne">
+                              <span className="material-symbols-outlined text-[15px] text-slate-500 shrink-0">bar_chart</span>
+                              <span className="text-sm text-slate-300 font-extrabold">{chan.total_count || 0}</span>
                             </div>
                           </div>
 
@@ -9702,10 +9716,11 @@ export default function App() {
                                 <span className="material-symbols-outlined text-[#00c2ff] text-[24px]">folder_open</span>
                                 <h4 className="font-bold text-white text-xs">Option A: Importer un dossier local</h4>
                               </div>
-                              <input 
+                              <input
                                 type="checkbox"
                                 checked={isOptionAChecked}
                                 onChange={toggleOptionA}
+                                onClick={(e) => e.stopPropagation()}
                                 className="w-5 h-5 accent-[#00c2ff] cursor-pointer rounded"
                               />
                             </div>
@@ -9834,6 +9849,7 @@ export default function App() {
                                 checked={isOptionBChecked}
                                 disabled={!isOptionBChecked && !canGenerateAIImages}
                                 onChange={toggleOptionB}
+                                onClick={(e) => e.stopPropagation()}
                                 className="w-5 h-5 accent-[#00c2ff] cursor-pointer rounded disabled:cursor-not-allowed disabled:opacity-50"
                               />
                             </div>
