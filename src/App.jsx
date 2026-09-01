@@ -8166,7 +8166,7 @@ export default function App() {
 
                               {/* Status Badge Top Left */}
                               {vid.status !== 'rendering' && <div className="absolute top-2 left-2 z-10 flex items-center gap-1.5">
-                                <span className={`px-2.5 py-0.5 rounded-lg text-[10px] font-mono font-bold uppercase tracking-wider ${
+                                <span className={`px-2.5 py-0.5 rounded-lg text-[10px] font-sans font-bold lowercase tracking-normal ${
                                   vid.status === 'done' ? 'bg-emerald-950/90 text-emerald-300 border border-emerald-700/80' :
                                   vid.status === 'failed' ? 'bg-rose-950/90 text-rose-300 border border-rose-700/80' :
                                   'bg-amber-950/90 text-amber-300 border border-amber-700/80'
@@ -8177,7 +8177,7 @@ export default function App() {
                                     video by mistake, since the main "Publier"/"Voir" button text
                                     alone was easy to miss at a glance across a whole grid. */}
                                 {vid.youtube_video_id && (
-                                  <span className="flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-mono font-bold uppercase tracking-wide bg-red-950/90 text-red-300 border border-red-700/80">
+                                  <span className="flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-sans font-bold lowercase tracking-normal bg-red-950/90 text-red-300 border border-red-700/80">
                                     <span className="material-symbols-outlined text-[11px]">check_circle</span>
                                     Publiée
                                   </span>
@@ -8186,7 +8186,7 @@ export default function App() {
                                     video the creator already grabbed to post elsewhere from one
                                     that's just sitting there never touched. */}
                                 {vid.downloaded_at && !vid.youtube_video_id && (
-                                  <span className="flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-mono font-bold uppercase tracking-wide bg-violet-950/90 text-violet-300 border border-violet-700/80">
+                                  <span className="flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-sans font-bold lowercase tracking-normal bg-violet-950/90 text-violet-300 border border-violet-700/80">
                                     <span className="material-symbols-outlined text-[11px]">download_done</span>
                                     Téléchargée
                                   </span>
@@ -8750,7 +8750,7 @@ export default function App() {
 
                             {/* Status Badge */}
                             {vid.status !== 'rendering' && <div className="absolute top-2 left-2 z-10 flex items-center gap-1.5">
-                              <span className={`px-2 py-0.5 rounded-lg text-[10px] font-mono font-bold uppercase tracking-wide ${
+                              <span className={`px-2 py-0.5 rounded-lg text-[10px] font-sans font-bold lowercase tracking-normal ${
                                 vid.status === 'done' ? 'bg-emerald-950/90 text-emerald-300 border border-emerald-700/80' :
                                 vid.status === 'failed' ? 'bg-rose-950/90 text-rose-300 border border-rose-700/80' :
                                 'bg-amber-950/90 text-amber-300 border border-amber-700/80'
@@ -8758,13 +8758,13 @@ export default function App() {
                                 {vid.status === 'done' ? 'Prête' : vid.status === 'failed' ? 'Échec' : 'En file'}
                               </span>
                               {vid.youtube_video_id && (
-                                <span className="flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-mono font-bold uppercase tracking-wide bg-red-950/90 text-red-300 border border-red-700/80">
+                                <span className="flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-sans font-bold lowercase tracking-normal bg-red-950/90 text-red-300 border border-red-700/80">
                                   <span className="material-symbols-outlined text-[11px]">check_circle</span>
                                   Publiée
                                 </span>
                               )}
                               {vid.downloaded_at && !vid.youtube_video_id && (
-                                <span className="flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-mono font-bold uppercase tracking-wide bg-violet-950/90 text-violet-300 border border-violet-700/80">
+                                <span className="flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-sans font-bold lowercase tracking-normal bg-violet-950/90 text-violet-300 border border-violet-700/80">
                                   <span className="material-symbols-outlined text-[11px]">download_done</span>
                                   Téléchargée
                                 </span>
