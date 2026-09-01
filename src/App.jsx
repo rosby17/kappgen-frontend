@@ -7955,12 +7955,12 @@ export default function App() {
                               <div className="text-[9px] text-slate-500 mt-1">En cours</div>
                             </div>
                             <div className="text-center">
-                              <div className="text-base text-slate-200 font-extrabold leading-none">{chan.published_count || 0}</div>
-                              <div className="text-[9px] text-slate-500 mt-1">Publiées</div>
+                              <div className="text-base text-emerald-400 font-extrabold leading-none">{chan.unpublished_count || 0}</div>
+                              <div className="text-[9px] text-slate-500 mt-1">À publier</div>
                             </div>
                             <div className="text-center">
-                              <div className="text-base text-slate-200 font-extrabold leading-none">{chan.unpublished_count || 0}</div>
-                              <div className="text-[9px] text-slate-500 mt-1">À publier</div>
+                              <div className="text-base text-yellow-400 font-extrabold leading-none">{chan.published_count || 0}</div>
+                              <div className="text-[9px] text-slate-500 mt-1">Publiées</div>
                             </div>
                             <div className="text-center">
                               <div className="text-base text-slate-300 font-extrabold leading-none">{chan.total_count || 0}</div>
