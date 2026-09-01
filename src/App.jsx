@@ -6139,7 +6139,7 @@ export default function App() {
         } : {}),
       }));
       setAdminCreditForm({ amount: '', note: '' });
-      showToast(direction === 'grant' ? 'Crédits ajoutés et abonnement activé.' : 'Crédits retirés.', 'success');
+      showToast(direction === 'grant' ? 'Crédits ajoutés.' : 'Crédits retirés.', 'success');
       fetchAdminData();
     } catch (err) {
       showToast(err.message, 'error');
