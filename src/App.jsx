@@ -2757,7 +2757,7 @@ function viewFromPath(path) {
 // Each admin sidebar entry gets its own named route (/admin/resources, etc.)
 // so a page refresh stays on the current tab instead of bouncing back to
 // the overview.
-const ADMIN_TABS = ['overview', 'users', 'plans', 'videos', 'library', 'transactions', 'costs', 'resources'];
+const ADMIN_TABS = ['overview', 'users', 'videos', 'library', 'transactions', 'costs', 'resources'];
 function adminTabFromPath(path) {
   const m = path.match(/^\/admin\/([a-z_]+)$/);
   if (m && ADMIN_TABS.includes(m[1])) return m[1];
@@ -3714,7 +3714,7 @@ export default function App() {
           const style = prev.image_style || {};
           const untouched = style.source === 'library' && !style.library_path && !(style.library_image_count > 0);
           if (data?.available && untouched) {
-            return { ...prev, image_style: { ...style, source: 'community' } };
+            return { ...prev, image_style: { ...style, source: 'community', sources: ['community'] } };
           }
           return prev;
         });
@@ -5424,8 +5424,6 @@ export default function App() {
   const [adminCreditForm, setAdminCreditForm] = useState({ amount: '', note: '' });
   const [adminCreditBusy, setAdminCreditBusy] = useState(false);
   const [adminGranting, setAdminGranting] = useState(false);
-  const [adminNewPlan, setAdminNewPlan] = useState({ name: '', price_fcfa: '', duration_days: 30 });
-  const [adminCreatingPlan, setAdminCreatingPlan] = useState(false);
   const [adminActivity, setAdminActivity] = useState(null);
   const [adminVideos, setAdminVideos] = useState([]);
   const [adminVideosLoading, setAdminVideosLoading] = useState(false);
@@ -5468,6 +5466,7 @@ export default function App() {
   const [collapsedLibraryNiches, setCollapsedLibraryNiches] = useState({});
   const [adminVideoDetail, setAdminVideoDetail] = useState(null);
   const [adminVideoDetailLoading, setAdminVideoDetailLoading] = useState(false);
+  const [adminVideoRetrying, setAdminVideoRetrying] = useState(false);
   const [adminVideoSearch, setAdminVideoSearch] = useState('');
   const [adminOrders, setAdminOrders] = useState([]);
   const [adminOrdersLoading, setAdminOrdersLoading] = useState(false);
@@ -5865,6 +5864,40 @@ export default function App() {
     }
   };
 
+  useEffect(() => {
+    if (!adminVideoDetail?.id || !['queued', 'rendering'].includes(adminVideoDetail.status)) return;
+    const timer = setInterval(async () => {
+      try {
+        const res = await authFetch(`${API_BASE}/admin/videos/${adminVideoDetail.id}`);
+        if (res.ok) {
+          const updated = await res.json();
+          setAdminVideoDetail(updated);
+          setAdminVideos(videos => videos.map(video => video.id === updated.id ? { ...video, ...updated } : video));
+        }
+      } catch (err) {
+        console.error("Erreur actualisation progression admin:", err);
+      }
+    }, 2000);
+    return () => clearInterval(timer);
+  }, [adminVideoDetail?.id, adminVideoDetail?.status]);
+
+  const retryAdminVideo = async () => {
+    if (!adminVideoDetail?.id) return;
+    setAdminVideoRetrying(true);
+    try {
+      const res = await authFetch(`${API_BASE}/admin/videos/${adminVideoDetail.id}/retry`, { method: 'POST' });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || 'Relance impossible.');
+      const updated = await res.json();
+      setAdminVideoDetail(prev => ({ ...prev, ...updated }));
+      setAdminVideos(videos => videos.map(video => video.id === updated.id ? { ...video, ...updated } : video));
+      showToast('Vidéo relancée.', 'success');
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setAdminVideoRetrying(false);
+    }
+  };
+
   const deleteAdminVideo = async (videoId) => {
     if (!window.confirm("Supprimer définitivement cette vidéo ?")) return;
     try {
@@ -6112,39 +6145,6 @@ export default function App() {
       showToast(err.message, 'error');
     } finally {
       setAdminCreditBusy(false);
-    }
-  };
-
-  const createAdminPlan = async () => {
-    if (!adminNewPlan.name.trim() || !adminNewPlan.price_fcfa) return;
-    setAdminCreatingPlan(true);
-    try {
-      const res = await authFetch(`${API_BASE}/admin/plans`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: adminNewPlan.name.trim(),
-          price_fcfa: parseInt(adminNewPlan.price_fcfa),
-          duration_days: parseInt(adminNewPlan.duration_days) || 30,
-          is_active: true,
-        }),
-      });
-      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || 'Échec de la création');
-      setAdminNewPlan({ name: '', price_fcfa: '', duration_days: 30 });
-      fetchAdminData();
-      showToast('Offre créée.', 'success');
-    } catch (err) {
-      showToast(err.message, 'error');
-    } finally {
-      setAdminCreatingPlan(false);
-    }
-  };
-
-  const deleteAdminPlan = async (planId) => {
-    try {
-      await authFetch(`${API_BASE}/admin/plans/${planId}`, { method: 'DELETE' });
-      fetchAdminData();
-    } catch (err) {
-      console.error("Erreur suppression plan:", err);
     }
   };
 
@@ -7378,7 +7378,6 @@ export default function App() {
               {[
                 { id: 'overview', label: "Vue d'ensemble", icon: 'dashboard' },
                 { id: 'users', label: 'Utilisateurs', icon: 'group' },
-                { id: 'plans', label: 'Offres', icon: 'sell' },
                 { id: 'videos', label: 'Vidéos', icon: 'movie' },
                 { id: 'library', label: 'Bibliothèque collaborative', icon: 'diversity_3' },
                 { id: 'transactions', label: 'Transactions', icon: 'payments' },
@@ -12047,7 +12046,7 @@ export default function App() {
               <span className="material-symbols-outlined text-[#00c2ff]">
                 {{ overview: 'dashboard', users: 'group', plans: 'sell', videos: 'movie', library: 'diversity_3', transactions: 'payments' }[adminTab]}
               </span>
-              {{ overview: "Vue d'ensemble", users: 'Utilisateurs', plans: 'Offres', videos: 'Vidéos', library: 'Bibliothèque collaborative', transactions: 'Transactions', costs: 'Coûts', resources: 'Ressources' }[adminTab]}
+              {{ overview: "Vue d'ensemble", users: 'Utilisateurs', videos: 'Vidéos', library: 'Bibliothèque collaborative', transactions: 'Transactions', costs: 'Coûts', resources: 'Ressources' }[adminTab]}
             </h2>
             <p className="text-xs text-slate-400 mt-1">
               {{
@@ -12171,42 +12170,6 @@ export default function App() {
             </div>
           )}
 
-          {adminTab === 'plans' && (
-            <div className="bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-2xl p-4 space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 items-end">
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-400 mb-1">Nom de l'offre</label>
-                  <input value={adminNewPlan.name} onChange={e => setAdminNewPlan({ ...adminNewPlan, name: e.target.value })} className="w-full bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-lg px-2.5 py-2 text-xs text-white focus:border-[#00c2ff] outline-none" placeholder="Ex: Pro" />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-400 mb-1">Prix (FCFA)</label>
-                  <input type="number" value={adminNewPlan.price_fcfa} onChange={e => setAdminNewPlan({ ...adminNewPlan, price_fcfa: e.target.value })} className="w-full bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-lg px-2.5 py-2 text-xs text-white focus:border-[#00c2ff] outline-none" placeholder="5000" />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-400 mb-1">Durée (jours)</label>
-                  <input type="number" value={adminNewPlan.duration_days} onChange={e => setAdminNewPlan({ ...adminNewPlan, duration_days: e.target.value })} className="w-full bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-lg px-2.5 py-2 text-xs text-white focus:border-[#00c2ff] outline-none" />
-                </div>
-                <button onClick={createAdminPlan} disabled={adminCreatingPlan} className="py-2 bg-[#00c2ff] text-slate-950 font-bold text-xs rounded-lg disabled:opacity-50">
-                  {adminCreatingPlan ? 'Création...' : '+ Créer l\'offre'}
-                </button>
-              </div>
-              <div className="space-y-1.5">
-                {adminPlans.map(p => (
-                  <div key={p.id} className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl border ${p.is_active ? 'bg-[var(--bg-input)] border-[var(--border-subtle)]' : 'bg-[var(--bg-input)]/40 border-[var(--border-subtle)]/50 opacity-50'}`}>
-                    <div>
-                      <span className="text-xs font-bold text-white">{p.name}</span>
-                      <span className="text-xs text-slate-400 ml-2">{p.price_fcfa.toLocaleString()} FCFA · {p.duration_days}j</span>
-                    </div>
-                    {p.is_active && (
-                      <button onClick={() => deleteAdminPlan(p.id)} className="text-rose-400 hover:text-rose-300 text-[11px] font-bold">Désactiver</button>
-                    )}
-                  </div>
-                ))}
-                {adminPlans.length === 0 && <p className="text-xs text-slate-500 text-center py-4">Aucune offre créée.</p>}
-              </div>
-            </div>
-          )}
-
           {adminTab === 'videos' && (
             <div className="bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-2xl overflow-hidden">
               <div className="p-4 border-b border-[var(--border-soft)]">
@@ -12237,10 +12200,10 @@ export default function App() {
                     ) : adminVideos.length === 0 ? (
                       <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-500">Aucune vidéo.</td></tr>
                     ) : adminVideos.map(v => (
-                      <tr key={v.id} className="border-b border-[var(--border-subtle)] hover:bg-[var(--bg-surface-alt)]/60">
+                      <tr key={v.id} onClick={() => openAdminVideoDetail(v.id)} className="border-b border-[var(--border-subtle)] hover:bg-[var(--bg-surface-alt)]/60 cursor-pointer">
                         <td className="px-4 py-2.5 max-w-[280px] truncate">
-                          <button onClick={() => openAdminVideoDetail(v.id)} className="text-white font-medium hover:text-[#00c2ff] hover:underline text-left">
-                            {v.title || '(sans titre)'}
+                          <button className="text-white font-medium hover:text-[#00c2ff] hover:underline text-left">
+                            {v.display_title || v.title || '(sans titre)'}
                           </button>
                         </td>
                         <td className="px-4 py-2.5 text-slate-300">{v.channel_name || '—'}</td>
@@ -12255,7 +12218,7 @@ export default function App() {
                         <td className="px-4 py-2.5 text-[#00c2ff] font-bold">{(v.total_credits ?? 0).toLocaleString()}</td>
                         <td className="px-4 py-2.5 text-slate-400">{v.created_at ? new Date(v.created_at).toLocaleDateString('fr-FR') : '—'}</td>
                         <td className="px-4 py-2.5 text-right">
-                          <button onClick={() => deleteAdminVideo(v.id)} className="text-rose-400 font-bold hover:underline">Supprimer</button>
+                          <button onClick={event => { event.stopPropagation(); deleteAdminVideo(v.id); }} className="text-rose-400 font-bold hover:underline">Supprimer</button>
                         </td>
                       </tr>
                     ))}
@@ -13041,7 +13004,7 @@ export default function App() {
           <div onClick={e => e.stopPropagation()} className="bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-3xl p-6 max-w-[640px] w-full shadow-2xl space-y-4 max-h-[85vh] overflow-y-auto">
             <div className="flex justify-between items-start gap-3">
               <div className="min-w-0">
-                <h3 className="text-sm font-bold text-white truncate">{adminVideoDetail.title || '(sans titre)'}</h3>
+                <h3 className="text-sm font-bold text-white truncate">{adminVideoDetail.display_title || adminVideoDetail.title || '(sans titre)'}</h3>
                 <p className="text-[11px] text-slate-500">{adminVideoDetail.channel_name || '—'} · {adminVideoDetail.owner_email || '—'}</p>
               </div>
               <button onClick={() => setAdminVideoDetail(null)} className="text-slate-400 hover:text-white shrink-0">
@@ -13056,9 +13019,37 @@ export default function App() {
                 {adminVideoDetail.output_path && (
                   <video
                     controls
-                    src={`${STORAGE_BASE}/${adminVideoDetail.output_path}`}
+                    src={getVideoUrl(adminVideoDetail.output_path)}
                     className="w-full rounded-2xl bg-black max-h-[320px]"
                   />
+                )}
+
+                {['queued', 'rendering'].includes(adminVideoDetail.status) && (
+                  <div className="bg-[var(--bg-input)] border border-[#00c2ff]/30 rounded-2xl p-4 space-y-2">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <div className="text-[10px] font-bold text-[#00c2ff] uppercase tracking-wider">Rendu en cours</div>
+                        <div className="text-xs text-white mt-0.5">{adminVideoDetail.progress_stage || (adminVideoDetail.status === 'queued' ? 'En attente du moteur de rendu' : 'Traitement en cours')}</div>
+                      </div>
+                      <div className="text-sm font-extrabold text-[#00c2ff]">{adminVideoDetail.progress_percent || 0}%</div>
+                    </div>
+                    <div className="h-2 rounded-full bg-slate-800 overflow-hidden">
+                      <div className="h-full bg-[#00c2ff] transition-all duration-500" style={{ width: `${Math.max(2, adminVideoDetail.progress_percent || 0)}%` }} />
+                    </div>
+                    <div className="text-[10px] text-slate-500">Actualisation automatique toutes les deux secondes.</div>
+                  </div>
+                )}
+
+                {adminVideoDetail.status === 'failed' && (
+                  <div className="bg-rose-950/30 border border-rose-800/60 rounded-2xl p-4 space-y-3">
+                    <div>
+                      <div className="text-[10px] font-bold text-rose-400 uppercase tracking-wider">Échec du rendu</div>
+                      <div className="text-xs text-rose-200 mt-1 whitespace-pre-wrap">{adminVideoDetail.error_message || 'Aucun détail technique disponible.'}</div>
+                    </div>
+                    <button onClick={retryAdminVideo} disabled={adminVideoRetrying} className="w-full py-2.5 rounded-xl bg-rose-500 text-white text-xs font-bold disabled:opacity-50">
+                      {adminVideoRetrying ? 'Relance…' : 'Relancer la vidéo'}
+                    </button>
+                  </div>
                 )}
 
                 <div className="grid grid-cols-2 gap-2">
