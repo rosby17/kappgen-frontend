@@ -12283,10 +12283,18 @@ export default function App() {
                           >
                             {v.status === 'done' && v.output_path ? (
                               <img src={getVideoThumbnailUrl(v)} alt="" className="w-full h-full object-cover" loading="lazy" />
+                            ) : v.status === 'done' ? (
+                              // Rendu terminé mais fichier purgé du serveur (rétention) —
+                              // ce n'est pas une vidéo en attente, il ne faut pas réutiliser
+                              // le sablier qui laisse croire qu'elle va encore être générée.
+                              <div className="w-full h-full flex flex-col items-center justify-center gap-1">
+                                <span className="material-symbols-outlined text-[28px] text-slate-500">inventory_2</span>
+                                <span className="text-[9px] text-slate-500">Fichier expiré</span>
+                              </div>
                             ) : (
                               <div className="w-full h-full flex items-center justify-center">
                                 <span className={`material-symbols-outlined text-[28px] ${v.status === 'failed' ? 'text-rose-400' : 'text-amber-400'}`}>
-                                  {v.status === 'failed' ? 'warning' : 'hourglass_empty'}
+                                  {v.status === 'failed' ? 'warning' : v.status === 'rendering' ? 'progress_activity' : 'hourglass_empty'}
                                 </span>
                               </div>
                             )}
