@@ -10827,32 +10827,32 @@ export default function App() {
                           of one long scroll, so the preview stays reachable without
                           hunting through every control at once. */}
                       <div className="space-y-4 min-w-0">
-                        <div className="flex w-full bg-[var(--bg-surface-alt)] rounded-xl p-1 mb-1 overflow-x-auto">
-                          {[
-                            { id: 'customize', label: 'Personnalisation', icon: 'tune' },
-                            { id: 'presets', label: 'Préréglages', icon: 'style' },
-                          ].map(tab => (
-                            <button
-                              key={tab.id}
-                              type="button"
-                              onClick={() => setSubtitleTab(tab.id)}
-                              className={`flex-1 flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg text-[11px] font-bold whitespace-nowrap transition-colors ${
-                                subtitleTab === tab.id ? 'bg-[#00c2ff] text-slate-950' : 'text-slate-300 hover:bg-[var(--border-soft)]'
-                              }`}
-                            >
-                              <span className="material-symbols-outlined text-[15px]">{tab.icon}</span>
-                              {tab.label}
-                            </button>
-                          ))}
-                        </div>
-                        <div className="flex justify-end">
+                        <div className="flex w-full items-center gap-1.5 bg-[var(--bg-surface-alt)] rounded-xl p-1 mb-1">
+                          <div className="flex flex-1 min-w-0 overflow-x-auto">
+                            {[
+                              { id: 'customize', label: 'Personnalisation', icon: 'tune' },
+                              { id: 'presets', label: 'Préréglages', icon: 'style' },
+                            ].map(tab => (
+                              <button
+                                key={tab.id}
+                                type="button"
+                                onClick={() => setSubtitleTab(tab.id)}
+                                className={`flex-1 flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg text-[11px] font-bold whitespace-nowrap transition-colors ${
+                                  subtitleTab === tab.id ? 'bg-[#00c2ff] text-slate-950' : 'text-slate-300 hover:bg-[var(--border-soft)]'
+                                }`}
+                              >
+                                <span className="material-symbols-outlined text-[15px]">{tab.icon}</span>
+                                {tab.label}
+                              </button>
+                            ))}
+                          </div>
                           <button
                             type="button"
                             onClick={() => setNewChannel(prev => ({ ...prev, subtitle_style: { ...defaultChannelForm.subtitle_style } }))}
-                            className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--bg-surface-alt)] px-3 py-1.5 text-[10px] font-bold text-slate-300 transition-colors hover:border-[#00c2ff] hover:text-[#00c2ff]"
+                            title="Tout remettre par défaut"
+                            className="shrink-0 w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-[#00c2ff] hover:bg-[var(--border-soft)] transition-colors"
                           >
                             <span className="material-symbols-outlined text-[15px]">restart_alt</span>
-                            Tout remettre par défaut
                           </button>
                         </div>
 
@@ -11542,14 +11542,6 @@ export default function App() {
                                       onChange={e => setNewChannel({ ...newChannel, effects_config: { ...newChannel.effects_config, vignette_intensity: parseInt(e.target.value) } })}
                                       className="w-full accent-[#00c2ff]"
                                     />
-                                  </div>
-                                )}
-                                {hasAtmosphere && (
-                                  <div>
-                                    <label className="block text-[11px] font-bold text-slate-300 mb-2">Particules / Atmosphère ({newChannel.effects_config.particle_intensity ?? 50}%)</label>
-                                    <input type="range" min="0" max="100" value={newChannel.effects_config.particle_intensity ?? 50}
-                                      onChange={e => setNewChannel({ ...newChannel, effects_config: { ...newChannel.effects_config, particle_intensity: parseInt(e.target.value) } })}
-                                      className="w-full accent-[#00c2ff]" />
                                   </div>
                                 )}
                               </div>
