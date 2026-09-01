@@ -11783,15 +11783,32 @@ export default function App() {
                           <span className="material-symbols-outlined text-[13px] text-emerald-400">check_circle</span>
                           Gratuit pour l'instant — pourra devenir payant à l'avenir
                         </div>
-                        <ModeDropdown
-                          value={newChannel.publish_mode || 'manual'}
-                          onChange={v => setNewChannel({ ...newChannel, publish_mode: v })}
-                          options={[
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                          {[
                             { value: 'manual', icon: 'download', label: 'Manuelle', desc: 'Tu télécharges la vidéo, ou tu cliques « Publier » quand tu veux' },
                             { value: 'scheduled', icon: 'schedule', label: 'Programmée', desc: 'Une seule vidéo, publiée un nombre de jours donné après le rendu' },
                             { value: 'auto', icon: 'bolt', label: 'Automatique', desc: 'Planning récurrent — les jours et l\'heure que tu choisis' },
-                          ]}
-                        />
+                          ].map(opt => {
+                            const active = (newChannel.publish_mode || 'manual') === opt.value;
+                            return (
+                              <button
+                                key={opt.value}
+                                type="button"
+                                onClick={() => setNewChannel({ ...newChannel, publish_mode: opt.value })}
+                                className={`text-left p-3.5 rounded-xl border transition-colors ${active ? 'bg-[#00c2ff]/10 border-[#00c2ff]' : 'bg-[var(--bg-surface-alt)] border-[var(--border)] hover:border-slate-500'}`}
+                              >
+                                <div className="flex items-center gap-2 mb-1.5">
+                                  <span className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${active ? 'bg-[#00c2ff]/15 text-[#00c2ff]' : 'bg-white/5 text-slate-400'}`}>
+                                    <span className="material-symbols-outlined text-[15px]">{opt.icon}</span>
+                                  </span>
+                                  <span className={`text-xs font-bold ${active ? 'text-[#00c2ff]' : 'text-white'}`}>{opt.label}</span>
+                                  {active && <span className="material-symbols-outlined text-[15px] text-[#00c2ff] ml-auto">check_circle</span>}
+                                </div>
+                                <p className="text-[10px] text-slate-400 leading-snug">{opt.desc}</p>
+                              </button>
+                            );
+                          })}
+                        </div>
                         {newChannel.publish_mode === 'scheduled' && (
                           <div className="mt-3 space-y-2">
                             <div>
