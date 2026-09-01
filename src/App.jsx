@@ -10352,13 +10352,13 @@ export default function App() {
                               <div className="min-w-0">
                                 <div className="flex items-center gap-2">
                                   <span className="material-symbols-outlined text-[18px] text-[#00c2ff]">diversity_3</span>
-                                  <span className="text-sm font-bold text-white">Bibliothèque collaborative</span>
+                                  <span className="text-sm font-bold text-white">Bibliothèque Communautaire</span>
                                 </div>
                                 <p className="text-xs text-slate-400 mt-1">
                                   {!nicheSet
                                     ? "Choisis d'abord une niche (étape 1) pour voir si une bibliothèque partagée existe déjà."
                                     : available
-                                      ? `${communityLibraryAvailability.folder_count} dossier(s) partagé(s) par la communauté pour la niche « ${nicheSet} » (${communityLibraryAvailability.image_count} images). Aucun upload requis de ta part.`
+                                      ? "Aucun upload requis de ta part."
                                       : `Pas encore de bibliothèque disponible pour la niche « ${nicheSet} » — sois le premier à partager la tienne (case ci-dessus) !`}
                                 </p>
                               </div>
@@ -10366,17 +10366,6 @@ export default function App() {
                           </div>
                         );
                       })()}
-
-                      {enabledImageSources.length > 1 && (
-                        <div className="bg-[#00c2ff]/10 border border-[#00c2ff]/30 p-3 rounded-xl flex items-center gap-2.5 text-xs text-[#00c2ff]">
-                          <span className="material-symbols-outlined text-[20px]">info</span>
-                          <span>
-                            <strong>{enabledImageSources.length} sources activées.</strong> Ordre de priorité à la génération : {enabledImageSources.map((s, i) => (
-                              <span key={s}>{i > 0 ? ' → ' : ''}{s === 'ai_generated' ? 'IA' : s === 'library' ? 'dossier local' : 'bibliothèque collaborative'}</span>
-                            ))}. Chaque source n'est utilisée que si la précédente échoue ou manque d'images.
-                          </span>
-                        </div>
-                      )}
 
                       <div className="bg-[#171b23] border border-[var(--border)] rounded-xl p-3.5 space-y-2.5">
                         <div className="flex items-center justify-between">
