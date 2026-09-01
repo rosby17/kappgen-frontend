@@ -3600,7 +3600,7 @@ export default function App() {
       const res = await authFetch(`${API_BASE}/channels/${editingChannelId}/thumbnail-concept/approve`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ style_prompt: c.style_prompt, concept_name: c.concept_name, text_style: c.text_style }),
+        body: JSON.stringify({ style_prompt: c.style_prompt, concept_name: c.concept_name, text_style: c.text_style, font_family: c.font_family, accent_hex: c.accent_hex, text_position: c.text_position }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || "Validation impossible.");
