@@ -5429,6 +5429,7 @@ export default function App() {
   const [adminActivity, setAdminActivity] = useState(null);
   const [adminVideos, setAdminVideos] = useState([]);
   const [adminVideosLoading, setAdminVideosLoading] = useState(false);
+  const [adminVideosViewMode, setAdminVideosViewMode] = useState('list'); // 'list' | 'grid'
   const [adminLibraryFolders, setAdminLibraryFolders] = useState([]);
   const [adminLibraryLoading, setAdminLibraryLoading] = useState(false);
   const [adminLibraryNicheFilter, setAdminLibraryNicheFilter] = useState('');
@@ -12244,7 +12245,7 @@ export default function App() {
 
           {adminTab === 'videos' && (
             <div className="bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-2xl overflow-hidden">
-              <div className="p-4 border-b border-[var(--border-soft)]">
+              <div className="p-4 border-b border-[var(--border-soft)] flex items-center justify-between gap-3 flex-wrap">
                 <input
                   value={adminVideoSearch}
                   onChange={e => setAdminVideoSearch(e.target.value)}
@@ -12252,7 +12253,83 @@ export default function App() {
                   placeholder="Rechercher par titre, chaîne ou email..."
                   className="w-full max-w-xs bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-3 py-2 text-xs text-white focus:border-[#00c2ff] outline-none"
                 />
+                <div className="flex items-center gap-1 bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl p-1 shrink-0">
+                  {[{ key: 'list', icon: 'view_list' }, { key: 'grid', icon: 'grid_view' }].map(m => (
+                    <button
+                      key={m.key}
+                      type="button"
+                      onClick={() => setAdminVideosViewMode(m.key)}
+                      title={m.key === 'list' ? 'Vue en liste' : 'Vue en grille'}
+                      className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${adminVideosViewMode === m.key ? 'bg-[#00c2ff] text-slate-950' : 'text-slate-400 hover:text-white'}`}
+                    >
+                      <span className="material-symbols-outlined text-[16px]">{m.icon}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
+              {adminVideosViewMode === 'grid' ? (
+                <div className="p-4">
+                  {adminVideosLoading ? (
+                    <p className="text-center text-slate-500 text-xs py-8">Chargement...</p>
+                  ) : adminVideos.length === 0 ? (
+                    <p className="text-center text-slate-500 text-xs py-8">Aucune vidéo.</p>
+                  ) : (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                      {adminVideos.map(v => (
+                        <div key={v.id} className="bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-2xl overflow-hidden">
+                          <button
+                            onClick={() => openAdminVideoDetail(v.id)}
+                            className="block w-full aspect-video bg-slate-950 relative group"
+                          >
+                            {v.status === 'done' && v.output_path ? (
+                              <img src={getVideoThumbnailUrl(v)} alt="" className="w-full h-full object-cover" loading="lazy" />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center">
+                                <span className={`material-symbols-outlined text-[28px] ${v.status === 'failed' ? 'text-rose-400' : 'text-amber-400'}`}>
+                                  {v.status === 'failed' ? 'warning' : 'hourglass_empty'}
+                                </span>
+                              </div>
+                            )}
+                            <span className={`absolute top-1.5 left-1.5 px-2 py-0.5 rounded-full text-[9px] font-bold ${
+                              v.status === 'done' ? 'bg-emerald-950/90 text-emerald-300' :
+                              v.status === 'failed' ? 'bg-rose-950/90 text-rose-300' :
+                              'bg-slate-950/90 text-amber-300'
+                            }`}>
+                              {v.status === 'queued' && v.queue_position ? `attente · #${v.queue_position}` : v.status}
+                            </span>
+                          </button>
+                          <div className="p-3 space-y-1.5">
+                            <button onClick={() => openAdminVideoDetail(v.id)} className="text-xs font-bold text-white hover:text-[#00c2ff] hover:underline text-left line-clamp-2 block w-full">
+                              {v.display_title || v.title || '(sans titre)'}
+                            </button>
+                            {v.youtube_connected ? (
+                              <a
+                                href={v.youtube_channel_handle ? `https://www.youtube.com/${v.youtube_channel_handle.startsWith('@') ? v.youtube_channel_handle : `@${v.youtube_channel_handle}`}` : `https://www.youtube.com/channel/${v.youtube_channel_id}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 text-[10px] text-[#00c2ff] hover:underline"
+                              >
+                                <YouTubeIcon className="w-3 h-2 shrink-0" />
+                                {v.channel_name || '—'}
+                              </a>
+                            ) : (
+                              <p className="text-[10px] text-slate-500 truncate">{v.channel_name || '—'}</p>
+                            )}
+                            <div className="flex items-center justify-between text-[10px] text-slate-500">
+                              <span>{v.owner_email || '—'}</span>
+                              <span className="text-[#00c2ff] font-bold">{(v.total_credits ?? 0).toLocaleString()} cr.</span>
+                            </div>
+                            <div className="flex items-center justify-between text-[10px] text-slate-500">
+                              <span>{v.created_at ? new Date(v.created_at).toLocaleDateString('fr-FR') : '—'}</span>
+                              <button onClick={() => deleteAdminVideo(v.id)} className="text-rose-400 font-bold hover:underline">Supprimer</button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-xs">
                   <thead>
@@ -12272,15 +12349,31 @@ export default function App() {
                     ) : adminVideos.length === 0 ? (
                       <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-500">Aucune vidéo.</td></tr>
                     ) : adminVideos.map(v => (
-                      <tr key={v.id} onClick={() => openAdminVideoDetail(v.id)} className="border-b border-[var(--border-subtle)] hover:bg-[var(--bg-surface-alt)]/60 cursor-pointer">
-                        <td className="px-4 py-2.5 max-w-[280px] truncate">
+                      <tr key={v.id} className="border-b border-[var(--border-subtle)] hover:bg-[var(--bg-surface-alt)]/60">
+                        <td className="px-4 py-2.5 max-w-[280px] truncate cursor-pointer" onClick={() => openAdminVideoDetail(v.id)}>
                           <button className="text-white font-medium hover:text-[#00c2ff] hover:underline text-left">
                             {v.display_title || v.title || '(sans titre)'}
                           </button>
                         </td>
-                        <td className="px-4 py-2.5 text-slate-300">{v.channel_name || '—'}</td>
+                        <td className="px-4 py-2.5 text-slate-300">
+                          {v.youtube_connected ? (
+                            <a
+                              href={v.youtube_channel_handle ? `https://www.youtube.com/${v.youtube_channel_handle.startsWith('@') ? v.youtube_channel_handle : `@${v.youtube_channel_handle}`}` : `https://www.youtube.com/channel/${v.youtube_channel_id}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={event => event.stopPropagation()}
+                              className="inline-flex items-center gap-1.5 text-[#00c2ff] hover:underline"
+                              title="Ouvrir la chaîne YouTube"
+                            >
+                              <YouTubeIcon className="w-3.5 h-2.5 shrink-0" />
+                              {v.channel_name || '—'}
+                            </a>
+                          ) : (
+                            <span title="Chaîne YouTube non connectée">{v.channel_name || '—'}</span>
+                          )}
+                        </td>
                         <td className="px-4 py-2.5 text-slate-400">{v.owner_email || '—'}</td>
-                        <td className="px-4 py-2.5">
+                        <td className="px-4 py-2.5 cursor-pointer" onClick={() => openAdminVideoDetail(v.id)}>
                           <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
                             v.status === 'done' ? 'bg-emerald-950/60 text-emerald-400' :
                             v.status === 'failed' ? 'bg-rose-950/60 text-rose-400' :
@@ -12301,6 +12394,7 @@ export default function App() {
                   </tbody>
                 </table>
               </div>
+              )}
             </div>
           )}
 
@@ -13081,7 +13175,22 @@ export default function App() {
             <div className="flex justify-between items-start gap-3">
               <div className="min-w-0">
                 <h3 className="text-sm font-bold text-white truncate">{adminVideoDetail.display_title || adminVideoDetail.title || '(sans titre)'}</h3>
-                <p className="text-[11px] text-slate-500">{adminVideoDetail.channel_name || '—'} · {adminVideoDetail.owner_email || '—'}</p>
+                <p className="text-[11px] text-slate-500 flex items-center gap-1.5 flex-wrap">
+                  {adminVideoDetail.youtube_connected ? (
+                    <a
+                      href={adminVideoDetail.youtube_channel_handle ? `https://www.youtube.com/${adminVideoDetail.youtube_channel_handle.startsWith('@') ? adminVideoDetail.youtube_channel_handle : `@${adminVideoDetail.youtube_channel_handle}`}` : `https://www.youtube.com/channel/${adminVideoDetail.youtube_channel_id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-[#00c2ff] hover:underline"
+                    >
+                      <YouTubeIcon className="w-3 h-2" />
+                      {adminVideoDetail.channel_name || '—'}
+                    </a>
+                  ) : (
+                    <span title="Chaîne YouTube non connectée">{adminVideoDetail.channel_name || '—'}</span>
+                  )}
+                  · {adminVideoDetail.owner_email || '—'}
+                </p>
               </div>
               <button onClick={() => setAdminVideoDetail(null)} className="text-slate-400 hover:text-white shrink-0">
                 <span className="material-symbols-outlined">close</span>
@@ -13107,7 +13216,7 @@ export default function App() {
                         <div className="text-[10px] font-bold text-[#00c2ff] uppercase tracking-wider">Rendu en cours</div>
                         <div className="text-xs text-white mt-0.5">
                           {adminVideoDetail.status === 'queued' && adminVideoDetail.queue_position
-                            ? `Position ${adminVideoDetail.queue_position} sur ${adminVideoDetail.queue_total} dans la file FIFO`
+                            ? `Position ${adminVideoDetail.queue_position} sur ${adminVideoDetail.queue_total} dans la file prioritaire`
                             : (adminVideoDetail.progress_stage || 'Traitement en cours')}
                         </div>
                       </div>
