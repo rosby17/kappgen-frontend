@@ -14040,8 +14040,8 @@ export default function App() {
               ) : (
                 <button
                   onClick={() => { setStudioTitleDraft(studioVideo.title || ''); setStudioEditingTitle(true); }}
-                  className="text-sm font-bold text-white truncate max-w-[50vw] hover:text-[#38d0ff] flex items-center gap-1.5 group"
-                  title="Cliquer pour modifier le titre"
+                  className="text-sm font-bold text-white lowercase truncate max-w-[50vw] hover:text-[#38d0ff] flex items-center gap-1.5 group"
+                  title={studioVideo.title || (studioVideo.script_text || '').slice(0, 200) || 'Sans titre'}
                 >
                   {studioVideo.title || (studioVideo.script_text || '').slice(0, 80) || 'Sans titre'}
                   <span className="material-symbols-outlined text-[14px] text-slate-600 group-hover:text-[#38d0ff]">edit</span>
@@ -14073,8 +14073,8 @@ export default function App() {
             <>
               {/* Body: voice-off/script (left) · video player (main) · scene editor (right) */}
               <div className="flex-1 flex min-h-0">
-                {/* LEFT — voice-off picker + audio player + full-script editor */}
-                <div className="w-72 shrink-0 border-r border-[var(--border-subtle)] flex flex-col min-h-0">
+                {/* LEFT — voice-off picker + audio player + full-script/subtitle editor */}
+                <div className="w-80 shrink-0 border-r border-[var(--border-subtle)] flex flex-col min-h-0">
                   <div className="px-4 py-3 border-b border-[var(--border-subtle)] shrink-0 space-y-3">
                     <div>
                       <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Voix off</div>
@@ -14162,24 +14162,83 @@ export default function App() {
                         <p className="text-[10px] text-slate-500 mt-1.5">Garde une ligne vide entre chaque scène ({studioScenes.length} au total) — n'en ajoute ni n'en retire.</p>
                       </>
                     ) : (
-                      <div className="space-y-2.5">
-                        {studioScenes.map(scene => (
-                          <p
-                            key={scene.index}
-                            onClick={() => selectStudioScene(scene, { seek: true })}
-                            className={`text-[11px] leading-snug cursor-pointer rounded-lg px-2 py-1.5 -mx-2 transition-colors ${
-                              studioSelectedIndex === scene.index ? 'bg-[#00c2ff]/15 text-white' : 'text-slate-400 hover:text-slate-200 hover:bg-[var(--bg-surface-alt)]'
-                            }`}
-                          >
-                            {scene.text || <span className="italic text-slate-600">(scène {scene.index + 1})</span>}
-                          </p>
-                        ))}
+                      <div className="space-y-1.5">
+                        {studioScenes.map(scene => {
+                          const isSelected = studioSelectedIndex === scene.index;
+                          return (
+                            <div key={scene.index} className={`rounded-lg -mx-2 transition-colors ${isSelected ? 'bg-[#00c2ff]/10' : ''}`}>
+                              <p
+                                onClick={() => selectStudioScene(scene, { seek: true })}
+                                className={`text-[11px] leading-snug cursor-pointer rounded-lg px-2 py-1.5 transition-colors ${
+                                  isSelected ? 'text-white' : 'text-slate-400 hover:text-slate-200 hover:bg-[var(--bg-surface-alt)]'
+                                }`}
+                              >
+                                <span className="text-slate-600 font-mono text-[10px] mr-1">{scene.index + 1}.</span>
+                                {scene.text || <span className="italic text-slate-600">(scène {scene.index + 1})</span>}
+                              </p>
+
+                              {/* Inline per-scene subtitle/voice editing — moved here from the
+                                  old right-hand panel so script and subtitle editing live in one
+                                  place, closer to how HeyGen keeps everything in the left rail. */}
+                              {isSelected && (
+                                <div className="px-2 pb-2.5 space-y-2">
+                                  {!scene.editable_text ? (
+                                    <p className="text-[10px] text-slate-500">Sous-titres non modifiables (vidéo antérieure à cette fonctionnalité).</p>
+                                  ) : (
+                                    <>
+                                      <textarea
+                                        rows={4}
+                                        value={studioSubtitleDraft}
+                                        onChange={(e) => setStudioSubtitleDraft(e.target.value)}
+                                        className="w-full bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl p-2.5 text-[11px] text-white focus:border-[#00c2ff] outline-none resize-none"
+                                      />
+                                      {!studioConfirmRegen ? (
+                                        <div className="flex items-center gap-1.5">
+                                          <button
+                                            onClick={() => saveSceneSubtitle(scene.index)}
+                                            disabled={studioSavingSubtitle || !studioSubtitleDraft.trim() || studioSubtitleDraft.trim() === scene.text}
+                                            className="flex-1 py-1.5 bg-[var(--bg-dropdown)] hover:bg-[var(--border)] text-slate-300 rounded-lg font-bold text-[10px] transition-all border border-[var(--border)] disabled:opacity-40 flex items-center justify-center gap-1"
+                                          >
+                                            <span className="material-symbols-outlined text-[13px]">subtitles</span>
+                                            {studioSavingSubtitle ? 'Enregistrement…' : 'Sous-titre seul'}
+                                          </button>
+                                          <button
+                                            onClick={() => setStudioConfirmRegen(true)}
+                                            disabled={studioRegeneratingAudio || !studioSubtitleDraft.trim() || studioSubtitleDraft.trim() === scene.text}
+                                            className="flex-1 py-1.5 bg-[#00c2ff] hover:bg-[#38d0ff] text-slate-950 rounded-lg font-extrabold text-[10px] transition-all disabled:opacity-40 flex items-center justify-center gap-1"
+                                          >
+                                            <span className="material-symbols-outlined text-[13px]">record_voice_over</span>
+                                            Script + voix
+                                          </button>
+                                        </div>
+                                      ) : (
+                                        <div className="bg-[#00c2ff]/5 border border-[#00c2ff]/30 rounded-lg p-2 space-y-1.5">
+                                          <p className="text-[10px] text-slate-300">Régénère uniquement la voix de la scène {scene.index + 1}. Confirmer ?</p>
+                                          <div className="flex gap-1.5">
+                                            <button onClick={() => setStudioConfirmRegen(false)} className="flex-1 py-1 bg-[var(--bg-dropdown)] text-white rounded-md text-[10px] font-bold">Annuler</button>
+                                            <button onClick={() => regenerateSceneAudio(scene.index)} disabled={studioRegeneratingAudio} className="flex-1 py-1 bg-[#00c2ff] text-slate-950 rounded-md text-[10px] font-bold disabled:opacity-50">
+                                              {studioRegeneratingAudio ? 'Régénération...' : 'Confirmer'}
+                                            </button>
+                                          </div>
+                                        </div>
+                                      )}
+                                    </>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
                   </div>
                 </div>
 
-                {/* MAIN — real video playback, synced with the bottom timeline */}
+                {/* MAIN — real video playback, synced with the bottom timeline. No right
+                    panel anymore — image swap moved onto each timeline thumbnail below,
+                    and script/subtitle editing moved into the left rail, so the player
+                    gets the full remaining width instead of being squeezed between two
+                    side panels. */}
                 <div className="flex-1 flex items-center justify-center bg-black min-w-0">
                   <VideoPlayer
                     src={getVideoUrl(studioVideo.output_path)}
@@ -14189,92 +14248,7 @@ export default function App() {
                     onPlayingChange={setStudioIsPlaying}
                   />
                 </div>
-
-                {/* RIGHT — precise script/image editing for the selected scene */}
-                  {studioSelectedIndex !== null && (() => {
-                    const scene = studioScenes.find(s => s.index === studioSelectedIndex);
-                    if (!scene) return null;
-                    return (
-                      <div className="w-80 shrink-0 border-l border-[var(--border-subtle)] flex flex-col min-h-0">
-                        <div className="px-4 py-3 border-b border-[var(--border-subtle)] shrink-0">
-                          <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Scène {scene.index + 1}</div>
-                          <div className="text-[11px] text-slate-400 mt-0.5">{scene.duration.toFixed(1)}s</div>
-                        </div>
-                        <div className="p-4 space-y-4 overflow-y-auto flex-1">
-                          <div>
-                            <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Image de la scène</label>
-                            <label className={`w-full py-2.5 rounded-xl font-bold text-xs border transition-all flex items-center justify-center gap-2 cursor-pointer ${
-                              studioReplacingIndex === scene.index
-                                ? 'bg-[#00c2ff]/10 border-[#00c2ff]/30 text-[#55d8ff]'
-                                : 'bg-[var(--bg-dropdown)] hover:bg-[var(--border)] border-[var(--border)] text-white'
-                            }`}>
-                              <span className={`material-symbols-outlined text-[16px] ${studioReplacingIndex === scene.index ? 'animate-spin' : ''}`}>
-                                {studioReplacingIndex === scene.index ? 'progress_activity' : 'image'}
-                              </span>
-                              {studioReplacingIndex === scene.index ? 'Remplacement…' : `Changer l’image de la scène ${scene.index + 1}`}
-                              <input
-                                type="file"
-                                accept="image/png,image/jpeg,image/webp"
-                                className="hidden"
-                                disabled={studioReplacingIndex !== null || studioReassembling}
-                                onChange={(e) => e.target.files[0] && replaceSceneImage(scene.index, e.target.files[0])}
-                              />
-                            </label>
-                            <p className="text-[10px] text-slate-500 mt-1.5">Seule cette scène sera reconstruite avec la nouvelle image.</p>
-                          </div>
-
-                          {!scene.editable_text ? (
-                            <p className="text-[11px] text-slate-500">Cette scène n'a pas de sous-titres modifiables (vidéo antérieure à cette fonctionnalité) — seul le remplacement d'image est disponible.</p>
-                          ) : (
-                            <>
-                              <div>
-                                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Script de la scène</label>
-                                <textarea
-                                  rows={6}
-                                  value={studioSubtitleDraft}
-                                  onChange={(e) => setStudioSubtitleDraft(e.target.value)}
-                                  className="w-full bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl p-3 text-xs text-white focus:border-[#00c2ff] outline-none resize-none"
-                                />
-                                <p className="text-[10px] text-slate-500 mt-1.5">Modifie uniquement cette section. Les autres scènes et leurs images ne sont pas régénérées.</p>
-                              </div>
-
-                              <div className="space-y-2">
-                                {!studioConfirmRegen ? (
-                                  <button
-                                    onClick={() => setStudioConfirmRegen(true)}
-                                    disabled={studioRegeneratingAudio || !studioSubtitleDraft.trim() || studioSubtitleDraft.trim() === scene.text}
-                                    className="w-full py-2.5 bg-[#00c2ff] hover:bg-[#38d0ff] text-slate-950 rounded-xl font-extrabold text-xs transition-all disabled:opacity-40 flex items-center justify-center gap-1.5"
-                                  >
-                                    <span className="material-symbols-outlined text-[15px]">record_voice_over</span>
-                                    Enregistrer le script et la voix
-                                  </button>
-                                ) : (
-                                  <div className="bg-[#00c2ff]/5 border border-[#00c2ff]/30 rounded-xl p-3 space-y-2">
-                                    <p className="text-[11px] text-slate-300">KappGen AI régénérera uniquement la voix de la scène {scene.index + 1} et ajustera sa durée. Confirmer ?</p>
-                                    <div className="flex gap-2">
-                                      <button onClick={() => setStudioConfirmRegen(false)} className="flex-1 py-1.5 bg-[var(--bg-dropdown)] text-white rounded-lg text-[11px] font-bold">Annuler</button>
-                                      <button onClick={() => regenerateSceneAudio(scene.index)} disabled={studioRegeneratingAudio} className="flex-1 py-1.5 bg-[#00c2ff] text-slate-950 rounded-lg text-[11px] font-bold disabled:opacity-50">
-                                        {studioRegeneratingAudio ? 'Régénération...' : 'Confirmer'}
-                                      </button>
-                                    </div>
-                                  </div>
-                                )}
-                                <button
-                                  onClick={() => saveSceneSubtitle(scene.index)}
-                                  disabled={studioSavingSubtitle || !studioSubtitleDraft.trim() || studioSubtitleDraft.trim() === scene.text}
-                                  className="w-full py-2 bg-[var(--bg-dropdown)] hover:bg-[var(--border)] text-slate-300 rounded-xl font-bold text-[11px] transition-all border border-[var(--border)] disabled:opacity-40 flex items-center justify-center gap-1.5"
-                                >
-                                  <span className="material-symbols-outlined text-[14px]">subtitles</span>
-                                  {studioSavingSubtitle ? 'Enregistrement…' : 'Modifier seulement le sous-titre'}
-                                </button>
-                              </div>
-                            </>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })()}
-                </div>
+              </div>
 
                 {/* BOTTOM — scene timeline strip, playhead-synced with the video above */}
                 <div className="h-28 shrink-0 border-t border-[var(--border-subtle)] px-4 py-2.5 overflow-x-auto">
@@ -14283,22 +14257,48 @@ export default function App() {
                       const isPlayingHere = studioPlaybackTime >= scene.start && studioPlaybackTime < scene.end;
                       const isActive = studioSelectedIndex === scene.index || (studioIsPlaying && isPlayingHere);
                       return (
-                        <button
+                        <div
                           key={scene.index}
-                          onClick={() => selectStudioScene(scene, { seek: true })}
-                          className={`relative h-full aspect-video shrink-0 rounded-lg overflow-hidden border-2 transition-all ${
+                          className={`group/thumb relative h-full aspect-video shrink-0 rounded-lg overflow-hidden border-2 transition-all ${
                             isActive ? 'border-[#00c2ff]' : 'border-transparent hover:border-[var(--border)]'
                           }`}
-                          title={studioIsPlaying ? 'Mets la vidéo en pause pour éditer cette image' : `Éditer l'image de la scène ${scene.index + 1}`}
                         >
-                          <img src={`${API_BASE}${scene.image_url}?v=${scene.image_version || 0}`} alt={`Scène ${scene.index + 1}`} className="w-full h-full object-cover" />
+                          <button
+                            onClick={() => selectStudioScene(scene, { seek: true })}
+                            className="absolute inset-0 w-full h-full"
+                            title={`Aller à la scène ${scene.index + 1}`}
+                          >
+                            <img src={`${API_BASE}${scene.image_url}?v=${scene.image_version || 0}`} alt={`Scène ${scene.index + 1}`} className="w-full h-full object-cover" />
+                          </button>
                           {isPlayingHere && studioIsPlaying && (
-                            <div className="absolute inset-x-0 top-0 h-0.5 bg-[#00c2ff]" style={{ width: `${((studioPlaybackTime - scene.start) / (scene.end - scene.start)) * 100}%` }} />
+                            <div className="absolute inset-x-0 top-0 h-0.5 bg-[#00c2ff] pointer-events-none" style={{ width: `${((studioPlaybackTime - scene.start) / (scene.end - scene.start)) * 100}%` }} />
                           )}
-                          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent px-1.5 py-1 text-[9px] text-slate-200 text-left">
+                          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent px-1.5 py-1 text-[9px] text-slate-200 text-left pointer-events-none">
                             {scene.index + 1} · {scene.duration.toFixed(1)}s
                           </div>
-                        </button>
+
+                          {/* Change-image control, embedded right on the vignette instead of a
+                              separate right-hand panel — appears on hover, or pinned visible
+                              while this scene's image is mid-replacement. */}
+                          <label
+                            className={`absolute top-1 right-1 w-6 h-6 rounded-md flex items-center justify-center cursor-pointer transition-opacity bg-black/70 hover:bg-black/90 text-white ${
+                              studioReplacingIndex === scene.index ? 'opacity-100' : 'opacity-0 group-hover/thumb:opacity-100'
+                            }`}
+                            title={`Changer l’image de la scène ${scene.index + 1}`}
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <span className={`material-symbols-outlined text-[14px] ${studioReplacingIndex === scene.index ? 'animate-spin' : ''}`}>
+                              {studioReplacingIndex === scene.index ? 'progress_activity' : 'image'}
+                            </span>
+                            <input
+                              type="file"
+                              accept="image/png,image/jpeg,image/webp"
+                              className="hidden"
+                              disabled={studioReplacingIndex !== null || studioReassembling}
+                              onChange={(e) => e.target.files[0] && replaceSceneImage(scene.index, e.target.files[0])}
+                            />
+                          </label>
+                        </div>
                       );
                     })}
                   </div>
