@@ -6870,6 +6870,26 @@ export default function App() {
     studioLogoDebounceRef.current = setTimeout(() => updateStudioLogo(patch), 500);
   };
 
+  const [studioUndoing, setStudioUndoing] = useState(false);
+  // Pops the last reversible edit (image swap / subtitle text / logo move) —
+  // see Video.edit_history server-side. Voice regenerations aren't covered.
+  const undoStudioEdit = async () => {
+    if (!studioVideo?.can_undo) return;
+    setStudioUndoing(true);
+    try {
+      const res = await authFetch(`${API_BASE}/videos/${studioVideo.id}/undo`, { method: 'POST' });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || 'Échec de l’annulation');
+      const updatedVideo = await res.json();
+      setStudioVideo(updatedVideo);
+      setStudioReassembling(true);
+      pollReassembly(updatedVideo.id);
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setStudioUndoing(false);
+    }
+  };
+
   const openStudio = async (vid) => {
     setStudioVideo(vid);
     setSelectedVideo(null);
@@ -14174,6 +14194,14 @@ export default function App() {
                   Réassemblage en cours...
                 </span>
               )}
+              <button
+                onClick={undoStudioEdit}
+                disabled={!studioVideo.can_undo || studioUndoing || studioReassembling}
+                title={studioVideo.can_undo ? 'Annuler la dernière modification' : 'Rien à annuler'}
+                className="text-slate-400 hover:text-white disabled:opacity-30 disabled:hover:text-slate-400 flex items-center gap-1"
+              >
+                <span className={`material-symbols-outlined text-[19px] ${studioUndoing ? 'animate-spin' : ''}`}>{studioUndoing ? 'progress_activity' : 'undo'}</span>
+              </button>
               <button onClick={closeStudio} className="text-slate-400 hover:text-white">
                 <span className="material-symbols-outlined">close</span>
               </button>
