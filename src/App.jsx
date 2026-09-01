@@ -7285,6 +7285,11 @@ export default function App() {
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || 'Échec de la mise à jour du logo');
       const updatedVideo = await res.json();
       setStudioLogoChannel(prev => ({ ...(prev || {}), branding: { ...(prev?.branding || {}), ...patch } }));
+      // Reflects can_undo right away — without this the "Annuler" button stayed
+      // disabled until the reassembly finished, even though the edit was
+      // already recorded server-side and undoable from the moment this
+      // response came back.
+      setStudioVideo(updatedVideo);
       setStudioReassembling(true);
       pollReassembly(updatedVideo.id);
     } catch (err) {
@@ -7504,6 +7509,7 @@ export default function App() {
       });
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || 'Échec du remplacement');
       const updatedVideo = await res.json();
+      setStudioVideo(updatedVideo);
       setStudioReassembling(true);
       fetchAllVideos();
       if (activeChannel) fetchChannelVideos(activeChannel.id);
@@ -7527,6 +7533,7 @@ export default function App() {
       });
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || 'Échec de la correction');
       const updatedVideo = await res.json();
+      setStudioVideo(updatedVideo);
       setStudioReassembling(true);
       pollReassembly(updatedVideo.id);
     } catch (err) {
