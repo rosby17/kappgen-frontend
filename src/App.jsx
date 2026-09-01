@@ -8017,8 +8017,8 @@ export default function App() {
                   </div>
                 </div>
 
-                <div className="flex items-start gap-6">
-                <aside className={`flex-shrink-0 space-y-1 transition-[width] duration-200 ${folderSidebarCollapsed ? 'w-10' : 'w-48'}`}>
+                <div className="flex items-start gap-4">
+                <aside className={`flex-shrink-0 space-y-1 transition-[width] duration-200 ${folderSidebarCollapsed ? 'w-10' : 'w-36'}`}>
                   <button
                     onClick={toggleFolderSidebarCollapsed}
                     title={folderSidebarCollapsed ? 'Agrandir les dossiers' : 'Réduire les dossiers'}
