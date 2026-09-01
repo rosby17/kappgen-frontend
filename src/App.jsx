@@ -11632,6 +11632,15 @@ export default function App() {
                             )}
                           </div>
                           <p className="text-[10px] text-slate-500 mt-2">Aperçu approximatif — le rendu final vidéo peut légèrement varier.</p>
+
+                          {hasAtmosphere && (
+                            <div className="mt-3">
+                              <label className="block text-[11px] font-bold text-slate-300 mb-2">Particules / Atmosphère ({newChannel.effects_config.particle_intensity ?? 50}%)</label>
+                              <input type="range" min="0" max="100" value={newChannel.effects_config.particle_intensity ?? 50}
+                                onChange={e => setNewChannel({ ...newChannel, effects_config: { ...newChannel.effects_config, particle_intensity: parseInt(e.target.value) } })}
+                                className="w-full accent-[#00c2ff]" />
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
