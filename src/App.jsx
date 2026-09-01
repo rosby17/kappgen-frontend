@@ -3295,6 +3295,7 @@ export default function App() {
   const [mixPreviewVoiceUrl, setMixPreviewVoiceUrl] = useState(null);
   const [studioMixPreviewUrl, setStudioMixPreviewUrl] = useState(null);
   const [studioMixPreviewing, setStudioMixPreviewing] = useState(false);
+  const [mixPreviewExpanded, setMixPreviewExpanded] = useState(false);
 
   const handleMixPreviewVoiceSelect = (e) => {
     const file = e.target.files?.[0];
@@ -10621,11 +10622,18 @@ export default function App() {
                         <p className="text-[10px] text-slate-500 mt-1">Équivalents serveur des traitements FL Studio. La voix reste toujours prioritaire.</p>
                       </div>
 
-                      <div className="rounded-xl border border-[#00c2ff]/30 bg-[#00c2ff]/5 p-3 space-y-3">
-                        <div>
-                          <p className="text-[11px] font-extrabold text-white">Banc d’essai — écouter le rendu final</p>
-                          <p className="text-[9px] text-slate-400 mt-0.5">Importez un court extrait de voix. Il sera mixé avec la musique sélectionnée en utilisant exactement les effets ci-dessous.</p>
-                        </div>
+                      <div className="rounded-xl border border-[#00c2ff]/30 bg-[#00c2ff]/5 overflow-hidden">
+                        <button type="button" onClick={() => setMixPreviewExpanded(v => !v)} className="w-full p-3 flex items-center justify-between gap-3 text-left hover:bg-[#00c2ff]/5">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="material-symbols-outlined text-[#55d8ff] text-[17px]">headphones</span>
+                            <div className="min-w-0">
+                              <p className="text-[11px] font-extrabold text-white">Banc d’essai audio</p>
+                              <p className="text-[9px] text-slate-400 truncate">Voix + musique + effets du rendu final</p>
+                            </div>
+                          </div>
+                          <span className="material-symbols-outlined text-slate-400 text-[17px]">{mixPreviewExpanded ? 'expand_less' : 'expand_more'}</span>
+                        </button>
+                        {mixPreviewExpanded && <div className="px-3 pb-3 space-y-2.5 border-t border-[#00c2ff]/15 pt-3">
                         <label className="flex items-center justify-center gap-2 w-full py-2 rounded-lg border border-dashed border-[#00c2ff]/50 text-[#55d8ff] hover:bg-[#00c2ff]/10 cursor-pointer text-[10px] font-bold transition-colors">
                           <span className="material-symbols-outlined text-[16px]">mic</span>
                           {mixPreviewVoiceFile ? `Changer la voix test — ${mixPreviewVoiceFile.name}` : 'Importer un extrait de voix test'}
@@ -10649,8 +10657,10 @@ export default function App() {
                             <audio controls autoPlay src={studioMixPreviewUrl} className="w-full h-9" />
                           </div>
                         )}
+                        </div>}
                       </div>
 
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       {[
                         ['auto_ducking', 'Auto-Ducking', 'La musique descend automatiquement lorsque la voix parle.'],
                         ['soundgoodizer_enabled', 'Enhancer — type Soundgoodizer', 'Ajoute présence, chaleur et compression à la musique.'],
@@ -10664,44 +10674,42 @@ export default function App() {
                         }[field];
                         const amount = newChannel.music_preference[amountField] ?? 0.4;
                         return (
-                          <div key={field} className="rounded-xl border border-[var(--border-soft)] bg-[var(--bg-input-alt)] p-3">
-                            <div className="flex items-center justify-between gap-3">
-                              <div>
-                                <p className="text-[11px] font-bold text-slate-200">{label}</p>
-                                <p className="text-[9px] text-slate-500">{help}</p>
-                              </div>
+                          <div key={field} title={help} className={`rounded-lg border px-2.5 py-2 transition-colors ${enabled ? 'border-[#00c2ff]/35 bg-[#00c2ff]/5' : 'border-[var(--border-soft)] bg-[var(--bg-input-alt)]'}`}>
+                            <div className="flex items-center justify-between gap-2">
+                              <p className="text-[10px] font-bold text-slate-200 truncate">{label}</p>
                               <button
                                 type="button"
                                 onClick={() => setNewChannel({ ...newChannel, music_preference: { ...newChannel.music_preference, [field]: !enabled } })}
-                                className={`relative shrink-0 w-9 h-5 rounded-full transition-colors ${enabled ? 'bg-[#00c2ff]' : 'bg-[var(--border)]'}`}
+                                className={`relative shrink-0 w-7 h-4 rounded-full transition-colors ${enabled ? 'bg-[#00c2ff]' : 'bg-[var(--border)]'}`}
                               >
-                                <span className={`absolute left-0.5 top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${enabled ? 'translate-x-4' : 'translate-x-0'}`} />
+                                <span className={`absolute left-0.5 top-0.5 w-3 h-3 rounded-full bg-white transition-transform ${enabled ? 'translate-x-3' : 'translate-x-0'}`} />
                               </button>
                             </div>
                             {enabled && (
-                              <div className="mt-3 flex items-center gap-3">
+                              <div className="mt-1.5 flex items-center gap-2">
                                 <input
                                   type="range" min="0" max="1" step="0.05" value={amount}
                                   onChange={e => setNewChannel({ ...newChannel, music_preference: { ...newChannel.music_preference, [amountField]: parseFloat(e.target.value) } })}
                                   className="flex-1 accent-[#00c2ff]"
                                 />
-                                <span className="text-[10px] font-bold text-[#00c2ff] w-9 text-right">{Math.round(amount * 100)}%</span>
+                                <span className="text-[9px] font-bold text-[#00c2ff] w-7 text-right">{Math.round(amount * 100)}</span>
                               </div>
                             )}
                           </div>
                         );
                       })}
+                      </div>
 
-                      <div className="grid grid-cols-2 gap-3">
+                      <div className="grid grid-cols-2 gap-2">
                         {[['fade_in_seconds', 'Fondu d’entrée'], ['fade_out_seconds', 'Fondu de sortie']].map(([field, label]) => (
-                          <label key={field} className="text-[10px] font-bold text-slate-400">
+                          <label key={field} className="text-[9px] font-bold text-slate-500 flex items-center gap-2 rounded-lg border border-[var(--border-soft)] px-2.5 py-2">
                             {label}
-                            <div className="mt-1 flex items-center gap-2">
+                            <div className="ml-auto flex items-center gap-1">
                               <input
                                 type="number" min="0" max="10" step="0.5"
                                 value={newChannel.music_preference[field] ?? (field === 'fade_in_seconds' ? 2 : 3)}
                                 onChange={e => setNewChannel({ ...newChannel, music_preference: { ...newChannel.music_preference, [field]: parseFloat(e.target.value) || 0 } })}
-                                className="w-full bg-[var(--bg-input-alt)] border border-[var(--border)] rounded-lg px-2 py-1.5 text-white outline-none focus:border-[#00c2ff]"
+                                className="w-14 bg-[var(--bg-input-alt)] border border-[var(--border)] rounded-md px-1.5 py-1 text-white text-[10px] outline-none focus:border-[#00c2ff]"
                               />
                               <span className="text-slate-500">sec.</span>
                             </div>
