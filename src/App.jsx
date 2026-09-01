@@ -7808,7 +7808,7 @@ export default function App() {
                         the height reduction on the two/three cards next to it. */}
                     <button
                       onClick={() => openCreateWizard(activeProductContentType)}
-                      className="rounded-2xl p-4 border-2 border-dashed border-[var(--border)] hover:border-[#00c2ff] hover:bg-[var(--bg-surface)] transition-all flex items-center justify-center gap-2.5 text-slate-400 hover:text-[#00c2ff] group"
+                      className="rounded-2xl p-5 border-2 border-dashed border-[var(--border)] hover:border-[#00c2ff] hover:bg-[var(--bg-surface)] transition-all flex items-center justify-center gap-2.5 text-slate-400 hover:text-[#00c2ff] group"
                     >
                       <div className="w-8 h-8 rounded-full bg-[var(--bg-surface-alt)] group-hover:bg-[#00c2ff]/10 flex items-center justify-center transition-colors shrink-0">
                         <span className="material-symbols-outlined text-[18px]">add</span>
@@ -7825,7 +7825,7 @@ export default function App() {
                         <div
                           key={chan.id}
                           onClick={() => { setActiveChannel(chan); fetchChannelVideos(chan.id); setView('channel_detail'); }}
-                          className="bg-[var(--bg-surface)] hover:bg-[var(--bg-hover)] border border-[var(--border-soft)] hover:border-[#00c2ff]/40 rounded-2xl p-4 transition-all cursor-pointer group shadow-lg relative card-warm-hover channel-menu-container"
+                          className="bg-[var(--bg-surface)] hover:bg-[var(--bg-hover)] border border-[var(--border-soft)] hover:border-[#00c2ff]/40 rounded-2xl p-5 transition-all cursor-pointer group shadow-lg relative card-warm-hover channel-menu-container"
                         >
                           {/* Card Header & 3-Dots Action Button — status badge sits right next
                               to the name instead of on its own row, and the niche/counters
@@ -7901,33 +7901,33 @@ export default function App() {
                               or manually downloaded — the creator's own framing is that both
                               mean "out the door"), what's ready but still waiting, and the
                               channel's lifetime total. */}
-                          <div className="flex items-start gap-3.5 mt-3 pt-3 border-t border-[var(--border-subtle)]">
+                          <div className="flex items-center gap-4 mt-3.5 pt-3.5 pb-0.5 border-t border-[var(--border-subtle)]">
                             <div className="flex items-center gap-1.5 min-w-0">
-                              <span className="material-symbols-outlined text-[15px] text-[#00c2ff] shrink-0">hourglass_top</span>
+                              <span className="material-symbols-outlined text-[14px] text-[#00c2ff] shrink-0">hourglass_top</span>
                               <div className="leading-tight">
-                                <div className="text-sm text-[#00c2ff] font-extrabold">{(chan.queued_count || 0) + (chan.rendering_count || 0)}</div>
-                                <div className="text-[9px] text-slate-500 font-bold uppercase tracking-wide whitespace-nowrap">En cours</div>
+                                <div className="text-xs text-[#00c2ff] font-bold">{(chan.queued_count || 0) + (chan.rendering_count || 0)}</div>
+                                <div className="text-[8px] text-slate-500 whitespace-nowrap">En cours</div>
                               </div>
                             </div>
                             <div className="flex items-center gap-1.5 min-w-0">
-                              <span className="material-symbols-outlined text-[15px] text-emerald-400 shrink-0">check_circle</span>
+                              <span className="material-symbols-outlined text-[14px] text-emerald-400 shrink-0">check_circle</span>
                               <div className="leading-tight">
-                                <div className="text-sm text-white font-extrabold">{chan.published_count || 0}</div>
-                                <div className="text-[9px] text-slate-500 font-bold uppercase tracking-wide whitespace-nowrap">Publiées</div>
+                                <div className="text-xs text-slate-200 font-bold">{chan.published_count || 0}</div>
+                                <div className="text-[8px] text-slate-500 whitespace-nowrap">Publiées</div>
                               </div>
                             </div>
                             <div className="flex items-center gap-1.5 min-w-0">
-                              <span className="material-symbols-outlined text-[15px] text-amber-400 shrink-0">schedule</span>
+                              <span className="material-symbols-outlined text-[14px] text-amber-400 shrink-0">schedule</span>
                               <div className="leading-tight">
-                                <div className="text-sm text-white font-extrabold">{chan.unpublished_count || 0}</div>
-                                <div className="text-[9px] text-slate-500 font-bold uppercase tracking-wide whitespace-nowrap">À publier</div>
+                                <div className="text-xs text-slate-200 font-bold">{chan.unpublished_count || 0}</div>
+                                <div className="text-[8px] text-slate-500 whitespace-nowrap">À publier</div>
                               </div>
                             </div>
                             <div className="flex items-center gap-1.5 min-w-0 ml-auto">
-                              <span className="material-symbols-outlined text-[15px] text-slate-500 shrink-0">bar_chart</span>
+                              <span className="material-symbols-outlined text-[14px] text-slate-500 shrink-0">bar_chart</span>
                               <div className="leading-tight">
-                                <div className="text-sm text-slate-300 font-extrabold">{chan.total_count || 0}</div>
-                                <div className="text-[9px] text-slate-500 font-bold uppercase tracking-wide whitespace-nowrap">Total</div>
+                                <div className="text-xs text-slate-300 font-bold">{chan.total_count || 0}</div>
+                                <div className="text-[8px] text-slate-500 whitespace-nowrap">Total</div>
                               </div>
                             </div>
                           </div>
