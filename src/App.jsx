@@ -2757,7 +2757,7 @@ function viewFromPath(path) {
 // Each admin sidebar entry gets its own named route (/admin/resources, etc.)
 // so a page refresh stays on the current tab instead of bouncing back to
 // the overview.
-const ADMIN_TABS = ['overview', 'users', 'plans', 'videos', 'library', 'transactions', 'costs', 'resources'];
+const ADMIN_TABS = ['overview', 'users', 'videos', 'library', 'transactions', 'costs', 'resources'];
 function adminTabFromPath(path) {
   const m = path.match(/^\/admin\/([a-z_]+)$/);
   if (m && ADMIN_TABS.includes(m[1])) return m[1];
@@ -3714,7 +3714,7 @@ export default function App() {
           const style = prev.image_style || {};
           const untouched = style.source === 'library' && !style.library_path && !(style.library_image_count > 0);
           if (data?.available && untouched) {
-            return { ...prev, image_style: { ...style, source: 'community' } };
+            return { ...prev, image_style: { ...style, source: 'community', sources: ['community'] } };
           }
           return prev;
         });
@@ -5424,8 +5424,6 @@ export default function App() {
   const [adminCreditForm, setAdminCreditForm] = useState({ amount: '', note: '' });
   const [adminCreditBusy, setAdminCreditBusy] = useState(false);
   const [adminGranting, setAdminGranting] = useState(false);
-  const [adminNewPlan, setAdminNewPlan] = useState({ name: '', price_fcfa: '', duration_days: 30 });
-  const [adminCreatingPlan, setAdminCreatingPlan] = useState(false);
   const [adminActivity, setAdminActivity] = useState(null);
   const [adminVideos, setAdminVideos] = useState([]);
   const [adminVideosLoading, setAdminVideosLoading] = useState(false);
@@ -6106,45 +6104,12 @@ export default function App() {
         } : {}),
       }));
       setAdminCreditForm({ amount: '', note: '' });
-      showToast(direction === 'grant' ? 'Crédits ajoutés et abonnement activé.' : 'Crédits retirés.', 'success');
+      showToast(direction === 'grant' ? 'Crédits ajoutés.' : 'Crédits retirés.', 'success');
       fetchAdminData();
     } catch (err) {
       showToast(err.message, 'error');
     } finally {
       setAdminCreditBusy(false);
-    }
-  };
-
-  const createAdminPlan = async () => {
-    if (!adminNewPlan.name.trim() || !adminNewPlan.price_fcfa) return;
-    setAdminCreatingPlan(true);
-    try {
-      const res = await authFetch(`${API_BASE}/admin/plans`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: adminNewPlan.name.trim(),
-          price_fcfa: parseInt(adminNewPlan.price_fcfa),
-          duration_days: parseInt(adminNewPlan.duration_days) || 30,
-          is_active: true,
-        }),
-      });
-      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || 'Échec de la création');
-      setAdminNewPlan({ name: '', price_fcfa: '', duration_days: 30 });
-      fetchAdminData();
-      showToast('Offre créée.', 'success');
-    } catch (err) {
-      showToast(err.message, 'error');
-    } finally {
-      setAdminCreatingPlan(false);
-    }
-  };
-
-  const deleteAdminPlan = async (planId) => {
-    try {
-      await authFetch(`${API_BASE}/admin/plans/${planId}`, { method: 'DELETE' });
-      fetchAdminData();
-    } catch (err) {
-      console.error("Erreur suppression plan:", err);
     }
   };
 
@@ -7378,7 +7343,6 @@ export default function App() {
               {[
                 { id: 'overview', label: "Vue d'ensemble", icon: 'dashboard' },
                 { id: 'users', label: 'Utilisateurs', icon: 'group' },
-                { id: 'plans', label: 'Offres', icon: 'sell' },
                 { id: 'videos', label: 'Vidéos', icon: 'movie' },
                 { id: 'library', label: 'Bibliothèque collaborative', icon: 'diversity_3' },
                 { id: 'transactions', label: 'Transactions', icon: 'payments' },
@@ -12047,7 +12011,7 @@ export default function App() {
               <span className="material-symbols-outlined text-[#00c2ff]">
                 {{ overview: 'dashboard', users: 'group', plans: 'sell', videos: 'movie', library: 'diversity_3', transactions: 'payments' }[adminTab]}
               </span>
-              {{ overview: "Vue d'ensemble", users: 'Utilisateurs', plans: 'Offres', videos: 'Vidéos', library: 'Bibliothèque collaborative', transactions: 'Transactions', costs: 'Coûts', resources: 'Ressources' }[adminTab]}
+              {{ overview: "Vue d'ensemble", users: 'Utilisateurs', videos: 'Vidéos', library: 'Bibliothèque collaborative', transactions: 'Transactions', costs: 'Coûts', resources: 'Ressources' }[adminTab]}
             </h2>
             <p className="text-xs text-slate-400 mt-1">
               {{
@@ -12167,42 +12131,6 @@ export default function App() {
                     ))}
                   </tbody>
                 </table>
-              </div>
-            </div>
-          )}
-
-          {adminTab === 'plans' && (
-            <div className="bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-2xl p-4 space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 items-end">
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-400 mb-1">Nom de l'offre</label>
-                  <input value={adminNewPlan.name} onChange={e => setAdminNewPlan({ ...adminNewPlan, name: e.target.value })} className="w-full bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-lg px-2.5 py-2 text-xs text-white focus:border-[#00c2ff] outline-none" placeholder="Ex: Pro" />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-400 mb-1">Prix (FCFA)</label>
-                  <input type="number" value={adminNewPlan.price_fcfa} onChange={e => setAdminNewPlan({ ...adminNewPlan, price_fcfa: e.target.value })} className="w-full bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-lg px-2.5 py-2 text-xs text-white focus:border-[#00c2ff] outline-none" placeholder="5000" />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-400 mb-1">Durée (jours)</label>
-                  <input type="number" value={adminNewPlan.duration_days} onChange={e => setAdminNewPlan({ ...adminNewPlan, duration_days: e.target.value })} className="w-full bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-lg px-2.5 py-2 text-xs text-white focus:border-[#00c2ff] outline-none" />
-                </div>
-                <button onClick={createAdminPlan} disabled={adminCreatingPlan} className="py-2 bg-[#00c2ff] text-slate-950 font-bold text-xs rounded-lg disabled:opacity-50">
-                  {adminCreatingPlan ? 'Création...' : '+ Créer l\'offre'}
-                </button>
-              </div>
-              <div className="space-y-1.5">
-                {adminPlans.map(p => (
-                  <div key={p.id} className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl border ${p.is_active ? 'bg-[var(--bg-input)] border-[var(--border-subtle)]' : 'bg-[var(--bg-input)]/40 border-[var(--border-subtle)]/50 opacity-50'}`}>
-                    <div>
-                      <span className="text-xs font-bold text-white">{p.name}</span>
-                      <span className="text-xs text-slate-400 ml-2">{p.price_fcfa.toLocaleString()} FCFA · {p.duration_days}j</span>
-                    </div>
-                    {p.is_active && (
-                      <button onClick={() => deleteAdminPlan(p.id)} className="text-rose-400 hover:text-rose-300 text-[11px] font-bold">Désactiver</button>
-                    )}
-                  </div>
-                ))}
-                {adminPlans.length === 0 && <p className="text-xs text-slate-500 text-center py-4">Aucune offre créée.</p>}
               </div>
             </div>
           )}
