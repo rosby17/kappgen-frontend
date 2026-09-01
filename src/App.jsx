@@ -5863,6 +5863,7 @@ export default function App() {
   // Admin-only display label for the library folder — never touches the
   // channel's real name, so the creator's own app is unaffected.
   const renameAdminLibraryFolder = async (channelId, label) => {
+    if (!label.trim()) { setEditingLibraryLabelChannelId(null); return; }
     try {
       const res = await authFetch(`${API_BASE}/admin/channel-library/${channelId}/label`, {
         method: 'PUT',
@@ -5872,7 +5873,7 @@ export default function App() {
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || "Échec du renommage.");
       setEditingLibraryLabelChannelId(null);
       fetchAdminLibraryOverview();
-      showToast('Nom du dossier mis à jour.', 'success');
+      showToast('Chaîne renommée.', 'success');
     } catch (err) {
       showToast(err.message, 'error');
     }
@@ -12482,9 +12483,10 @@ export default function App() {
               </div>
             );
 
-            // Admin-only rename of the folder label — click the pencil to edit
-            // inline, Enter/blur to save, Escape to cancel. Leaves the
-            // channel's real name untouched everywhere else in the app.
+            // The folder label IS the channel name — renaming here renames
+            // the channel itself (single source of truth), so the creator
+            // sees the new name everywhere else too. Click the pencil to
+            // edit inline, Enter/blur to save, Escape to cancel.
             const FolderNameLabel = ({ uf, size = 'text-xs' }) => (
               editingLibraryLabelChannelId === uf.channel_id ? (
                 <input
@@ -12497,7 +12499,6 @@ export default function App() {
                     if (e.key === 'Escape') setEditingLibraryLabelChannelId(null);
                   }}
                   onBlur={() => renameAdminLibraryFolder(uf.channel_id, editingLibraryLabelValue)}
-                  placeholder={uf.real_channel_name || uf.channel_name}
                   className={`min-w-0 flex-1 bg-[var(--bg-surface-alt)] border border-[#00c2ff] rounded-lg px-1.5 py-0.5 ${size} font-bold text-white outline-none`}
                 />
               ) : (
@@ -12505,8 +12506,8 @@ export default function App() {
                   <span className={`${size} font-bold text-white truncate`}>{uf.channel_name || '—'}</span>
                   <button
                     type="button"
-                    onClick={e => { e.stopPropagation(); setEditingLibraryLabelChannelId(uf.channel_id); setEditingLibraryLabelValue(uf.channel_name === uf.real_channel_name ? '' : (uf.channel_name || '')); }}
-                    title="Renommer ce dossier (n'affecte pas le vrai nom de la chaîne)"
+                    onClick={e => { e.stopPropagation(); setEditingLibraryLabelChannelId(uf.channel_id); setEditingLibraryLabelValue(uf.channel_name || ''); }}
+                    title="Renommer la chaîne"
                     className="shrink-0 p-0.5 rounded text-slate-500 hover:text-white"
                   >
                     <span className="material-symbols-outlined text-[13px]">edit</span>
@@ -12632,30 +12633,30 @@ export default function App() {
                     {list.map(uf => {
                       const sharedFolder = uf.community_folder_id ? { id: uf.community_folder_id } : null;
                       return adminLibraryViewMode === 'grid' ? (
-                        <div key={uf.channel_id} className="flex flex-col gap-2 p-4 bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-2xl">
+                        <div
+                          key={uf.channel_id}
+                          onClick={() => openAdminLibraryFolder(uf, niche.niche)}
+                          className="flex flex-col gap-2 p-4 bg-[var(--bg-surface-alt)] hover:bg-[var(--bg-hover)] border border-[var(--border)] hover:border-[#00c2ff]/50 rounded-2xl cursor-pointer transition-all"
+                        >
                           <div className="flex items-start justify-between gap-2">
                             <div className="flex items-center gap-2 min-w-0">
-                              <button
-                                onClick={() => openAdminLibraryFolder(uf, niche.niche)}
-                                className="shrink-0"
-                              >
-                                <span className="material-symbols-outlined text-[18px] text-slate-500">videocam</span>
-                              </button>
+                              <span className="material-symbols-outlined text-[18px] text-slate-500 shrink-0">videocam</span>
                               <FolderNameLabel uf={uf} />
                             </div>
                             <StatusBadge status={uf.share_status} />
                           </div>
                           <span className="text-[10px] text-slate-500">{uf.image_count} image{uf.image_count > 1 ? 's' : ''}</span>
-                          <FolderActions uf={uf} sharedFolder={sharedFolder} />
+                          <div onClick={e => e.stopPropagation()}>
+                            <FolderActions uf={uf} sharedFolder={sharedFolder} />
+                          </div>
                         </div>
                       ) : (
-                        <div key={uf.channel_id} className="px-4 py-3 flex items-center gap-2.5">
-                          <button
-                            onClick={() => openAdminLibraryFolder(uf, niche.niche)}
-                            className="shrink-0"
-                          >
-                            <span className="material-symbols-outlined text-[16px] text-slate-500">videocam</span>
-                          </button>
+                        <div
+                          key={uf.channel_id}
+                          onClick={() => openAdminLibraryFolder(uf, niche.niche)}
+                          className="px-4 py-3 flex items-center gap-2.5 hover:bg-[var(--bg-hover)] cursor-pointer transition-colors"
+                        >
+                          <span className="material-symbols-outlined text-[16px] text-slate-500 shrink-0">videocam</span>
                           <div className="flex-1 min-w-0 flex items-center gap-2">
                             <FolderNameLabel uf={uf} />
                             <span className="text-[10px] text-slate-500 shrink-0">{uf.image_count} image{uf.image_count > 1 ? 's' : ''}</span>
