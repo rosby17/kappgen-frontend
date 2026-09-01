@@ -1665,10 +1665,103 @@ function MusicChannelWizard({ authFetch, showToast, onCreated, onBack }) {
     target_duration_minutes: 10,
     automation_mode: 'manual', // 'manual' | 'auto'
     videos_per_day: 1,
+    logo_enabled: true,
+    logo_corner: 'top-right',
+    logo_shape: 'rectangle',
+    logo_size_percent: 14,
   });
   const [previewing, setPreviewing] = useState(false);
   const [previewUrl, setPreviewUrl] = useState(null);
   const [creating, setCreating] = useState(false);
+
+  // Same corner-preset math as the main wizard's presetXY (App.jsx) — kept
+  // local since that one is a closure over the big wizard's own state, not
+  // reachable from this separate component.
+  const PRESET_MARGIN_PERCENT = 6;
+  const FRAME_ASPECT = 16 / 9;
+  const presetXY = (corner, sizePercent) => {
+    const rightX = 100 - PRESET_MARGIN_PERCENT - sizePercent;
+    const bottomY = 100 - PRESET_MARGIN_PERCENT - sizePercent * FRAME_ASPECT;
+    switch (corner) {
+      case 'top-left': return { x: PRESET_MARGIN_PERCENT, y: PRESET_MARGIN_PERCENT };
+      case 'top-right': return { x: rightX, y: PRESET_MARGIN_PERCENT };
+      case 'bottom-left': return { x: PRESET_MARGIN_PERCENT, y: bottomY };
+      case 'bottom-right': return { x: rightX, y: bottomY };
+      default: return { x: rightX, y: PRESET_MARGIN_PERCENT };
+    }
+  };
+
+  const logoInputRef = useRef(null);
+  const [logoFile, setLogoFile] = useState(null);
+  const [logoPreviewUrl, setLogoPreviewUrl] = useState(null);
+  const handleLogoFileSelect = (e) => {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = '';
+    if (!file) return;
+    setLogoFile(file);
+    try { setLogoPreviewUrl(URL.createObjectURL(file)); } catch { setLogoPreviewUrl(null); }
+  };
+
+  // Created lazily — either by "Connecter YouTube" (needs a real channel id
+  // to attach OAuth credentials to) or by the final "Créer la chaîne
+  // musicale" submit, whichever happens first. Once set, submit switches
+  // from POST (create) to PUT (update the same channel) so connecting
+  // YouTube mid-wizard doesn't leave a duplicate channel behind.
+  const [createdChannelId, setCreatedChannelId] = useState(null);
+  const [youtubeConnected, setYoutubeConnected] = useState(false);
+  const [youtubeChannelTitle, setYoutubeChannelTitle] = useState(null);
+  const [connectingYoutube, setConnectingYoutube] = useState(false);
+
+  const ensureChannelCreated = async () => {
+    if (createdChannelId) return createdChannelId;
+    const res = await authFetch(`${API_BASE}/channels`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: form.name.trim() || 'Nouvelle chaîne musicale',
+        niche: 'Musique',
+        content_type: 'music',
+        automation_mode: form.automation_mode,
+        videos_per_day: form.videos_per_day,
+        music_channel_config: {
+          style_prompt: form.style_prompt.trim(),
+          title_examples: form.title_examples,
+          edit_mode: form.edit_mode,
+          image_count: form.image_count,
+          target_duration_minutes: form.target_duration_minutes,
+        },
+      }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || "Création impossible.");
+    }
+    const channel = await res.json();
+    setCreatedChannelId(channel.id);
+    return channel.id;
+  };
+
+  const handleConnectYoutube = async () => {
+    setConnectingYoutube(true);
+    try {
+      const channelId = await ensureChannelCreated();
+      const authRes = await authFetch(`${API_BASE}/channels/${channelId}/youtube/auth-url`);
+      if (!authRes.ok) {
+        const detail = await authRes.json().catch(() => ({}));
+        throw new Error(detail.detail || "Connexion YouTube indisponible.");
+      }
+      const data = await authRes.json();
+      // No "return to this wizard step" breadcrumb here — unlike the main
+      // narration wizard, there's no edit mode for music channels to reopen
+      // into yet, so the OAuth return lands on the new channel's normal
+      // detail page (the existing fallback behavior when no breadcrumb is
+      // set — see the top-level youtube-return effect).
+      window.location.href = data.auth_url;
+    } catch (err) {
+      showToast(err.message, 'error');
+      setConnectingYoutube(false);
+    }
+  };
 
   const generatePreview = async () => {
     if (!form.style_prompt.trim()) return showToast('Décris le style musical voulu.', 'error');
@@ -1696,30 +1789,73 @@ function MusicChannelWizard({ authFetch, showToast, onCreated, onBack }) {
     if (!form.style_prompt.trim()) return showToast('Décris le style musical voulu.', 'error');
     setCreating(true);
     try {
-      const res = await authFetch(`${API_BASE}/channels`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: form.name.trim(),
-          niche: 'Musique',
-          content_type: 'music',
-          automation_mode: form.automation_mode,
-          videos_per_day: form.videos_per_day,
-          music_channel_config: {
-            style_prompt: form.style_prompt.trim(),
-            title_examples: form.title_examples,
-            edit_mode: form.edit_mode,
-            image_count: form.image_count,
-            target_duration_minutes: form.target_duration_minutes,
-          },
-        }),
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.detail || "Création impossible.");
+      const logoXY = presetXY(form.logo_corner, form.logo_size_percent);
+      const brandingPatch = {
+        logo_enabled: form.logo_enabled,
+        logo_corner: form.logo_corner,
+        logo_shape: form.logo_shape,
+        logo_size_percent: form.logo_size_percent,
+        logo_x_percent: logoXY.x,
+        logo_y_percent: logoXY.y,
+      };
+      let channel;
+      if (createdChannelId) {
+        // Already exists (created early by "Connecter YouTube") — update it
+        // in place instead of creating a duplicate channel.
+        const res = await authFetch(`${API_BASE}/channels/${createdChannelId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: form.name.trim(),
+            automation_mode: form.automation_mode,
+            videos_per_day: form.videos_per_day,
+            music_channel_config: {
+              style_prompt: form.style_prompt.trim(),
+              title_examples: form.title_examples,
+              edit_mode: form.edit_mode,
+              image_count: form.image_count,
+              target_duration_minutes: form.target_duration_minutes,
+            },
+            branding: brandingPatch,
+          }),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.detail || "Mise à jour impossible.");
+        }
+        channel = await res.json();
+      } else {
+        const res = await authFetch(`${API_BASE}/channels`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: form.name.trim(),
+            niche: 'Musique',
+            content_type: 'music',
+            automation_mode: form.automation_mode,
+            videos_per_day: form.videos_per_day,
+            music_channel_config: {
+              style_prompt: form.style_prompt.trim(),
+              title_examples: form.title_examples,
+              edit_mode: form.edit_mode,
+              image_count: form.image_count,
+              target_duration_minutes: form.target_duration_minutes,
+            },
+            branding: brandingPatch,
+          }),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.detail || "Création impossible.");
+        }
+        channel = await res.json();
       }
-      const channel = await res.json();
-      showToast('Chaîne musicale créée.', 'success');
+      if (logoFile) {
+        const logoForm = new FormData();
+        logoForm.append('file', logoFile);
+        await authFetch(`${API_BASE}/channels/${channel.id}/logo`, { method: 'POST', body: logoForm });
+      }
+      showToast(createdChannelId ? 'Chaîne musicale mise à jour.' : 'Chaîne musicale créée.', 'success');
       onCreated(channel);
     } catch (err) {
       showToast(err.message, 'error');
@@ -1777,15 +1913,81 @@ function MusicChannelWizard({ authFetch, showToast, onCreated, onBack }) {
         {step === 1 && (
           <div className="space-y-6">
             <h3 className="text-base font-bold text-white">1. Identité de la Chaîne</h3>
-            <div>
-              <label className="block text-xs font-bold text-slate-300 mb-2">Nom de la chaîne YouTube</label>
-              <input
-                value={form.name}
-                onChange={e => setForm({ ...form, name: e.target.value })}
-                placeholder="Ex : Lofi pour réviser"
-                className="w-full bg-[var(--bg-input)] border border-[var(--border)] rounded-xl px-3 py-2.5 text-sm text-white focus:border-[#00c2ff] outline-none"
-              />
+
+            <div className="flex items-start gap-4">
+              <div
+                onClick={() => logoInputRef.current && logoInputRef.current.click()}
+                className="w-16 h-16 rounded-full bg-[var(--bg-surface-alt)] border-2 border-dashed border-[var(--border)] hover:border-[#00c2ff] cursor-pointer flex items-center justify-center overflow-hidden flex-shrink-0 transition-colors group"
+                title={logoPreviewUrl ? "Changer la photo" : "Sélectionner une photo"}
+              >
+                {logoPreviewUrl ? (
+                  <img src={logoPreviewUrl} alt="Logo" className="w-full h-full object-cover" onError={() => setLogoPreviewUrl(null)} />
+                ) : (
+                  <span className="material-symbols-outlined text-slate-400 group-hover:text-[#00c2ff] text-[20px]">add_a_photo</span>
+                )}
+              </div>
+              <input type="file" ref={logoInputRef} accept="image/*" onChange={handleLogoFileSelect} className="hidden" />
+
+              <div className="flex-1 min-w-0">
+                <label className="block text-xs font-bold text-slate-300 mb-2">Nom de la chaîne YouTube</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    value={form.name}
+                    onChange={e => setForm({ ...form, name: e.target.value })}
+                    placeholder="Ex : Lofi pour réviser"
+                    className="flex-1 min-w-0 max-w-64 bg-[var(--bg-input)] border border-[var(--border)] rounded-xl px-3 py-2.5 text-sm text-white focus:border-[#00c2ff] outline-none"
+                  />
+                  {youtubeConnected ? (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wide bg-emerald-950/80 text-emerald-300 border border-emerald-700/60 shrink-0">
+                      <YouTubeIcon className="w-3.5 h-2.5" /> {youtubeChannelTitle || 'Connectée'}
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={connectingYoutube}
+                      onClick={handleConnectYoutube}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wide bg-slate-800/80 text-slate-300 border border-slate-700/60 hover:bg-slate-700/80 hover:text-white transition-colors disabled:opacity-50 shrink-0"
+                    >
+                      <YouTubeIcon className="w-3.5 h-2.5" /> {connectingYoutube ? 'Connexion…' : 'Connecter la chaîne YouTube'}
+                    </button>
+                  )}
+                </div>
+                {!youtubeConnected && (
+                  <p className="text-[11px] text-slate-500 mt-2">
+                    Connecte-la maintenant pour remplir automatiquement le nom et la photo à partir de ta vraie chaîne. Tu seras redirigé vers Google, puis ramené ici.
+                  </p>
+                )}
+              </div>
             </div>
+
+            {logoPreviewUrl && (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end bg-[var(--bg-input)] border border-[var(--border-subtle)] rounded-xl p-3.5">
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Position du logo</label>
+                  <div className="flex items-center gap-1.5">
+                    {[
+                      { id: 'top-left', icon: 'north_west' }, { id: 'top-right', icon: 'north_east' },
+                      { id: 'bottom-left', icon: 'south_west' }, { id: 'bottom-right', icon: 'south_east' },
+                    ].map(c => (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => setForm({ ...form, logo_corner: c.id })}
+                        className={`w-8 h-8 flex items-center justify-center rounded-lg border transition-colors ${form.logo_corner === c.id ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#38d0ff]' : 'bg-[var(--bg-surface-alt)] border-[var(--border)] text-slate-400 hover:border-slate-500'}`}
+                        title={c.id}
+                      >
+                        <span className="material-symbols-outlined text-[16px]">{c.icon}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Forme</label>
+                  <ShapePicker value={form.logo_shape} onChange={v => setForm({ ...form, logo_shape: v })} />
+                </div>
+                <MiniSlider label="Taille" value={form.logo_size_percent} min={3} max={35} onChange={v => setForm({ ...form, logo_size_percent: v })} />
+              </div>
+            )}
           </div>
         )}
 
