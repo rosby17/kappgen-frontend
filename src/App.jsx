@@ -4113,7 +4113,7 @@ export default function App() {
       ]);
       const imgData = imgRes.ok ? await imgRes.json() : { filenames: [], total: 0 };
       const chData = chRes.ok ? await chRes.json() : null;
-      setLibraryImages(prev => ({ ...prev, [channelId]: { filenames: imgData.filenames || [], total: imgData.total || 0, loading: false } }));
+      setLibraryImages(prev => ({ ...prev, [channelId]: { filenames: imgData.filenames || [], total: imgData.total || 0, loading: false, shareWithCommunity: !!chData?.image_style?.share_with_community } }));
       setLibraryTracks(prev => ({ ...prev, [channelId]: (chData?.music_preference?.tracks) || [] }));
     } catch (err) {
       console.error("Erreur chargement du détail de la bibliothèque:", err);
@@ -4154,6 +4154,28 @@ export default function App() {
       showToast('Échec de la suppression.', 'error');
     } finally {
       setLibraryBusyKey(null);
+    }
+  };
+
+  const [libraryUploadingId, setLibraryUploadingId] = useState(null);
+  const uploadLibraryImages = async (channelId, fileList) => {
+    const files = Array.from(fileList || []);
+    if (!files.length) return;
+    setLibraryUploadingId(channelId);
+    try {
+      const formData = new FormData();
+      files.forEach(f => formData.append('files', f));
+      formData.append('append', 'true');
+      formData.append('share_with_community', libraryImages[channelId]?.shareWithCommunity ? 'true' : 'false');
+      const res = await authFetch(`${API_BASE}/channels/${channelId}/library-images`, { method: 'POST', body: formData });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || "Échec de l'ajout.");
+      showToast(`${files.length} image(s) ajoutée(s).`, 'success');
+      await fetchChannelLibraryDetail(channelId);
+      fetchLibraryOverview();
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setLibraryUploadingId(null);
     }
   };
 
@@ -9645,18 +9667,32 @@ export default function App() {
                               ) : (
                                 <>
                                   <div>
-                                    <div className="flex items-center justify-between mb-2">
+                                    <div className="flex items-center justify-between mb-2 gap-2">
                                       <h4 className="text-xs font-bold text-slate-300">Images ({detail?.total || 0})</h4>
-                                      {(detail?.filenames?.length || 0) > 0 && (
-                                        <button
-                                          onClick={() => deleteAllLibraryImages(c.channel_id)}
-                                          disabled={libraryBusyKey === `${c.channel_id}:__all__`}
-                                          className="text-[11px] font-bold text-rose-400 hover:text-rose-300 disabled:opacity-50 flex items-center gap-1"
-                                        >
-                                          <span className="material-symbols-outlined text-[14px]">delete_sweep</span>
-                                          Tout supprimer
-                                        </button>
-                                      )}
+                                      <div className="flex items-center gap-3">
+                                        <label className="text-[11px] font-bold text-[#00c2ff] hover:text-[#38d0ff] disabled:opacity-50 flex items-center gap-1 cursor-pointer">
+                                          <span className={`material-symbols-outlined text-[14px] ${libraryUploadingId === c.channel_id ? 'animate-spin' : ''}`}>{libraryUploadingId === c.channel_id ? 'progress_activity' : 'add_photo_alternate'}</span>
+                                          {libraryUploadingId === c.channel_id ? 'Envoi...' : 'Ajouter des images'}
+                                          <input
+                                            type="file"
+                                            accept="image/*"
+                                            multiple
+                                            disabled={libraryUploadingId === c.channel_id}
+                                            onChange={(e) => { uploadLibraryImages(c.channel_id, e.target.files); e.target.value = ''; }}
+                                            className="hidden"
+                                          />
+                                        </label>
+                                        {(detail?.filenames?.length || 0) > 0 && (
+                                          <button
+                                            onClick={() => deleteAllLibraryImages(c.channel_id)}
+                                            disabled={libraryBusyKey === `${c.channel_id}:__all__`}
+                                            className="text-[11px] font-bold text-rose-400 hover:text-rose-300 disabled:opacity-50 flex items-center gap-1"
+                                          >
+                                            <span className="material-symbols-outlined text-[14px]">delete_sweep</span>
+                                            Tout supprimer
+                                          </button>
+                                        )}
+                                      </div>
                                     </div>
                                     {!detail?.filenames?.length ? (
                                       <p className="text-[11px] text-slate-500">Aucune image importée.</p>
