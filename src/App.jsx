@@ -14231,7 +14231,7 @@ export default function App() {
             <div className="space-y-5">
               <div className="flex items-center justify-between gap-3">
                 <p className="text-[11px] text-slate-500 max-w-xl">
-                  Vérification en direct que chaque clé fonctionne — pas un solde de compte en temps réel. La plupart des fournisseurs n'exposent aucune API de solde.
+                  Vérification en direct que chaque clé fonctionne — pas un solde de compte en temps réel. Point vert = actif, point rouge = solde/crédit insuffisant, point gris = service injoignable, clé invalide, ou non configuré.
                 </p>
                 <button
                   onClick={fetchAdminProviders}
@@ -14338,7 +14338,7 @@ export default function App() {
                       const rank = (aiTextProvider.order || []).indexOf(id);
                       const selected = rank !== -1;
                       const health = (adminProviders || []).find(p => p.id === id);
-                      const dotColor = health?.status === 'ok' ? 'bg-emerald-500' : health?.status === 'error' ? 'bg-rose-500' : 'bg-slate-600';
+                      const dotColor = health?.status === 'ok' ? 'bg-emerald-500' : health?.status === 'quota_exhausted' ? 'bg-rose-500' : 'bg-slate-600';
                       return (
                         <button
                           key={id}
