@@ -4696,7 +4696,10 @@ export default function App() {
       // and clear it manually.
       style_prompt: '',
       library_path: '',
-      library_image_count: 0
+      library_image_count: 0,
+      broll_path: '',
+      broll_count: 0,
+      media_mode: 'images'
     },
     thumbnail_style: null,
     effects_config: {
@@ -9868,11 +9871,12 @@ export default function App() {
                       <h2 className="text-2xl font-extrabold tracking-[-.025em] text-white sm:text-3xl">Tes ressources, bien rangées.</h2>
                       <p className="mt-2 text-xs leading-relaxed text-slate-400 sm:text-sm">Retrouve les images et les pistes audio utilisées par chaque chaîne, puis ajoute ou nettoie tes médias depuis un seul endroit.</p>
                     </div>
-                    <div className="grid grid-cols-3 gap-2 sm:gap-3 xl:min-w-[430px]">
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3 xl:min-w-[560px]">
                       {[
                         { icon: 'subscriptions', value: libraryOverview?.length || 0, label: 'Chaînes', color: 'text-violet-300', bg: 'bg-violet-500/10' },
                         { icon: 'image', value: (libraryOverview || []).reduce((sum, c) => sum + (c.image_count || 0), 0), label: 'Images', color: 'text-[#66dcff]', bg: 'bg-[#00c2ff]/10' },
                         { icon: 'music_note', value: (libraryOverview || []).reduce((sum, c) => sum + (c.music_track_count || 0), 0), label: 'Musiques', color: 'text-emerald-300', bg: 'bg-emerald-500/10' },
+                        { icon: 'movie', value: (libraryOverview || []).reduce((sum, c) => sum + (c.broll_count || 0), 0), label: 'Vidéos B-roll', color: 'text-violet-300', bg: 'bg-violet-500/10' },
                       ].map(stat => (
                         <div key={stat.label} className="rounded-2xl border border-white/[.06] bg-black/10 p-3.5 backdrop-blur-sm">
                           <span className={`material-symbols-outlined mb-2 inline-flex h-7 w-7 items-center justify-center rounded-lg text-[16px] ${stat.color} ${stat.bg}`}>{stat.icon}</span>
@@ -10022,6 +10026,24 @@ export default function App() {
                                               </button>
                                             </div>
                                           );
+                                        })}
+                                      </div>
+                                    )}
+                                  </div>
+
+                                  <div>
+                                    <h4 className="text-xs font-bold text-slate-300 mb-2">Vidéos B-roll ({detail?.brollTotal || 0})</h4>
+                                    {(detail?.brollFilenames || []).length === 0 ? (
+                                      <p className="text-[11px] text-slate-500">Aucun B-roll importé.</p>
+                                    ) : (
+                                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                        {detail.brollFilenames.map(name => {
+                                          const busy = libraryBusyKey === `${c.channel_id}:broll:${name}`;
+                                          return <div key={name} className="relative group aspect-video overflow-hidden rounded-lg bg-[var(--bg-surface-alt)]">
+                                            <video src={`${API_BASE}/channels/${c.channel_id}/broll/${encodeURIComponent(name)}`} muted preload="metadata" className="h-full w-full object-cover" />
+                                            <span className="absolute bottom-1 left-1 rounded bg-slate-950/75 px-1.5 py-0.5 text-[9px] font-bold text-white">B-roll</span>
+                                            <button onClick={async () => { setLibraryBusyKey(`${c.channel_id}:broll:${name}`); try { const res = await authFetch(`${API_BASE}/channels/${c.channel_id}/broll/${encodeURIComponent(name)}`, { method: 'DELETE' }); if (!res.ok) throw new Error(); await fetchChannelLibraryDetail(c.channel_id); fetchLibraryOverview(); } catch { showToast('Échec de la suppression du B-roll.', 'error'); } finally { setLibraryBusyKey(null); } }} disabled={busy} title="Supprimer ce B-roll" className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-lg bg-slate-950/80 text-rose-400 opacity-0 transition-opacity group-hover:opacity-100"><span className="material-symbols-outlined text-[14px]">{busy ? 'progress_activity' : 'delete'}</span></button>
+                                          </div>;
                                         })}
                                       </div>
                                     )}
@@ -11406,6 +11428,19 @@ export default function App() {
                       <div>
                         <h3 className="text-base font-bold text-white">4. Source d'Images Visuelles & Mode de Génération</h3>
                         <p className="text-xs text-slate-400 mt-1">Sélectionnez la ou les sources visuelles souhaitées (Vous pouvez cocher l'Option A, l'Option B, ou les deux !).</p>
+                      </div>
+
+                      <div className="rounded-2xl border border-violet-500/20 bg-violet-500/[.05] p-4">
+                        <h4 className="text-xs font-bold text-white">Mode de montage avec tes médias</h4>
+                        <p className="mt-1 text-[10px] text-slate-400">Choisis comment les images et les vidéos B-roll importées doivent être utilisés.</p>
+                        <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
+                          {[['images', 'Images uniquement', 'image'], ['videos', 'Vidéos B-roll uniquement', 'movie'], ['mixed', 'Mix images + vidéos', 'perm_media']].map(([value, label, icon]) => (
+                            <button type="button" key={value} onClick={() => setNewChannel({ ...newChannel, image_style: { ...newChannel.image_style, media_mode: value } })} className={`flex items-center gap-2 rounded-xl border px-3 py-2.5 text-left text-[10px] font-bold transition ${newChannel.image_style.media_mode === value ? 'border-violet-400 bg-violet-500/20 text-white' : 'border-white/10 bg-black/10 text-slate-400 hover:border-violet-400/50'}`}>
+                              <span className="material-symbols-outlined text-[16px] text-violet-300">{icon}</span>{label}
+                            </button>
+                          ))}
+                        </div>
+                        {newChannel.image_style.media_mode === 'videos' && <p className="mt-2 text-[10px] text-amber-300">Ce mode nécessite au moins un clip B-roll importé dans la Bibliothèque.</p>}
                       </div>
 
                       {/* 2 CARDS SELECTION GRID WITH CHECKBOXES */}
