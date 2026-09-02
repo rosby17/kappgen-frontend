@@ -4220,6 +4220,7 @@ export default function App() {
     script_generation_second: 0,
     script_generation_days: null,
     publish_mode: 'manual',
+    youtube_made_for_kids: false,
     publish_time_mode: 'range',
     publish_schedule_hour: 8,
     publish_schedule_day_offset: 1,
@@ -5304,6 +5305,7 @@ export default function App() {
       script_generation_days: channel.script_generation_days || null,
       timezone: channel.timezone || defaultChannelForm.timezone,
       publish_mode: channel.publish_mode || 'manual',
+      youtube_made_for_kids: !!channel.youtube_made_for_kids,
       publish_time_mode: channel.publish_time_mode || 'range',
       publish_schedule_hour: channel.publish_schedule_hour ?? 8,
       publish_schedule_day_offset: channel.publish_schedule_day_offset ?? 1,
@@ -12216,10 +12218,6 @@ export default function App() {
                       <div>
                         <label className="block text-xs font-bold text-slate-300 mb-2">Publication YouTube</label>
                         <p className="text-[11px] text-slate-500 mb-2">Indépendant du mode de génération du script — décide ce qui arrive à une vidéo une fois qu'elle est prête.</p>
-                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[var(--bg-surface-alt)] border border-[var(--border)] text-slate-400 text-[10px] font-bold mb-3">
-                          <span className="material-symbols-outlined text-[13px] text-emerald-400">check_circle</span>
-                          Gratuit pour l'instant — pourra devenir payant à l'avenir
-                        </div>
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                           {[
                             { value: 'manual', icon: 'download', label: 'Manuelle', desc: 'Tu télécharges la vidéo, ou tu cliques « Publier » quand tu veux' },
@@ -12246,6 +12244,18 @@ export default function App() {
                             );
                           })}
                         </div>
+                        <label className="mt-3 flex items-start gap-3 rounded-xl border border-[var(--border)] bg-[var(--bg-surface-alt)] p-3 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={!!newChannel.youtube_made_for_kids}
+                            onChange={e => setNewChannel({ ...newChannel, youtube_made_for_kids: e.target.checked })}
+                            className="mt-0.5 accent-[#00c2ff]"
+                          />
+                          <span>
+                            <span className="block text-[11px] font-bold text-white">Contenu destiné principalement aux enfants</span>
+                            <span className="mt-0.5 block text-[9px] leading-relaxed text-slate-500">Activez uniquement si l’audience principale est composée d’enfants. KappGen transmettra cette déclaration à YouTube.</span>
+                          </span>
+                        </label>
                         {newChannel.publish_mode === 'scheduled' && (
                           <div className="mt-3 space-y-2">
                             <div>
