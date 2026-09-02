@@ -13852,14 +13852,13 @@ export default function App() {
                     </div>
                     <div>
                       <label className="block text-xs font-bold text-slate-300 mb-1">Langue de l'application</label>
-                      <select
-                        value={profileForm.locale}
-                        onChange={e => setProfileForm({ ...profileForm, locale: e.target.value })}
-                        className="w-full bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl p-3 text-xs text-white focus:border-[#00c2ff] outline-none"
-                      >
-                        <option value="fr">Français</option>
-                        <option value="en">English</option>
-                      </select>
+                      <div className="w-full [&>div>button]:w-full [&>div>button]:justify-between">
+                        <SimpleSelect
+                          value={profileForm.locale}
+                          onChange={locale => setProfileForm({ ...profileForm, locale })}
+                          options={[{ value: 'fr', label: 'Français' }, { value: 'en', label: 'English' }]}
+                        />
+                      </div>
                       <p className="text-[11px] text-slate-500 mt-1">Détermine la langue des emails que KappGen vous envoie (bienvenue, récupération, factures).</p>
                     </div>
                     <button
