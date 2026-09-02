@@ -9468,7 +9468,7 @@ export default function App() {
                                     video by mistake, since the main "Publier"/"Voir" button text
                                     alone was easy to miss at a glance across a whole grid. */}
                                 {vid.youtube_video_id && (
-                                  <span className="flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-sans font-bold lowercase tracking-normal bg-red-950/90 text-red-300 border border-red-700/80">
+                                  <span className="flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-sans font-bold uppercase tracking-normal bg-slate-800/90 text-slate-300 border border-slate-600/70">
                                     <span className="material-symbols-outlined text-[11px]">check_circle</span>
                                     Publiée
                                   </span>
@@ -9477,7 +9477,7 @@ export default function App() {
                                     video the creator already grabbed to post elsewhere from one
                                     that's just sitting there never touched. */}
                                 {vid.downloaded_at && !vid.youtube_video_id && (
-                                  <span className="flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-sans font-bold lowercase tracking-normal bg-violet-950/90 text-violet-300 border border-violet-700/80">
+                                  <span className="flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-sans font-bold uppercase tracking-normal bg-slate-800/90 text-slate-300 border border-slate-600/70">
                                     <span className="material-symbols-outlined text-[11px]">download_done</span>
                                     Téléchargée
                                   </span>
@@ -9498,52 +9498,52 @@ export default function App() {
                               {openVideoMenuId === vid.id && videoMenuAnchor && createPortal(
                                 <div style={{ position: 'fixed', top: videoMenuAnchor.top ?? undefined, bottom: videoMenuAnchor.bottom ?? undefined, right: videoMenuAnchor.right, maxHeight: videoMenuAnchor.maxHeight, overflowY: 'auto' }} className="video-menu-container w-44 bg-[var(--bg-dropdown)] border border-[var(--border-dropdown)] rounded-xl shadow-2xl z-[100] py-1.5">
                                   {vid.status === 'done' && (
-                                    <button onClick={(e) => openRenameModal(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium">
-                                      <span className="material-symbols-outlined text-[16px] text-[#00c2ff]">drive_file_rename_outline</span> Renommer
+                                    <button onClick={(e) => openRenameModal(vid, e)} className="w-full text-left px-3 py-1.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium">
+                                      <span className="material-symbols-outlined text-[14px] text-[#00c2ff]">drive_file_rename_outline</span> Renommer
                                     </button>
                                   )}
                                   {vid.status === 'done' && (
-                                    <button onClick={(e) => openThumbnailModal(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium">
-                                      <span className="material-symbols-outlined text-[16px] text-[#00c2ff]">photo_camera</span> Voir la miniature
+                                    <button onClick={(e) => openThumbnailModal(vid, e)} className="w-full text-left px-3 py-1.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium">
+                                      <span className="material-symbols-outlined text-[14px] text-[#00c2ff]">photo_camera</span> Voir la miniature
                                     </button>
                                   )}
                                   {vid.status === 'done' && vid.editable && (
-                                    <button onClick={(e) => { e.stopPropagation(); setOpenVideoMenuId(null); openStudio(vid); }} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium">
-                                      <span className="material-symbols-outlined text-[16px] text-[#00c2ff]">movie_edit</span> Éditer la vidéo
+                                    <button onClick={(e) => { e.stopPropagation(); setOpenVideoMenuId(null); openStudio(vid); }} className="w-full text-left px-3 py-1.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium">
+                                      <span className="material-symbols-outlined text-[14px] text-[#00c2ff]">movie_edit</span> Éditer la vidéo
                                     </button>
                                   )}
                                   {vid.status === 'done' && (
-                                    <button onClick={(e) => handleDownloadVideo(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium">
-                                      <span className="material-symbols-outlined text-[16px] text-[#00c2ff]">download</span> Télécharger
+                                    <button onClick={(e) => handleDownloadVideo(vid, e)} className="w-full text-left px-3 py-1.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium">
+                                      <span className="material-symbols-outlined text-[14px] text-[#00c2ff]">download</span> Télécharger
                                     </button>
                                   )}
                                   {vid.status === 'done' && (
-                                    <button disabled={togglingRetentionId === vid.id} onClick={(e) => openRetentionModal(vid, e)} title="48 heures incluses, puis 1 000 crédits par jour." className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium disabled:opacity-50">
-                                      <span className="material-symbols-outlined text-[16px] text-[#00c2ff]">schedule</span>
+                                    <button disabled={togglingRetentionId === vid.id} onClick={(e) => openRetentionModal(vid, e)} title="48 heures incluses, puis 1 000 crédits par jour." className="w-full text-left px-3 py-1.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium disabled:opacity-50">
+                                      <span className="material-symbols-outlined text-[14px] text-[#00c2ff]">schedule</span>
                                       Conserver plus longtemps
                                     </button>
                                   )}
                                   {vid.status === 'done' && vid.scheduled_publish_at && !vid.youtube_video_id && (
-                                    <button disabled={approvingVideoId === vid.id} onClick={(e) => handleToggleApproval(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium disabled:opacity-50">
+                                    <button disabled={approvingVideoId === vid.id} onClick={(e) => handleToggleApproval(vid, e)} className="w-full text-left px-3 py-1.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium disabled:opacity-50">
                                       <span className={`material-symbols-outlined text-[16px] ${vid.approved_for_publish ? 'text-emerald-400' : 'text-[#00c2ff]'}`}>{vid.approved_for_publish ? 'check_circle' : 'pending'}</span>
                                       {vid.approved_for_publish ? 'Approuvée — annuler' : 'Approuver la publication'}
                                     </button>
                                   )}
                                   {vid.status === 'done' && (
-                                    <button disabled={publishingVideoId === vid.id} onClick={(e) => handlePublishYouTube(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium disabled:opacity-50">
-                                      <span className="material-symbols-outlined text-[16px] text-[#00c2ff]">{vid.youtube_video_id ? 'open_in_new' : 'smart_display'}</span>
+                                    <button disabled={publishingVideoId === vid.id} onClick={(e) => handlePublishYouTube(vid, e)} className="w-full text-left px-3 py-1.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium disabled:opacity-50">
+                                      <span className="material-symbols-outlined text-[14px] text-[#00c2ff]">{vid.youtube_video_id ? 'open_in_new' : 'smart_display'}</span>
                                       {vid.youtube_video_id ? 'Voir sur YouTube' : publishingVideoId === vid.id ? 'Publication…' : 'Publier sur YouTube'}
                                     </button>
                                   )}
                                   {vid.status === 'done' && vid.youtube_video_id && (
-                                    <button disabled={resyncingThumbnailId === vid.id} onClick={(e) => handleResyncThumbnail(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium disabled:opacity-50">
-                                      <span className={`material-symbols-outlined text-[16px] text-[#00c2ff] ${resyncingThumbnailId === vid.id ? 'animate-spin' : ''}`}>{resyncingThumbnailId === vid.id ? 'progress_activity' : 'image'}</span>
+                                    <button disabled={resyncingThumbnailId === vid.id} onClick={(e) => handleResyncThumbnail(vid, e)} className="w-full text-left px-3 py-1.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium disabled:opacity-50">
+                                      <span className={`material-symbols-outlined text-[14px] text-[#00c2ff] ${resyncingThumbnailId === vid.id ? 'animate-spin' : ''}`}>{resyncingThumbnailId === vid.id ? 'progress_activity' : 'image'}</span>
                                       {resyncingThumbnailId === vid.id ? 'Mise à jour…' : 'Mettre à jour la miniature sur YouTube'}
                                     </button>
                                   )}
                                   <div className="h-[1px] bg-[var(--border-dropdown)] my-1"></div>
-                                  <button onClick={(e) => { e.stopPropagation(); setMovingVideoId(movingVideoId === vid.id ? null : vid.id); }} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium">
-                                    <span className="material-symbols-outlined text-[16px] text-[#00c2ff]">drive_file_move</span> Déplacer vers…
+                                  <button onClick={(e) => { e.stopPropagation(); setMovingVideoId(movingVideoId === vid.id ? null : vid.id); }} className="w-full text-left px-3 py-1.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium">
+                                    <span className="material-symbols-outlined text-[14px] text-[#00c2ff]">drive_file_move</span> Déplacer vers…
                                   </button>
                                   {movingVideoId === vid.id && (
                                     <div className="border-t border-[var(--border-dropdown)] mt-1 pt-1 max-h-40 overflow-y-auto">
@@ -9566,8 +9566,8 @@ export default function App() {
                                     </div>
                                   )}
                                   <div className="h-[1px] bg-[var(--border-dropdown)] my-1"></div>
-                                  <button onClick={(e) => handleDeleteVideo(vid.id, e)} className="w-full text-left px-4 py-2.5 text-xs text-rose-400 hover:bg-rose-950/50 flex items-center gap-2 font-medium">
-                                    <span className="material-symbols-outlined text-[16px]">delete</span> Supprimer
+                                  <button onClick={(e) => handleDeleteVideo(vid.id, e)} className="w-full text-left px-3 py-1.5 text-xs text-rose-400 hover:bg-rose-950/50 flex items-center gap-2 font-medium">
+                                    <span className="material-symbols-outlined text-[14px]">delete</span> Supprimer
                                   </button>
                                 </div>,
                                 document.body
@@ -10178,13 +10178,13 @@ export default function App() {
                                 taking up space without adding information. */}
                             {vid.status !== 'rendering' && <div className="absolute top-2 left-2 z-10 flex items-center gap-1.5">
                               {vid.youtube_video_id && (
-                                <span className="flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-sans font-bold lowercase tracking-normal bg-red-950/90 text-red-300 border border-red-700/80">
+                                <span className="flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-sans font-bold uppercase tracking-normal bg-slate-800/90 text-slate-300 border border-slate-600/70">
                                   <span className="material-symbols-outlined text-[11px]">check_circle</span>
                                   Publiée
                                 </span>
                               )}
                               {vid.downloaded_at && !vid.youtube_video_id && (
-                                <span className="flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-sans font-bold lowercase tracking-normal bg-violet-950/90 text-violet-300 border border-violet-700/80">
+                                <span className="flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-sans font-bold uppercase tracking-normal bg-slate-800/90 text-slate-300 border border-slate-600/70">
                                   <span className="material-symbols-outlined text-[11px]">download_done</span>
                                   Téléchargée
                                 </span>
@@ -10231,7 +10231,7 @@ export default function App() {
                                 )}
                                 {vid.status === 'done' && vid.scheduled_publish_at && !vid.youtube_video_id && (
                                   <button disabled={approvingVideoId === vid.id} onClick={(e) => handleToggleApproval(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium disabled:opacity-50">
-                                    <span className={`material-symbols-outlined text-[16px] ${vid.approved_for_publish ? 'text-emerald-400' : 'text-[#00c2ff]'}`}>{vid.approved_for_publish ? 'check_circle' : 'pending'}</span>
+                                    <span className={`material-symbols-outlined text-[14px] ${vid.approved_for_publish ? 'text-emerald-400' : 'text-[#00c2ff]'}`}>{vid.approved_for_publish ? 'check_circle' : 'pending'}</span>
                                     {vid.approved_for_publish ? 'Approuvée — annuler' : 'Approuver la publication'}
                                   </button>
                                 )}
