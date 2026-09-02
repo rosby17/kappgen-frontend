@@ -4350,15 +4350,17 @@ export default function App() {
   };
 
   const styleReferenceInputRef = useRef(null);
+  const [styleReferenceNames, setStyleReferenceNames] = useState([]);
 
   const handleAnalyzeStyleImage = async (e) => {
-    const file = e.target.files?.[0];
+    const files = Array.from(e.target.files || []);
     e.target.value = '';
-    if (!file) return;
+    if (!files.length) return;
     setStyleAnalyzing(true);
     try {
       const formData = new FormData();
-      formData.append('file', file);
+      files.forEach(file => formData.append('files', file));
+      formData.append('file', files[0]);
       const res = await authFetch(`${API_BASE}/channels/analyze-style-image`, { method: 'POST', body: formData });
       if (!res.ok) {
         const detail = await res.json().catch(() => ({}));
@@ -4366,7 +4368,8 @@ export default function App() {
       }
       const data = await res.json();
       setNewChannel(prev => ({ ...prev, image_style: { ...prev.image_style, style_prompt: data.style_prompt } }));
-      showToast("Style analysé et appliqué au prompt.", "success");
+      setStyleReferenceNames(prev => [...prev, ...files.map(file => file.name)].slice(-10));
+      showToast(`${files.length} référence(s) analysée(s).`, "success");
     } catch (err) {
       showToast(err.message || "Erreur lors de l'analyse de l'image.", "error");
     } finally {
@@ -11724,57 +11727,38 @@ export default function App() {
                             </div>
                           )}
 
-                          <div>
-                            <div className="flex items-center justify-between mb-1">
-                              <label className="block text-[10px] font-bold text-slate-300">Style des visuels</label>
-                              <div onClick={(e) => e.stopPropagation()}>
-                                <input
-                                  ref={styleReferenceInputRef}
-                                  type="file"
-                                  accept="image/png,image/jpeg,image/webp"
-                                  onChange={handleAnalyzeStyleImage}
-                                  className="hidden"
-                                />
-                                <button
-                                  type="button"
-                                  disabled={styleAnalyzing}
-                                  onClick={() => styleReferenceInputRef.current && styleReferenceInputRef.current.click()}
-                                  className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold bg-[#00c2ff]/10 text-[#00c2ff] hover:bg-[#00c2ff]/20 transition-colors disabled:opacity-50"
-                                >
-                                  <span className="material-symbols-outlined text-[13px]">{styleAnalyzing ? 'hourglass_top' : 'image_search'}</span>
-                                  {styleAnalyzing ? 'Analyse...' : "Envoyer une image d'inspiration"}
-                                </button>
-                              </div>
+                          <div className="space-y-2">
+                            <label className="block text-[10px] font-bold text-slate-300">Références visuelles</label>
+                            <input
+                              ref={styleReferenceInputRef}
+                              type="file"
+                              accept="image/png,image/jpeg,image/webp"
+                              multiple
+                              onChange={handleAnalyzeStyleImage}
+                              className="hidden"
+                            />
+                            <div
+                              role="button"
+                              tabIndex={0}
+                              onClick={() => !styleAnalyzing && styleReferenceInputRef.current?.click()}
+                              onKeyDown={e => { if ((e.key === 'Enter' || e.key === ' ') && !styleAnalyzing) styleReferenceInputRef.current?.click(); }}
+                              onDragOver={e => e.preventDefault()}
+                              onDrop={e => { e.preventDefault(); if (!styleAnalyzing) handleAnalyzeStyleImage({ target: { files: e.dataTransfer.files, value: '' } }); }}
+                              className="flex min-h-36 cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-600 px-4 text-center text-[11px] text-slate-400 transition-colors hover:border-[#00c2ff] hover:bg-[#00c2ff]/5 hover:text-[#00c2ff]"
+                            >
+                              <span className={`material-symbols-outlined text-3xl ${styleAnalyzing ? 'animate-spin' : ''}`}>{styleAnalyzing ? 'progress_activity' : 'cloud_upload'}</span>
+                              <span className="mt-2 font-bold">{styleAnalyzing ? 'Analyse des références…' : 'Glisse-dépose tes références visuelles'}</span>
+                              {!styleAnalyzing && <span className="mt-0.5 text-slate-500">ou clique ici</span>}
                             </div>
-                            <p className="text-[10px] text-slate-500 mb-1.5">
-                              Envoie une photo qui ressemble à ce que tu veux voir dans tes vidéos — l'IA en retiendra à la fois le style visuel et le sujet (personnages, décors) pour rester dans ta niche.
-                            </p>
+                            {styleReferenceNames.length > 0 && <p className="text-[10px] text-[#56d9ff]">{styleReferenceNames.length} référence(s) analysée(s)</p>}
+                            <label className="block text-[10px] font-bold text-slate-300">Prompt complémentaire <span className="font-normal text-slate-500">(optionnel)</span></label>
                             <textarea
                               rows="2"
                               value={newChannel.image_style.style_prompt}
                               onChange={e => setNewChannel({ ...newChannel, image_style: { ...newChannel.image_style, style_prompt: e.target.value } })}
                               className="w-full bg-[var(--bg-input-alt)] border border-[var(--border)] rounded-xl p-2.5 text-[11px] text-white focus:border-[#00c2ff] outline-none placeholder-slate-500"
-                              placeholder="Ex: médecins en blouse blanche, hôpital moderne, éclairage clinique rassurant..."
+                              placeholder="Ajoute un détail de style ou de sujet…"
                             />
-                            <div className="flex flex-wrap gap-1.5 mt-2">
-                              {[
-                                'Cinématique, éclairage dramatique',
-                                'Aquarelle douce',
-                                'Photo réaliste, style documentaire',
-                                'Illustration religieuse classique',
-                                'Néon futuriste, cyberpunk',
-                              ].map((preset) => (
-                                <button
-                                  key={preset}
-                                  type="button"
-                                  onClick={() => setNewChannel({ ...newChannel, image_style: { ...newChannel.image_style, style_prompt: preset } })}
-                                  className="px-2.5 py-1 rounded-full text-[10px] font-semibold bg-[var(--bg-surface-alt)] text-slate-300 hover:bg-[#00c2ff]/10 hover:text-[#00c2ff] border border-[var(--border)] transition-colors"
-                                >
-                                  {preset}
-                                </button>
-                              ))}
-                            </div>
-                            <p className="text-[10px] text-slate-500 mt-1.5">Ce style guide chaque image générée — plus c'est précis, plus le résultat est cohérent d'une vidéo à l'autre.</p>
                           </div>
                         </div>
 
@@ -11858,23 +11842,27 @@ export default function App() {
                               onChange={handleUploadThumbnailStyle}
                               className="hidden"
                             />
-                            <button
-                              type="button"
-                              disabled={thumbnailStyleAnalyzing || !canGenerateAIImages}
-                              title={canGenerateAIImages ? undefined : `Crédits insuffisants (${THUMBNAIL_GENERATION_CREDITS.toLocaleString()} crédits/miniature générée)`}
-                              onClick={() => thumbnailStyleInputRef.current && thumbnailStyleInputRef.current.click()}
-                              className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold bg-[#00c2ff]/10 text-[#00c2ff] hover:bg-[#00c2ff]/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                              <span className="material-symbols-outlined text-[13px]">{thumbnailStyleAnalyzing ? 'hourglass_top' : 'image_search'}</span>
-                              {thumbnailStyleAnalyzing ? 'Analyse...' : (newChannel.thumbnail_style?.style_prompt ? "Ajouter d'autres images" : "Ajouter des images de référence")}
-                            </button>
-                            <p className={`mt-2 text-[10px] ${thumbnailDragOver ? 'text-[#00c2ff] font-bold' : 'text-slate-500'}`}>Glisser-déposer des images</p>
-                            <div className="mt-2 flex items-center gap-2">
-                              <input type="file" accept="image/png,image/jpeg,image/webp" multiple onChange={handleUploadThumbnailStyle} className="hidden" id="thumbnail-character-upload" />
-                              <label htmlFor="thumbnail-character-upload" className="cursor-pointer text-[10px] text-slate-400 hover:text-[#00c2ff]">Personnage principal privé ? Ajouter sa photo</label>
-                            </div>
+                            <label className="flex cursor-pointer items-center gap-2 text-[10px] font-bold text-white">
+                              <input type="checkbox" checked={!!newChannel.image_style.generate_thumbnail_with_ai} onChange={e => setNewChannel({ ...newChannel, image_style: { ...newChannel.image_style, generate_thumbnail_with_ai: e.target.checked } })} className="sr-only" />
+                              <span className={`flex h-5 w-5 items-center justify-center rounded-md border ${newChannel.image_style.generate_thumbnail_with_ai ? 'border-[#00c2ff] bg-[#00c2ff] text-slate-950' : 'border-slate-500'}`}>{newChannel.image_style.generate_thumbnail_with_ai && <span className="material-symbols-outlined text-[16px]">check</span>}</span>
+                              Miniature IA
+                            </label>
                           </div>
                         </div>
+                        {newChannel.image_style.generate_thumbnail_with_ai && (
+                          <div
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => !thumbnailStyleAnalyzing && editingChannelId && thumbnailStyleInputRef.current?.click()}
+                            onKeyDown={e => { if ((e.key === 'Enter' || e.key === ' ') && !thumbnailStyleAnalyzing && editingChannelId) thumbnailStyleInputRef.current?.click(); }}
+                            className={`flex min-h-36 cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed px-4 text-center text-[11px] transition-colors ${thumbnailDragOver ? 'border-[#00c2ff] bg-[#00c2ff]/10 text-[#00c2ff]' : 'border-slate-600 text-slate-400 hover:border-[#00c2ff] hover:bg-[#00c2ff]/5 hover:text-[#00c2ff]'} ${!editingChannelId ? 'cursor-not-allowed opacity-50' : ''}`}
+                          >
+                            <span className={`material-symbols-outlined text-3xl ${thumbnailStyleAnalyzing ? 'animate-spin' : ''}`}>{thumbnailStyleAnalyzing ? 'progress_activity' : 'cloud_upload'}</span>
+                            <span className="mt-2 font-bold">{thumbnailStyleAnalyzing ? 'Analyse des miniatures…' : 'Glisse-dépose des miniatures de référence'}</span>
+                            {!thumbnailStyleAnalyzing && <span className="mt-0.5 text-slate-500">ou clique ici</span>}
+                            {!editingChannelId && <span className="mt-2 text-amber-300">Enregistre d’abord la chaîne</span>}
+                          </div>
+                        )}
                         {/* AI concept proposal removed: reference images are the source of truth.
                             visual identity (subject/character + palette + style), not a
                             generic template. Once approved it's locked as this channel's
@@ -12052,11 +12040,6 @@ export default function App() {
                         ) : !editingChannelId ? (
                           <p className="text-[10px] text-amber-400/80">Enregistre d'abord la chaîne pour pouvoir ajouter des images de référence de miniature.</p>
                         ) : null}
-                        <label className="mt-4 flex items-center gap-3 rounded-xl border border-white/10 bg-[var(--bg-input-alt)] p-3 cursor-pointer hover:border-[#00c2ff]/60">
-                          <input type="checkbox" checked={!!newChannel.image_style.generate_thumbnail_with_ai} onChange={e => setNewChannel({ ...newChannel, image_style: { ...newChannel.image_style, generate_thumbnail_with_ai: e.target.checked } })} className="sr-only" />
-                          <span className={`w-5 h-5 rounded-md border flex items-center justify-center ${newChannel.image_style.generate_thumbnail_with_ai ? 'bg-[#00c2ff] border-[#00c2ff] text-slate-950' : 'border-slate-500'}`}>{newChannel.image_style.generate_thumbnail_with_ai && <span className="material-symbols-outlined text-[16px]">check</span>}</span>
-                          <span className="text-xs font-bold text-white">Générer une miniature IA <em className="ml-1 text-[10px] font-normal not-italic text-slate-500">({THUMBNAIL_GENERATION_CREDITS.toLocaleString()} crédits)</em></span>
-                        </label>
                       </div>
                     </div>
                   );
