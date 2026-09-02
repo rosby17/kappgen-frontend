@@ -2861,7 +2861,7 @@ function MiniSlider({ label, value, min, max, onChange }) {
   );
 }
 
-function NumberDropdown({ value, onChange, max, suffix, width }) {
+function NumberDropdown({ value, onChange, max, suffix, width, fullWidth = false }) {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState('');
   const ref = useRef(null);
@@ -2885,7 +2885,7 @@ function NumberDropdown({ value, onChange, max, suffix, width }) {
       <button
         type="button"
         onClick={() => setOpen(o => !o)}
-        className="flex items-center gap-1 bg-[var(--bg-surface-alt)] border border-[var(--border)] hover:border-slate-500 rounded-lg px-2.5 py-1.5 text-[11px] font-bold text-white transition-colors"
+        className={`flex items-center justify-between gap-1 bg-[var(--bg-surface-alt)] border border-[var(--border)] hover:border-slate-500 rounded-xl px-3 text-[11px] font-bold text-white transition-colors ${fullWidth ? 'h-10 w-full' : 'py-1.5'}`}
       >
         {String(value).padStart(2, '0')}{suffix}
         <span className={`material-symbols-outlined text-[14px] text-slate-400 transition-transform ${open ? 'rotate-180' : ''}`}>expand_more</span>
@@ -2924,8 +2924,8 @@ function NumberDropdown({ value, onChange, max, suffix, width }) {
   );
 }
 
-function HourDropdown({ value, onChange }) {
-  return <NumberDropdown value={value} onChange={onChange} max={23} suffix="h00" width="w-24" />;
+function HourDropdown({ value, onChange, fullWidth = false }) {
+  return <NumberDropdown value={value} onChange={onChange} max={23} suffix="h00" width="w-24" fullWidth={fullWidth} />;
 }
 
 function MinuteDropdown({ value, onChange }) {
@@ -4225,7 +4225,7 @@ export default function App() {
     script_generation_minute: 0,
     script_generation_second: 0,
     script_generation_days: null,
-    publish_mode: 'manual',
+    publish_mode: 'auto',
     youtube_made_for_kids: false,
     youtube_default_description: '',
     youtube_default_tags: [],
@@ -12283,15 +12283,13 @@ export default function App() {
                     } catch { return tz; }
                   };
                   const timezonePicker = (
-                    <div className="flex items-center gap-2 bg-[var(--bg-input)] border border-[var(--border-subtle)] rounded-xl px-3 py-2.5 relative">
-                      <span className="material-symbols-outlined text-[16px] text-slate-500 shrink-0">public</span>
-                      <span className="text-[11px] text-slate-400 shrink-0">Fuseau horaire :</span>
+                    <div className="relative">
                       <button
                         type="button"
                         onClick={() => { setTimezoneMenuOpen(o => !o); setTimezoneSearch(''); }}
-                        className="flex-1 min-w-0 flex items-center justify-between gap-2 bg-[var(--bg-surface-alt)] border border-[var(--border)] hover:border-slate-500 rounded-lg px-2.5 py-1.5 text-[11px] text-white text-left transition-colors"
+                        className="flex h-10 w-full min-w-0 items-center justify-between gap-2 rounded-xl border border-[var(--border)] bg-[var(--bg-surface-alt)] px-3 text-[11px] text-white text-left transition-colors hover:border-slate-500"
                       >
-                        <span className="truncate">{formatTimezone(newChannel.timezone || 'Africa/Douala')}</span>
+                        <span className="flex min-w-0 items-center gap-2"><span className="material-symbols-outlined text-[15px] text-slate-500">public</span><span className="truncate">{formatTimezone(newChannel.timezone || 'Africa/Douala')}</span></span>
                         <span className={`material-symbols-outlined text-[15px] text-slate-400 shrink-0 transition-transform ${timezoneMenuOpen ? 'rotate-180' : ''}`}>expand_more</span>
                       </button>
                       {timezoneMenuOpen && (
@@ -12353,10 +12351,12 @@ export default function App() {
                         <p className="text-[11px] text-slate-500 mb-2">Indépendant du mode de génération du script — décide ce qui arrive à une vidéo une fois qu'elle est prête.</p>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                           {[
-                            { value: 'manual', icon: 'download', label: 'Manuelle', desc: 'Tu télécharges la vidéo, ou tu cliques « Publier » quand tu veux' },
                             { value: 'auto', icon: 'bolt', label: 'Automatique', desc: 'Planning récurrent — les jours et l\'heure que tu choisis' },
+                            { value: 'manual', icon: 'download', label: 'Manuelle', desc: 'Tu télécharges la vidéo, ou tu cliques « Publier » quand tu veux' },
                           ].map(opt => {
-                            const active = (newChannel.publish_mode || 'manual') === opt.value;
+                            const active = opt.value === 'auto'
+                              ? ['auto', 'scheduled'].includes(newChannel.publish_mode || 'auto')
+                              : newChannel.publish_mode === opt.value;
                             return (
                               <button
                                 key={opt.value}
@@ -12380,7 +12380,7 @@ export default function App() {
                           <div className="grid grid-cols-1 gap-2 md:grid-cols-4">
                             <div><span className="mb-1.5 block text-[10px] font-bold text-slate-400">Visibilité</span><div className="relative"><button type="button" onClick={() => setVisibilityMenuOpen(v => !v)} className="flex h-10 w-full items-center justify-between rounded-xl border border-[var(--border)] bg-[var(--bg-surface-alt)] px-3 text-[11px] text-white"><span>{[['private','Privée'],['unlisted','Non répertoriée'],['members','Réservée aux membres'],['public','Publique']].find(([id]) => id === (newChannel.youtube_privacy_status || 'public'))?.[1] || 'Publique'}</span><span className="material-symbols-outlined text-[16px]">expand_more</span></button>{visibilityMenuOpen && <div role="radiogroup" className="absolute left-0 right-0 top-full z-30 mt-1 rounded-xl border border-[var(--border)] bg-[var(--bg-dropdown)] p-1 shadow-2xl">{[['private','Privée'],['unlisted','Non répertoriée'],['members','Réservée aux membres'],['public','Publique']].map(([id,label]) => { const selected = (newChannel.youtube_privacy_status || 'public') === id; return <button key={id} type="button" role="radio" aria-checked={selected} onClick={() => { setNewChannel({ ...newChannel, youtube_privacy_status: id }); setVisibilityMenuOpen(false); }} className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-[11px] ${selected ? 'bg-[#00c2ff]/10 text-[#00c2ff]' : 'text-slate-300 hover:bg-white/5'}`}><span className={`h-3.5 w-3.5 rounded-full border-2 ${selected ? 'border-[4px] border-[#00c2ff]' : 'border-slate-500'}`} />{label}</button>; })}</div>}</div></div>
                             <div className="relative"><span className="mb-1.5 block text-[10px] font-bold text-slate-400">Programmer</span><button type="button" onClick={() => setScheduleCalendarOpen(v => !v)} className="flex h-10 w-full items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--bg-surface-alt)] px-3 text-left text-[11px] text-white"><span className="material-symbols-outlined text-[15px] text-[#00c2ff]">calendar_month</span><span className="flex-1">{newChannel.publish_schedule_date ? new Date(`${newChannel.publish_schedule_date}T12:00:00`).toLocaleDateString('fr-FR') : 'Choisir une date'}</span><span className="material-symbols-outlined text-[15px] text-slate-500">expand_more</span></button>{scheduleCalendarOpen && (() => { const year = scheduleCalendarMonth.getFullYear(); const month = scheduleCalendarMonth.getMonth(); const firstOffset = (new Date(year, month, 1).getDay() + 6) % 7; const total = new Date(year, month + 1, 0).getDate(); const cells = [...Array(firstOffset).fill(null), ...Array.from({ length: total }, (_, i) => i + 1)]; const monthLabel = new Intl.DateTimeFormat('fr-FR', { month: 'long', year: 'numeric' }).format(scheduleCalendarMonth); return <div className="absolute left-0 top-full z-40 mt-1 w-[280px] rounded-2xl border border-[#00c2ff]/30 bg-[#111923] p-3 shadow-2xl"><div className="mb-3 flex items-center justify-between"><span className="text-xs font-bold capitalize text-white">{monthLabel}</span><div className="flex gap-1"><button type="button" onClick={() => setScheduleCalendarMonth(new Date(year, month - 1, 1))} className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-white/5 hover:text-white"><span className="material-symbols-outlined text-[17px]">chevron_left</span></button><button type="button" onClick={() => setScheduleCalendarMonth(new Date(year, month + 1, 1))} className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-white/5 hover:text-white"><span className="material-symbols-outlined text-[17px]">chevron_right</span></button></div></div><div className="grid grid-cols-7 gap-1">{['L','M','M','J','V','S','D'].map((d,i) => <span key={`${d}-${i}`} className="py-1 text-center text-[9px] font-bold text-slate-500">{d}</span>)}{cells.map((day,i) => { if (!day) return <span key={`empty-${i}`} />; const date = `${year}-${String(month + 1).padStart(2,'0')}-${String(day).padStart(2,'0')}`; const selected = newChannel.publish_schedule_date === date; const past = new Date(year, month, day, 23, 59) < new Date(); return <button key={date} type="button" disabled={past} onClick={() => { setNewChannel({ ...newChannel, publish_schedule_date: date, publish_mode: 'scheduled' }); setScheduleCalendarOpen(false); }} className={`aspect-square rounded-lg text-[10px] font-bold transition-colors ${selected ? 'bg-[#00c2ff] text-slate-950' : past ? 'text-slate-700' : 'text-slate-300 hover:bg-[#00c2ff]/15 hover:text-[#00c2ff]'}`}>{day}</button>; })}</div><button type="button" onClick={() => { const today = new Date(); setScheduleCalendarMonth(today); }} className="mt-3 text-[10px] font-bold text-[#00c2ff]">Aujourd’hui</button></div>; })()}</div>
-                            <div><span className="mb-1.5 block text-[10px] font-bold text-slate-400">Heure de publication</span><div className="flex h-10 items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--bg-surface-alt)] px-3"><span className="material-symbols-outlined text-[15px] text-slate-500">schedule</span><HourDropdown value={newChannel.publish_schedule_hour ?? 8} onChange={h => setNewChannel({ ...newChannel, publish_schedule_hour: h })} /></div></div>
+                            <div><span className="mb-1.5 block text-[10px] font-bold text-slate-400">Heure de publication</span><HourDropdown fullWidth value={newChannel.publish_schedule_hour ?? 8} onChange={h => setNewChannel({ ...newChannel, publish_schedule_hour: h })} /></div>
                             <div><span className="mb-1.5 block text-[10px] font-bold text-slate-400">Fuseau horaire</span>{timezonePicker}</div>
                           </div>
                           <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-surface-alt)] px-3 py-3"><div className="flex items-start gap-2"><span className="material-symbols-outlined text-[18px] text-[#00c2ff]">auto_awesome</span><div className="min-w-0 flex-1"><span className="block text-[11px] font-bold text-white">Utilisation de l’IA</span><span className="mt-0.5 block text-[9px] leading-relaxed text-slate-500">La vidéo contient-elle une scène réaliste générée ou modifiée par IA ?</span><div className="mt-2 flex gap-2">{[['Oui',true],['Non',false]].map(([label,value]) => <button key={label} type="button" onClick={() => setNewChannel({ ...newChannel, youtube_contains_synthetic_media: value })} className={`min-w-24 rounded-lg border px-3 py-2 text-[10px] font-bold ${(newChannel.youtube_contains_synthetic_media !== false) === value ? 'border-[#00c2ff] bg-[#00c2ff]/10 text-[#00c2ff]' : 'border-[var(--border)] text-slate-300'}`}>{label}</button>)}</div></div></div></div>
