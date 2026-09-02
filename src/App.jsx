@@ -892,7 +892,7 @@ function VoiceAvatar({ voice, size = 40, playable = false, playing = false, gene
   );
 }
 
-function VoiceCard({ voice, active, saved, mine, playingId, generatingPreviewId, onSelect, onToggleSave, onPlayPreview }) {
+function VoiceCard({ voice, active, saved, mine, playingId, generatingPreviewId, onSelect, onToggleSave, onPlayPreview, onDelete }) {
   const playing = playingId === voice.id;
   const generating = generatingPreviewId === voice.id;
   return (
@@ -930,6 +930,16 @@ function VoiceCard({ voice, active, saved, mine, playingId, generatingPreviewId,
           style={{ fontVariationSettings: saved ? "'FILL' 1" : "'FILL' 0" }}
         >bookmark</span>
       </button>
+      {onDelete && (
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onDelete(voice.id); }}
+          className="shrink-0 w-7 h-7 rounded-full bg-white/5 hover:bg-rose-950 flex items-center justify-center text-slate-400 hover:text-rose-300 transition-colors"
+          title="Supprimer cette voix clonée"
+        >
+          <span className="material-symbols-outlined text-[15px]">delete</span>
+        </button>
+      )}
       {active && <span className="material-symbols-outlined text-[16px] text-[#00c2ff] shrink-0">check_circle</span>}
     </div>
   );
@@ -990,7 +1000,7 @@ function VoiceLibrarySelect({ label, value, onChange, options }) {
 function VoiceLibraryModal({
   voices, selectedId, savedIds, clonedIds,
   searchQuery, onSearchChange, searching,
-  onSelect, onToggleSave, onClose, onOpenCloner, cloningEnabled, onAddVoiceById,
+  onSelect, onToggleSave, onClose, onOpenCloner, cloningEnabled, onAddVoiceById, onDeleteVoice,
   onLoadMore, loadingMore, hasMore
 }) {
   const [tab, setTab] = useState('library');
@@ -1245,6 +1255,7 @@ function VoiceLibraryModal({
                   onSelect={(voice) => { onSelect(voice); onClose(); }}
                   onToggleSave={onToggleSave}
                   onPlayPreview={handlePlayPreview}
+                  onDelete={clonedIds.includes(v.id) ? onDeleteVoice : undefined}
                 />
               ))}
               {tab === 'library' && !searchQuery.trim() && hasMore && loadingMore && (
@@ -7611,6 +7622,25 @@ export default function App() {
     } finally {
       setCloningVoice(false);
       if (cloneVoiceInputRef.current) cloneVoiceInputRef.current.value = '';
+    }
+  };
+
+  const handleDeleteClonedVoice = async (voiceId) => {
+    if (!window.confirm('Supprimer définitivement cette voix clonée ? Cette action est irréversible.')) return;
+    try {
+      const res = await authFetch(`${API_BASE}/channels/my-cloned-voices/${voiceId}`, { method: 'DELETE' });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.detail || 'Suppression impossible.');
+      setAvailableVoices(prev => prev.filter(v => v.id !== voiceId));
+      setClonedVoiceIds(prev => {
+        const next = prev.filter(id => id !== voiceId);
+        writeVoiceIdList(CLONED_VOICE_IDS_KEY, next);
+        return next;
+      });
+      setSavedVoiceIds(prev => prev.filter(id => id !== voiceId));
+      showToast('Voix clonée supprimée.', 'success');
+    } catch (err) {
+      showToast(err.message, 'error');
     }
   };
 
@@ -16111,6 +16141,7 @@ export default function App() {
           onClose={() => setShowVoiceLibrary(false)}
           onOpenCloner={() => setShowVoiceCloner(true)}
           onAddVoiceById={handleAddVoiceById}
+          onDeleteVoice={handleDeleteClonedVoice}
           cloningEnabled={wizardMode === 'edit' && !!editingChannelId}
           onLoadMore={loadMoreVoices}
           loadingMore={loadingMoreVoices}
