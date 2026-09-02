@@ -16611,7 +16611,7 @@ export default function App() {
 
       {thumbnailModalVideo && (
         <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-[60] flex items-center justify-center p-6">
-          <div className="bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-3xl p-6 max-w-[640px] w-full shadow-2xl space-y-4">
+          <div className="bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-3xl p-6 max-w-[1100px] w-full shadow-2xl space-y-4">
             <div className="flex justify-between items-center">
               <h3 className="text-sm font-bold text-white flex items-center gap-2">
                 <span className="material-symbols-outlined text-[18px] text-[#00c2ff]">photo_camera</span> Miniature
@@ -16627,14 +16627,17 @@ export default function App() {
                 className="w-full aspect-video object-cover"
               />
             </div>
+            <div className="grid grid-cols-2 gap-3">
             <button
               onClick={(e) => handleRegenerateCardThumbnail(thumbnailModalVideo, e)}
               disabled={regeneratingCardThumbnailIds.has(thumbnailModalVideo.id)}
-              className="w-full flex items-center justify-center gap-2 py-2.5 bg-[#00c2ff] text-slate-950 rounded-xl font-bold text-xs hover:brightness-110 transition-all disabled:opacity-50"
+              className="flex items-center justify-center gap-2 py-2.5 bg-[#00c2ff] text-slate-950 rounded-xl font-bold text-xs hover:brightness-110 transition-all disabled:opacity-50"
             >
               <span className={`material-symbols-outlined text-[16px] ${regeneratingCardThumbnailIds.has(thumbnailModalVideo.id) ? 'animate-spin' : ''}`}>{regeneratingCardThumbnailIds.has(thumbnailModalVideo.id) ? 'progress_activity' : 'refresh'}</span>
               {regeneratingCardThumbnailIds.has(thumbnailModalVideo.id) ? 'Régénération…' : 'Régénérer la miniature'}
             </button>
+            <button onClick={() => runThumbnailDownload(thumbnailModalVideo)} className="flex items-center justify-center gap-2 py-2.5 bg-[var(--bg-surface-alt)] text-white border border-[var(--border)] rounded-xl font-bold text-xs hover:bg-[var(--bg-hover)]"><span className="material-symbols-outlined text-[16px]">download</span>Télécharger en haute qualité</button>
+            </div>
           </div>
         </div>
       )}
