@@ -12351,6 +12351,13 @@ export default function App() {
                             <span className="block text-[10px] font-bold text-slate-400 mb-1.5">Visibilité par défaut</span>
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-2">{[['public','Publique','public'],['unlisted','Non répertoriée','link_off'],['private','Privée','lock'],['scheduled','Programmer','event']].map(([id,label,icon]) => <button key={id} type="button" onClick={() => setNewChannel({ ...newChannel, youtube_privacy_status: id, publish_mode: id === 'scheduled' ? 'scheduled' : 'manual' })} className={`rounded-xl border px-2.5 py-2 text-left text-[10px] font-bold transition-colors ${(newChannel.youtube_privacy_status || 'public') === id ? 'border-[#00c2ff] bg-[#00c2ff]/10 text-[#00c2ff]' : 'border-[var(--border)] bg-[var(--bg-surface-alt)] text-slate-300 hover:border-slate-500'}`}><span className="material-symbols-outlined text-[15px] align-middle mr-1">{icon}</span>{label}</button>)}</div>
                           </div>
+                          {(newChannel.publish_mode === 'auto' || newChannel.publish_mode === 'scheduled') && (
+                            <div className="rounded-xl border border-[#00c2ff]/30 bg-[#00c2ff]/5 p-3 space-y-2">
+                              <div className="flex items-center gap-2"><span className="material-symbols-outlined text-[16px] text-[#00c2ff]">event</span><span className="text-[10px] font-bold text-white">Programmer la publication</span></div>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 items-start">{timeControls}{weekdaySelector}</div>
+                              {timezonePicker}
+                            </div>
+                          )}
                           <div>
                             <span className="block text-[10px] font-bold text-slate-400 mb-1.5">Catégorie YouTube</span>
                             <div className="flex flex-wrap gap-2">{[['22','People & Blogs'],['27','Education'],['24','Entertainment'],['26','Howto & Style'],['10','Music'],['20','Gaming'],['25','News & Politics']].map(([id,label]) => <button key={id} type="button" onClick={() => setNewChannel({ ...newChannel, youtube_category_id: id })} className={`rounded-lg border px-2.5 py-1.5 text-[10px] font-bold transition-colors ${(newChannel.youtube_category_id || '22') === id ? 'border-[#00c2ff] bg-[#00c2ff]/10 text-[#00c2ff]' : 'border-[var(--border)] bg-[var(--bg-surface-alt)] text-slate-300 hover:border-slate-500'}`}>{label}</button>)}</div>
@@ -12375,15 +12382,6 @@ export default function App() {
                           ))}
                         </div>
                         <div className="mt-3"><span className="block text-[10px] font-bold text-slate-400 mb-1.5">Licence</span><div className="grid grid-cols-2 gap-2 md:w-1/2">{[['youtube','Licence YouTube standard'],['creativeCommon','Creative Commons']].map(([id,label]) => <button key={id} type="button" onClick={() => setNewChannel({ ...newChannel, youtube_license: id })} className={`rounded-xl border px-3 py-2 text-left text-[10px] font-bold transition-colors ${(newChannel.youtube_license || 'youtube') === id ? 'border-[#00c2ff] bg-[#00c2ff]/10 text-[#00c2ff]' : 'border-[var(--border)] bg-[var(--bg-surface-alt)] text-slate-300 hover:border-slate-500'}`}>{label}</button>)}</div></div>
-                        {(newChannel.publish_mode === 'auto' || newChannel.publish_mode === 'scheduled') && (
-                          <div className="mt-3 space-y-2">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 items-start">
-                              {timeControls}
-                              {weekdaySelector}
-                            </div>
-                            {timezonePicker}
-                          </div>
-                        )}
                         </div>
                       </div>
                     </div>
