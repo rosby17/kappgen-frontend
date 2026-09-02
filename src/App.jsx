@@ -11787,6 +11787,20 @@ export default function App() {
                                       ? "Images partagées de ta niche + vraies séquences vidéo et photos de stock cherchées automatiquement pour chaque scène. Gratuit, aucun crédit consommé."
                                       : `Pas encore de bibliothèque partagée pour « ${nicheSet} », mais les séquences vidéo et photos de stock sont cherchées automatiquement pour chaque scène. Gratuit, aucun crédit consommé.`}
                                 </p>
+                                {/* Pexels' API guidelines ask for a visible link
+                                    to Pexels wherever their media is used. */}
+                                <p className="mt-1.5 text-[10px] text-slate-500">
+                                  Séquences et photos fournies par{' '}
+                                  <a
+                                    href="https://www.pexels.com"
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="text-[#56d9ff] hover:underline"
+                                  >
+                                    Pexels
+                                  </a>
+                                </p>
                               </div>
                               <input
                                 type="checkbox"
