@@ -7,7 +7,7 @@ const APP_ORIGIN = import.meta.env.VITE_APP_ORIGIN || 'https://app.kappgen.com';
 const isLocal = typeof window !== 'undefined' && ['localhost', '127.0.0.1'].includes(window.location.hostname);
 const appUrl = (path = '/signup') => `${isLocal ? `${window.location.origin}/app` : APP_ORIGIN}${path}`;
 
-const LAST_UPDATED = '20 août 2026';
+const LAST_UPDATED = '2 septembre 2026';
 
 const PRIVACY_SECTIONS = [
   {
@@ -21,8 +21,8 @@ const PRIVACY_SECTIONS = [
         <p>Nous collectons uniquement ce qui est nécessaire au fonctionnement du service :</p>
         <ul>
           <li><strong>Compte</strong> — nom, adresse email, mot de passe (chiffré), numéro de téléphone si vous le renseignez, photo de profil si vous vous connectez avec Google.</li>
-          <li><strong>Contenu que vous fournissez</strong> — scripts texte, fichiers audio importés, images de votre bibliothèque, morceaux de musique, échantillons vocaux pour le clonage de voix (uniquement avec votre confirmation explicite de consentement).</li>
-          <li><strong>Contenu généré</strong> — vidéos produites, sous-titres, voix off générées, miniatures, et la configuration de style de chaque chaîne que vous configurez.</li>
+          <li><strong>Contenu que vous fournissez</strong> — scripts texte, fichiers audio importés, images, clips vidéo B-roll, morceaux de musique, et échantillons vocaux pour le clonage de voix (uniquement avec votre confirmation explicite de consentement).</li>
+          <li><strong>Contenu généré</strong> — vidéos produites, sous-titres, voix off générées, miniatures, et la configuration de style de chaque chaîne (y compris le mode images, vidéos ou mixte).</li>
           <li><strong>Connexion à des services tiers</strong> — jetons d'autorisation YouTube, et le cas échéant votre propre clé API Izivoice si vous connectez votre compte personnel plutôt que d'utiliser le moteur vocal partagé.</li>
           <li><strong>Facturation</strong> — l'historique et le statut de vos abonnements. Les informations de paiement (carte, mobile money) sont traitées directement par notre prestataire de paiement ; nous ne les stockons jamais sur nos serveurs.</li>
         </ul>
@@ -45,7 +45,7 @@ const PRIVACY_SECTIONS = [
     id: 'usage', title: 'Usage des données', body: (
       <>
         <ul>
-          <li><strong>Générer vos vidéos</strong> — transformer vos scripts ou audios en voix off, images, sous-titres et montage final selon le style que vous avez configuré.</li>
+          <li><strong>Générer vos vidéos</strong> — transformer vos scripts ou audios en voix off, sous-titres et montage final avec les images et/ou clips vidéo B-roll de votre bibliothèque, selon le style configuré.</li>
           <li><strong>Publier en votre nom</strong> — uniquement si vous l'avez explicitement configuré, via l'autorisation YouTube décrite ci-dessus.</li>
           <li><strong>Faire fonctionner votre compte</strong> — authentification, facturation, support, notifications par email.</li>
           <li><strong>Sécuriser le service</strong> — détecter les abus, prévenir la fraude, faire respecter nos conditions d'utilisation.</li>
@@ -76,7 +76,7 @@ const PRIVACY_SECTIONS = [
   },
   {
     id: 'conservation', title: 'Durée de conservation', body: (
-      <p>Vos vidéos finales et les fichiers sources associés (voix off, images utilisées, configuration au moment du rendu) sont conservés tant que votre compte est actif, afin que vous puissiez régénérer ou modifier une vidéo sans repayer sa génération. Si vous supprimez votre compte, vos données sont effacées sous 30 jours, sauf obligation légale de conservation plus longue (facturation notamment).</p>
+      <p>Vos vidéos finales et les fichiers sources associés (voix off, images, clips vidéo B-roll, sous-titres et configuration au moment du rendu) sont conservés tant que votre compte est actif, afin que vous puissiez télécharger ou modifier une vidéo. Si vous supprimez votre compte, vos données sont effacées sous 30 jours, sauf obligation légale de conservation plus longue (facturation notamment).</p>
     )
   },
   {
@@ -127,7 +127,7 @@ const PRIVACY_SECTIONS = [
 const TERMS_SECTIONS = [
   {
     id: 'objet', title: 'Objet du service', body: (
-      <p>KappGen configure une fois le style de montage d'une chaîne (sous-titres, logo, musique, style d'images), puis génère automatiquement des vidéos longues à partir des scripts ou fichiers audio que vous soumettez. Le service inclut la génération de voix off, d'images, de sous-titres, et — si vous l'activez — la publication directe sur votre chaîne YouTube.</p>
+      <p>KappGen configure une fois le style de montage d'une chaîne (sous-titres, logo, musique, style visuel et mode images, vidéos ou mixte), puis génère des vidéos à partir des scripts ou fichiers audio que vous soumettez. Vous pouvez utiliser vos propres images et clips vidéo B-roll. Le service inclut la génération de voix off, de sous-titres, l'édition de scènes, le téléchargement, et — si vous l'activez — la publication sur votre chaîne YouTube.</p>
     )
   },
   {
@@ -180,7 +180,7 @@ const TERMS_SECTIONS = [
   },
   {
     id: 'abonnement', title: 'Abonnement & paiement', body: (
-      <p>Certaines fonctionnalités (volume de vidéos, retrait du filigrane) nécessitent un abonnement payant. Les tarifs affichés au moment de la souscription s'appliquent ; nous vous informerons à l'avance de toute évolution tarifaire. Les paiements sont traités par notre prestataire de paiement tiers — nous ne stockons jamais vos coordonnées bancaires.</p>
+      <p>KappGen propose actuellement des packs de crédits Starter (3 500 FCFA), Creator (7 000 FCFA), Standard (12 500 FCFA) et Pro (55 000 FCFA), selon les tarifs affichés sur la landing page et dans l'application. Les crédits et fonctionnalités inclus sont précisés au moment de l'achat. Les paiements sont traités par notre prestataire de paiement tiers — nous ne stockons jamais vos coordonnées bancaires.</p>
     )
   },
   {

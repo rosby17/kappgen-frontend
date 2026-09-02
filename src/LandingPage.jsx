@@ -18,6 +18,8 @@ const features = [
   { icon: Sparkles, title: 'Il trouve les idées', text: 'KappGen AI analyse ta niche, détecte les sujets pertinents et choisit quoi produire pour ta chaîne.' },
   { icon: Captions, title: 'Il écrit et raconte', text: 'Il construit le script, génère la voix off et crée des sous-titres adaptés à ton audience.' },
   { icon: Images, title: 'Il monte la vidéo', text: 'Visuels, rythme, musique, effets et identité de marque sont assemblés sans intervention.' },
+  { icon: Clapperboard, title: 'Images ou B-roll vidéo', text: 'Ajoute tes propres images et clips vidéo dans la bibliothèque, puis choisis un montage image, vidéo ou mixte pour chaque chaîne.' },
+  { icon: Scissors, title: 'Tu peux encore éditer', text: 'Sous-titres, scènes, audio, miniature et métadonnées restent modifiables avant le téléchargement ou la publication.' },
   { icon: Layers3, title: 'Il respecte ton style', text: 'KappGen AI fait ce que tu faisais manuellement avant, dans ton style. Tu gardes le contrôle si tu veux, ou tu le laisses gérer en automatique — zéro dérapage, tout reste flexible.' },
   { icon: CirclePlay, title: 'Il publie sur YouTube', text: 'Une fois la vidéo prête, KappGen AI la publie sur la bonne chaîne selon ton calendrier.' },
   { icon: Clock3, title: 'Il travaille pendant ton sommeil', text: 'Ta production continue en autonomie, même lorsque tu n’es pas devant ton ordinateur.' },
@@ -27,7 +29,7 @@ const pipelineSteps = [
   { icon: Search, title: 'Recherche d’idées', text: 'KappGen AI explore ta niche et repère les sujets qui ont des chances de performer.' },
   { icon: FileText, title: 'Rédaction du script', text: 'Il écrit le script complet, dans le ton et le style propres à ta chaîne.' },
   { icon: Mic, title: 'Voix off', text: 'Génération d’une voix off naturelle à partir du script.' },
-  { icon: ImageIcon, title: 'Recherche d’images', text: 'Sélection des visuels qui correspondent à chaque séquence de la vidéo.' },
+  { icon: ImageIcon, title: 'Images & B-roll', text: 'Sélection de tes images et clips vidéo selon le mode visuel choisi pour la chaîne.' },
   { icon: Music, title: 'Musique de fond', text: 'Une musique adaptée est choisie pour habiller la vidéo sans couvrir la voix.' },
   { icon: Scissors, title: 'Montage', text: 'Assemblage du script, de la voix, des images et de la musique en une vidéo prête à l’emploi.' },
   { icon: Sparkles, title: 'Miniature', text: 'Création d’une miniature pensée pour donner envie de cliquer.' },
@@ -227,12 +229,13 @@ export default function LandingPage() {
             <div className="network-price"><span>Tarif</span><strong>Sur devis</strong></div>
             <a className="button button-ghost" href="https://wa.me/237655306425?text=Bonjour%2C%20je%20suis%20int%C3%A9ress%C3%A9%20par%20l%27offre%20R%C3%A9seau%20multicha%C3%AEne%20KappGen." target="_blank" rel="noopener">Nous contacter <ArrowRight size={16} /></a>
           </div>
-          <p className="pricing-note">Les quotas correspondent aux générations incluses par cycle mensuel. Les besoins supérieurs peuvent être adaptés sur devis.</p>
+          <p className="pricing-note">Les crédits affichés sont ajoutés à ton solde après l’achat et restent disponibles selon les règles de l’offre. Les besoins supérieurs peuvent être adaptés sur devis.</p>
         </section>
 
         <section className="section faq" id="faq"><div><div className="section-kicker">QUESTIONS FRÉQUENTES</div><h2>Avant d’activer<br />KappGen.</h2></div><div className="faq-list">{[
           ['Dois-je fournir les idées ou les scripts ?', 'Non. En mode autonome, KappGen AI recherche les sujets, choisit l’angle et rédige lui-même les scripts.'],
-          ['Dois-je valider chaque vidéo ?', 'Non. Tu peux laisser KappGen AI aller jusqu’à la publication automatique. Tu gardes néanmoins une vue complète sur son activité.'],
+          ['Dois-je valider chaque vidéo ?', 'Non. Tu peux laisser KappGen AI aller jusqu’à la publication automatique, ou garder une validation manuelle. Tu gardes une vue complète sur son activité.'],
+          ['Puis-je utiliser mes propres clips vidéo ?', 'Oui. Importe tes clips dans la bibliothèque de ta chaîne et choisis un montage uniquement vidéo ou mixte images-vidéos. Le mode images uniquement reste disponible.'],
           ['Est-ce du contenu générique produit en masse ?', 'Non. Nous avons conçu KappGen AI à partir des réalités du terrain YouTube : une chaîne doit être originale, cohérente, capable de retenir son audience et respecter les règles de la plateforme. Chaque vidéo possède donc son propre angle, son script et son rendu, tout en restant fidèle à l’identité de ta chaîne.'],
           ['Puis-je gérer plusieurs chaînes ?', 'Oui. Chaque chaîne dispose de son propre style, sa niche et son calendrier de publication.'],
           ['Où se trouve l’application ?', `L’espace de production est séparé de ce site et accessible sur ${APP_ORIGIN.replace('https://', '')}.`],
