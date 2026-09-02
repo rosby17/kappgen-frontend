@@ -12271,6 +12271,14 @@ export default function App() {
                       </div>
                     </div>
                   );
+                  const formatTimezone = tz => {
+                    try {
+                      const parts = new Intl.DateTimeFormat('fr-FR', { timeZone: tz, timeZoneName: 'longOffset' }).formatToParts(new Date());
+                      const offset = (parts.find(p => p.type === 'timeZoneName')?.value || 'UTC').replace('UTC', 'GMT');
+                      const city = tz === 'Africa/Douala' ? 'Heure locale' : tz.split('/').pop().replace(/_/g, ' ');
+                      return `(${offset}) ${city}`;
+                    } catch { return tz; }
+                  };
                   const timezonePicker = (
                     <div className="flex items-center gap-2 bg-[var(--bg-input)] border border-[var(--border-subtle)] rounded-xl px-3 py-2.5 relative">
                       <span className="material-symbols-outlined text-[16px] text-slate-500 shrink-0">public</span>
@@ -12280,7 +12288,7 @@ export default function App() {
                         onClick={() => { setTimezoneMenuOpen(o => !o); setTimezoneSearch(''); }}
                         className="flex-1 min-w-0 flex items-center justify-between gap-2 bg-[var(--bg-surface-alt)] border border-[var(--border)] hover:border-slate-500 rounded-lg px-2.5 py-1.5 text-[11px] text-white text-left transition-colors"
                       >
-                        <span className="truncate">{newChannel.timezone || 'Africa/Douala'}</span>
+                        <span className="truncate">{formatTimezone(newChannel.timezone || 'Africa/Douala')}</span>
                         <span className={`material-symbols-outlined text-[15px] text-slate-400 shrink-0 transition-transform ${timezoneMenuOpen ? 'rotate-180' : ''}`}>expand_more</span>
                       </button>
                       {timezoneMenuOpen && (
@@ -12307,7 +12315,7 @@ export default function App() {
                                     tz === (newChannel.timezone || 'Africa/Douala') ? 'text-[#00c2ff] font-bold' : 'text-slate-300'
                                   }`}
                                 >
-                                  <span className="truncate">{tz}</span>
+                                  <span className="truncate">{formatTimezone(tz)}</span>
                                   {tz === (newChannel.timezone || 'Africa/Douala') && <span className="material-symbols-outlined text-[14px] shrink-0">check</span>}
                                 </button>
                               ))}
