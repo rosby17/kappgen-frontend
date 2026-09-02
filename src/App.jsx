@@ -7617,13 +7617,31 @@ export default function App() {
       .then(data => {
         const voices = mergeKnownVoices((data.voices || []).map(mapCatalogVoice));
         if (voices.length) {
-          defaultVoicesRef.current = voices;
-          setAvailableVoices(voices);
+          // The catalog and `my-cloned-voices` are loaded concurrently when
+          // the channel wizard opens. The old direct assignment below could
+          // finish last and overwrite the personal voices that the other
+          // request had just inserted — exactly why they showed in the
+          // cloner but vanished from a new channel's picker. Preserve any
+          // voice already marked as personal/saved while refreshing catalog
+          // entries, regardless of which request wins the race.
+          let mergedVoices = voices;
+          setAvailableVoices(prev => {
+            const personal = prev.filter(v => v.cloned || clonedVoiceIds.includes(v.id) || savedVoiceIds.includes(v.id));
+            const ids = new Set();
+            mergedVoices = [...personal, ...voices].filter(v => {
+              if (ids.has(v.id)) return false;
+              ids.add(v.id);
+              return true;
+            });
+            defaultVoicesRef.current = mergedVoices;
+            return mergedVoices;
+          });
+          const resolvedVoices = mergedVoices;
           setCatalogHasMore(Boolean(data.has_more));
           setCatalogNextPage(data.next_page ?? 10);
           const preferred = inWizard ? newChannel.voice_id : activeChannel?.voice_id;
-          if (preferred && voices.some(v => v.id === preferred)) setSelectedVoice(preferred);
-          else if (!voices.some(v => v.id === selectedVoice)) setSelectedVoice(voices[0].id);
+          if (preferred && resolvedVoices.some(v => v.id === preferred)) setSelectedVoice(preferred);
+          else if (!resolvedVoices.some(v => v.id === selectedVoice)) setSelectedVoice(resolvedVoices[0].id);
         }
       })
       .catch(() => {});
