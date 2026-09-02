@@ -8608,6 +8608,18 @@ export default function App() {
   // Full-size thumbnail preview modal, with a regenerate action right there
   // instead of only a blind one-click "Régénérer" in the kebab menu.
   const [thumbnailModalVideo, setThumbnailModalVideo] = useState(null);
+  const [thumbnailHistory, setThumbnailHistory] = useState([]);
+  useEffect(() => {
+    if (!thumbnailModalVideo) return;
+    authFetch(`${API_BASE}/videos/${thumbnailModalVideo.id}/thumbnail/history`).then(r => r.ok ? r.json() : null).then(d => setThumbnailHistory(d?.history || [])).catch(() => setThumbnailHistory([]));
+  }, [thumbnailModalVideo]);
+  const restoreThumbnailVersion = async (item) => {
+    const res = await authFetch(`${API_BASE}/videos/${thumbnailModalVideo.id}/thumbnail/history/${encodeURIComponent(item.filename)}/restore`, { method: 'POST' });
+    if (!res.ok) return;
+    setThumbnailBust(prev => ({ ...prev, [thumbnailModalVideo.id]: Date.now() }));
+    setThumbnailModalVideo(prev => ({ ...prev }));
+    showToast('Version restaurée comme miniature active.', 'success');
+  };
   const openThumbnailModal = (vid, e) => {
     if (e) e.stopPropagation();
     setOpenVideoMenuId(null);
@@ -16631,6 +16643,7 @@ export default function App() {
                 className="w-full aspect-video object-cover"
               />
             </div>
+            {thumbnailHistory.length > 0 && <div><p className="text-[11px] font-bold text-slate-300 mb-2">Historique des versions</p><div className="grid grid-cols-4 gap-2">{thumbnailHistory.map(item => <button key={item.filename} onClick={() => restoreThumbnailVersion(item)} className="rounded-lg overflow-hidden border border-[var(--border)] hover:border-[#00c2ff]"><img src={`${API_BASE.replace(/\/api$/, '')}${item.url}`} className="aspect-video w-full object-cover" /><span className="block text-[9px] text-slate-400 py-1">Restaurer</span></button>)}</div></div>}
             <div className="grid grid-cols-2 gap-3">
             <button
               onClick={(e) => handleRegenerateCardThumbnail(thumbnailModalVideo, e)}
