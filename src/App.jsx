@@ -11635,7 +11635,7 @@ export default function App() {
                               />
                             </div>
                             <p className="text-[11px] text-slate-400">
-                              L'IA génère automatiquement les visuels pour chaque scène, dans le style que tu décris ci-dessous — ~{IMAGE_GENERATION_CREDITS_MIN.toLocaleString()}–{IMAGE_GENERATION_CREDITS_MAX.toLocaleString()} crédits par image générée.
+                              L’IA crée les visuels de chaque scène dans le style choisi.
                             </p>
                             {!hasActiveSubscription && (
                               <button
@@ -11684,7 +11684,7 @@ export default function App() {
 
                               {imageCountMode === 'auto' ? (
                                 <p className="text-[10px] text-slate-500">
-                                  KappGen choisit automatiquement combien d'images générer selon la longueur de la vidéo, et débite tes crédits au fur et à mesure ({IMAGE_GENERATION_CREDITS_MIN.toLocaleString()}–{IMAGE_GENERATION_CREDITS_MAX.toLocaleString()} crédits par image).
+                                  Le nombre d’images est adapté automatiquement à la vidéo.
                                 </p>
                               ) : (
                                 <>
@@ -11726,7 +11726,7 @@ export default function App() {
 
                           <div>
                             <div className="flex items-center justify-between mb-1">
-                              <label className="block text-[10px] font-bold text-slate-300">Décris le style visuel et le sujet des images (ex: médecins, hôpital, plantes médicinales pour une chaîne santé)</label>
+                              <label className="block text-[10px] font-bold text-slate-300">Style des visuels</label>
                               <div onClick={(e) => e.stopPropagation()}>
                                 <input
                                   ref={styleReferenceInputRef}
