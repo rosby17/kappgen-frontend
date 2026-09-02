@@ -11987,7 +11987,7 @@ export default function App() {
                   const isStablePreview = localImageFiles.length === 0 && !(wizardMode === 'edit' && editingChannelId);
 
                   return (
-                    <div className="space-y-6">
+                    <div className="flex flex-col space-y-6">
                       <div>
                         <h3 className="text-base font-bold text-white">7. Effets Visuels</h3>
                         <p className="text-xs text-slate-400 mt-1">Appliqués sur l'ensemble de la vidéo, en plus des transitions et du zoom automatiques déjà actifs.</p>
