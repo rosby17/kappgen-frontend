@@ -12326,7 +12326,7 @@ export default function App() {
                     </div>
                   );
                   return (
-                    <div className="space-y-6">
+                    <div className="flex flex-col space-y-6">
                       <h3 className="text-base font-bold text-white">8. Publication YouTube</h3>
                       <div className="order-3 rounded-2xl border border-[#00c2ff]/35 bg-[#00c2ff]/5 p-4">
                         <div className="flex items-start gap-3">
