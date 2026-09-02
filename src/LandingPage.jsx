@@ -81,22 +81,24 @@ function ProductPreview() {
         <div className="preview-body">
           <aside className="preview-sidebar">
             <div className="preview-brand"><img src="/assets/logo/logo-kappgen.png" alt="" /><span><b>KappGen</b><small>Video Automation</small></span></div>
+            <div className="preview-mode"><Clapperboard size={13} /> Montage Simple <ChevronRight size={12} /></div>
             <div className="preview-nav active"><Layers3 size={15} /> Home</div>
             <div className="preview-nav"><CirclePlay size={15} /> Mes chaînes</div>
             <div className="preview-nav"><Clapperboard size={15} /> Mes vidéos</div>
+            <div className="preview-nav"><Images size={15} /> Bibliothèque</div>
           </aside>
           <div className="preview-content">
             <div className="preview-current-heading">
-              <small>TON ESPACE NICHECUT</small>
-              <strong>Sors des écrans. KappGen reste au travail.</strong>
+              <small>TON ESPACE KAPPGEN</small>
+              <strong>Crée et pilote tes vidéos depuis un seul espace.</strong>
             </div>
             <div className="preview-freedom-card">
               <img src={freedomSunrise} alt="" />
-              <div><strong>Tu vis. KappGen travaille.</strong><span>Ta chaîne continue pendant que tu profites de ton temps.</span><button>Voir mes chaînes</button></div>
+              <div><strong>Tu vis. KappGen travaille.</strong><span>Configure ta chaîne, tes visuels et ton calendrier de publication.</span><button>Voir mes chaînes</button></div>
             </div>
             <div className="preview-channels-current">
               <strong>Aperçu des chaînes</strong>
-              <div className="preview-channel-card"><i>R</i><span><b>Rivière de Grâce</b><small>Prière</small></span><em>PRÊTE</em><small>2 vidéos prêtes</small></div>
+              <div className="preview-channel-card"><i>R</i><span><b>Rivière de Grâce</b><small>Prière · montage mixte</small></span><em>PRÊTE</em><small>2 vidéos prêtes</small></div>
             </div>
           </div>
         </div>
