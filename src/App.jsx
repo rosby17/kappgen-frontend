@@ -8074,6 +8074,28 @@ export default function App() {
     }
   };
 
+  // Turns a Trust Score check's `fix` (see check_fix in youtube_compliance.py)
+  // into a real action: jump to the exact pipeline step holding the setting
+  // involved, open the title/description improver, or relaunch the render —
+  // instead of leaving the creator with a diagnosis and nowhere to click.
+  const runComplianceFix = (check, e) => {
+    if (e) e.stopPropagation();
+    const fix = check?.fix;
+    if (!fix) return;
+    if (fix.action === 'metadata') return openMetadataImprovement(publishReviewVideo, e);
+    if (fix.action === 'relaunch') {
+      setPublishReviewVideo(null);
+      return handleRetryVideo(publishReviewVideo?.id);
+    }
+    if (fix.action === 'wizard') {
+      const channel = channels.find(c => c.id === (publishReviewVideo?.channel_id || activeChannel?.id)) || activeChannel;
+      if (!channel) return showToast("Chaîne introuvable pour ouvrir le réglage.", 'error');
+      setPublishReviewVideo(null);
+      openEditWizard(channel, null, fix.step || 1);
+      showToast(`${fix.label} — puis relance la vidéo pour recalculer le score.`, 'success');
+    }
+  };
+
   const openMetadataImprovement = (vid, e) => {
     if (e) e.stopPropagation();
     setPublishReviewMode('edit');
@@ -16739,7 +16761,22 @@ export default function App() {
                           <span className="min-w-0 flex-1"><strong className="flex items-center gap-1 text-slate-100"><span className={`material-symbols-outlined text-[13px] ${check.state === 'pass' ? 'text-emerald-400' : check.state === 'fail' ? 'text-rose-400' : 'text-amber-400'}`}>{check.state === 'pass' ? 'check_circle' : check.state === 'fail' ? 'cancel' : 'error'}</span>{check.label}</strong><span className="block mt-0.5 leading-relaxed text-slate-500">{check.message}</span></span>
                         </div>
                         <div className="mt-2 h-px overflow-hidden bg-slate-800"><div className={`h-full ${check.state === 'pass' ? 'bg-emerald-400' : check.state === 'fail' ? 'bg-rose-400' : 'bg-amber-400'}`} style={{ width: `${check.score ?? (check.state === 'pass' ? 100 : check.state === 'warning' ? 70 : 30)}%` }} /></div>
-                        {publishReviewMode === 'trust' && check.state !== 'pass' && ['metadata_description', 'metadata_title'].includes(check.code) && <button onClick={(e) => openMetadataImprovement(publishReviewVideo, e)} className="mt-2 inline-flex items-center gap-1 text-[9px] font-bold text-[#00c2ff] hover:underline"><span className="material-symbols-outlined text-[12px]">edit</span>Améliorer avec KappGen</button>}
+                        {check.state !== 'pass' && check.fix && (
+                          check.fix.action === 'none' ? (
+                            <p className="mt-2 flex items-start gap-1 text-[9px] leading-relaxed text-slate-500"><span className="material-symbols-outlined text-[12px] shrink-0">info</span>{check.fix.why}</p>
+                          ) : (
+                            <div className="mt-2">
+                              <button
+                                onClick={(e) => runComplianceFix(check, e)}
+                                className="inline-flex items-center gap-1 text-[9px] font-bold text-[#00c2ff] hover:underline"
+                              >
+                                <span className="material-symbols-outlined text-[12px]">{check.fix.action === 'metadata' ? 'edit' : check.fix.action === 'relaunch' ? 'replay' : 'tune'}</span>
+                                {check.fix.label}
+                              </button>
+                              {check.fix.hint && <p className="mt-1 text-[9px] leading-relaxed text-slate-500">{check.fix.hint}</p>}
+                            </div>
+                          )
+                        )}
                       </div>
                     ))}
                   </div>
