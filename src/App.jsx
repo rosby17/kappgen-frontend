@@ -12387,7 +12387,11 @@ export default function App() {
                           {newChannel.youtube_privacy_status === 'scheduled' && (
                             <div className="rounded-xl border border-[#00c2ff]/30 bg-[#00c2ff]/5 p-3 space-y-2">
                               <div className="flex items-center gap-2"><span className="material-symbols-outlined text-[16px] text-[#00c2ff]">event</span><span className="text-[10px] font-bold text-white">Programmer la publication</span></div>
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 items-start">{timeControls}{weekdaySelector}</div>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                <label className="flex items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--bg-input)] px-3 py-2 text-[10px] text-slate-400"><span className="material-symbols-outlined text-[15px]">calendar_month</span><input type="date" value={newChannel.publish_schedule_date || ''} onChange={e => setNewChannel({ ...newChannel, publish_schedule_date: e.target.value })} className="min-w-0 flex-1 bg-transparent text-xs text-white outline-none" /></label>
+                                {timeControls}
+                              </div>
+                              <div>{weekdaySelector}</div>
                               {timezonePicker}
                             </div>
                           )}
