@@ -10480,7 +10480,7 @@ export default function App() {
                     && String(newChannel.image_style.library_path || '').startsWith('channels/');
 
                   return (
-                    <div className="space-y-6">
+                    <div className="flex flex-col space-y-6">
                       <div>
                         <h3 className="text-base font-bold text-white">4. Source d'Images Visuelles & Mode de Génération</h3>
                         <p className="text-xs text-slate-400 mt-1">Sélectionnez la ou les sources visuelles souhaitées (Vous pouvez cocher l'Option A, l'Option B, ou les deux !).</p>
@@ -12287,7 +12287,7 @@ export default function App() {
                   return (
                     <div className="space-y-6">
                       <h3 className="text-base font-bold text-white">8. Publication YouTube</h3>
-                      <div className="rounded-2xl border border-[#00c2ff]/35 bg-[#00c2ff]/5 p-4">
+                      <div className="order-3 rounded-2xl border border-[#00c2ff]/35 bg-[#00c2ff]/5 p-4">
                         <div className="flex items-start gap-3">
                           <span className="material-symbols-outlined text-[22px] text-[#00c2ff]">verified_user</span>
                           <div className="min-w-0">
@@ -12305,10 +12305,10 @@ export default function App() {
                           </div>
                         </div>
                       </div>
-                      <div>
+                      <div className="order-2">
                         <label className="block text-xs font-bold text-slate-300 mb-2">Publication YouTube</label>
                         <p className="text-[11px] text-slate-500 mb-2">Indépendant du mode de génération du script — décide ce qui arrive à une vidéo une fois qu'elle est prête.</p>
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                           {[
                             { value: 'manual', icon: 'download', label: 'Manuelle', desc: 'Tu télécharges la vidéo, ou tu cliques « Publier » quand tu veux' },
                             { value: 'auto', icon: 'bolt', label: 'Automatique', desc: 'Planning récurrent — les jours et l\'heure que tu choisis' },
@@ -12338,8 +12338,9 @@ export default function App() {
                             type="checkbox"
                             checked={!!newChannel.youtube_made_for_kids}
                             onChange={e => setNewChannel({ ...newChannel, youtube_made_for_kids: e.target.checked })}
-                            className="mt-0.5 accent-[#00c2ff]"
+                            className="peer sr-only"
                           />
+                          <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border border-slate-500 bg-[var(--bg-surface)] text-transparent peer-checked:border-[#00c2ff] peer-checked:bg-[#00c2ff] peer-checked:text-slate-950"><span className="material-symbols-outlined text-[13px] font-bold">check</span></span>
                           <span>
                             <span className="block text-[11px] font-bold text-white">Contenu destiné principalement aux enfants</span>
                             <span className="mt-0.5 block text-[9px] leading-relaxed text-slate-500">Activez uniquement si l’audience principale est composée d’enfants. KappGen transmettra cette déclaration à YouTube.</span>
@@ -12348,7 +12349,7 @@ export default function App() {
                         <div className="mt-3 space-y-3">
                           <div>
                             <span className="block text-[10px] font-bold text-slate-400 mb-1.5">Visibilité par défaut</span>
-                            <div className="grid grid-cols-3 gap-2">{[['public','Publique','public'],['unlisted','Non répertoriée','link_off'],['private','Privée','lock']].map(([id,label,icon]) => <button key={id} type="button" onClick={() => setNewChannel({ ...newChannel, youtube_privacy_status: id })} className={`rounded-xl border px-2.5 py-2 text-left text-[10px] font-bold transition-colors ${(newChannel.youtube_privacy_status || 'public') === id ? 'border-[#00c2ff] bg-[#00c2ff]/10 text-[#00c2ff]' : 'border-[var(--border)] bg-[var(--bg-surface-alt)] text-slate-300 hover:border-slate-500'}`}><span className="material-symbols-outlined text-[15px] align-middle mr-1">{icon}</span>{label}</button>)}</div>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">{[['public','Publique','public'],['unlisted','Non répertoriée','link_off'],['private','Privée','lock'],['scheduled','Programmer','event']].map(([id,label,icon]) => <button key={id} type="button" onClick={() => setNewChannel({ ...newChannel, youtube_privacy_status: id, publish_mode: id === 'scheduled' ? 'scheduled' : 'manual' })} className={`rounded-xl border px-2.5 py-2 text-left text-[10px] font-bold transition-colors ${(newChannel.youtube_privacy_status || 'public') === id ? 'border-[#00c2ff] bg-[#00c2ff]/10 text-[#00c2ff]' : 'border-[var(--border)] bg-[var(--bg-surface-alt)] text-slate-300 hover:border-slate-500'}`}><span className="material-symbols-outlined text-[15px] align-middle mr-1">{icon}</span>{label}</button>)}</div>
                           </div>
                           <div>
                             <span className="block text-[10px] font-bold text-slate-400 mb-1.5">Catégorie YouTube</span>
@@ -12370,11 +12371,11 @@ export default function App() {
                             ['youtube_embeddable', 'Autoriser l’intégration', 'Autoriser les lecteurs externes.'],
                             ['youtube_public_stats_viewable', 'Afficher les statistiques publiques', 'Laisser les statistiques visibles.'],
                           ].map(([field, label, help]) => (
-                            <label key={field} className="flex items-start gap-2 rounded-xl border border-[var(--border)] bg-[var(--bg-surface-alt)] px-3 py-2.5 text-[10px] text-slate-300 cursor-pointer"><input type="checkbox" checked={newChannel[field] !== false} onChange={e => setNewChannel({ ...newChannel, [field]: e.target.checked })} className="mt-0.5 accent-[#00c2ff]" /><span><strong className="block text-white">{label}</strong><span className="text-[9px] text-slate-500">{help}</span></span></label>
+                            <label key={field} className="flex items-start gap-2 rounded-xl border border-[var(--border)] bg-[var(--bg-surface-alt)] px-3 py-2.5 text-[10px] text-slate-300 cursor-pointer"><input type="checkbox" checked={newChannel[field] !== false} onChange={e => setNewChannel({ ...newChannel, [field]: e.target.checked })} className="peer sr-only" /><span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border border-slate-500 bg-[var(--bg-surface)] text-transparent peer-checked:border-[#00c2ff] peer-checked:bg-[#00c2ff] peer-checked:text-slate-950"><span className="material-symbols-outlined text-[13px] font-bold">check</span></span><span><strong className="block text-white">{label}</strong><span className="text-[9px] text-slate-500">{help}</span></span></label>
                           ))}
                         </div>
                         <div className="mt-3"><span className="block text-[10px] font-bold text-slate-400 mb-1.5">Licence</span><div className="grid grid-cols-2 gap-2 md:w-1/2">{[['youtube','Licence YouTube standard'],['creativeCommon','Creative Commons']].map(([id,label]) => <button key={id} type="button" onClick={() => setNewChannel({ ...newChannel, youtube_license: id })} className={`rounded-xl border px-3 py-2 text-left text-[10px] font-bold transition-colors ${(newChannel.youtube_license || 'youtube') === id ? 'border-[#00c2ff] bg-[#00c2ff]/10 text-[#00c2ff]' : 'border-[var(--border)] bg-[var(--bg-surface-alt)] text-slate-300 hover:border-slate-500'}`}>{label}</button>)}</div></div>
-                        {newChannel.publish_mode === 'auto' && (
+                        {(newChannel.publish_mode === 'auto' || newChannel.publish_mode === 'scheduled') && (
                           <div className="mt-3 space-y-2">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-2 items-start">
                               {timeControls}
