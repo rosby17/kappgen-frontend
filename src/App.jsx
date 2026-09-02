@@ -13364,7 +13364,17 @@ export default function App() {
                               : v.status}
                           </span>
                         </td>
-                        <td className="px-4 py-2.5 text-[#00c2ff] font-bold">{(v.total_credits ?? 0).toLocaleString()}</td>
+                        <td className="px-4 py-2.5 text-[#00c2ff] font-bold">
+                          {(v.total_credits ?? 0).toLocaleString()}
+                          {(v.total_credits ?? 0) === 0 && v.owner_has_own_izivoice_key && (
+                            <span
+                              title="0 crédit facturé : ce créateur utilise sa propre clé Izivoice, il paie directement Izivoice pour cet appel — pas un rendu gratuit non facturé."
+                              className="ml-1.5 align-middle px-1.5 py-0.5 rounded-md bg-slate-800/80 text-slate-400 text-[9px] font-bold uppercase tracking-wide border border-slate-700/60"
+                            >
+                              clé perso
+                            </span>
+                          )}
+                        </td>
                         <td className="px-4 py-2.5 text-slate-400">{v.created_at ? new Date(v.created_at).toLocaleDateString('fr-FR') : '—'}</td>
                         <td className="px-4 py-2.5 text-right">
                           <button onClick={event => { event.stopPropagation(); deleteAdminVideo(v.id); }} className="text-rose-400 font-bold hover:underline">Supprimer</button>
