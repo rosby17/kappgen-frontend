@@ -14543,75 +14543,83 @@ export default function App() {
                 </div>
 
                 {hfAccountsLoading ? (
-                  <div className="space-y-2">
-                    <AdminSkeletonCards count={3} className="h-14" />
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                    <AdminSkeletonCards count={6} className="h-16" />
                   </div>
                 ) : hfAccounts.length === 0 ? (
                   <p className="text-xs text-slate-500">Aucun compte Hugging Face enregistré.</p>
                 ) : (
-                  <div className="space-y-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                     {hfAccounts.map(a => {
                       const dotColor = a.status === 'active' ? 'bg-emerald-500' : a.status === 'quota_exhausted' ? 'bg-amber-500' : 'bg-red-500';
-                      const statusLabel = { active: 'Actif', quota_exhausted: 'Quota épuisé', invalid: 'Invalide' }[a.status] || a.status;
-                      const statusClass = a.status === 'active' ? 'bg-emerald-950/60 text-emerald-400' : a.status === 'quota_exhausted' ? 'bg-amber-950/60 text-amber-400' : 'bg-rose-950/60 text-rose-400';
+                      const statusLabel = { active: 'Actif', quota_exhausted: 'Épuisé', invalid: 'Invalide' }[a.status] || a.status;
                       return (
-                        <div key={a.id} className={`flex items-center gap-3 bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-xl p-3 ${!a.is_enabled ? 'opacity-50' : ''}`}>
-                          <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${dotColor}`} />
-                          <div className="min-w-0 flex-1">
-                            {editingHfLabelId === a.id ? (
-                              <div className="flex items-center gap-1.5">
-                                <input
-                                  autoFocus
-                                  value={editingHfLabelValue}
-                                  onChange={e => setEditingHfLabelValue(e.target.value)}
-                                  onKeyDown={e => { if (e.key === 'Enter') renameHfAccount(a.id); if (e.key === 'Escape') setEditingHfLabelId(null); }}
-                                  placeholder="Étiquette"
-                                  className="min-w-0 flex-1 bg-[var(--bg-surface-alt)] border border-[#00c2ff] rounded-lg px-2 py-1 text-xs text-white outline-none"
-                                />
-                                <button onClick={() => renameHfAccount(a.id)} title="Enregistrer" className="shrink-0 p-1 rounded-lg text-emerald-400 hover:bg-[var(--bg-surface-alt)]">
-                                  <span className="material-symbols-outlined text-[16px]">check</span>
-                                </button>
-                                <button onClick={() => setEditingHfLabelId(null)} title="Annuler" className="shrink-0 p-1 rounded-lg text-slate-400 hover:bg-[var(--bg-surface-alt)]">
-                                  <span className="material-symbols-outlined text-[16px]">close</span>
-                                </button>
-                              </div>
-                            ) : (
-                              <div className="text-xs font-bold text-white truncate">{a.label || a.token_preview}</div>
-                            )}
-                            <div className="text-[10px] text-slate-500 font-mono truncate">{a.token_preview}{a.last_error ? ` — ${a.last_error.slice(0, 80)}` : ''}</div>
-                          </div>
-                          <span className={`shrink-0 text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full ${statusClass}`}>{statusLabel}</span>
-                          {editingHfLabelId !== a.id && (
-                            <button
-                              onClick={() => { setEditingHfLabelId(a.id); setEditingHfLabelValue(a.label || ''); }}
-                              title="Renommer"
-                              className="shrink-0 p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-[var(--bg-surface-alt)]"
-                            >
-                              <span className="material-symbols-outlined text-[16px]">edit</span>
-                            </button>
+                        <div key={a.id} className={`bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-xl px-2.5 py-2 ${!a.is_enabled ? 'opacity-50' : ''}`}>
+                          {editingHfLabelId === a.id ? (
+                            <div className="flex items-center gap-1 mb-1">
+                              <input
+                                autoFocus
+                                value={editingHfLabelValue}
+                                onChange={e => setEditingHfLabelValue(e.target.value)}
+                                onKeyDown={e => { if (e.key === 'Enter') renameHfAccount(a.id); if (e.key === 'Escape') setEditingHfLabelId(null); }}
+                                placeholder="Étiquette"
+                                className="min-w-0 flex-1 bg-[var(--bg-surface-alt)] border border-[#00c2ff] rounded-lg px-1.5 py-0.5 text-[11px] text-white outline-none"
+                              />
+                              <button onClick={() => renameHfAccount(a.id)} title="Enregistrer" className="shrink-0 p-0.5 rounded text-emerald-400 hover:bg-[var(--bg-surface-alt)]">
+                                <span className="material-symbols-outlined text-[14px]">check</span>
+                              </button>
+                              <button onClick={() => setEditingHfLabelId(null)} title="Annuler" className="shrink-0 p-0.5 rounded text-slate-400 hover:bg-[var(--bg-surface-alt)]">
+                                <span className="material-symbols-outlined text-[14px]">close</span>
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-1.5 mb-0.5">
+                              <span className={`w-2 h-2 rounded-full shrink-0 ${dotColor}`} />
+                              <span className="text-[11px] font-bold text-white truncate flex-1" title={a.label || a.token_preview}>{a.label || a.token_preview}</span>
+                              <span className={`shrink-0 text-[8px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full ${
+                                a.status === 'active' ? 'bg-emerald-950/60 text-emerald-400' : a.status === 'quota_exhausted' ? 'bg-amber-950/60 text-amber-400' : 'bg-rose-950/60 text-rose-400'
+                              }`}>{statusLabel}</span>
+                            </div>
                           )}
-                          <button
-                            onClick={() => checkHfAccount(a.id)}
-                            disabled={hfAccountChecking === a.id}
-                            title="Revérifier"
-                            className="shrink-0 p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-[var(--bg-surface-alt)] disabled:opacity-50"
+                          <div
+                            className="text-[9px] text-slate-500 font-mono truncate mb-1"
+                            title={`${a.token_preview}${a.last_error ? ` — ${a.last_error}` : ''}`}
                           >
-                            <span className={`material-symbols-outlined text-[16px] ${hfAccountChecking === a.id ? 'animate-spin' : ''}`}>{hfAccountChecking === a.id ? 'progress_activity' : 'refresh'}</span>
-                          </button>
-                          <button
-                            onClick={() => toggleHfAccount(a.id, !a.is_enabled)}
-                            title={a.is_enabled ? 'Désactiver' : 'Activer'}
-                            className="shrink-0 p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-[var(--bg-surface-alt)]"
-                          >
-                            <span className="material-symbols-outlined text-[16px]">{a.is_enabled ? 'toggle_on' : 'toggle_off'}</span>
-                          </button>
-                          <button
-                            onClick={() => deleteHfAccount(a.id)}
-                            title="Retirer"
-                            className="shrink-0 p-1.5 rounded-lg text-rose-400 hover:text-rose-300 hover:bg-rose-950/40"
-                          >
-                            <span className="material-symbols-outlined text-[16px]">delete</span>
-                          </button>
+                            {a.token_preview}{a.last_error ? ` — ${a.last_error}` : ''}
+                          </div>
+                          <div className="flex items-center justify-end gap-0.5">
+                            {editingHfLabelId !== a.id && (
+                              <button
+                                onClick={() => { setEditingHfLabelId(a.id); setEditingHfLabelValue(a.label || ''); }}
+                                title="Renommer"
+                                className="p-1 rounded text-slate-400 hover:text-white hover:bg-[var(--bg-surface-alt)]"
+                              >
+                                <span className="material-symbols-outlined text-[13px]">edit</span>
+                              </button>
+                            )}
+                            <button
+                              onClick={() => checkHfAccount(a.id)}
+                              disabled={hfAccountChecking === a.id}
+                              title="Revérifier"
+                              className="p-1 rounded text-slate-400 hover:text-white hover:bg-[var(--bg-surface-alt)] disabled:opacity-50"
+                            >
+                              <span className={`material-symbols-outlined text-[13px] ${hfAccountChecking === a.id ? 'animate-spin' : ''}`}>{hfAccountChecking === a.id ? 'progress_activity' : 'refresh'}</span>
+                            </button>
+                            <button
+                              onClick={() => toggleHfAccount(a.id, !a.is_enabled)}
+                              title={a.is_enabled ? 'Désactiver' : 'Activer'}
+                              className="p-1 rounded text-slate-400 hover:text-white hover:bg-[var(--bg-surface-alt)]"
+                            >
+                              <span className="material-symbols-outlined text-[13px]">{a.is_enabled ? 'toggle_on' : 'toggle_off'}</span>
+                            </button>
+                            <button
+                              onClick={() => deleteHfAccount(a.id)}
+                              title="Retirer"
+                              className="p-1 rounded text-rose-400 hover:text-rose-300 hover:bg-rose-950/40"
+                            >
+                              <span className="material-symbols-outlined text-[13px]">delete</span>
+                            </button>
+                          </div>
                         </div>
                       );
                     })}
