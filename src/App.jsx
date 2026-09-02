@@ -11808,6 +11808,10 @@ export default function App() {
                         onDragLeave={() => setThumbnailDragOver(false)}
                         onDrop={(e) => { e.preventDefault(); setThumbnailDragOver(false); const files = Array.from(e.dataTransfer.files || []).filter(f => /image\/(png|jpeg|webp)/.test(f.type)); if (files.length) handleUploadThumbnailStyle({ target: { files, value: '' } }); }}
                       >
+                        <div className="flex items-center justify-between border-b border-white/10 pb-2">
+                          <h4 className="text-xs font-bold text-white">3. Générer une miniature IA</h4>
+                          <span className="text-[10px] font-medium text-slate-500">{THUMBNAIL_GENERATION_CREDITS.toLocaleString()} crédits / miniature</span>
+                        </div>
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-3">
                             {/* Mini mockup of a YouTube video card — makes it obvious at a
@@ -11829,8 +11833,8 @@ export default function App() {
                               <span className="absolute bottom-1 right-1 px-1 rounded bg-black/70 text-[9px] font-bold text-white leading-tight">4:12</span>
                             </div>
                             <div>
-                              <h4 className="font-bold text-white text-xs">Style de la miniature YouTube</h4>
-                              <p className="text-[10px] text-slate-500 mt-0.5">Références visuelles</p>
+                              <h4 className="font-bold text-white text-xs">Références de style</h4>
+                              <p className="text-[10px] text-slate-500 mt-0.5">Ajoute les miniatures à reproduire</p>
                             </div>
                           </div>
                           <div onClick={(e) => e.stopPropagation()}>
@@ -11842,15 +11846,9 @@ export default function App() {
                               onChange={handleUploadThumbnailStyle}
                               className="hidden"
                             />
-                            <label className="flex cursor-pointer items-center gap-2 text-[10px] font-bold text-white">
-                              <input type="checkbox" checked={!!newChannel.image_style.generate_thumbnail_with_ai} onChange={e => setNewChannel({ ...newChannel, image_style: { ...newChannel.image_style, generate_thumbnail_with_ai: e.target.checked } })} className="sr-only" />
-                              <span className={`flex h-5 w-5 items-center justify-center rounded-md border ${newChannel.image_style.generate_thumbnail_with_ai ? 'border-[#00c2ff] bg-[#00c2ff] text-slate-950' : 'border-slate-500'}`}>{newChannel.image_style.generate_thumbnail_with_ai && <span className="material-symbols-outlined text-[16px]">check</span>}</span>
-                              Miniature IA
-                            </label>
                           </div>
                         </div>
-                        {newChannel.image_style.generate_thumbnail_with_ai && (
-                          <div
+                        <div
                             role="button"
                             tabIndex={0}
                             onClick={() => !thumbnailStyleAnalyzing && editingChannelId && thumbnailStyleInputRef.current?.click()}
@@ -11861,8 +11859,7 @@ export default function App() {
                             <span className="mt-2 font-bold">{thumbnailStyleAnalyzing ? 'Analyse des miniatures…' : 'Glisse-dépose des miniatures de référence'}</span>
                             {!thumbnailStyleAnalyzing && <span className="mt-0.5 text-slate-500">ou clique ici</span>}
                             {!editingChannelId && <span className="mt-2 text-amber-300">Enregistre d’abord la chaîne</span>}
-                          </div>
-                        )}
+                        </div>
                         {/* AI concept proposal removed: reference images are the source of truth.
                             visual identity (subject/character + palette + style), not a
                             generic template. Once approved it's locked as this channel's
