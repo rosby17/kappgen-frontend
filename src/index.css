@@ -224,10 +224,10 @@ body {
   54%, 96% { transform: rotate(180deg); }
   100% { transform: rotate(360deg); }
 }
-.hg-sand-top { transform-origin: 12px 4.5px; animation: hgSandTop 3.6s ease-in-out infinite; }
-.hg-sand-bottom { transform-origin: 12px 27.5px; animation: hgSandBottom 3.6s ease-in-out infinite; }
-.hg-sand-drop { animation: hgSandDrop 0.7s linear infinite; }
-.hg-rotate { transform-origin: 50% 50%; animation: hgFlip 3.6s ease-in-out infinite; }
+.hg-sand-top { transform-origin: 12px 4.5px; animation: hgSandTop 7s ease-in-out infinite; }
+.hg-sand-bottom { transform-origin: 12px 27.5px; animation: hgSandBottom 7s ease-in-out infinite; }
+.hg-sand-drop { animation: hgSandDrop 1.3s linear infinite; }
+.hg-rotate { transform-origin: 50% 50%; animation: hgFlip 7s ease-in-out infinite; }
 
 @media (prefers-reduced-motion: reduce) {
   .effect-preview-stars, .effect-preview-dust-near, .effect-preview-dust-far,
