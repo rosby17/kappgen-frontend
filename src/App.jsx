@@ -9763,11 +9763,12 @@ export default function App() {
                                       <span className="material-symbols-outlined text-[14px] text-[#00c2ff]">drive_file_rename_outline</span> Renommer
                                     </button>
                                   )}
-                                  {vid.status === 'done' && (
+                                  {vid.status === 'done' && (<>
                                     <button onClick={(e) => handleRegenerateCardThumbnail(vid, e)} disabled={regeneratingCardThumbnailIds.has(vid.id)} className="w-full text-left px-3 py-1.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium disabled:opacity-50">
                                       <span className="material-symbols-outlined text-[14px] text-[#00c2ff]">autorenew</span> {regeneratingCardThumbnailIds.has(vid.id) ? 'Régénération…' : 'Régénérer la miniature'}
                                     </button>
                                     <button onClick={(e) => openThumbnailModal(vid, e)} className="w-full text-left px-3 py-1.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium"><span className="material-symbols-outlined text-[14px] text-[#00c2ff]">photo_library</span> Historique des miniatures</button>
+                                    </>
                                   )}
                                   {vid.status === 'done' && vid.editable && (
                                     <button onClick={(e) => { e.stopPropagation(); setOpenVideoMenuId(null); openStudio(vid); }} className="w-full text-left px-3 py-1.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium">
