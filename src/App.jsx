@@ -7283,11 +7283,16 @@ export default function App() {
     // creator's own cloned voices "disappear" the moment they opened the
     // wizard from a different tab, browser, or after clearing site data,
     // even though the channel using that voice_id kept generating fine the
-    // whole time (see /channels/voice/clone/mine in channels.py).
+    // whole time (see /channels/my-cloned-voices in channels.py — renamed
+    // from /channels/voice/clone/mine, which consistently failed at the
+    // network level in the browser — ERR_FAILED, no response at all, no
+    // CORS headers — while every structurally identical sibling endpoint
+    // worked fine; a WAF/edge rule pattern-matching "clone" in the path was
+    // the leading suspect, so the path itself was changed to test that).
     const inWizard = view === 'wizard';
     if ((!showSubmitModal || submitMode !== 'text') && !inWizard && !studioVideo) return;
     if (!currentUser) return;
-    authFetch(`${API_BASE}/channels/voice/clone/mine`)
+    authFetch(`${API_BASE}/channels/my-cloned-voices`)
       .then(res => res.ok ? res.json() : Promise.reject())
       .then(data => {
         const serverVoices = data.voices || [];
@@ -9192,50 +9197,12 @@ export default function App() {
 
             {/* VIEW 3: MES VIDÉOS (Videos Library View) */}
             {view === 'videos' && (
-              <div className="flex items-start gap-2 -ml-4 md:-ml-6">
-                {/* Whole block (folder rail + title + grid, all together)
-                    pulled left by the page's own md:p-8 padding, so it sits
-                    flush against the main sidebar instead of floating with
-                    that padding's worth of dead space in front of it. The
-                    folder rail stays a separate column from the title/grid
-                    section so the two always share the same left edge with
-                    each other, no matter the rail's width or collapsed state. */}
-                <aside className={`flex-shrink-0 space-y-1 transition-[width] duration-200 ${folderSidebarCollapsed ? 'w-10' : 'w-36'}`}>
-                  <button
-                    onClick={toggleFolderSidebarCollapsed}
-                    title={folderSidebarCollapsed ? 'Agrandir les dossiers' : 'Réduire les dossiers'}
-                    className={`w-full flex items-center py-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-[var(--bg-hover)] transition-colors mb-1 ${folderSidebarCollapsed ? 'justify-center' : 'justify-end px-1'}`}
-                  >
-                    <span className="material-symbols-outlined text-[16px]">{folderSidebarCollapsed ? 'dock_to_right' : 'dock_to_left'}</span>
-                  </button>
-                  <button
-                    onClick={() => { setCurrentFolderId(null); setVideoFilterFolderId('all'); }}
-                    onDragOver={(e) => { if (draggedVideoId) { e.preventDefault(); setDragOverFolderId('all'); } }}
-                    onDragLeave={() => setDragOverFolderId(id => id === 'all' ? null : id)}
-                    onDrop={(e) => {
-                      e.preventDefault();
-                      setDragOverFolderId(null);
-                      const videoId = draggedVideoId || e.dataTransfer.getData('text/plain');
-                      setDraggedVideoId(null);
-                      if (videoId) moveVideoToFolder(videoId, null);
-                    }}
-                    title={`Toutes (${allVideos.filter(v => productChannelIds.has(v.channel_id)).length})`}
-                    className={`w-full text-left py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${folderSidebarCollapsed ? 'px-0 justify-center' : 'px-2'} ${
-                      videoFilterFolderId === 'all' ? 'bg-[#00c2ff] text-slate-950' : 'text-slate-300 hover:text-white hover:bg-[var(--bg-hover)]'
-                    } ${dragOverFolderId === 'all' ? 'ring-2 ring-[#00c2ff] ring-offset-1 ring-offset-[var(--bg-page)]' : ''}`}
-                  >
-                    <span className="material-symbols-outlined text-[15px]">apps</span> {!folderSidebarCollapsed && `Toutes (${allVideos.filter(v => productChannelIds.has(v.channel_id)).length})`}
-                  </button>
-                  {renderFolderTree(null, 0)}
-                  <button
-                    onClick={() => setShowNewFolderModal(true)}
-                    title="Nouveau dossier"
-                    className={`w-full text-left py-1.5 rounded-lg text-xs font-bold text-[#00c2ff] hover:bg-[#00c2ff]/10 border border-dashed border-[#00c2ff]/40 flex items-center gap-1.5 transition-all ${folderSidebarCollapsed ? 'px-0 justify-center' : 'px-2'}`}
-                  >
-                    <span className="material-symbols-outlined text-[15px]">create_new_folder</span> {!folderSidebarCollapsed && 'Nouveau dossier'}
-                  </button>
-                </aside>
-
+              <div className="-ml-4 md:-ml-6">
+                {/* Folder rail removed entirely per explicit request — no more
+                    nested "sidebar within the sidebar". Videos are no longer
+                    filterable by folder on this page; folder_id still exists
+                    on Video (moveVideoToFolder / "Déplacer vers…" in the
+                    kebab menu is untouched) in case it's wanted back later. */}
                 <section className="flex-1 min-w-0 space-y-6">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                   <div>
