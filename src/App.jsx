@@ -13129,7 +13129,7 @@ export default function App() {
 
           {adminTab === 'users' && (
             <div className="bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-2xl overflow-hidden">
-              <div className="p-4 border-b border-[var(--border-soft)]">
+              <div className="p-4 border-b border-[var(--border-soft)] flex items-center justify-between gap-3 flex-wrap">
                 <input
                   value={adminSearch}
                   onChange={e => setAdminSearch(e.target.value)}
@@ -13137,6 +13137,11 @@ export default function App() {
                   placeholder="Rechercher par email..."
                   className="w-full max-w-xs bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-3 py-2 text-xs text-white focus:border-[#00c2ff] outline-none"
                 />
+                {!adminUsersLoading && (
+                  <span className="text-[11px] font-bold text-slate-400 shrink-0">
+                    <span className="text-white">{adminUsers.length}</span> utilisateur{adminUsers.length > 1 ? 's' : ''}{adminUsers.length >= 500 ? '+' : ''}{adminSearch.trim() ? ' trouvé(s)' : ' au total'}
+                  </span>
+                )}
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-xs">
