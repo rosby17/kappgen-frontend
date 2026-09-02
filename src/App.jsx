@@ -4189,7 +4189,7 @@ export default function App() {
       opacity: 100,
       rotation: 0,
       x_offset: 0,
-      y_offset: 0,
+      y_offset: 140,
       shadow: false,
       shadow_color: '#000000',
       shadow_distance: 3
@@ -11757,13 +11757,13 @@ export default function App() {
                                 ))}
                               </div>
                               <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                <label className="text-[9px] font-bold text-slate-500">Horizontal
+                                <label className="text-[9px] font-bold text-slate-500"><span className="flex items-center justify-between"><span>Horizontal</span><span className="rounded-md bg-[#00c2ff]/10 px-1.5 py-0.5 text-[#00c2ff]">{Math.round((((newChannel.subtitle_style.x_offset || 0) + 700) / 1400) * 100)}%</span></span>
                                   <input type="range" min="-700" max="700" step="1" value={newChannel.subtitle_style.x_offset || 0}
                                     onChange={e => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, x_offset: parseInt(e.target.value) || 0 } })}
                                     className="mt-1.5 w-full accent-[#00c2ff]" />
                                 </label>
-                                <label className="text-[9px] font-bold text-slate-500">Vertical
-                                  <input type="range" min="-500" max="500" step="1" value={newChannel.subtitle_style.y_offset || 0}
+                                <label className="text-[9px] font-bold text-slate-500"><span className="flex items-center justify-between"><span>Vertical</span><span className="rounded-md bg-[#00c2ff]/10 px-1.5 py-0.5 text-[#00c2ff]">{Math.round((((newChannel.subtitle_style.y_offset ?? 140) + 500) / 1000) * 100)}%</span></span>
+                                  <input type="range" min="-500" max="500" step="1" value={newChannel.subtitle_style.y_offset ?? 140}
                                     onChange={e => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, y_offset: parseInt(e.target.value) || 0 } })}
                                     className="mt-1.5 w-full accent-[#00c2ff]" />
                                 </label>
