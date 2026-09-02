@@ -8117,7 +8117,6 @@ export default function App() {
               {[
                 { id: 'overview', label: "Vue d'ensemble", icon: 'dashboard' },
                 { id: 'users', label: 'Utilisateurs', icon: 'group' },
-                { id: 'plans', label: 'Offres', icon: 'sell' },
                 { id: 'videos', label: 'Vidéos', icon: 'movie' },
                 { id: 'library', label: 'Bibliothèque collaborative', icon: 'diversity_3' },
                 { id: 'transactions', label: 'Transactions', icon: 'payments' },
