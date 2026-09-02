@@ -10374,9 +10374,12 @@ export default function App() {
                 {/* Wizard Header Stepper */}
                 <div className="flex items-start justify-between gap-3 border-b border-[var(--border-soft)] pb-4 sm:pb-6">
                   <div className="min-w-0">
-                    <h2 className="text-base sm:text-xl font-extrabold text-white">
+                    <h2 className="text-base sm:text-xl font-extrabold text-white truncate">
                       {wizardMode === 'edit' ? 'Modifier le Pipeline de la Chaîne' : 'Configuration du Template de Montage de sa Chaîne'}
                     </h2>
+                    {wizardMode === 'edit' && newChannel.name && (
+                      <p className="text-xs sm:text-sm font-bold text-[#00c2ff] mt-0.5 truncate">{newChannel.name}</p>
+                    )}
                     <p className="text-xs text-slate-400 mt-1">Étape {wizardStep} sur 9</p>
                   </div>
                   <button
