@@ -11458,12 +11458,11 @@ export default function App() {
                   return (
                     <div className="flex flex-col space-y-6">
                       <div>
-                        <h3 className="text-base font-bold text-white">4. Source d'Images Visuelles & Mode de Génération</h3>
-                        <p className="text-xs text-slate-400 mt-1">Sélectionnez la ou les sources visuelles souhaitées (Vous pouvez cocher l'Option A, l'Option B, ou les deux !).</p>
+                        <h3 className="text-base font-bold text-white">4. Visuels</h3>
                       </div>
 
-                      <div className="rounded-2xl border border-violet-500/20 bg-violet-500/[.05] p-4">
-                        <h4 className="text-xs font-bold text-white">Mode de montage avec tes médias</h4>
+                      <div className="rounded-2xl border border-violet-500/20 bg-violet-500/[.05] p-4 order-2">
+                        <h4 className="text-xs font-bold text-white">2. Mode de montage</h4>
                         <p className="mt-1 text-[10px] text-slate-400">Choisis comment les images et les vidéos B-roll importées doivent être utilisés.</p>
                         <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
                           {[['images', 'Images uniquement', 'image'], ['videos', 'Vidéos B-roll uniquement', 'movie'], ['mixed', 'Mix images + vidéos', 'perm_media']].map(([value, label, icon]) => (
@@ -11476,7 +11475,9 @@ export default function App() {
                       </div>
 
                       {/* 2 CARDS SELECTION GRID WITH CHECKBOXES */}
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-stretch">
+                      <div className="order-1">
+                        <h4 className="text-xs font-bold text-white mb-2">1. Sources visuelles</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-stretch">
                         
                         {/* OPTION A: DOSSIER IMAGES LOCALES */}
                         <div 
@@ -11772,6 +11773,7 @@ export default function App() {
                             </div>
                             <p className="text-[10px] text-slate-500 mt-1.5">Ce style guide chaque image générée — plus c'est précis, plus le résultat est cohérent d'une vidéo à l'autre.</p>
                           </div>
+                        </div>
                         </div>
 
                       {(() => {
