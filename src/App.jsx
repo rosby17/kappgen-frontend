@@ -4706,6 +4706,7 @@ export default function App() {
   const [folders, setFolders] = useState([]);
   const [videoFilterFolderId, setVideoFilterFolderId] = useState('all');
   const [showTrash, setShowTrash] = useState(false);
+  const [channelFilterOpen, setChannelFilterOpen] = useState(false);
   // Which folder we're browsing inside of, file-explorer style — null is the
   // root (top-level folders + videos with no folder). Distinct from
   // videoFilterFolderId ('all' | folder id | null) which decides what the
@@ -9199,17 +9200,47 @@ export default function App() {
                   </div>
 
                   <div className="flex items-center gap-3">
-                    {/* Channel Filter Selector */}
-                    <select
-                      value={videoFilterChannelId}
-                      onChange={e => setVideoFilterChannelId(e.target.value)}
-                      className="bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-4 py-2 text-xs text-white focus:outline-none"
-                    >
-                      <option value="all">Toutes les chaînes ({productChannels.length})</option>
-                      {productChannels.map(c => (
-                        <option key={c.id} value={c.id}>{c.name}</option>
-                      ))}
-                    </select>
+                    {/* Channel Filter Selector — custom dropdown (not a native
+                        <select>) so the checkmark on the active item sits
+                        inside our own styled panel instead of wherever the
+                        OS/browser happens to render it for a plain <select>. */}
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={() => setChannelFilterOpen(v => !v)}
+                        className="bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl pl-4 pr-3 py-2 text-xs font-bold text-white hover:border-slate-500 transition-colors flex items-center gap-2 min-w-0"
+                      >
+                        <span className="truncate max-w-[160px]">{videoFilterChannelId === 'all' ? `Toutes les chaînes (${productChannels.length})` : (productChannels.find(c => c.id === videoFilterChannelId)?.name || 'Chaîne')}</span>
+                        <span className={`material-symbols-outlined text-[16px] text-slate-400 shrink-0 transition-transform ${channelFilterOpen ? 'rotate-180' : ''}`}>expand_more</span>
+                      </button>
+                      {channelFilterOpen && (
+                        <>
+                          <div className="fixed inset-0 z-30" onClick={() => setChannelFilterOpen(false)} />
+                          <div className="absolute left-0 top-full mt-1.5 w-56 max-h-72 overflow-y-auto bg-[var(--bg-dropdown)] border border-[var(--border-dropdown)] rounded-xl shadow-2xl z-40 py-1.5">
+                            <button
+                              type="button"
+                              onClick={() => { setVideoFilterChannelId('all'); setChannelFilterOpen(false); }}
+                              className="w-full flex items-center justify-between gap-2 px-3.5 py-2 text-left text-xs font-bold text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white"
+                            >
+                              <span className="truncate">Toutes les chaînes ({productChannels.length})</span>
+                              {videoFilterChannelId === 'all' && <span className="material-symbols-outlined text-[15px] text-[#00c2ff] shrink-0">check</span>}
+                            </button>
+                            <div className="h-px bg-[var(--border-dropdown)] my-1" />
+                            {productChannels.map(c => (
+                              <button
+                                key={c.id}
+                                type="button"
+                                onClick={() => { setVideoFilterChannelId(c.id); setChannelFilterOpen(false); }}
+                                className="w-full flex items-center justify-between gap-2 px-3.5 py-2 text-left text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white"
+                              >
+                                <span className="truncate">{c.name}</span>
+                                {videoFilterChannelId === c.id && <span className="material-symbols-outlined text-[15px] text-[#00c2ff] shrink-0">check</span>}
+                              </button>
+                            ))}
+                          </div>
+                        </>
+                      )}
+                    </div>
 
                     <button
                       onClick={() => setShowTrash(v => !v)}
