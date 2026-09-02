@@ -2362,7 +2362,7 @@ function VideoPlayer({ src, autoPlay, className, onTimeUpdate, seekTo, onPlaying
   useEffect(() => { onPlayingChange?.(isPlaying); }, [isPlaying]);
 
   return (
-    <div className={`relative bg-black ${className || ''}`} onClick={(e) => e.stopPropagation()}>
+    <div className={`group relative bg-black ${className || ''}`} onClick={(e) => e.stopPropagation()}>
       <video
         ref={videoRef}
         src={src}
@@ -2375,6 +2375,39 @@ function VideoPlayer({ src, autoPlay, className, onTimeUpdate, seekTo, onPlaying
         onEnded={() => setIsPlaying(false)}
         className="w-full h-full object-contain cursor-pointer"
       />
+
+      {/* Centered play/seek cluster — big, clickable rewind/play/forward
+          buttons over the middle of the frame, not just the small bottom-bar
+          icons. Stays fully visible while paused (so there's always an
+          obvious way in); fades to a hover reveal once playing, so it
+          doesn't sit on top of the video the whole time someone's watching. */}
+      <div
+        className={`absolute inset-0 flex items-center justify-center gap-5 pointer-events-none transition-opacity ${
+          isPlaying ? 'opacity-0 group-hover:opacity-100' : 'opacity-100'
+        }`}
+      >
+        <button
+          onClick={skip(-10)}
+          title="Reculer de 10s"
+          className="pointer-events-auto w-12 h-12 rounded-full bg-black/55 backdrop-blur-sm border border-white/15 text-white flex items-center justify-center hover:bg-black/75 hover:scale-105 transition-all"
+        >
+          <span className="material-symbols-outlined text-[26px]">replay_10</span>
+        </button>
+        <button
+          onClick={togglePlay}
+          title={isPlaying ? 'Pause' : 'Lecture'}
+          className="pointer-events-auto w-16 h-16 rounded-full bg-[#00c2ff] text-slate-950 flex items-center justify-center shadow-lg shadow-[#00c2ff]/30 hover:bg-[#38d0ff] hover:scale-105 transition-all"
+        >
+          <span className="material-symbols-outlined text-[34px]">{isPlaying ? 'pause' : 'play_arrow'}</span>
+        </button>
+        <button
+          onClick={skip(10)}
+          title="Avancer de 10s"
+          className="pointer-events-auto w-12 h-12 rounded-full bg-black/55 backdrop-blur-sm border border-white/15 text-white flex items-center justify-center hover:bg-black/75 hover:scale-105 transition-all"
+        >
+          <span className="material-symbols-outlined text-[26px]">forward_10</span>
+        </button>
+      </div>
 
       {/* Custom controls bar */}
       <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent px-3 pt-8 pb-2 pointer-events-none">
@@ -9373,7 +9406,7 @@ export default function App() {
                                 </div>
                               ) : vid.status === 'failed' ? (
                                 <div className="w-full h-full px-4 py-3 text-center flex flex-col items-center justify-center gap-1.5">
-                                  <span className="material-symbols-outlined text-[38px] leading-none text-rose-400">warning</span>
+                                  <span className="material-symbols-outlined text-[38px] leading-none text-rose-400">replay</span>
                                   <div className="text-[11px] font-extrabold text-rose-300">Échec</div>
                                   <div className="max-w-full text-[9px] leading-relaxed text-rose-300/80 line-clamp-2" title={vid.error_message || ''}>
                                     {(vid.error_message || 'Erreur inconnue').split('\n')[0]}
@@ -10070,7 +10103,7 @@ export default function App() {
                               </div>
                             ) : vid.status === 'failed' ? (
                               <div className="w-full h-full px-4 py-3 text-center flex flex-col items-center justify-center gap-1.5">
-                                <span className="material-symbols-outlined text-[38px] leading-none text-rose-400">warning</span>
+                                <span className="material-symbols-outlined text-[38px] leading-none text-rose-400">replay</span>
                                 <div className="text-[11px] font-extrabold text-rose-300">Échec</div>
                                 <div className="max-w-full text-[9px] leading-relaxed text-rose-300/80 line-clamp-2" title={vid.error_message || ''}>
                                   {(vid.error_message || 'Erreur inconnue').split('\n')[0]}
