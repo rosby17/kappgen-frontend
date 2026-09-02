@@ -11842,7 +11842,7 @@ export default function App() {
                             </div>
                             <div>
                               <h4 className="font-bold text-white text-xs">Style de la miniature YouTube</h4>
-                              <p className="text-[10px] text-slate-500 mt-0.5">Ajoute idéalement 4 à 10 captures de concurrents : le système apprendra leur grammaire visuelle commune.</p>
+                              <p className="text-[10px] text-slate-500 mt-0.5">Références visuelles de ta chaîne</p>
                             </div>
                           </div>
                           <div onClick={(e) => e.stopPropagation()}>
@@ -11949,9 +11949,7 @@ export default function App() {
                           )}
                         </div>
 
-                        <p className="text-[11px] text-slate-400">
-                          Pour un rendu fidèle, envoie plusieurs miniatures que tu apprécies. L’IA analyse les personnages, cadrages, symboles, densité, lumière, palette et emplacement du texte, puis construit une identité réutilisable sans copier une image précise. {THUMBNAIL_GENERATION_CREDITS.toLocaleString()} crédits/miniature.
-                        </p>
+                        <div className="mt-3 rounded-xl border border-white/10 bg-black/10 p-3 text-[10px] text-slate-400">Ajoute les miniatures que tu veux prendre comme référence. L’analyse apprend automatiquement le style de cette chaîne.</div>
                         {/* Manual prompt and preset templates intentionally removed. */}
                         {/* <textarea
                           rows="2"
@@ -12050,9 +12048,10 @@ export default function App() {
                         ) : !editingChannelId ? (
                           <p className="text-[10px] text-amber-400/80">Enregistre d'abord la chaîne pour pouvoir ajouter des images de référence de miniature.</p>
                         ) : null}
-                        <label className="mt-4 flex items-start gap-3 rounded-2xl border border-amber-400/30 bg-amber-400/[.06] p-4 cursor-pointer">
-                          <input type="checkbox" checked={!!newChannel.image_style.generate_thumbnail_with_ai} onChange={e => setNewChannel({ ...newChannel, image_style: { ...newChannel.image_style, generate_thumbnail_with_ai: e.target.checked } })} className="mt-1 h-4 w-4 accent-amber-400" />
-                          <span><strong className="block text-sm text-white">Générer une miniature IA</strong><small className="block mt-1 text-[11px] text-slate-400">Autorise KappGen à générer automatiquement une miniature avec GPT Image 2. Cette option consomme des crédits supplémentaires par vidéo. Si elle n’est pas cochée, aucune miniature IA ne sera générée.</small></span>
+                        <label className="mt-4 flex items-center gap-3 rounded-xl border border-white/10 bg-[var(--bg-input-alt)] p-3 cursor-pointer hover:border-[#00c2ff]/60">
+                          <input type="checkbox" checked={!!newChannel.image_style.generate_thumbnail_with_ai} onChange={e => setNewChannel({ ...newChannel, image_style: { ...newChannel.image_style, generate_thumbnail_with_ai: e.target.checked } })} className="sr-only" />
+                          <span className={`w-5 h-5 rounded-md border flex items-center justify-center ${newChannel.image_style.generate_thumbnail_with_ai ? 'bg-[#00c2ff] border-[#00c2ff] text-slate-950' : 'border-slate-500'}`}>{newChannel.image_style.generate_thumbnail_with_ai && <span className="material-symbols-outlined text-[16px]">check</span>}</span>
+                          <span className="text-xs font-bold text-white">Générer une miniature IA <em className="ml-1 text-[10px] font-normal not-italic text-slate-500">({THUMBNAIL_GENERATION_CREDITS.toLocaleString()} crédits)</em></span>
                         </label>
                       </div>
                     </div>
