@@ -3188,17 +3188,19 @@ function PipelineStepper({ stage, percent, failed = false, source = 'automatic' 
 function VideoTrustBadge({ video, onClick }) {
   const report = video.youtube_compliance_report;
   const score = report?.score;
-  const tone = score == null ? 'border-slate-600/70 bg-slate-900/60 text-slate-400' : score >= 80 ? 'border-emerald-400/35 bg-emerald-400/[.09] text-emerald-200' : score >= 60 ? 'border-amber-400/35 bg-amber-400/[.09] text-amber-200' : 'border-rose-400/35 bg-rose-400/[.09] text-rose-200';
+  const textTone = score == null ? 'text-slate-500' : score >= 80 ? 'text-emerald-400' : score >= 60 ? 'text-amber-400' : 'text-rose-400';
+  const barTone = score == null ? 'bg-slate-700' : score >= 80 ? 'bg-emerald-400' : score >= 60 ? 'bg-amber-400' : 'bg-rose-400';
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`mt-2 flex w-full items-center gap-2 rounded-lg border px-2.5 py-1.5 text-left text-[10px] font-bold transition-colors hover:brightness-125 ${tone}`}
+      className="mt-2 flex w-full items-center gap-2 py-1 text-left text-[10px] font-bold transition-opacity hover:opacity-80"
       title="Voir le Trust Score YouTube et les contrôles"
     >
-      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-black/15"><span className="material-symbols-outlined text-[13px]">analytics</span></span>
-      <span className="min-w-0 flex-1">Trust Score</span>
-      <strong className="font-black tabular-nums">{score == null ? '…' : `${score}%`}</strong>
+      <span className={`material-symbols-outlined text-[15px] ${textTone}`}>analytics</span>
+      <span className={`shrink-0 ${textTone}`}>Trust Score</span>
+      <span className="h-px min-w-3 flex-1 overflow-hidden bg-slate-700/70"><span className={`block h-full ${barTone}`} style={{ width: `${score == null ? 0 : score}%` }} /></span>
+      <strong className={`shrink-0 font-black tabular-nums ${textTone}`}>{score == null ? '…' : `${score}%`}</strong>
     </button>
   );
 }
