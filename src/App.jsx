@@ -4374,6 +4374,7 @@ export default function App() {
     }
   };
   const thumbnailStyleInputRef = useRef(null);
+  const [thumbnailDragOver, setThumbnailDragOver] = useState(false);
   const [thumbnailStyleAnalyzing, setThumbnailStyleAnalyzing] = useState(false);
 
   // AI-proposed thumbnail identity flow: propose one concrete, niche-specific
@@ -11818,7 +11819,12 @@ export default function App() {
                         );
                       })()}
 
-                      <div className="bg-[#171b23] border border-[var(--border)] rounded-xl p-3.5 space-y-2.5">
+                      <div
+                        className={`bg-[#171b23] border rounded-xl p-3.5 space-y-2.5 transition-colors ${thumbnailDragOver ? 'border-[#00c2ff] bg-[#00c2ff]/[.06]' : 'border-[var(--border)]'}`}
+                        onDragOver={(e) => { e.preventDefault(); setThumbnailDragOver(true); }}
+                        onDragLeave={() => setThumbnailDragOver(false)}
+                        onDrop={(e) => { e.preventDefault(); setThumbnailDragOver(false); const files = Array.from(e.dataTransfer.files || []).filter(f => /image\/(png|jpeg|webp)/.test(f.type)); if (files.length) handleUploadThumbnailStyle({ target: { files, value: '' } }); }}
+                      >
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-3">
                             {/* Mini mockup of a YouTube video card — makes it obvious at a
@@ -11863,6 +11869,7 @@ export default function App() {
                               <span className="material-symbols-outlined text-[13px]">{thumbnailStyleAnalyzing ? 'hourglass_top' : 'image_search'}</span>
                               {thumbnailStyleAnalyzing ? 'Analyse...' : (newChannel.thumbnail_style?.style_prompt ? "Ajouter d'autres images" : "Ajouter des images de référence")}
                             </button>
+                            <p className={`mt-2 text-[10px] ${thumbnailDragOver ? 'text-[#00c2ff] font-bold' : 'text-slate-500'}`}>Glisse-dépose plusieurs images ici, ou utilise le bouton</p>
                             <div className="mt-2 flex items-center gap-2">
                               <input type="file" accept="image/png,image/jpeg,image/webp" multiple onChange={handleUploadThumbnailStyle} className="hidden" id="thumbnail-character-upload" />
                               <label htmlFor="thumbnail-character-upload" className="cursor-pointer text-[10px] text-slate-400 hover:text-[#00c2ff]">Personnage principal privé ? Ajouter sa photo</label>
