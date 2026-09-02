@@ -3199,8 +3199,9 @@ function VideoTrustBadge({ video, onClick }) {
     >
       <span className={`material-symbols-outlined text-[15px] ${textTone}`}>analytics</span>
       <span className={`shrink-0 ${textTone}`}>Trust Score</span>
-      <span className="h-px min-w-3 flex-1 overflow-hidden bg-slate-700/70"><span className={`block h-full ${barTone}`} style={{ width: `${score == null ? 0 : score}%` }} /></span>
+      <span className="h-1 min-w-3 flex-1 overflow-hidden rounded-full bg-slate-700/70"><span className={`block h-full rounded-full ${barTone}`} style={{ width: `${score == null ? 0 : score}%` }} /></span>
       <strong className={`shrink-0 font-black tabular-nums ${textTone}`}>{score == null ? '…' : `${score}%`}</strong>
+      <span className={`material-symbols-outlined text-[14px] ${textTone}`}>chevron_right</span>
     </button>
   );
 }
