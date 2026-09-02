@@ -167,7 +167,7 @@ export default function LandingPage() {
               <a className="button button-primary" href={isLoggedIn ? appUrl('/dashboard') : appUrl('/signup')}>{isLoggedIn ? 'Accéder à KappGen' : 'Sors des écrans'} <ArrowRight size={18} /></a>
               <a className="button button-ghost" href="#fonctionnement"><Play size={17} fill="currentColor" /> Voir comment gagner du temps</a>
             </div>
-            <div className="hero-trust"><span><Check size={15} /> De l’idée à la publication</span><span><Check size={15} /> Zéro montage manuel</span><span><Check size={15} /> KappGen actif 24 h/24</span></div>
+            <div className="hero-trust"><span><Check size={15} /> De l’idée au rendu</span><span><Check size={15} /> Montage automatisé ou éditable</span><span><Check size={15} /> Publication YouTube en option</span></div>
           </div>
           <ProductPreview />
         </section>
@@ -180,7 +180,7 @@ export default function LandingPage() {
         ))}</div></section>
 
         <section className="section features" id="fonctionnement">
-          <div className="section-intro"><div className="section-kicker">TOUTES TES CHAÎNES, GÉRÉES PAR KAPPGEN</div><h2>Tu définis la direction.<br /><span>KappGen exécute tout le reste.</span></h2><p>KappGen ne s’arrête pas au montage. Il orchestre toute la chaîne de création, de la première idée jusqu’à la publication sur YouTube — jusqu’à décider lui-même les jours où produire du contenu. Configure une fois, oublie ensuite.</p></div>
+          <div className="section-intro"><div className="section-kicker">TOUTES TES CHAÎNES, GÉRÉES PAR KAPPGEN</div><h2>Tu définis la direction.<br /><span>KappGen automatise le reste.</span></h2><p>KappGen couvre la production, de l’idée ou du script jusqu’au rendu final. Selon ton abonnement et ta configuration, tu peux automatiser la recherche de sujet, la voix off, les sous-titres, les visuels, le montage et la publication YouTube.</p></div>
           <div className="feature-grid">{features.map(({ icon: Icon, title, text }, index) => <article className={index === 0 || index === 5 ? 'feature-card featured' : 'feature-card'} key={title}><div className="feature-icon"><Icon /></div><h3>{title}</h3><p>{text}</p></article>)}</div>
         </section>
 
@@ -203,7 +203,7 @@ export default function LandingPage() {
           <div className="steps">{steps.map(([number, title, text]) => <article className="step" key={number}><span>{number}</span><div><h3>{title}</h3><p>{text}</p></div></article>)}</div>
         </section>
 
-        <section className="section audience"><div className="audience-card"><div><div className="section-kicker">ENTRAÎNÉ POUR LA RÉALITÉ DE YOUTUBE</div><h2>Autonome ne veut pas dire générique.</h2><p>Nous maîtrisons les réalités du terrain YouTube et avons conçu KappGen AI autour de ce qui compte vraiment : originalité, rétention, identité éditoriale, droits et règles de monétisation. KappGen AI ne produit pas à la chaîne ; il crée selon ton univers et applique ces exigences à chaque vidéo pour réduire les risques de démonétisation, de suppression ou de sanction.</p></div><div className="audience-list">{['Originalité à chaque vidéo', 'Rétention pensée dès le script', 'Identité de chaîne préservée', 'Règles YouTube intégrées'].map((item) => <span key={item}><BadgeCheck /> {item}</span>)}</div></div></section>
+        <section className="section audience"><div className="audience-card"><div><div className="section-kicker">PENSÉ POUR TON FLUX YOUTUBE</div><h2>Automatisé, mais toujours contrôlable.</h2><p>KappGen assemble tes contenus selon la configuration de chaque chaîne : niche, ton, identité visuelle, sous-titres, musique et mode image/vidéo. Tu peux revoir, éditer, télécharger ou publier chaque vidéo depuis l’application.</p></div><div className="audience-list">{['Scripts et sujets configurables', 'Sous-titres et scènes éditables', 'Images et B-roll vidéo', 'Publication YouTube au choix'].map((item) => <span key={item}><BadgeCheck /> {item}</span>)}</div></div></section>
 
         <section className="section pricing" id="tarifs">
           <div className="section-intro centered"><div className="section-kicker">DES OFFRES POUR REPRENDRE TON TEMPS</div><h2>Commence avec une vidéo.<br /><span>Puis libère-toi des écrans.</span></h2><p>Choisis le rythme qui laisse ta chaîne avancer sans sacrifier tes journées, tes nuits ou tes vacances.</p></div>
@@ -243,7 +243,7 @@ export default function LandingPage() {
           ['Où se trouve l’application ?', `L’espace de production est séparé de ce site et accessible sur ${APP_ORIGIN.replace('https://', '')}.`],
         ].map(([q, a]) => <details key={q}><summary>{q}<span>+</span></summary><p>{a}</p></details>)}</div></section>
 
-        <section className="final-cta"><div className="cta-icon"><WandSparkles /></div><h2>Tu vis. KappGen travaille.</h2><p>La création de contenu t’absorbe, t’enferme un peu plus chaque jour. Reprends le contrôle de ton temps — sans sacrifier un centime des revenus que tu as bâtis.</p><a className="button button-primary" href={isLoggedIn ? appUrl('/dashboard') : appUrl('/signup')}>{isLoggedIn ? 'Accéder à KappGen' : 'Je reprends mon temps'} <ArrowRight size={18} /></a></section>
+        <section className="final-cta"><div className="cta-icon"><WandSparkles /></div><h2>Tu vis. KappGen travaille.</h2><p>Automatise les étapes qui te prennent du temps, garde la main sur tes contenus et publie quand tu le décides.</p><a className="button button-primary" href={isLoggedIn ? appUrl('/dashboard') : appUrl('/signup')}>{isLoggedIn ? 'Accéder à KappGen' : 'Commencer avec KappGen'} <ArrowRight size={18} /></a></section>
       </main>
 
       <footer className="landing-footer">
