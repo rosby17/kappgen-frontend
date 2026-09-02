@@ -645,9 +645,9 @@ const SUBTITLE_PRESETS = [
 // use (see fetchNicheOptions/GET /api/channels/niches), merged in at runtime.
 const NICHE_OPTIONS = [
   "Philosophie", "Philosophie Stoïcienne", "Philosophie de Machiavel", "Philosophie de Napoleon Hill",
-  "Stoïcisme", "Spiritualité", "Prière", "Méditation", "Bouddhisme", "Islam",
-  "Mythologie", "Histoires Antiques", "Histoire Africaine", "Histoire Européenne", "Histoire",
-  "Développement Personnel", "Motivation", "Récits Captivants", "Psychologie", "Finance", "Business",
+  "Stoïcisme", "Prière", "Méditation", "Bouddhisme", "Islam",
+  "Mythologie", "Histoires Antiques", "Histoire Européenne", "Histoire",
+  "Développement Personnel", "Motivation", "Récits Captivants", "Psychologie de Carl Jung", "Finance", "Business",
   "Santé & Bien-être", "Football", "Sport", "Science", "Faits Divers", "True Crime", "Voyage", "Cuisine",
 ];
 
