@@ -881,7 +881,11 @@ function VoiceAvatar({ voice, size = 40, playable = false, playing = false, gene
       />
       {playable && (
         <div className={`absolute inset-0 flex items-center justify-center bg-black/55 transition-opacity ${playing || generating ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
-          <span className={`material-symbols-outlined text-white ${generating ? 'animate-spin' : ''}`} style={{ fontSize: Math.max(14, size * 0.4) }}>{generating ? 'progress_activity' : playing ? 'pause' : 'play_arrow'}</span>
+          {generating ? (
+            <span className="material-symbols-outlined text-white animate-spin" style={{ fontSize: Math.max(14, size * 0.4) }}>progress_activity</span>
+          ) : (
+            <PlayPauseGlyph variant={playing ? 'pause' : 'play'} color="#fff" style={{ width: Math.max(14, size * 0.4), height: Math.max(14, size * 0.4) }} />
+          )}
         </div>
       )}
     </div>
@@ -2400,9 +2404,9 @@ function VideoPlayer({ src, autoPlay, className, onTimeUpdate, seekTo, onPlaying
         <button
           onClick={togglePlay}
           title={isPlaying ? 'Pause' : 'Lecture'}
-          className="pointer-events-auto w-16 h-16 rounded-full bg-[#00c2ff] text-slate-950 flex items-center justify-center shadow-lg shadow-[#00c2ff]/30 hover:bg-[#38d0ff] hover:scale-105 transition-all"
+          className="pointer-events-auto w-16 h-16 rounded-full text-[#00c2ff] drop-shadow-lg hover:text-[#38d0ff] hover:scale-105 transition-all"
         >
-          <span className="material-symbols-outlined text-[34px]">{isPlaying ? 'pause' : 'play_arrow'}</span>
+          <PlayCircleIcon variant={isPlaying ? 'pause' : 'play'} className="w-16 h-16" />
         </button>
         <button
           onClick={skip(10)}
@@ -2440,7 +2444,7 @@ function VideoPlayer({ src, autoPlay, className, onTimeUpdate, seekTo, onPlaying
                 <span className="material-symbols-outlined text-[20px]">replay_10</span>
               </button>
               <button onClick={togglePlay} className="text-white hover:text-[#00c2ff] transition-colors">
-                <span className="material-symbols-outlined text-[22px]">{isPlaying ? 'pause' : 'play_arrow'}</span>
+                <PlayPauseGlyph variant={isPlaying ? 'pause' : 'play'} color="currentColor" className="w-[22px] h-[22px]" />
               </button>
               <button onClick={skip(10)} title="Avancer de 10s" className="text-white hover:text-[#00c2ff] transition-colors">
                 <span className="material-symbols-outlined text-[20px]">forward_10</span>
@@ -2624,8 +2628,8 @@ function AudioFilePreview({ file, onRemove, volume }) {
         />
       )}
       <div className="flex items-center gap-3">
-        <button type="button" onClick={togglePlayback} disabled={!src} className="w-9 h-9 shrink-0 rounded-full bg-[#00c2ff] text-slate-950 flex items-center justify-center hover:bg-[#39d0ff] disabled:opacity-40 disabled:cursor-not-allowed">
-          <span className="material-symbols-outlined text-[22px]">{playing ? 'pause' : 'play_arrow'}</span>
+        <button type="button" onClick={togglePlayback} disabled={!src} className="w-9 h-9 shrink-0 rounded-full text-[#00c2ff] hover:text-[#39d0ff] disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+          <PlayCircleIcon variant={playing ? 'pause' : 'play'} className="w-9 h-9" />
         </button>
         <div className="min-w-0 flex-1">
           <div className="text-xs font-semibold text-white truncate mb-2">{file.name}</div>
@@ -2699,8 +2703,8 @@ function ServerAudioPreview({ src, name, volume, onRemove }) {
         />
       )}
       <div className="flex items-center gap-3">
-        <button type="button" onClick={togglePlayback} disabled={!src} className="w-9 h-9 shrink-0 rounded-full bg-[#00c2ff] text-slate-950 flex items-center justify-center hover:bg-[#39d0ff] disabled:opacity-40 disabled:cursor-not-allowed">
-          <span className="material-symbols-outlined text-[22px]">{playing ? 'pause' : 'play_arrow'}</span>
+        <button type="button" onClick={togglePlayback} disabled={!src} className="w-9 h-9 shrink-0 rounded-full text-[#00c2ff] hover:text-[#39d0ff] disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+          <PlayCircleIcon variant={playing ? 'pause' : 'play'} className="w-9 h-9" />
         </button>
         <div className="min-w-0 flex-1">
           <div className="text-xs font-semibold text-white truncate mb-2">{name}</div>
@@ -3258,18 +3262,52 @@ function HourglassSandIcon({ className = '' }) {
 // traced again with a same-color round-joined stroke so its three corners
 // round off instead of coming to a hard point (a plain <path> fill alone
 // can't round its own corners).
-function PlayCircleIcon({ className = '' }) {
+// The app's one play/pause glyph — a rounded-corner triangle (and its pause
+// counterpart, two rounded bars), used bare wherever a round backdrop
+// already exists (e.g. an avatar overlay) or wrapped in a solid disc via
+// PlayCircleIcon below. Same shape everywhere is the point: video player,
+// audio previews, thumbnails all read as one consistent control.
+function PlayPauseGlyph({ variant = 'play', className = '', color = 'currentColor', style }) {
+  return (
+    <svg viewBox="0 0 48 48" className={className} style={style} xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      {variant === 'pause' ? (
+        <>
+          <rect x="16.5" y="14.5" width="6" height="19" rx="2.5" fill={color} />
+          <rect x="25.5" y="14.5" width="6" height="19" rx="2.5" fill={color} />
+        </>
+      ) : (
+        <path
+          d="M20 16.5 L32 24 L20 31.5 Z"
+          fill={color}
+          stroke={color}
+          strokeWidth="4.5"
+          strokeLinejoin="round"
+          strokeLinecap="round"
+        />
+      )}
+    </svg>
+  );
+}
+
+function PlayCircleIcon({ className = '', variant = 'play' }) {
   return (
     <svg viewBox="0 0 48 48" className={className} xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
       <circle cx="24" cy="24" r="24" fill="currentColor" />
-      <path
-        d="M20 16.5 L32 24 L20 31.5 Z"
-        fill="#04121a"
-        stroke="#04121a"
-        strokeWidth="4.5"
-        strokeLinejoin="round"
-        strokeLinecap="round"
-      />
+      {variant === 'pause' ? (
+        <>
+          <rect x="16.5" y="14.5" width="6" height="19" rx="2.5" fill="#04121a" />
+          <rect x="25.5" y="14.5" width="6" height="19" rx="2.5" fill="#04121a" />
+        </>
+      ) : (
+        <path
+          d="M20 16.5 L32 24 L20 31.5 Z"
+          fill="#04121a"
+          stroke="#04121a"
+          strokeWidth="4.5"
+          strokeLinejoin="round"
+          strokeLinecap="round"
+        />
+      )}
     </svg>
   );
 }
@@ -11440,9 +11478,7 @@ export default function App() {
                                 className="absolute inset-0 w-full h-full object-cover"
                               />
                               <span className="absolute inset-0 flex items-center justify-center">
-                                <span className="w-6 h-6 rounded-full bg-black/60 flex items-center justify-center">
-                                  <span className="material-symbols-outlined text-white text-[14px]">play_arrow</span>
-                                </span>
+                                <PlayCircleIcon className="w-6 h-6 text-white/90" />
                               </span>
                               <span className="absolute bottom-1 right-1 px-1 rounded bg-black/70 text-[9px] font-bold text-white leading-tight">4:12</span>
                             </div>
