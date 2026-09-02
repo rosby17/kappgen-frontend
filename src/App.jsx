@@ -3800,6 +3800,8 @@ export default function App() {
   const [libraryExpandedId, setLibraryExpandedId] = useState(null);
   const [libraryImages, setLibraryImages] = useState({});
   const [libraryTracks, setLibraryTracks] = useState({});
+  const [librarySearch, setLibrarySearch] = useState('');
+  const [libraryContentFilter, setLibraryContentFilter] = useState('all');
   const [libraryBusyKey, setLibraryBusyKey] = useState(null);
   const [toast, setToast] = useState(null); // { message, type: 'success' | 'error' }
   const [librarySyncHasHandle, setLibrarySyncHasHandle] = useState(false);
@@ -9779,10 +9781,61 @@ export default function App() {
 
             {/* VIEW 3.5: BIBLIOTHÈQUE (uploaded images + music per channel, with delete) */}
             {view === 'library' && (
-              <section className="space-y-6">
-                <div>
-                  <h2 className="text-xl font-extrabold text-white">Bibliothèque</h2>
-                  <p className="text-xs text-slate-400 mt-1">Les images et musiques que tu as importées, par chaîne. Tu peux les supprimer de notre serveur à tout moment.</p>
+              <section className="space-y-7">
+                <div className="relative overflow-hidden rounded-3xl border border-[var(--border-soft)] bg-[var(--bg-surface)] p-6 sm:p-8 shadow-[0_24px_70px_rgba(0,0,0,.14)]">
+                  <div className="pointer-events-none absolute -right-20 -top-24 h-72 w-72 rounded-full bg-[#00c2ff]/10 blur-3xl" />
+                  <div className="pointer-events-none absolute -bottom-24 left-1/3 h-56 w-56 rounded-full bg-indigo-500/[.07] blur-3xl" />
+                  <div className="relative flex flex-col gap-7 xl:flex-row xl:items-end xl:justify-between">
+                    <div className="max-w-xl">
+                      <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-[#00c2ff]/25 bg-[#00c2ff]/10 px-3 py-1 text-[10px] font-extrabold uppercase tracking-[.16em] text-[#65dcff]">
+                        <span className="material-symbols-outlined text-[15px]">perm_media</span>
+                        Médiathèque
+                      </div>
+                      <h2 className="text-2xl font-extrabold tracking-[-.025em] text-white sm:text-3xl">Tes ressources, bien rangées.</h2>
+                      <p className="mt-2 text-xs leading-relaxed text-slate-400 sm:text-sm">Retrouve les images et les pistes audio utilisées par chaque chaîne, puis ajoute ou nettoie tes médias depuis un seul endroit.</p>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 sm:gap-3 xl:min-w-[430px]">
+                      {[
+                        { icon: 'subscriptions', value: libraryOverview?.length || 0, label: 'Chaînes', color: 'text-violet-300', bg: 'bg-violet-500/10' },
+                        { icon: 'image', value: (libraryOverview || []).reduce((sum, c) => sum + (c.image_count || 0), 0), label: 'Images', color: 'text-[#66dcff]', bg: 'bg-[#00c2ff]/10' },
+                        { icon: 'music_note', value: (libraryOverview || []).reduce((sum, c) => sum + (c.music_track_count || 0), 0), label: 'Musiques', color: 'text-emerald-300', bg: 'bg-emerald-500/10' },
+                      ].map(stat => (
+                        <div key={stat.label} className="rounded-2xl border border-white/[.06] bg-black/10 p-3.5 backdrop-blur-sm">
+                          <span className={`material-symbols-outlined mb-2 inline-flex h-7 w-7 items-center justify-center rounded-lg text-[16px] ${stat.color} ${stat.bg}`}>{stat.icon}</span>
+                          <div className="text-lg font-extrabold leading-none text-white sm:text-xl">{stat.value.toLocaleString('fr-FR')}</div>
+                          <div className="mt-1 text-[9px] font-bold uppercase tracking-wider text-slate-500">{stat.label}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-3 rounded-2xl border border-[var(--border-soft)] bg-[var(--bg-surface)] p-3 sm:flex-row sm:items-center sm:justify-between">
+                  <label className="relative block min-w-0 flex-1 sm:max-w-md">
+                    <span className="material-symbols-outlined pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[18px] text-slate-500">search</span>
+                    <input
+                      value={librarySearch}
+                      onChange={e => setLibrarySearch(e.target.value)}
+                      placeholder="Rechercher une chaîne…"
+                      className="w-full rounded-xl border border-[var(--border-soft)] bg-[var(--bg-surface-alt)] py-2.5 pl-10 pr-4 text-xs font-medium text-white outline-none transition focus:border-[#00c2ff]/60 focus:ring-2 focus:ring-[#00c2ff]/10"
+                    />
+                  </label>
+                  <div className="flex items-center gap-1 rounded-xl bg-[var(--bg-surface-alt)] p-1">
+                    {[
+                      { id: 'all', label: 'Toutes' },
+                      { id: 'filled', label: 'Avec médias' },
+                      { id: 'empty', label: 'Vides' },
+                    ].map(filter => (
+                      <button
+                        key={filter.id}
+                        type="button"
+                        onClick={() => setLibraryContentFilter(filter.id)}
+                        className={`rounded-lg px-3 py-2 text-[10px] font-bold transition-colors ${libraryContentFilter === filter.id ? 'bg-[#00c2ff] text-slate-950 shadow-sm' : 'text-slate-400 hover:bg-white/[.04] hover:text-white'}`}
+                      >
+                        {filter.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
                 {libraryLoading ? (
@@ -9791,30 +9844,50 @@ export default function App() {
                   <div className="text-center py-16 text-slate-500 text-sm">Aucune chaîne pour le moment.</div>
                 ) : (
                   <div className="space-y-3">
-                    {libraryOverview.map(c => {
+                    {libraryOverview
+                      .filter(c => c.channel_name.toLowerCase().includes(librarySearch.trim().toLowerCase()))
+                      .filter(c => libraryContentFilter === 'all' || (libraryContentFilter === 'filled' ? c.image_count > 0 || c.music_track_count > 0 : c.image_count === 0 && c.music_track_count === 0))
+                      .length === 0 && (
+                        <div className="rounded-2xl border border-dashed border-[var(--border-soft)] bg-[var(--bg-surface)] px-6 py-12 text-center">
+                          <span className="material-symbols-outlined mb-3 text-3xl text-slate-600">search_off</span>
+                          <div className="text-sm font-bold text-slate-300">Aucune chaîne trouvée</div>
+                          <p className="mt-1 text-[11px] text-slate-500">Essaie un autre nom ou modifie le filtre sélectionné.</p>
+                        </div>
+                      )}
+                    {libraryOverview
+                      .filter(c => c.channel_name.toLowerCase().includes(librarySearch.trim().toLowerCase()))
+                      .filter(c => libraryContentFilter === 'all' || (libraryContentFilter === 'filled' ? c.image_count > 0 || c.music_track_count > 0 : c.image_count === 0 && c.music_track_count === 0))
+                      .sort((a, b) => ((b.image_count || 0) + (b.music_track_count || 0)) - ((a.image_count || 0) + (a.music_track_count || 0)))
+                      .map(c => {
                       const expanded = libraryExpandedId === c.channel_id;
                       const detail = libraryImages[c.channel_id];
                       const tracks = libraryTracks[c.channel_id] || [];
                       const hasContent = c.image_count > 0 || c.music_track_count > 0;
                       return (
-                        <div key={c.channel_id} className="bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-2xl overflow-hidden">
+                        <div key={c.channel_id} className={`group overflow-hidden rounded-2xl border bg-[var(--bg-surface)] transition-all duration-200 ${expanded ? 'border-[#00c2ff]/40 shadow-[0_18px_50px_rgba(0,194,255,.07)]' : 'border-[var(--border-soft)] hover:-translate-y-0.5 hover:border-slate-600/70 hover:shadow-xl'} ${!hasContent ? 'opacity-75 hover:opacity-100' : ''}`}>
                           <button
                             type="button"
                             onClick={() => toggleLibraryChannel(c.channel_id)}
-                            className="w-full flex items-center justify-between gap-3 px-5 py-4 text-left hover:bg-[var(--bg-surface-alt)] transition-colors"
+                            className="flex w-full items-center justify-between gap-4 px-4 py-4 text-left transition-colors hover:bg-[var(--bg-surface-alt)] sm:px-5"
                           >
-                            <div className="min-w-0">
-                              <div className="text-sm font-bold text-white truncate">{c.channel_name}</div>
-                              <div className="text-[11px] text-slate-500 mt-0.5">
-                                {c.image_count} image{c.image_count !== 1 ? 's' : ''} · {c.music_track_count} musique{c.music_track_count !== 1 ? 's' : ''}
-                                {!hasContent && ' · rien d\'importé'}
+                            <div className="flex min-w-0 items-center gap-3.5">
+                              <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border text-sm font-black ${hasContent ? 'border-[#00c2ff]/20 bg-gradient-to-br from-[#00c2ff]/20 to-indigo-500/10 text-[#70e1ff]' : 'border-white/[.06] bg-white/[.025] text-slate-500'}`}>
+                                {c.channel_name.slice(0, 2).toUpperCase()}
+                              </div>
+                              <div className="min-w-0">
+                                <div className="truncate text-sm font-extrabold text-white">{c.channel_name}</div>
+                                <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                                  <span className="inline-flex items-center gap-1 rounded-md bg-[#00c2ff]/[.08] px-2 py-1 text-[9px] font-bold text-[#68dfff]"><span className="material-symbols-outlined text-[12px]">image</span>{c.image_count}</span>
+                                  <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/[.08] px-2 py-1 text-[9px] font-bold text-emerald-300"><span className="material-symbols-outlined text-[12px]">music_note</span>{c.music_track_count}</span>
+                                  {!hasContent && <span className="text-[9px] font-medium text-slate-500">Aucun média importé</span>}
+                                </div>
                               </div>
                             </div>
-                            <span className={`material-symbols-outlined text-[22px] text-slate-400 transition-transform ${expanded ? 'rotate-180' : ''}`}>expand_more</span>
+                            <span className={`material-symbols-outlined flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/[.06] bg-white/[.025] text-[20px] text-slate-400 transition-all ${expanded ? 'rotate-180 border-[#00c2ff]/20 bg-[#00c2ff]/10 text-[#55d8ff]' : 'group-hover:text-white'}`}>expand_more</span>
                           </button>
 
                           {expanded && (
-                            <div className="px-5 pb-5 border-t border-[var(--border-soft)] pt-4 space-y-5">
+                            <div className="space-y-6 border-t border-[var(--border-soft)] bg-black/[.08] px-4 pb-5 pt-5 sm:px-5">
                               {detail?.loading ? (
                                 <div className="text-center text-slate-500 text-xs py-6">Chargement...</div>
                               ) : (
