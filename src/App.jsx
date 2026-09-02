@@ -4700,6 +4700,7 @@ export default function App() {
       broll_path: '',
       broll_count: 0,
       media_mode: 'images'
+      ,generate_thumbnail_with_ai: false
     },
     thumbnail_style: null,
     effects_config: {
@@ -11460,6 +11461,11 @@ export default function App() {
                         </div>
                         {newChannel.image_style.media_mode === 'videos' && <p className="mt-2 text-[10px] text-amber-300">Ce mode nécessite au moins un clip B-roll importé dans la Bibliothèque.</p>}
                       </div>
+
+                      <label className="flex items-start gap-3 rounded-2xl border border-amber-400/30 bg-amber-400/[.06] p-4 cursor-pointer">
+                        <input type="checkbox" checked={!!newChannel.image_style.generate_thumbnail_with_ai} onChange={e => setNewChannel({ ...newChannel, image_style: { ...newChannel.image_style, generate_thumbnail_with_ai: e.target.checked } })} className="mt-1 h-4 w-4 accent-amber-400" />
+                        <span><strong className="block text-sm text-white">Générer une miniature IA</strong><small className="block mt-1 text-[11px] text-slate-400">Autorise KappGen à générer automatiquement une miniature avec GPT Image 2. Cette option consomme des crédits supplémentaires par vidéo. Si elle n’est pas cochée, aucune miniature IA ne sera générée.</small></span>
+                      </label>
 
                       {/* 2 CARDS SELECTION GRID WITH CHECKBOXES */}
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
