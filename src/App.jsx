@@ -6509,6 +6509,8 @@ export default function App() {
   const [adminLibraryLightboxZoom, setAdminLibraryLightboxZoom] = useState(1);
   const [adminLibraryMoveFolder, setAdminLibraryMoveFolder] = useState(null);
   const [adminLibraryMoveNiche, setAdminLibraryMoveNiche] = useState('');
+  const [adminLibraryMoveTargetChannelId, setAdminLibraryMoveTargetChannelId] = useState('');
+  const [adminLibraryMoveChannelQuery, setAdminLibraryMoveChannelQuery] = useState('');
   const [adminLibraryMoveBusy, setAdminLibraryMoveBusy] = useState(false);
   const adminLibraryLoadMoreRef = useRef(null);
   // Full oversight view — every known niche always listed (even empty), every
@@ -6839,6 +6841,8 @@ export default function App() {
     if (adminLibrarySelectedImages.length === 0) return;
     setAdminLibraryMoveFolder({ ...folder, current_niche: currentNiche });
     setAdminLibraryMoveNiche(currentNiche || '');
+    setAdminLibraryMoveTargetChannelId('');
+    setAdminLibraryMoveChannelQuery('');
   };
 
   const moveAdminLibraryFolder = async () => {
@@ -6854,7 +6858,7 @@ export default function App() {
         ? `${API_BASE}/admin/channel-library/${adminLibraryMoveFolder.channel_id}/merge`
         : `${API_BASE}/admin/channel-library/${adminLibraryMoveFolder.channel_id}/niche`;
       const body = adminLibraryMoveFolder.wholeFolder
-        ? { niche: adminLibraryMoveNiche }
+        ? { niche: adminLibraryMoveNiche, target_channel_id: adminLibraryMoveTargetChannelId || null }
         : { niche: adminLibraryMoveNiche, filenames: adminLibrarySelectedImages };
       const res = await authFetch(url, {
         method: 'PUT',
@@ -6864,9 +6868,12 @@ export default function App() {
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || "Déplacement impossible.");
       if (adminLibraryMoveFolder.wholeFolder) {
         const data = await res.json();
+        const targetLabel = adminLibraryMoveTargetChannelId
+          ? `la chaîne « ${allLibraryChannels.find(c => c.channel_id === adminLibraryMoveTargetChannelId)?.channel_name || ''} »`
+          : `la niche « ${adminLibraryMoveNiche} »`;
         setAdminLibraryMoveFolder(null);
         await fetchAdminLibraryOverview();
-        showToast(`Dossier fusionné avec la niche « ${adminLibraryMoveNiche} » (${data.image_count} image${data.image_count > 1 ? 's' : ''}).`, 'success');
+        showToast(`Dossier fusionné avec ${targetLabel} (${data.image_count} image${data.image_count > 1 ? 's' : ''}).`, 'success');
       } else {
         const movedCount = adminLibrarySelectedImages.length;
         setAdminLibraryImages(images => images.filter(name => !adminLibrarySelectedImages.includes(name)));
@@ -6889,7 +6896,25 @@ export default function App() {
   const mergeAdminLibraryFolder = (uf, currentNiche) => {
     setAdminLibraryMoveFolder({ channel_id: uf.channel_id, channel_name: uf.channel_name, current_niche: currentNiche, wholeFolder: true });
     setAdminLibraryMoveNiche(currentNiche || '');
+    setAdminLibraryMoveTargetChannelId('');
+    setAdminLibraryMoveChannelQuery('');
   };
+
+  // Flattened, searchable list of every channel with a library, across every
+  // niche/user — built from the overview already fetched for the folder
+  // grid, so no extra round-trip just to populate the "fusionner avec une
+  // chaîne précise" picker.
+  const allLibraryChannels = useMemo(() => {
+    const seen = new Map();
+    for (const n of adminLibraryOverview.niches || []) {
+      for (const u of n.users || []) {
+        for (const f of u.folders || []) {
+          if (!seen.has(f.channel_id)) seen.set(f.channel_id, { channel_id: f.channel_id, channel_name: f.channel_name, niche: n.niche, user_email: u.user_email });
+        }
+      }
+    }
+    return [...seen.values()];
+  }, [adminLibraryOverview]);
 
   useEffect(() => {
     if (adminLibraryLightboxIndex == null) return;
@@ -14808,10 +14833,56 @@ export default function App() {
                     </p>
                   </div>
                 </div>
-                <label className="block text-[11px] font-bold text-slate-300 mt-5 mb-2">Niche de destination</label>
+                {adminLibraryMoveFolder.wholeFolder && (
+                  <>
+                    <label className="block text-[11px] font-bold text-slate-300 mt-5 mb-2">Fusionner dans la chaîne (optionnel)</label>
+                    <p className="text-[10px] text-slate-500 -mt-1 mb-2">Recommandé : les images rejoignent visuellement le dossier de cette chaîne précise, au lieu de juste changer de niche.</p>
+                    <input
+                      value={adminLibraryMoveChannelQuery}
+                      onChange={e => { setAdminLibraryMoveChannelQuery(e.target.value); setAdminLibraryMoveTargetChannelId(''); }}
+                      placeholder="Rechercher une chaîne par nom…"
+                      className="w-full bg-[var(--bg-input)] border border-[var(--border)] rounded-xl px-3 py-2.5 text-xs text-white focus:border-[#00c2ff] outline-none"
+                    />
+                    {adminLibraryMoveChannelQuery.trim() && !adminLibraryMoveTargetChannelId && (
+                      <div className="mt-1.5 max-h-40 overflow-y-auto rounded-xl border border-[var(--border-dropdown)] bg-[var(--bg-dropdown)] divide-y divide-[var(--border-soft)]/50">
+                        {allLibraryChannels
+                          .filter(c => c.channel_id !== adminLibraryMoveFolder.channel_id && c.channel_name.toLowerCase().includes(adminLibraryMoveChannelQuery.toLowerCase()))
+                          .slice(0, 20)
+                          .map(c => (
+                            <button
+                              key={c.channel_id}
+                              type="button"
+                              onClick={() => { setAdminLibraryMoveTargetChannelId(c.channel_id); setAdminLibraryMoveChannelQuery(c.channel_name); setAdminLibraryMoveNiche(c.niche); }}
+                              className="w-full text-left px-3 py-2 text-[11px] text-slate-300 hover:bg-[var(--bg-hover)] hover:text-white transition-colors"
+                            >
+                              <span className="font-bold">{c.channel_name}</span>
+                              <span className="text-slate-500"> · {c.niche} · {c.user_email}</span>
+                            </button>
+                          ))}
+                        {allLibraryChannels.filter(c => c.channel_id !== adminLibraryMoveFolder.channel_id && c.channel_name.toLowerCase().includes(adminLibraryMoveChannelQuery.toLowerCase())).length === 0 && (
+                          <p className="px-3 py-2 text-[11px] text-slate-500">Aucune chaîne trouvée.</p>
+                        )}
+                      </div>
+                    )}
+                    {adminLibraryMoveTargetChannelId && (
+                      <div className="mt-1.5 flex items-center justify-between px-3 py-2 rounded-xl bg-[#00c2ff]/10 border border-[#00c2ff]/40 text-[11px] text-[#56d9ff] font-bold">
+                        {adminLibraryMoveChannelQuery}
+                        <button type="button" onClick={() => { setAdminLibraryMoveTargetChannelId(''); setAdminLibraryMoveChannelQuery(''); }} className="text-slate-400 hover:text-white"><span className="material-symbols-outlined text-[15px]">close</span></button>
+                      </div>
+                    )}
+                    <div className="flex items-center gap-2 my-3">
+                      <div className="h-px flex-1 bg-[var(--border-soft)]" />
+                      <span className="text-[10px] text-slate-500">ou</span>
+                      <div className="h-px flex-1 bg-[var(--border-soft)]" />
+                    </div>
+                  </>
+                )}
+                <label className="block text-[11px] font-bold text-slate-300 mb-2">
+                  {adminLibraryMoveFolder.wholeFolder ? 'Fusionner avec une niche (sans chaîne précise)' : 'Niche de destination'}
+                </label>
                 <select
                   value={adminLibraryMoveNiche}
-                  onChange={e => setAdminLibraryMoveNiche(e.target.value)}
+                  onChange={e => { setAdminLibraryMoveNiche(e.target.value); setAdminLibraryMoveTargetChannelId(''); setAdminLibraryMoveChannelQuery(''); }}
                   className="w-full bg-[var(--bg-input)] border border-[var(--border)] rounded-xl px-3 py-3 text-xs text-white focus:border-[#00c2ff] outline-none"
                 >
                   {NICHE_OPTIONS.map(option => <option key={option} value={option}>{option}</option>)}
@@ -14821,7 +14892,7 @@ export default function App() {
                   <button
                     type="button"
                     onClick={moveAdminLibraryFolder}
-                    disabled={adminLibraryMoveBusy || !adminLibraryMoveNiche || adminLibraryMoveNiche === adminLibraryMoveFolder.current_niche}
+                    disabled={adminLibraryMoveBusy || !adminLibraryMoveNiche || (adminLibraryMoveNiche === adminLibraryMoveFolder.current_niche && !adminLibraryMoveTargetChannelId)}
                     className="px-4 py-2.5 rounded-xl bg-[#00c2ff] text-slate-950 text-xs font-extrabold disabled:opacity-40"
                   >
                     {adminLibraryMoveBusy ? 'Traitement…' : adminLibraryMoveFolder.wholeFolder ? 'Fusionner le dossier' : 'Déplacer les images'}
