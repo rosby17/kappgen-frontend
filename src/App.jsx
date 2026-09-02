@@ -11842,7 +11842,7 @@ export default function App() {
                             </div>
                             <div>
                               <h4 className="font-bold text-white text-xs">Style de la miniature YouTube</h4>
-                              <p className="text-[10px] text-slate-500 mt-0.5">Références visuelles de ta chaîne</p>
+                              <p className="text-[10px] text-slate-500 mt-0.5">Références visuelles</p>
                             </div>
                           </div>
                           <div onClick={(e) => e.stopPropagation()}>
@@ -11864,7 +11864,7 @@ export default function App() {
                               <span className="material-symbols-outlined text-[13px]">{thumbnailStyleAnalyzing ? 'hourglass_top' : 'image_search'}</span>
                               {thumbnailStyleAnalyzing ? 'Analyse...' : (newChannel.thumbnail_style?.style_prompt ? "Ajouter d'autres images" : "Ajouter des images de référence")}
                             </button>
-                            <p className={`mt-2 text-[10px] ${thumbnailDragOver ? 'text-[#00c2ff] font-bold' : 'text-slate-500'}`}>Glisse-dépose plusieurs images ici, ou utilise le bouton</p>
+                            <p className={`mt-2 text-[10px] ${thumbnailDragOver ? 'text-[#00c2ff] font-bold' : 'text-slate-500'}`}>Glisser-déposer des images</p>
                             <div className="mt-2 flex items-center gap-2">
                               <input type="file" accept="image/png,image/jpeg,image/webp" multiple onChange={handleUploadThumbnailStyle} className="hidden" id="thumbnail-character-upload" />
                               <label htmlFor="thumbnail-character-upload" className="cursor-pointer text-[10px] text-slate-400 hover:text-[#00c2ff]">Personnage principal privé ? Ajouter sa photo</label>
@@ -11949,7 +11949,7 @@ export default function App() {
                           )}
                         </div>
 
-                        <div className="mt-3 rounded-xl border border-white/10 bg-black/10 p-3 text-[10px] text-slate-400">Ajoute les miniatures que tu veux prendre comme référence. L’analyse apprend automatiquement le style de cette chaîne.</div>
+                        <div className="mt-3 rounded-xl border border-white/10 bg-black/10 p-3 text-[10px] text-slate-400">Le style sera appris automatiquement.</div>
                         {/* Manual prompt and preset templates intentionally removed. */}
                         {/* <textarea
                           rows="2"
@@ -12034,7 +12034,7 @@ export default function App() {
                               ))}
                             </div>
                             <div>
-                              <p className="text-[10px] text-slate-500">Moodboard analysé sur {newChannel.thumbnail_style.reference_image_paths.length} image(s). {newChannel.thumbnail_style?.analysis_summary || 'Ajoute encore quelques exemples pour rendre les constantes plus fiables.'}</p>
+                              <p className="text-[10px] text-slate-500">{newChannel.thumbnail_style.reference_image_paths.length} référence(s) analysée(s).</p>
                               <button
                                 type="button"
                                 onClick={() => handleRemoveThumbnailStyle()}
