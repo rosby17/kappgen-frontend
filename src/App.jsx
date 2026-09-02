@@ -6971,6 +6971,24 @@ export default function App() {
     }
   };
 
+  // Clears every manually-uploaded image from a channel's shared library,
+  // keeping only AI-generated ones — the one-click fix when a creator's own
+  // uploads (off-topic photos, low quality) polluted the niche's shared pool.
+  const deleteUploadedAdminLibraryImages = async (folder, nicheName) => {
+    const channelId = folder.channel_id;
+    if (!window.confirm(`Supprimer toutes les images UPLOADÉES de « ${folder.channel_name} » (les images générées par l'IA sont conservées) ?`)) return;
+    try {
+      const res = await authFetch(`${API_BASE}/admin/channel-library/${channelId}/uploaded-images`, { method: 'DELETE' });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || "Suppression impossible.");
+      const data = await res.json();
+      if (adminLibraryExpandedId === channelId) openAdminLibraryFolder(folder, nicheName);
+      fetchAdminLibraryOverview();
+      showToast(`${data.deleted} image${data.deleted > 1 ? 's' : ''} uploadée${data.deleted > 1 ? 's' : ''} supprimée${data.deleted > 1 ? 's' : ''}, ${data.image_count} image${data.image_count > 1 ? 's' : ''} IA conservée${data.image_count > 1 ? 's' : ''}.`, 'success');
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  };
+
   const openAdminVideoDetail = async (videoId) => {
     setAdminVideoDetail({ id: videoId });
     setAdminVideoDetailLoading(true);
@@ -14474,6 +14492,9 @@ export default function App() {
                   )}
                   <button onClick={() => mergeAdminLibraryFolder(uf, niche.niche)} className="text-slate-400 font-bold text-[11px] hover:underline">
                     Fusionner avec…
+                  </button>
+                  <button onClick={() => deleteUploadedAdminLibraryImages(uf, niche.niche)} className="text-amber-400 font-bold text-[11px] hover:underline">
+                    Supprimer les images uploadées
                   </button>
                   <button onClick={() => deleteAdminLibraryChannel(uf.channel_id, uf.channel_name)} className="text-rose-500 font-bold text-[11px] hover:underline">
                     Supprimer la chaîne
