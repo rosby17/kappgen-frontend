@@ -9468,8 +9468,8 @@ export default function App() {
                                     video by mistake, since the main "Publier"/"Voir" button text
                                     alone was easy to miss at a glance across a whole grid. */}
                                 {vid.youtube_video_id && (
-                                  <span className="flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-sans font-bold uppercase tracking-normal bg-slate-800/90 text-slate-300 border border-slate-600/70">
-                                    <span className="material-symbols-outlined text-[11px]">check_circle</span>
+                                  <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] font-sans font-bold tracking-normal bg-emerald-950/90 text-emerald-300 border border-emerald-700/70">
+                                    <span className="material-symbols-outlined text-[10px]">check_circle</span>
                                     Publiée
                                   </span>
                                 )}
@@ -9477,8 +9477,8 @@ export default function App() {
                                     video the creator already grabbed to post elsewhere from one
                                     that's just sitting there never touched. */}
                                 {vid.downloaded_at && !vid.youtube_video_id && (
-                                  <span className="flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-sans font-bold uppercase tracking-normal bg-slate-800/90 text-slate-300 border border-slate-600/70">
-                                    <span className="material-symbols-outlined text-[11px]">download_done</span>
+                                  <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] font-sans font-bold tracking-normal bg-emerald-950/90 text-emerald-300 border border-emerald-700/70">
+                                    <span className="material-symbols-outlined text-[10px]">download_done</span>
                                     Téléchargée
                                   </span>
                                 )}
@@ -10178,14 +10178,14 @@ export default function App() {
                                 taking up space without adding information. */}
                             {vid.status !== 'rendering' && <div className="absolute top-2 left-2 z-10 flex items-center gap-1.5">
                               {vid.youtube_video_id && (
-                                <span className="flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-sans font-bold uppercase tracking-normal bg-slate-800/90 text-slate-300 border border-slate-600/70">
-                                  <span className="material-symbols-outlined text-[11px]">check_circle</span>
+                                <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] font-sans font-bold tracking-normal bg-emerald-950/90 text-emerald-300 border border-emerald-700/70">
+                                  <span className="material-symbols-outlined text-[10px]">check_circle</span>
                                   Publiée
                                 </span>
                               )}
                               {vid.downloaded_at && !vid.youtube_video_id && (
-                                <span className="flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-sans font-bold uppercase tracking-normal bg-slate-800/90 text-slate-300 border border-slate-600/70">
-                                  <span className="material-symbols-outlined text-[11px]">download_done</span>
+                                <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] font-sans font-bold tracking-normal bg-emerald-950/90 text-emerald-300 border border-emerald-700/70">
+                                  <span className="material-symbols-outlined text-[10px]">download_done</span>
                                   Téléchargée
                                 </span>
                               )}
