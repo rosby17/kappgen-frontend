@@ -11476,7 +11476,7 @@ export default function App() {
                       </div>
 
                       {/* 2 CARDS SELECTION GRID WITH CHECKBOXES */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-stretch">
                         
                         {/* OPTION A: DOSSIER IMAGES LOCALES */}
                         <div 
@@ -11774,8 +11774,6 @@ export default function App() {
                           </div>
                         </div>
 
-                      </div>
-
                       {(() => {
                         const nicheSet = (newChannel.niche || '').trim();
                         const available = communityLibraryAvailability?.available;
@@ -11813,6 +11811,7 @@ export default function App() {
                           </div>
                         );
                       })()}
+                      </div>
 
                       <div
                         className={`bg-[#171b23] border rounded-xl p-3.5 space-y-2.5 transition-colors ${thumbnailDragOver ? 'border-[#00c2ff] bg-[#00c2ff]/[.06]' : 'border-[var(--border)]'}`}
