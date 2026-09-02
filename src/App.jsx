@@ -8814,18 +8814,6 @@ export default function App() {
           </h1>
 
           <div className="flex items-center gap-4">
-            {/* Search Input */}
-            <div className="relative focus-glow rounded-xl">
-              <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" style={{ fontSize: '18px' }}>search</span>
-              <input 
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                className="bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl pl-9 pr-4 py-2 text-xs text-white placeholder-slate-400 focus:outline-none w-60 transition-all" 
-                placeholder="Rechercher une chaîne..." 
-                type="text"
-              />
-            </div>
-
             {/* Quick theme toggle — flips light/dark directly; 'auto' (follow OS)
                 stays a Paramètres-only choice since a two-state icon button can't
                 represent three states cleanly. */}
@@ -9252,7 +9240,7 @@ export default function App() {
                   </div>
                 </div>
 
-                <div className="flex items-start gap-4">
+                <div className={`flex items-start transition-[gap] duration-200 ${folderSidebarCollapsed ? 'gap-1' : 'gap-4'}`}>
                 <aside className={`flex-shrink-0 space-y-1 transition-[width] duration-200 ${folderSidebarCollapsed ? 'w-10' : 'w-36'}`}>
                   <button
                     onClick={toggleFolderSidebarCollapsed}
