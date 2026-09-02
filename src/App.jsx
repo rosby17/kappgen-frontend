@@ -16875,7 +16875,7 @@ export default function App() {
         // existing parts (matched by name) and we apply the resulting
         // guidance in one shot.
         const analyzePastedText = async () => {
-          if (!scriptStructurePasteText.trim() || parts.length === 0) return;
+          if (!scriptStructurePasteText.trim() || parts.length === 0) return true;
           setScriptStructureAnalyzing(true);
           setScriptStructureAnalyzeError('');
           try {
@@ -16887,8 +16887,10 @@ export default function App() {
             const body = await res.json().catch(() => ({}));
             if (!res.ok) throw new Error(body.detail || "L'analyse a échoué.");
             updateStructure({ parts: body.parts });
+            return true;
           } catch (err) {
             setScriptStructureAnalyzeError(err.message || "L'analyse a échoué, réessaie.");
+            return false;
           } finally {
             setScriptStructureAnalyzing(false);
           }
@@ -16929,24 +16931,34 @@ export default function App() {
                 {scriptStructureAnalyzeError && (
                   <p className="text-[11px] text-red-400">{scriptStructureAnalyzeError}</p>
                 )}
-                <button
-                  type="button"
-                  onClick={analyzePastedText}
-                  disabled={scriptStructureAnalyzing || !scriptStructurePasteText.trim() || parts.length === 0}
-                  className="w-full py-3 bg-[#00c2ff]/10 border border-[#00c2ff]/40 text-[#59d8ff] font-bold text-sm rounded-xl hover:bg-[#00c2ff]/20 transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 flex-shrink-0"
-                >
-                  {scriptStructureAnalyzing ? (
-                    <>
-                      <span className="material-symbols-outlined text-[18px] animate-spin">progress_activity</span>
-                      Analyse en cours...
-                    </>
-                  ) : (
-                    <>
-                      <span className="material-symbols-outlined text-[18px]">bolt</span>
-                      Analyser et remplir les parties
-                    </>
-                  )}
-                </button>
+                {/* No explicit "Analyser" button here anymore — most creators never
+                    click it, they just paste and expect it to work. The analysis
+                    now runs automatically when they close this modal (see the
+                    "Terminé" handler below), using whatever's pasted here as the
+                    priority source even if the discrete part fields on the right
+                    were never touched. This link stays only as an optional
+                    early-preview for creators who want to see the split before
+                    closing. */}
+                {scriptStructurePasteText.trim() && parts.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={analyzePastedText}
+                    disabled={scriptStructureAnalyzing}
+                    className="text-[11px] font-bold text-[#59d8ff] hover:text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 flex-shrink-0 self-center"
+                  >
+                    {scriptStructureAnalyzing ? (
+                      <>
+                        <span className="material-symbols-outlined text-[15px] animate-spin">progress_activity</span>
+                        Analyse en cours...
+                      </>
+                    ) : (
+                      <>
+                        <span className="material-symbols-outlined text-[15px]">visibility</span>
+                        Prévisualiser l'analyse maintenant (optionnel — se fait automatiquement à la fermeture)
+                      </>
+                    )}
+                  </button>
+                )}
               </div>
 
               <div className="flex flex-col space-y-5 lg:border-l lg:border-[var(--border-soft)] lg:pl-10">
@@ -17114,10 +17126,26 @@ export default function App() {
               <div className="p-4 sm:p-5 border-t border-[var(--border-soft)] flex-shrink-0">
                 <button
                   type="button"
-                  onClick={() => setShowScriptStructureModal(false)}
-                  className="w-full py-3 bg-[#00c2ff] text-slate-950 font-bold text-sm rounded-xl hover:bg-[#38d0ff] transition-all"
+                  disabled={scriptStructureAnalyzing}
+                  onClick={async () => {
+                    // The pasted text is the priority source: if the creator
+                    // never bothered clicking the (now optional) preview link,
+                    // run the analysis right now, silently, before closing —
+                    // so leaving the discrete part fields untouched never
+                    // means their paste gets ignored.
+                    const ok = scriptStructurePasteText.trim() && parts.length > 0
+                      ? await analyzePastedText()
+                      : true;
+                    if (ok) setShowScriptStructureModal(false);
+                  }}
+                  className="w-full py-3 bg-[#00c2ff] text-slate-950 font-bold text-sm rounded-xl hover:bg-[#38d0ff] transition-all disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
-                  Terminé
+                  {scriptStructureAnalyzing ? (
+                    <>
+                      <span className="material-symbols-outlined text-[18px] animate-spin">progress_activity</span>
+                      Analyse en cours...
+                    </>
+                  ) : 'Terminé'}
                 </button>
               </div>
             </div>
