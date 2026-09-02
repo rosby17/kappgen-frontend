@@ -6084,7 +6084,7 @@ export default function App() {
   const [adminCostsLoading, setAdminCostsLoading] = useState(false);
   const [adminCostsDays, setAdminCostsDays] = useState(30);
   const [adminProviders, setAdminProviders] = useState(null);
-  const [thumbnailProviderMode, setThumbnailProviderModeState] = useState('free_only');
+  const [thumbnailProviderMode, setThumbnailProviderModeState] = useState(null);
   const [thumbnailProviderModeSaving, setThumbnailProviderModeSaving] = useState(false);
   const [aiTextProvider, setAiTextProviderState] = useState(null);
   const [aiTextProviderSaving, setAiTextProviderSaving] = useState(false);
@@ -6641,22 +6641,26 @@ export default function App() {
   const fetchThumbnailProviderMode = async () => {
     try {
       const res = await authFetch(`${API_BASE}/admin/settings/thumbnail-provider-mode`);
-      if (res.ok) setThumbnailProviderModeState((await res.json()).mode || 'free_only');
+      if (res.ok) setThumbnailProviderModeState(await res.json());
     } catch (err) {
       console.error("Erreur chargement du mode de génération des miniatures:", err);
     }
   };
 
-  const setThumbnailProviderMode = async (mode) => {
+  const toggleThumbnailProvider = async (id) => {
+    const current = thumbnailProviderMode?.order || [];
+    const nextOrder = current.includes(id) ? current.filter(p => p !== id) : [...current, id];
     setThumbnailProviderModeSaving(true);
     try {
       const res = await authFetch(`${API_BASE}/admin/settings/thumbnail-provider-mode`, {
         method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mode }),
+        body: JSON.stringify({ order: nextOrder }),
       });
       if (!res.ok) throw new Error();
-      setThumbnailProviderModeState(mode);
-      showToast(mode === 'free_only' ? 'Miniatures en 100% gratuit.' : 'Miniatures en gratuit puis payant.', 'success');
+      const data = await res.json();
+      setThumbnailProviderModeState(prev => ({ ...prev, order: data.order }));
+      const labels = { huggingface: 'Hugging Face', fal: 'fal.ai', izivoice: 'Izivoice' };
+      showToast(nextOrder.includes(id) ? `${labels[id] || id} ajouté à la priorité.` : `${labels[id] || id} retiré de la priorité.`, 'success');
     } catch {
       showToast('Échec de la mise à jour.', 'error');
     } finally {
@@ -14175,7 +14179,7 @@ export default function App() {
             <div className="space-y-5">
               <div className="flex items-center justify-between gap-3">
                 <p className="text-[11px] text-slate-500 max-w-xl">
-                  Vérification en direct que chaque clé fonctionne — pas un solde de compte en temps réel. La plupart des fournisseurs (Anthropic, Izivoice, fal.ai) n'exposent aucune API de solde ; seul OpenRouter en renvoie un vrai.
+                  Vérification en direct que chaque clé fonctionne — pas un solde de compte en temps réel. La plupart des fournisseurs n'exposent aucune API de solde.
                 </p>
                 <button
                   onClick={fetchAdminProviders}
@@ -14187,77 +14191,80 @@ export default function App() {
                 </button>
               </div>
 
-              {!adminProviders ? (
-                <div className="text-center text-slate-500 text-xs py-10">Chargement...</div>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {adminProviders.map(p => {
-                    const dotColor = p.status === 'ok' ? 'bg-emerald-500' : p.status === 'error' ? 'bg-red-500' : p.status === 'unknown' ? 'bg-amber-500' : 'bg-slate-600';
-                    const statusLabel = { ok: 'Actif', error: 'Erreur', unknown: 'Non vérifiable', not_configured: 'Non configuré' }[p.status] || p.status;
-                    return (
-                      <div key={p.id} className="bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-2xl p-5">
-                        <div className="flex items-center justify-between gap-3 mb-2">
-                          <div className="flex items-center gap-2">
-                            <span className={`w-2.5 h-2.5 rounded-full ${dotColor}`} />
-                            <span className="text-sm font-bold text-white">{p.label}</span>
-                          </div>
-                          <span className={`text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full ${
-                            p.status === 'ok' ? 'bg-emerald-950/60 text-emerald-400' :
-                            p.status === 'error' ? 'bg-rose-950/60 text-rose-400' :
-                            p.status === 'unknown' ? 'bg-amber-950/60 text-amber-400' :
-                            'bg-[var(--bg-surface-alt)] text-slate-500'
-                          }`}>{statusLabel}</span>
+              <div className="space-y-3">
+                <h4 className="text-sm font-bold text-white">Voix off (audio)</h4>
+                {!adminProviders ? (
+                  <div className="text-center text-slate-500 text-xs py-4">Chargement...</div>
+                ) : (() => {
+                  const p = adminProviders.find(x => x.id === 'izivoice');
+                  if (!p) return null;
+                  const dotColor = p.status === 'ok' ? 'bg-emerald-500' : p.status === 'error' ? 'bg-red-500' : p.status === 'unknown' ? 'bg-amber-500' : 'bg-slate-600';
+                  const statusLabel = { ok: 'Actif', error: 'Erreur', unknown: 'Non vérifiable', not_configured: 'Non configuré' }[p.status] || p.status;
+                  return (
+                    <div className="bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-2xl p-5 max-w-sm">
+                      <div className="flex items-center justify-between gap-3 mb-2">
+                        <div className="flex items-center gap-2">
+                          <span className={`w-2.5 h-2.5 rounded-full ${dotColor}`} />
+                          <span className="text-sm font-bold text-white">{p.label}</span>
                         </div>
-                        <p className="text-[11px] text-slate-400">{p.detail}</p>
+                        <span className={`text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full ${
+                          p.status === 'ok' ? 'bg-emerald-950/60 text-emerald-400' :
+                          p.status === 'error' ? 'bg-rose-950/60 text-rose-400' :
+                          p.status === 'unknown' ? 'bg-amber-950/60 text-amber-400' :
+                          'bg-[var(--bg-surface-alt)] text-slate-500'
+                        }`}>{statusLabel}</span>
                       </div>
-                    );
-                  })}
-                </div>
-              )}
+                      <p className="text-[11px] text-slate-400">{p.detail}</p>
+                    </div>
+                  );
+                })()}
+              </div>
 
               <div className="pt-6 border-t border-[var(--border-soft)] space-y-3">
                 <div>
                   <h4 className="text-sm font-bold text-white">Génération des miniatures</h4>
                   <p className="text-[11px] text-slate-500 mt-1 max-w-xl">
-                    Bascule entre 100% gratuit (Hugging Face uniquement, aucun crédit ni fournisseur payant jamais utilisé) et le mode gratuit-puis-payant (fal.ai puis Izivoice en repli si HF échoue, ce qui coûte des crédits).
+                    Clique un fournisseur pour l'ajouter à la priorité, un autre clic le retire. L'ordre de clic devient l'ordre d'essai (le n°1 en premier). Ne laisser que Hugging Face garde les miniatures 100% gratuites ; ajouter fal.ai et/ou Izivoice les autorise explicitement à être utilisés (et facturés) en repli, dans l'ordre choisi.
                   </p>
                 </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setThumbnailProviderMode('free_only')}
-                    disabled={thumbnailProviderModeSaving}
-                    className={`px-4 py-2 rounded-xl text-xs font-bold border transition-colors disabled:opacity-50 ${
-                      thumbnailProviderMode === 'free_only'
-                        ? 'bg-emerald-500/10 text-emerald-300 border-emerald-600/60'
-                        : 'bg-[var(--bg-surface-alt)] text-slate-400 border-[var(--border)] hover:border-slate-500'
-                    }`}
-                  >
-                    <span className="material-symbols-outlined text-[14px] align-middle mr-1">energy_savings_leaf</span>
-                    100% gratuit
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setThumbnailProviderMode('free_then_paid')}
-                    disabled={thumbnailProviderModeSaving}
-                    className={`px-4 py-2 rounded-xl text-xs font-bold border transition-colors disabled:opacity-50 ${
-                      thumbnailProviderMode === 'free_then_paid'
-                        ? 'bg-amber-500/10 text-amber-300 border-amber-600/60'
-                        : 'bg-[var(--bg-surface-alt)] text-slate-400 border-[var(--border)] hover:border-slate-500'
-                    }`}
-                  >
-                    <span className="material-symbols-outlined text-[14px] align-middle mr-1">payments</span>
-                    Gratuit puis payant
-                  </button>
-                  {thumbnailProviderModeSaving && <span className="material-symbols-outlined text-[16px] text-slate-500 animate-spin">progress_activity</span>}
-                </div>
+                {!thumbnailProviderMode ? (
+                  <div className="text-center text-slate-500 text-xs py-4">Chargement...</div>
+                ) : (
+                  <div className="flex flex-wrap items-center gap-2">
+                    {(thumbnailProviderMode.available || []).map(id => {
+                      const rank = (thumbnailProviderMode.order || []).indexOf(id);
+                      const selected = rank !== -1;
+                      const health = (adminProviders || []).find(p => p.id === id);
+                      const dotColor = health?.status === 'ok' ? 'bg-emerald-500' : health?.status === 'error' ? 'bg-rose-500' : id === 'huggingface' ? 'bg-emerald-500' : 'bg-slate-600';
+                      const label = { huggingface: 'Hugging Face (gratuit)', fal: 'fal.ai', izivoice: 'Izivoice' }[id] || id;
+                      return (
+                        <button
+                          key={id}
+                          type="button"
+                          onClick={() => toggleThumbnailProvider(id)}
+                          disabled={thumbnailProviderModeSaving}
+                          className={`px-4 py-2 rounded-xl text-xs font-bold border transition-colors disabled:opacity-50 ${
+                            selected
+                              ? 'bg-[#00c2ff]/10 text-[#00c2ff] border-[#00c2ff]/60'
+                              : 'bg-[var(--bg-surface-alt)] text-slate-400 border-[var(--border)] hover:border-slate-500'
+                          }`}
+                        >
+                          <span className={`inline-block w-1.5 h-1.5 rounded-full mr-1.5 align-middle ${dotColor}`} />
+                          {label}
+                          {selected && <span className="ml-1.5 inline-flex items-center justify-center w-4 h-4 rounded-full bg-[#00c2ff] text-[#04121a] text-[10px] font-black align-middle">{rank + 1}</span>}
+                        </button>
+                      );
+                    })}
+                    {thumbnailProviderModeSaving && <span className="material-symbols-outlined text-[16px] text-slate-500 animate-spin">progress_activity</span>}
+                  </div>
+                )}
               </div>
 
               <div className="pt-6 border-t border-[var(--border-soft)] space-y-3">
                 <div>
                   <h4 className="text-sm font-bold text-white">Fournisseur IA texte (script, titres, miniatures...)</h4>
                   <p className="text-[11px] text-slate-500 mt-1 max-w-xl">
-                    Clique un fournisseur pour l'ajouter à la priorité, un autre clic le retire. L'ordre de clic devient l'ordre d'essai (le n°1 en premier) ; tout fournisseur configuré non sélectionné reste utilisable en dernier recours. Le point indique l'état réel de la clé (vert = active, rouge = en panne, gris = aucune clé) d'après les cartes ci-dessus — bascule à tout moment, sans redéploiement.
+                    Clique un fournisseur pour l'ajouter à la priorité, un autre clic le retire. L'ordre de clic devient l'ordre d'essai (le n°1 en premier) ; tout fournisseur configuré non sélectionné reste utilisable en dernier recours. Le point indique l'état réel de la clé (vert = active, rouge = en panne, gris = aucune clé) — bascule à tout moment, sans redéploiement.
                   </p>
                 </div>
                 {!aiTextProvider ? (
