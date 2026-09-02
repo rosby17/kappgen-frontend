@@ -8908,7 +8908,7 @@ export default function App() {
         </div>
 
         {/* Scrollable Canvas View Content */}
-        <div className="flex-1 overflow-y-auto p-6 md:p-8">
+        <div className="flex-1 overflow-y-auto p-4 md:p-6">
           <div className="max-w-[1400px] mx-auto space-y-8">
             
             {/* VIEW 1: HOME / DASHBOARD OVERVIEW */}
@@ -9192,7 +9192,7 @@ export default function App() {
 
             {/* VIEW 3: MES VIDÉOS (Videos Library View) */}
             {view === 'videos' && (
-              <div className="flex items-start gap-2 md:-ml-8">
+              <div className="flex items-start gap-2 -ml-4 md:-ml-6">
                 {/* Whole block (folder rail + title + grid, all together)
                     pulled left by the page's own md:p-8 padding, so it sits
                     flush against the main sidebar instead of floating with
