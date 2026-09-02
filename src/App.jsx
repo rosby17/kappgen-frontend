@@ -14238,9 +14238,6 @@ export default function App() {
           {adminTab === 'resources' && (
             <div className="space-y-5">
               <div className="flex items-center justify-between gap-3">
-                <p className="text-[11px] text-slate-500 max-w-xl">
-                  Vérification en direct que chaque clé fonctionne — pas un solde de compte en temps réel. Point vert = actif, point rouge = solde/crédit insuffisant, point gris = service injoignable, clé invalide, ou non configuré.
-                </p>
                 <button
                   onClick={fetchAdminProviders}
                   disabled={adminProvidersLoading}
@@ -14254,9 +14251,6 @@ export default function App() {
               <div className="space-y-3">
                 <div>
                   <h4 className="text-sm font-bold text-white">Voix off (audio)</h4>
-                  <p className="text-[11px] text-slate-500 mt-1 max-w-xl">
-                    Clique un fournisseur pour l'ajouter à la priorité, un autre clic le retire. L'ordre de clic devient l'ordre d'essai (le n°1 en premier). Une seule clé Izivoice partagée aujourd'hui ; d'autres fournisseurs voix off pourront rejoindre cette liste plus tard.
-                  </p>
                 </div>
                 {!voiceoverProviderMode ? (
                   <div className="text-center text-slate-500 text-xs py-4">Chargement...</div>
@@ -14294,9 +14288,6 @@ export default function App() {
               <div className="pt-6 border-t border-[var(--border-soft)] space-y-3">
                 <div>
                   <h4 className="text-sm font-bold text-white">Génération des miniatures</h4>
-                  <p className="text-[11px] text-slate-500 mt-1 max-w-xl">
-                    Clique un fournisseur pour l'ajouter à la priorité, un autre clic le retire. L'ordre de clic devient l'ordre d'essai (le n°1 en premier). Ne laisser que Hugging Face garde les miniatures 100% gratuites ; ajouter fal.ai et/ou Izivoice les autorise explicitement à être utilisés (et facturés) en repli, dans l'ordre choisi.
-                  </p>
                 </div>
                 {!thumbnailProviderMode ? (
                   <div className="text-center text-slate-500 text-xs py-4">Chargement...</div>
@@ -14334,9 +14325,6 @@ export default function App() {
               <div className="pt-6 border-t border-[var(--border-soft)] space-y-3">
                 <div>
                   <h4 className="text-sm font-bold text-white">Fournisseur IA texte (script, titres, miniatures...)</h4>
-                  <p className="text-[11px] text-slate-500 mt-1 max-w-xl">
-                    Clique un fournisseur pour l'ajouter à la priorité, un autre clic le retire. L'ordre de clic devient l'ordre d'essai (le n°1 en premier) ; tout fournisseur configuré non sélectionné reste utilisable en dernier recours. Le point indique l'état réel de la clé (vert = active, rouge = en panne, gris = aucune clé) — bascule à tout moment, sans redéploiement.
-                  </p>
                 </div>
                 {!aiTextProvider ? (
                   <div className="text-center text-slate-500 text-xs py-4">Chargement...</div>
@@ -14373,9 +14361,6 @@ export default function App() {
               <div className="pt-6 border-t border-[var(--border-soft)] space-y-4">
                 <div>
                   <h4 className="text-sm font-bold text-white">Comptes Hugging Face (gratuit)</h4>
-                  <p className="text-[11px] text-slate-500 mt-1 max-w-xl">
-                    FLUX.1-schnell (open source) via nscale — essayé en premier, avant tout fournisseur payant. Ajoute des comptes au fil du temps pour cumuler plus de quota gratuit.
-                  </p>
                 </div>
 
                 <div className="flex flex-col sm:flex-row gap-2">
