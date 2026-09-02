@@ -6018,6 +6018,18 @@ export default function App() {
     }
   };
   const [adminLibrarySelectedImages, setAdminLibrarySelectedImages] = useState([]);
+  // Click-and-drag ("paint") multi-select across the image grid — checking
+  // dozens of images one click at a time was the exact complaint. No
+  // re-renders needed mid-drag (only the resulting selection list matters),
+  // so a ref instead of state: dragging.current is whether a drag is live,
+  // value.current is whether it's adding or removing (set by the very first
+  // thumbnail touched, opposite of its own state at that moment).
+  const adminLibraryDragSelectRef = useRef({ dragging: false, value: true });
+  useEffect(() => {
+    const stopDrag = () => { adminLibraryDragSelectRef.current.dragging = false; };
+    window.addEventListener('mouseup', stopDrag);
+    return () => window.removeEventListener('mouseup', stopDrag);
+  }, []);
   // Which niche sections are collapsed, by niche name — folders now
   // auto-accumulate for every channel (see _persist_generated_images_to_channel_library
   // in images.py), so a flat table would grow unwieldy fast; grouping by
@@ -13679,7 +13691,20 @@ export default function App() {
             } else {
               // LEVEL 4 — selectable, infinitely scrolling image grid.
               const selected = new Set(adminLibrarySelectedImages);
-              const toggleImage = name => setAdminLibrarySelectedImages(items => items.includes(name) ? items.filter(item => item !== name) : [...items, name]);
+              const setImageSelected = (name, value) => setAdminLibrarySelectedImages(items => {
+                const has = items.includes(name);
+                if (value === has) return items;
+                return value ? [...items, name] : items.filter(item => item !== name);
+              });
+              const startDragSelect = (name) => {
+                const value = !selected.has(name);
+                adminLibraryDragSelectRef.current = { dragging: true, value };
+                setImageSelected(name, value);
+              };
+              const dragOverImage = (name) => {
+                if (!adminLibraryDragSelectRef.current.dragging) return;
+                setImageSelected(name, adminLibraryDragSelectRef.current.value);
+              };
               content = <div className="p-4 space-y-4">
                 <div className="sticky top-0 z-20 flex items-center gap-3 flex-wrap bg-[var(--bg-surface)]/95 backdrop-blur border border-[var(--border)] rounded-xl px-3 py-2 shadow-lg">
                   <span className="text-xs font-bold text-white">{adminLibraryImageTotal.toLocaleString('fr-FR')} images</span>
@@ -13707,7 +13732,13 @@ export default function App() {
                 </div>
                 {adminLibraryImages.length === 0 && adminLibraryImageTotal === 0 ? <p className="py-16 text-center text-xs text-slate-500">Ce dossier ne contient aucune image.</p> : <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${adminLibraryGridColumns}, minmax(0, 1fr))` }}>
                   {adminLibraryImages.map((name, imageIndex) => <div key={name} className={`relative group min-w-0 rounded-lg overflow-hidden border-2 transition-colors ${selected.has(name) ? 'border-[#00c2ff] ring-2 ring-[#00c2ff]/30' : 'border-[var(--border)] hover:border-slate-400'}`}>
-                    <button type="button" onClick={() => toggleImage(name)} onDoubleClick={() => { setAdminLibraryLightboxIndex(imageIndex); setAdminLibraryLightboxZoom(1); }} className="block w-full text-left">
+                    <button
+                      type="button"
+                      onMouseDown={(e) => { e.preventDefault(); startDragSelect(name); }}
+                      onMouseEnter={() => dragOverImage(name)}
+                      onDoubleClick={() => { setAdminLibraryLightboxIndex(imageIndex); setAdminLibraryLightboxZoom(1); }}
+                      className="block w-full text-left select-none"
+                    >
                       <img src={`${API_BASE}/admin/channel-library/${folder.channel_id}/images/${encodeURIComponent(name)}`} alt={name} className="w-full aspect-video object-cover" loading="lazy" />
                       <span className={`absolute top-1.5 left-1.5 w-[18px] h-[18px] rounded flex items-center justify-center border ${selected.has(name) ? 'bg-[#00c2ff] border-[#00c2ff] text-slate-950' : 'bg-slate-950/70 border-white/50 text-transparent'}`}><span className="material-symbols-outlined text-[12px]">check</span></span>
                       <span className="absolute inset-x-0 bottom-0 px-2 py-1.5 bg-gradient-to-t from-black/90 to-transparent text-[9px] text-white truncate text-left">{name}</span>
