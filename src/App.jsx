@@ -12280,6 +12280,23 @@ export default function App() {
                   return (
                     <div className="space-y-6">
                       <h3 className="text-base font-bold text-white">8. Publication YouTube</h3>
+                      <div className="rounded-2xl border border-[#00c2ff]/35 bg-[#00c2ff]/5 p-4">
+                        <div className="flex items-start gap-3">
+                          <span className="material-symbols-outlined text-[22px] text-[#00c2ff]">verified_user</span>
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <h4 className="text-xs font-extrabold text-white">Contrôle YouTube automatique</h4>
+                              <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[9px] font-bold text-emerald-300">ACTIF</span>
+                            </div>
+                            <p className="mt-1 text-[10px] leading-relaxed text-slate-400">Avant chaque publication, KappGen vérifie l’originalité du scénario, les répétitions, les métadonnées, la niche et les déclarations YouTube. Le rapport détaillé s’affiche lorsque vous ouvrez la fenêtre « Publier sur YouTube ».</p>
+                            <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-2">
+                              <div className="rounded-lg border border-emerald-500/25 bg-emerald-500/5 px-2.5 py-2"><span className="block text-[10px] font-bold text-emerald-300">Vert</span><span className="text-[9px] text-slate-500">Publication automatique</span></div>
+                              <div className="rounded-lg border border-amber-500/25 bg-amber-500/5 px-2.5 py-2"><span className="block text-[10px] font-bold text-amber-300">Orange</span><span className="text-[9px] text-slate-500">Validation humaine</span></div>
+                              <div className="rounded-lg border border-rose-500/25 bg-rose-500/5 px-2.5 py-2"><span className="block text-[10px] font-bold text-rose-300">Rouge</span><span className="text-[9px] text-slate-500">Publication bloquée</span></div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
                       <div>
                         <label className="block text-xs font-bold text-slate-300 mb-2">Publication YouTube</label>
                         <p className="text-[11px] text-slate-500 mb-2">Indépendant du mode de génération du script — décide ce qui arrive à une vidéo une fois qu'elle est prête.</p>
