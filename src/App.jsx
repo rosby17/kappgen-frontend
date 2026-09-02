@@ -3188,18 +3188,24 @@ function PipelineStepper({ stage, percent, failed = false, source = 'automatic' 
 function VideoTrustBadge({ video, onClick }) {
   const report = video.youtube_compliance_report;
   const score = report?.score;
-  const tone = score == null ? 'border-slate-600/70 bg-slate-900/60 text-slate-400' : score >= 80 ? 'border-emerald-400/35 bg-emerald-400/10 text-emerald-300' : score >= 60 ? 'border-amber-400/35 bg-amber-400/10 text-amber-300' : 'border-rose-400/35 bg-rose-400/10 text-rose-300';
+  const scoreValue = score ?? 0;
+  const tone = score == null ? 'border-slate-600/70 bg-slate-900/60 text-slate-400' : score >= 80 ? 'border-emerald-400/35 bg-emerald-400/[.09] text-emerald-200' : score >= 60 ? 'border-amber-400/35 bg-amber-400/[.09] text-amber-200' : 'border-rose-400/35 bg-rose-400/[.09] text-rose-200';
+  const barTone = score == null ? 'bg-slate-600' : score >= 80 ? 'bg-gradient-to-r from-emerald-500 to-[#75f0c8]' : score >= 60 ? 'bg-gradient-to-r from-amber-500 to-yellow-300' : 'bg-gradient-to-r from-rose-600 to-rose-400';
+  const label = score == null ? 'Analyse en cours' : score >= 80 ? 'Prêt pour YouTube' : score >= 60 ? 'À optimiser' : 'À corriger';
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`mt-2 inline-flex max-w-full items-center gap-1.5 rounded-lg border px-2 py-1 text-[9px] font-bold transition-all hover:brightness-125 ${tone}`}
-      title="Voir le score de confiance et les contrôles"
+      className={`mt-2 flex w-full items-center gap-2 rounded-xl border px-2.5 py-2 text-left text-[10px] font-bold transition-all hover:brightness-125 ${tone}`}
+      title="Voir le Trust Score YouTube et les contrôles"
     >
-      <span className="material-symbols-outlined text-[13px]">verified_user</span>
-      <span>Confiance YouTube</span>
-      <strong className="font-black">{score == null ? 'À analyser' : `${score}/100`}</strong>
-      <span className="material-symbols-outlined text-[12px]">chevron_right</span>
+      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-black/15"><span className="material-symbols-outlined text-[16px]">analytics</span></span>
+      <span className="min-w-0 flex-1">
+        <span className="flex items-center justify-between gap-2"><span>Trust Score YouTube</span><span className="text-[9px] font-medium opacity-75">{label}</span></span>
+        <span className="mt-1.5 block h-1 overflow-hidden rounded-full bg-slate-950/35"><span className={`block h-full rounded-full ${barTone}`} style={{ width: `${scoreValue}%` }} /></span>
+      </span>
+      <strong className="rounded-lg bg-black/15 px-2 py-1 font-black tabular-nums">{score == null ? '…' : `${score}/100`}</strong>
+      <span className="material-symbols-outlined text-[15px]">arrow_forward</span>
     </button>
   );
 }
@@ -3483,6 +3489,7 @@ export default function App() {
   const [publishingVideoId, setPublishingVideoId] = useState(null);
   const [publishReviewVideo, setPublishReviewVideo] = useState(null);
   const [publishReviewMode, setPublishReviewMode] = useState('publish');
+  const [metadataImproving, setMetadataImproving] = useState(false);
   const [publishTitleDraft, setPublishTitleDraft] = useState('');
   const [youtubeComplianceReport, setYoutubeComplianceReport] = useState(null);
   const [youtubeComplianceLoading, setYoutubeComplianceLoading] = useState(false);
@@ -7483,25 +7490,31 @@ export default function App() {
     }
   };
 
-  // Videos are auto-deleted from the server after 48h by default now (disk
-  // space) — this opts one out, keeping it around longer by moving it to R2
-  // storage instead of local disk. Meant to become a paid feature; no
-  // charge/gate wired up yet (see Video.extended_retention).
   const [togglingRetentionId, setTogglingRetentionId] = useState(null);
-  const handleToggleExtendedRetention = async (vid, e) => {
+  const [retentionModalVideo, setRetentionModalVideo] = useState(null);
+  const [retentionDays, setRetentionDays] = useState(1);
+  const openRetentionModal = (vid, e) => {
     if (e) e.stopPropagation();
     setOpenVideoMenuId(null);
+    setRetentionModalVideo(vid);
+    setRetentionDays(1);
+  };
+  const purchaseRetention = async () => {
+    const vid = retentionModalVideo;
+    if (!vid) return;
     setTogglingRetentionId(vid.id);
     try {
       const res = await authFetch(`${API_BASE}/videos/${vid.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ extended_retention: !vid.extended_retention }),
+        body: JSON.stringify({ retention_days: retentionDays }),
       });
-      if (!res.ok) throw new Error("Impossible de mettre à jour la conservation.");
-      showToast(vid.extended_retention ? 'Conservation prolongée désactivée — suppression automatique après 48h.' : 'Vidéo conservée plus longtemps.', 'success');
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || "Impossible de prolonger la conservation.");
+      showToast(`Conservation prolongée de ${retentionDays} jour(s).`, 'success');
+      setRetentionModalVideo(null);
       fetchAllVideos();
       if (activeChannel) fetchChannelVideos(activeChannel.id);
+      fetchBillingData();
     } catch (e2) {
       showToast(e2.message, 'error');
     } finally {
@@ -7557,6 +7570,39 @@ export default function App() {
     } finally {
       setYoutubeComplianceLoading(false);
     }
+  };
+
+  const openMetadataImprovement = (vid, e) => {
+    if (e) e.stopPropagation();
+    setPublishReviewMode('edit');
+    setPublishTitleDraft((vid.title || '').slice(0, 100));
+    setPublishDescriptionDraft(vid.youtube_description || '');
+  };
+  const regenerateTrustMetadata = async () => {
+    if (!publishReviewVideo) return;
+    setMetadataImproving(true);
+    try {
+      const res = await authFetch(`${API_BASE}/videos/${publishReviewVideo.id}/youtube-metadata/regenerate`, { method: 'POST' });
+      const video = await res.json();
+      if (!res.ok) throw new Error(video.detail || 'Régénération impossible.');
+      setPublishTitleDraft(video.title || '');
+      setPublishDescriptionDraft(video.youtube_description || '');
+      showToast('KappGen a préparé une nouvelle proposition.', 'success');
+    } catch (err) { showToast(err.message, 'error'); } finally { setMetadataImproving(false); }
+  };
+  const saveTrustMetadata = async () => {
+    if (!publishReviewVideo) return;
+    setMetadataImproving(true);
+    try {
+      const res = await authFetch(`${API_BASE}/videos/${publishReviewVideo.id}/youtube-metadata`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: publishTitleDraft, description: publishDescriptionDraft }) });
+      if (!res.ok) throw new Error((await res.json()).detail || 'Enregistrement impossible.');
+      const refreshed = await authFetch(`${API_BASE}/videos/${publishReviewVideo.id}/youtube/compliance`);
+      if (refreshed.ok) setYoutubeComplianceReport(await refreshed.json());
+      setPublishReviewMode('trust');
+      fetchAllVideos();
+      if (activeChannel) fetchChannelVideos(activeChannel.id);
+      showToast('Métadonnées enregistrées. Score actualisé.', 'success');
+    } catch (err) { showToast(err.message, 'error'); } finally { setMetadataImproving(false); }
   };
 
   const loadYoutubeComplianceDossier = async () => {
@@ -8002,7 +8048,6 @@ export default function App() {
     }
   }, [studioScenes]);
 
-  const [reusingAudioId, setReusingAudioId] = useState(null);
   const [regeneratingTitleId, setRegeneratingTitleId] = useState(null);
   const handleRegenerateTitle = async (vid, e) => {
     if (e) e.stopPropagation();
@@ -8122,33 +8167,6 @@ export default function App() {
     }
   };
 
-  const handleReuseAudio = async (vid, e) => {
-    if (e) e.stopPropagation();
-    setOpenVideoMenuId(null);
-    if (!vid.output_path) return;
-    setReusingAudioId(vid.id);
-    try {
-      const res = await authFetch(`${API_BASE}/videos/${vid.id}/audio`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const blob = await res.blob();
-      const fileName = `${(vid.script_text || 'audio').slice(0, 40).replace(/[^a-z0-9]+/gi, '-')}.m4a`;
-      const file = new File([blob], fileName, { type: blob.type || 'audio/mp4' });
-
-      const channel = channels.find(c => c.id === vid.channel_id) || null;
-      if (channel) setActiveChannel(channel);
-      setSubmitMode('audio_upload');
-      setAudioFilesList([file]);
-      setAudioRightsConfirmed(false);
-      setAudioSourceType('');
-      setSubmitStep(1);
-      setShowSubmitModal(true);
-    } catch (err) {
-      console.error("Erreur lors de la réutilisation de l'audio:", err);
-      showToast("Impossible de récupérer l'audio de cette vidéo.", "error");
-    } finally {
-      setReusingAudioId(null);
-    }
-  };
 
   const startEditingTitle = (vid, e) => {
     if (e) e.stopPropagation();
@@ -9300,9 +9318,9 @@ export default function App() {
                                     </button>
                                   )}
                                   {vid.status === 'done' && (
-                                    <button disabled={togglingRetentionId === vid.id} onClick={(e) => handleToggleExtendedRetention(vid, e)} title="Par défaut, une vidéo est supprimée du serveur après 48h." className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium disabled:opacity-50">
-                                      <span className={`material-symbols-outlined text-[16px] ${vid.extended_retention ? 'text-emerald-400' : 'text-[#00c2ff]'}`}>{vid.extended_retention ? 'lock_clock' : 'schedule'}</span>
-                                      {vid.extended_retention ? 'Conservée plus longtemps' : 'Conserver plus longtemps'}
+                                    <button disabled={togglingRetentionId === vid.id} onClick={(e) => openRetentionModal(vid, e)} title="48 heures incluses, puis 1 000 crédits par jour." className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium disabled:opacity-50">
+                                      <span className="material-symbols-outlined text-[16px] text-[#00c2ff]">schedule</span>
+                                      Conserver plus longtemps
                                     </button>
                                   )}
                                   {vid.status === 'done' && vid.scheduled_publish_at && !vid.youtube_video_id && (
@@ -9320,17 +9338,7 @@ export default function App() {
                                   {vid.status === 'done' && vid.youtube_video_id && (
                                     <button disabled={resyncingThumbnailId === vid.id} onClick={(e) => handleResyncThumbnail(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium disabled:opacity-50">
                                       <span className={`material-symbols-outlined text-[16px] text-[#00c2ff] ${resyncingThumbnailId === vid.id ? 'animate-spin' : ''}`}>{resyncingThumbnailId === vid.id ? 'progress_activity' : 'image'}</span>
-                                      {resyncingThumbnailId === vid.id ? 'Mise à jour…' : 'Mettre à jour la miniature'}
-                                    </button>
-                                  )}
-                                  {vid.status === 'done' && (
-                                    <button disabled={reusingAudioId === vid.id} onClick={(e) => handleReuseAudio(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium disabled:opacity-50">
-                                      <span className="material-symbols-outlined text-[16px] text-[#00c2ff]">graphic_eq</span> {reusingAudioId === vid.id ? 'Récupération…' : "Réutiliser l'audio"}
-                                    </button>
-                                  )}
-                                  {vid.status === 'done' && vid.editable && (
-                                    <button onClick={(e) => { e.stopPropagation(); setOpenVideoMenuId(null); openStudio(vid); }} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium">
-                                      <span className="material-symbols-outlined text-[16px] text-[#00c2ff]">auto_fix_high</span> Éditer
+                                      {resyncingThumbnailId === vid.id ? 'Mise à jour…' : 'Mettre à jour la miniature sur YouTube'}
                                     </button>
                                   )}
                                   <div className="h-[1px] bg-[var(--border-dropdown)] my-1"></div>
@@ -9878,9 +9886,9 @@ export default function App() {
                                   </button>
                                 )}
                                 {vid.status === 'done' && (
-                                  <button disabled={togglingRetentionId === vid.id} onClick={(e) => handleToggleExtendedRetention(vid, e)} title="Par défaut, une vidéo est supprimée du serveur après 48h." className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium disabled:opacity-50">
-                                    <span className={`material-symbols-outlined text-[16px] ${vid.extended_retention ? 'text-emerald-400' : 'text-[#00c2ff]'}`}>{vid.extended_retention ? 'lock_clock' : 'schedule'}</span>
-                                    {vid.extended_retention ? 'Conservée plus longtemps' : 'Conserver plus longtemps'}
+                                  <button disabled={togglingRetentionId === vid.id} onClick={(e) => openRetentionModal(vid, e)} title="48 heures incluses, puis 1 000 crédits par jour." className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium disabled:opacity-50">
+                                    <span className="material-symbols-outlined text-[16px] text-[#00c2ff]">schedule</span>
+                                    Conserver plus longtemps
                                   </button>
                                 )}
                                 {vid.status === 'done' && vid.scheduled_publish_at && !vid.youtube_video_id && (
@@ -9898,12 +9906,7 @@ export default function App() {
                                 {vid.status === 'done' && vid.youtube_video_id && (
                                   <button disabled={resyncingThumbnailId === vid.id} onClick={(e) => handleResyncThumbnail(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium disabled:opacity-50">
                                     <span className={`material-symbols-outlined text-[16px] text-[#00c2ff] ${resyncingThumbnailId === vid.id ? 'animate-spin' : ''}`}>{resyncingThumbnailId === vid.id ? 'progress_activity' : 'image'}</span>
-                                    {resyncingThumbnailId === vid.id ? 'Mise à jour…' : 'Mettre à jour la miniature'}
-                                  </button>
-                                )}
-                                {vid.status === 'done' && (
-                                  <button disabled={reusingAudioId === vid.id} onClick={(e) => handleReuseAudio(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium disabled:opacity-50">
-                                    <span className="material-symbols-outlined text-[16px] text-[#00c2ff]">graphic_eq</span> {reusingAudioId === vid.id ? 'Récupération…' : "Réutiliser l'audio"}
+                                    {resyncingThumbnailId === vid.id ? 'Mise à jour…' : 'Mettre à jour la miniature sur YouTube'}
                                   </button>
                                 )}
                                 <div className="h-[1px] bg-[var(--border-dropdown)] my-1"></div>
@@ -15893,7 +15896,7 @@ export default function App() {
             <div className="flex justify-between items-center">
               <h3 className="text-sm font-bold text-white flex items-center gap-2">
                 {publishReviewMode === 'publish' ? <YouTubeIcon className="w-5 h-3.5" /> : <span className="material-symbols-outlined text-[20px] text-[#00c2ff]">verified_user</span>}
-                {publishReviewMode === 'publish' ? 'Publier sur YouTube' : 'Score de confiance'}
+                {publishReviewMode === 'publish' ? 'Publier sur YouTube' : publishReviewMode === 'edit' ? 'Améliorer les métadonnées' : 'Score de confiance'}
               </h3>
               <button
                 onClick={() => { if (!publishingVideoId) setPublishReviewVideo(null); }}
@@ -15950,6 +15953,7 @@ export default function App() {
                           <span className="min-w-0 flex-1"><strong className="flex items-center gap-1 text-slate-100"><span className={`material-symbols-outlined text-[13px] ${check.state === 'pass' ? 'text-emerald-400' : check.state === 'fail' ? 'text-rose-400' : 'text-amber-400'}`}>{check.state === 'pass' ? 'check_circle' : check.state === 'fail' ? 'cancel' : 'error'}</span>{check.label}</strong><span className="block mt-0.5 leading-relaxed text-slate-500">{check.message}</span></span>
                         </div>
                         <div className="mt-2 h-px overflow-hidden bg-slate-800"><div className={`h-full ${check.state === 'pass' ? 'bg-emerald-400' : check.state === 'fail' ? 'bg-rose-400' : 'bg-amber-400'}`} style={{ width: `${check.score ?? (check.state === 'pass' ? 100 : check.state === 'warning' ? 70 : 30)}%` }} /></div>
+                        {publishReviewMode === 'trust' && check.state !== 'pass' && ['metadata_description', 'metadata_title'].includes(check.code) && <button onClick={(e) => openMetadataImprovement(publishReviewVideo, e)} className="mt-2 inline-flex items-center gap-1 text-[9px] font-bold text-[#00c2ff] hover:underline"><span className="material-symbols-outlined text-[12px]">edit</span>Améliorer avec KappGen</button>}
                       </div>
                     ))}
                   </div>
@@ -15990,7 +15994,7 @@ export default function App() {
               ) : <p className="text-[10px] text-slate-500">Le rapport n’a pas pu être chargé.</p>}
             </div>
 
-            {publishReviewMode === 'publish' && <div>
+            {publishReviewMode !== 'trust' && <div>
               <div className="flex items-center justify-between mb-1.5">
                 <label className="text-xs font-bold text-slate-300">Titre YouTube</label>
                 <span className={`text-[10px] font-mono ${publishTitleDraft.length > 100 ? 'text-rose-400' : 'text-slate-500'}`}>{publishTitleDraft.length}/100</span>
@@ -16004,7 +16008,7 @@ export default function App() {
               />
             </div>}
 
-            {publishReviewMode === 'publish' && <div>
+            {publishReviewMode !== 'trust' && <div>
               <label className="block text-xs font-bold text-slate-300 mb-1.5">Description</label>
               <textarea
                 value={publishDescriptionDraft}
@@ -16033,7 +16037,24 @@ export default function App() {
                   <><YouTubeIcon className="w-4 h-3" /> {youtubeComplianceReport?.status === 'red' ? 'Forcer la publication' : 'Publier'}</>
                 )}
               </button>
-            </div> : <button onClick={() => setPublishReviewVideo(null)} className="w-full rounded-xl border border-[var(--border)] bg-[var(--bg-surface-alt)] py-2.5 text-xs font-bold text-slate-300 transition-colors hover:bg-[var(--border-soft)]">Fermer</button>}
+            </div> : publishReviewMode === 'edit' ? <div className="flex gap-3"><button onClick={() => setPublishReviewMode('trust')} className="flex-1 rounded-xl border border-[var(--border)] bg-[var(--bg-surface-alt)] py-2.5 text-xs font-bold text-slate-300">Retour</button><button disabled={metadataImproving || !publishTitleDraft.trim()} onClick={saveTrustMetadata} className="flex-1 rounded-xl bg-[#00c2ff] py-2.5 text-xs font-extrabold text-slate-950 disabled:opacity-50">{metadataImproving ? 'Enregistrement…' : 'Enregistrer et vérifier'}</button><button disabled={metadataImproving} onClick={regenerateTrustMetadata} title="Régénérer avec KappGen" className="rounded-xl border border-[#00c2ff]/40 px-3 text-[#00c2ff] disabled:opacity-50"><span className={`material-symbols-outlined text-[18px] ${metadataImproving ? 'animate-spin' : ''}`}>{metadataImproving ? 'progress_activity' : 'auto_awesome'}</span></button></div> : <button onClick={() => setPublishReviewVideo(null)} className="w-full rounded-xl border border-[var(--border)] bg-[var(--bg-surface-alt)] py-2.5 text-xs font-bold text-slate-300 transition-colors hover:bg-[var(--border-soft)]">Fermer</button>}
+          </div>
+        </div>
+      )}
+
+      {retentionModalVideo && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/85 p-6 backdrop-blur-md">
+          <div className="w-full max-w-md rounded-3xl border border-[var(--border-soft)] bg-[var(--bg-surface)] p-6 shadow-2xl">
+            <div className="flex items-start justify-between gap-4">
+              <div><h3 className="flex items-center gap-2 text-sm font-extrabold text-white"><span className="material-symbols-outlined text-[#00c2ff]">schedule</span>Conserver la vidéo</h3><p className="mt-1 text-xs leading-relaxed text-slate-400">Les 48 premières heures sont incluses. Choisissez une durée supplémentaire à 1&nbsp;000 crédits par jour.</p></div>
+              <button onClick={() => !togglingRetentionId && setRetentionModalVideo(null)} className="text-slate-400 hover:text-white"><span className="material-symbols-outlined">close</span></button>
+            </div>
+            <div className="mt-5 grid grid-cols-5 gap-2">
+              {[1, 2, 3, 7, 30].map(days => <button key={days} onClick={() => setRetentionDays(days)} className={`rounded-xl border px-2 py-3 text-center transition-all ${retentionDays === days ? 'border-[#00c2ff] bg-[#00c2ff]/10 text-[#5cddff]' : 'border-[var(--border)] bg-[var(--bg-surface-alt)] text-slate-300 hover:border-slate-500'}`}><strong className="block text-sm">{days}</strong><span className="text-[9px]">{days === 7 ? 'semaine' : days === 30 ? 'mois' : 'jour' + (days > 1 ? 's' : '')}</span></button>)}
+            </div>
+            <div className="mt-4 rounded-xl border border-[#00c2ff]/20 bg-[#00c2ff]/5 px-4 py-3 text-center"><span className="text-[10px] text-slate-400">Coût de conservation</span><strong className="ml-2 text-lg text-[#5cddff]">{(retentionDays * 1000).toLocaleString()} crédits</strong>{creditBalance != null && <span className="ml-2 text-[10px] text-slate-500">· Solde : {creditBalance.toLocaleString()}</span>}</div>
+            <button disabled={!!togglingRetentionId || !canAffordCredits(retentionDays * 1000)} onClick={purchaseRetention} className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-[#00c2ff] py-3 text-xs font-extrabold text-slate-950 transition-all hover:bg-[#38d0ff] disabled:opacity-50"><span className={`material-symbols-outlined text-[17px] ${togglingRetentionId ? 'animate-spin' : ''}`}>{togglingRetentionId ? 'progress_activity' : 'lock_clock'}</span>{togglingRetentionId ? 'Activation…' : `Conserver ${retentionDays} jour${retentionDays > 1 ? 's' : ''} · ${(retentionDays * 1000).toLocaleString()} crédits`}</button>
+            {!canAffordCredits(retentionDays * 1000) && <p className="mt-2 text-center text-[10px] text-rose-300">Crédits insuffisants pour cette durée.</p>}
           </div>
         </div>
       )}
