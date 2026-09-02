@@ -16259,13 +16259,6 @@ export default function App() {
                       </div>
                     ))}
                   </div>
-                  {publishReviewMode === 'publish' && youtubeComplianceReport.requires_human_review && (
-                    <label className="flex items-start gap-2 rounded-lg border border-amber-500/25 bg-black/15 p-2.5 text-[10px] text-amber-100 cursor-pointer">
-                      <input type="checkbox" checked={youtubeComplianceConfirmed} onChange={e => setYoutubeComplianceConfirmed(e.target.checked)} className="peer sr-only" />
-                      <span className={`mt-px flex h-4 w-4 shrink-0 items-center justify-center rounded border text-[12px] ${youtubeComplianceConfirmed ? 'border-[#00c2ff] bg-[#00c2ff] text-slate-950' : 'border-amber-300/50 text-transparent'}`}><span className="material-symbols-outlined text-[12px]">check</span></span>
-                      J’ai relu la vidéo, vérifié ses affirmations et je confirme la publication.
-                    </label>
-                  )}
                   {publishReviewMode === 'publish' && youtubeComplianceReport.status === 'red' && (
                     <div className="space-y-2">
                       <p className="text-[10px] font-bold text-rose-300">Le second filtre bloque la publication. Corrigez la vidéo ou assumez explicitement le risque.</p>
@@ -16330,7 +16323,7 @@ export default function App() {
               </button>
               <button
                 onClick={confirmPublishYouTube}
-                disabled={!!publishingVideoId || !publishTitleDraft.trim() || youtubeComplianceLoading || !youtubeComplianceReport || ((youtubeComplianceReport.status === 'red' || youtubeComplianceReport.requires_human_review) && !youtubeComplianceConfirmed)}
+                disabled={!!publishingVideoId || !publishTitleDraft.trim() || youtubeComplianceLoading || !youtubeComplianceReport || (youtubeComplianceReport.status === 'red' && !youtubeComplianceConfirmed)}
                 className="flex-1 py-2.5 bg-[#00c2ff] text-slate-950 rounded-xl font-bold text-xs hover:bg-[#38d0ff] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
               >
                 {publishingVideoId ? (
