@@ -12381,6 +12381,22 @@ export default function App() {
                             <label key={field} className="flex items-start gap-2 rounded-xl border border-[var(--border)] bg-[var(--bg-surface-alt)] px-3 py-2.5 text-[10px] text-slate-300 cursor-pointer"><input type="checkbox" checked={newChannel[field] !== false} onChange={e => setNewChannel({ ...newChannel, [field]: e.target.checked })} className="peer sr-only" /><span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border border-slate-500 bg-[var(--bg-surface)] text-transparent peer-checked:border-[#00c2ff] peer-checked:bg-[#00c2ff] peer-checked:text-slate-950"><span className="material-symbols-outlined text-[13px] font-bold">check</span></span><span><strong className="block text-white">{label}</strong><span className="text-[9px] text-slate-500">{help}</span></span></label>
                           ))}
                         </div>
+                        <div className="mt-3 rounded-xl border border-[var(--border)] bg-[var(--bg-surface-alt)] px-3 py-3">
+                          <div className="flex items-start gap-2">
+                            <span className="material-symbols-outlined text-[18px] text-[#00c2ff]">auto_awesome</span>
+                            <div className="min-w-0 flex-1">
+                              <span className="block text-[11px] font-bold text-white">Utilisation de l’IA</span>
+                              <span className="mt-0.5 block text-[9px] leading-relaxed text-slate-500">La vidéo contient-elle une scène réaliste générée ou modifiée par IA, ou fait-elle dire ou faire à une personne quelque chose qu’elle n’a pas dit ou fait ?</span>
+                              <div className="mt-2 grid grid-cols-2 gap-2 max-w-xs">
+                                {[['yes','Oui',true],['no','Non',false]].map(([id,label,value]) => (
+                                  <button key={id} type="button" onClick={() => setNewChannel({ ...newChannel, youtube_contains_synthetic_media: value })} className={`rounded-lg border px-3 py-2 text-left text-[10px] font-bold transition-colors ${(newChannel.youtube_contains_synthetic_media !== false) === value ? 'border-[#00c2ff] bg-[#00c2ff]/10 text-[#00c2ff]' : 'border-[var(--border)] bg-[var(--bg-surface)] text-slate-300 hover:border-slate-500'}`}>
+                                    <span className="material-symbols-outlined text-[14px] align-middle mr-1">{value ? 'check_circle' : 'cancel'}</span>{label}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
                         <div className="mt-3"><span className="block text-[10px] font-bold text-slate-400 mb-1.5">Licence</span><div className="grid grid-cols-2 gap-2 md:w-1/2">{[['youtube','Licence YouTube standard'],['creativeCommon','Creative Commons']].map(([id,label]) => <button key={id} type="button" onClick={() => setNewChannel({ ...newChannel, youtube_license: id })} className={`rounded-xl border px-3 py-2 text-left text-[10px] font-bold transition-colors ${(newChannel.youtube_license || 'youtube') === id ? 'border-[#00c2ff] bg-[#00c2ff]/10 text-[#00c2ff]' : 'border-[var(--border)] bg-[var(--bg-surface-alt)] text-slate-300 hover:border-slate-500'}`}>{label}</button>)}</div></div>
                         </div>
                       </div>
