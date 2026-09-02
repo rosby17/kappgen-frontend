@@ -8803,13 +8803,13 @@ export default function App() {
         
         {/* Top Header Bar */}
         <div className="relative z-30 hidden md:flex justify-between items-center px-8 py-5 border-b border-[var(--border-subtle)] bg-[var(--bg-surface-soft)]/60 backdrop-blur-md">
+          {/* Only views whose own content doesn't already show a title go
+              here — channels/videos/library/channel_detail all render their
+              own (more complete, with a description) heading further down,
+              so repeating the same words up here was pure redundancy. */}
           <h1 className="text-xl font-extrabold text-white tracking-tight flex items-center gap-3">
             {view === 'home' && 'Tableau de Bord'}
-            {view === 'channels' && 'Vos Pipelines de Chaînes'}
-            {view === 'videos' && 'Bibliothèque de Vidéos'}
-            {view === 'library' && 'Bibliothèque'}
             {view === 'wizard' && (wizardMode === 'edit' ? 'Modifier le Pipeline' : 'Assistant de Création de Chaîne')}
-            {view === 'channel_detail' && (activeChannel ? `Chaîne: ${activeChannel.name}` : 'Détail Chaîne')}
             {view === 'settings' && 'Paramètres'}
           </h1>
 
@@ -9013,7 +9013,7 @@ export default function App() {
               <section className="space-y-6">
                 <div className="flex items-start justify-between gap-4 flex-wrap">
                   <div>
-                    <h2 className="text-xl font-extrabold text-white">Vos Pipelines de Chaînes</h2>
+                    <h2 className="text-xl font-extrabold text-white">Mes Chaînes</h2>
                     <p className="text-xs text-slate-400 mt-1">Configurez l'identité, les sous-titres et les effets de vos chaînes automatiques.</p>
                   </div>
                   {productChannels.length > 1 && (
@@ -9194,7 +9194,7 @@ export default function App() {
               <section className="space-y-6">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                   <div>
-                    <h2 className="text-xl font-extrabold text-white">Bibliothèque de Vidéos</h2>
+                    <h2 className="text-xl font-extrabold text-white">Mes Vidéos</h2>
                     <p className="text-xs text-slate-400 mt-1">Historique de tous les sujets de vidéos rendus ou en cours de traitement.</p>
                   </div>
 
