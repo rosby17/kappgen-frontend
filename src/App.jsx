@@ -9281,15 +9281,12 @@ export default function App() {
                                 </div>
                               )}
 
-                              {/* Status Badge Top Left */}
+                              {/* Status Badge Top Left — only publish state is shown here
+                                  (Publiée/Téléchargée below); render status itself already reads
+                                  from the poster area (hourglass + label while queued, error +
+                                  retry while failed, Trust Score once done), so a redundant
+                                  Prête/Échec/En file pill was just taking up space. */}
                               {vid.status !== 'rendering' && <div className="absolute top-2 left-2 z-10 flex items-center gap-1.5">
-                                <span className={`px-2.5 py-0.5 rounded-lg text-[10px] font-sans font-bold lowercase tracking-normal ${
-                                  vid.status === 'done' ? 'bg-emerald-950/90 text-emerald-300 border border-emerald-700/80' :
-                                  vid.status === 'failed' ? 'bg-rose-950/90 text-rose-300 border border-rose-700/80' :
-                                  'bg-[#00c2ff]/15 text-[#00c2ff] border border-[#00c2ff]/40'
-                                }`}>
-                                  {vid.status === 'done' ? 'Prête' : vid.status === 'failed' ? 'Échec' : 'En file'}
-                                </span>
                                 {/* Published-to-YouTube marker — prevents re-publishing the same
                                     video by mistake, since the main "Publier"/"Voir" button text
                                     alone was easy to miss at a glance across a whole grid. */}
@@ -9856,15 +9853,12 @@ export default function App() {
                               </div>
                             )}
 
-                            {/* Status Badge */}
+                            {/* Status Badge — only publish state is shown here (Publiée/Téléchargée
+                                below); render status itself already reads from the poster area
+                                (hourglass + label while queued, error + retry while failed, Trust
+                                Score once done), so a redundant Prête/Échec/En file pill was just
+                                taking up space without adding information. */}
                             {vid.status !== 'rendering' && <div className="absolute top-2 left-2 z-10 flex items-center gap-1.5">
-                              <span className={`px-2 py-0.5 rounded-lg text-[10px] font-sans font-bold lowercase tracking-normal ${
-                                vid.status === 'done' ? 'bg-emerald-950/90 text-emerald-300 border border-emerald-700/80' :
-                                vid.status === 'failed' ? 'bg-rose-950/90 text-rose-300 border border-rose-700/80' :
-                                'bg-[#00c2ff]/15 text-[#00c2ff] border border-[#00c2ff]/40'
-                              }`}>
-                                {vid.status === 'done' ? 'Prête' : vid.status === 'failed' ? 'Échec' : 'En file'}
-                              </span>
                               {vid.youtube_video_id && (
                                 <span className="flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-sans font-bold lowercase tracking-normal bg-red-950/90 text-red-300 border border-red-700/80">
                                   <span className="material-symbols-outlined text-[11px]">check_circle</span>
