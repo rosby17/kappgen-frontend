@@ -3639,11 +3639,19 @@ export default function App() {
   // Submission Form State (Nouvelle Vidéo)
   const [submitMode, setSubmitMode] = useState('text'); // 'text' | 'audio_upload'
   const [singleScriptText, setSingleScriptText] = useState('');
-  // Optional — lets a creator name the video upfront instead of it sitting
-  // as "(sans titre)" in the queue until the AI metadata step eventually
-  // runs (only once rendering starts, not while just queued), and skips
-  // that guesswork entirely once set.
+  // Required — a video can no longer be queued titleless. Pre-filled from
+  // the audio filename in "Fichiers Audio Importés" mode (editable from
+  // there); "Texte Script (IA)" has no filename to derive from, so the
+  // creator has to type one themselves before continuing.
   const [submitVideoTitle, setSubmitVideoTitle] = useState('');
+  // Same cleanup as the backend's clean_filename_title (videos.py) — used
+  // only to pre-fill the title field client-side; the server still derives
+  // its own fallback independently if this one somehow arrives blank.
+  const titleFromFilename = (filename) => {
+    const stem = (filename || '').replace(/\.[^/.]+$/, '');
+    const clean = stem.replace(/[-_]+/g, ' ').trim();
+    return clean || 'Audio préenregistré';
+  };
   const [selectedVoice, setSelectedVoice] = useState('fr-FR-Thomas');
   const [availableVoices, setAvailableVoices] = useState(VOICE_MODELS);
   const defaultVoicesRef = useRef(VOICE_MODELS);
@@ -5877,18 +5885,22 @@ export default function App() {
     );
 
     if (droppedFiles.length > 0) {
-      setAudioFilesList(prev => [...prev, ...droppedFiles]);
+      setAudioFilesList(prev => {
+        if (prev.length === 0 && !submitVideoTitle.trim()) setSubmitVideoTitle(titleFromFilename(droppedFiles[0].name));
+        return [...prev, ...droppedFiles];
+      });
     }
   };
 
   const handleSubjectSubmit = async () => {
     if (!activeChannel) return showToast("Veuillez sélectionner une chaîne.", "error");
+    if (!submitVideoTitle.trim()) return showToast("Le titre de la vidéo est obligatoire.", "error");
 
     const formData = new FormData();
     formData.append("channel_id", activeChannel.id);
     formData.append("input_type", submitMode === 'audio_upload' ? 'audio' : 'text');
     formData.append("voice_id", selectedVoice);
-    if (submitVideoTitle.trim()) formData.append("title", submitVideoTitle.trim());
+    formData.append("title", submitVideoTitle.trim());
 
     if (submitMode === 'text') {
       if (!singleScriptText.trim()) return showToast("Veuillez saisir le texte de votre script.", "error");
@@ -14533,7 +14545,7 @@ export default function App() {
                     titre)" until the AI metadata step eventually runs, and
                     skips that guesswork entirely once one is set here. */}
                 <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-2">Titre de la vidéo <span className="text-slate-500 font-normal normal-case">(optionnel — sinon proposé automatiquement)</span></label>
+                  <label className="block text-xs font-bold text-slate-300 mb-2">Titre de la vidéo <span className="text-rose-400 font-normal normal-case">(obligatoire)</span></label>
                   <input
                     type="text"
                     value={submitVideoTitle}
@@ -14572,7 +14584,7 @@ export default function App() {
                       value={singleScriptText}
                       onChange={e => setSingleScriptText(e.target.value)}
                       className="w-full bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-2xl p-4 text-xs text-white focus:border-[#00c2ff] outline-none placeholder-slate-500"
-                      placeholder="Collez ici le texte de votre vidéo. L'IA générera la voix off et calera les sous-titres karaoké..."
+                      placeholder="Collez le texte de votre vidéo"
                     />
                   </div>
                 ) : (
@@ -14590,7 +14602,13 @@ export default function App() {
                       ref={fileInputRef}
                       multiple
                       accept="audio/*"
-                      onChange={e => setAudioFilesList(prev => [...prev, ...Array.from(e.target.files)])}
+                      onChange={e => {
+                        const files = Array.from(e.target.files);
+                        setAudioFilesList(prev => {
+                          if (prev.length === 0 && !submitVideoTitle.trim() && files[0]) setSubmitVideoTitle(titleFromFilename(files[0].name));
+                          return [...prev, ...files];
+                        });
+                      }}
                       className="hidden"
                     />
                     <span className="material-symbols-outlined text-slate-400 text-[42px] mb-2">cloud_upload</span>
@@ -14780,6 +14798,7 @@ export default function App() {
               {submitStep === 1 ? (
                 <button
                   onClick={() => {
+                    if (!submitVideoTitle.trim()) return showToast("Le titre de la vidéo est obligatoire.", "error");
                     if (submitMode === 'text' && !singleScriptText.trim()) return showToast("Veuillez saisir le texte de votre script.", "error");
                     if (submitMode === 'audio_upload' && audioFilesList.length === 0) return showToast("Veuillez ajouter au moins un fichier audio.", "error");
                     setSubmitStep(2);
