@@ -3340,6 +3340,7 @@ function viewFromPath(path) {
   if (path === '/' || path === '/dashboard' || path === '/home') return 'home';
   if (path === '/channels') return 'channels';
   if (path === '/videos') return 'videos';
+  if (path === '/library') return 'library';
   if (path === '/channels/new') return 'wizard';
   if (/^\/channels\/[^/]+\/edit$/.test(path)) return 'wizard';
   if (/^\/channels\/[^/]+$/.test(path)) return 'channel_detail';
@@ -3636,6 +3637,12 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [channelSortBy, setChannelSortBy] = useState('recent');
   const [videoFilterChannelId, setVideoFilterChannelId] = useState('all');
+  const [libraryOverview, setLibraryOverview] = useState(null);
+  const [libraryLoading, setLibraryLoading] = useState(false);
+  const [libraryExpandedId, setLibraryExpandedId] = useState(null);
+  const [libraryImages, setLibraryImages] = useState({});
+  const [libraryTracks, setLibraryTracks] = useState({});
+  const [libraryBusyKey, setLibraryBusyKey] = useState(null);
   const [toast, setToast] = useState(null); // { message, type: 'success' | 'error' }
   const [librarySyncHasHandle, setLibrarySyncHasHandle] = useState(false);
   const [librarySyncing, setLibrarySyncing] = useState(false);
@@ -4030,6 +4037,87 @@ export default function App() {
       showToast(err.message, "error");
     }
   };
+  const fetchLibraryOverview = async () => {
+    setLibraryLoading(true);
+    try {
+      const res = await authFetch(`${API_BASE}/channels/library/overview`);
+      if (res.ok) setLibraryOverview((await res.json()).channels || []);
+    } catch (err) {
+      console.error("Erreur chargement de la bibliothèque:", err);
+    } finally {
+      setLibraryLoading(false);
+    }
+  };
+
+  const fetchChannelLibraryDetail = async (channelId) => {
+    setLibraryImages(prev => ({ ...prev, [channelId]: { ...(prev[channelId] || {}), loading: true } }));
+    try {
+      const [imgRes, chRes] = await Promise.all([
+        authFetch(`${API_BASE}/channels/${channelId}/library/images?limit=120`),
+        authFetch(`${API_BASE}/channels/${channelId}`),
+      ]);
+      const imgData = imgRes.ok ? await imgRes.json() : { filenames: [], total: 0 };
+      const chData = chRes.ok ? await chRes.json() : null;
+      setLibraryImages(prev => ({ ...prev, [channelId]: { filenames: imgData.filenames || [], total: imgData.total || 0, loading: false } }));
+      setLibraryTracks(prev => ({ ...prev, [channelId]: (chData?.music_preference?.tracks) || [] }));
+    } catch (err) {
+      console.error("Erreur chargement du détail de la bibliothèque:", err);
+      setLibraryImages(prev => ({ ...prev, [channelId]: { filenames: [], total: 0, loading: false } }));
+    }
+  };
+
+  const toggleLibraryChannel = (channelId) => {
+    if (libraryExpandedId === channelId) { setLibraryExpandedId(null); return; }
+    setLibraryExpandedId(channelId);
+    if (!libraryImages[channelId]) fetchChannelLibraryDetail(channelId);
+  };
+
+  const deleteLibraryImage = async (channelId, filename) => {
+    setLibraryBusyKey(`${channelId}:${filename}`);
+    try {
+      const res = await authFetch(`${API_BASE}/channels/${channelId}/library/images/${encodeURIComponent(filename)}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error();
+      setLibraryImages(prev => ({ ...prev, [channelId]: { ...prev[channelId], filenames: (prev[channelId]?.filenames || []).filter(f => f !== filename), total: Math.max(0, (prev[channelId]?.total || 1) - 1) } }));
+      setLibraryOverview(prev => (prev || []).map(c => c.channel_id === channelId ? { ...c, image_count: Math.max(0, c.image_count - 1) } : c));
+    } catch {
+      showToast("Échec de la suppression de l'image.", 'error');
+    } finally {
+      setLibraryBusyKey(null);
+    }
+  };
+
+  const deleteAllLibraryImages = async (channelId) => {
+    if (!window.confirm('Supprimer toutes les images uploadées pour cette chaîne ? Cette action est irréversible.')) return;
+    setLibraryBusyKey(`${channelId}:__all__`);
+    try {
+      const res = await authFetch(`${API_BASE}/channels/${channelId}/library/images`, { method: 'DELETE' });
+      if (!res.ok) throw new Error();
+      setLibraryImages(prev => ({ ...prev, [channelId]: { filenames: [], total: 0, loading: false } }));
+      setLibraryOverview(prev => (prev || []).map(c => c.channel_id === channelId ? { ...c, image_count: 0 } : c));
+      showToast('Toutes les images ont été supprimées.', 'success');
+    } catch {
+      showToast('Échec de la suppression.', 'error');
+    } finally {
+      setLibraryBusyKey(null);
+    }
+  };
+
+  const deleteLibraryMusicTrack = async (channelId, trackPath) => {
+    setLibraryBusyKey(`${channelId}:track:${trackPath}`);
+    try {
+      const res = await authFetch(`${API_BASE}/channels/${channelId}/music?track_path=${encodeURIComponent(trackPath)}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error();
+      const updated = await res.json();
+      const tracks = updated.music_preference?.tracks || [];
+      setLibraryTracks(prev => ({ ...prev, [channelId]: tracks }));
+      setLibraryOverview(prev => (prev || []).map(c => c.channel_id === channelId ? { ...c, music_track_count: tracks.length } : c));
+    } catch {
+      showToast('Échec de la suppression de la piste.', 'error');
+    } finally {
+      setLibraryBusyKey(null);
+    }
+  };
+
   const styleReferenceInputRef = useRef(null);
 
   const handleAnalyzeStyleImage = async (e) => {
@@ -4780,6 +4868,7 @@ export default function App() {
     switch (view) {
       case 'channels': return '/channels';
       case 'videos': return '/videos';
+      case 'library': return '/library';
       case 'channel_detail': return activeChannel ? `/channels/${slugifyChannelName(activeChannel.name)}` : '/channels';
       case 'wizard': return wizardMode === 'edit' && editingChannel ? `/channels/${slugifyChannelName(editingChannel.name)}/edit` : '/channels/new';
       case 'settings': return '/settings';
@@ -4816,6 +4905,7 @@ export default function App() {
     if (path === '/signup' || path === '/signin') { setShowAuthModal(true); setAuthTab('register'); return; }
     if (path === '/channels') { setView('channels'); return; }
     if (path === '/videos') { setView('videos'); return; }
+    if (path === '/library') { setView('library'); return; }
     if (path === '/settings') { setView('settings'); return; }
     if (path === '/admin' || path.startsWith('/admin/')) { setView('admin'); setAdminTab(adminTabFromPath(path)); return; }
     if (path === '/billing/success') {
@@ -4884,6 +4974,10 @@ export default function App() {
   useEffect(() => {
     sessionStorage.setItem('nichecut_view', view);
   }, [view]);
+
+  useEffect(() => {
+    if (view === 'library' && currentUser) fetchLibraryOverview();
+  }, [view, currentUser]);
 
   useEffect(() => {
     if (activeChannel) {
@@ -8380,6 +8474,7 @@ export default function App() {
                   { id: 'home', label: 'Home', icon: 'home', active: view === 'home' || view === 'dashboard' },
                   { id: 'channels', label: 'Mes Chaînes', icon: 'subscriptions', active: view === 'channels' || view === 'channel_detail' },
                   { id: 'videos', label: 'Mes Vidéos', icon: 'movie', active: view === 'videos' },
+                  { id: 'library', label: 'Bibliothèque', icon: 'perm_media', active: view === 'library' },
                 ].map(({ id, label, icon, active }) => (
                   <button
                     key={id}
@@ -8563,6 +8658,7 @@ export default function App() {
                 { id: 'home', label: 'Home', icon: 'home', active: view === 'home' || view === 'dashboard', onClick: () => setView('home') },
                 { id: 'channels', label: 'Mes Chaînes', icon: 'subscriptions', active: view === 'channels' || view === 'channel_detail', onClick: () => setView('channels') },
                 { id: 'videos', label: 'Mes Vidéos', icon: 'movie', active: view === 'videos', onClick: () => setView('videos') },
+                { id: 'library', label: 'Bibliothèque', icon: 'perm_media', active: view === 'library', onClick: () => setView('library') },
               ].map(t => (
                 <button
                   key={t.id}
@@ -8633,6 +8729,7 @@ export default function App() {
             {view === 'home' && 'Tableau de Bord'}
             {view === 'channels' && 'Vos Pipelines de Chaînes'}
             {view === 'videos' && 'Bibliothèque de Vidéos'}
+            {view === 'library' && 'Bibliothèque'}
             {view === 'wizard' && (wizardMode === 'edit' ? 'Modifier le Pipeline' : 'Assistant de Création de Chaîne')}
             {view === 'channel_detail' && (activeChannel ? `Chaîne: ${activeChannel.name}` : 'Détail Chaîne')}
             {view === 'settings' && 'Paramètres'}
@@ -9444,6 +9541,130 @@ export default function App() {
 
                 </div>
                 </div>
+              </section>
+            )}
+
+            {/* VIEW 3.5: BIBLIOTHÈQUE (uploaded images + music per channel, with delete) */}
+            {view === 'library' && (
+              <section className="space-y-6">
+                <div>
+                  <h2 className="text-xl font-extrabold text-white">Bibliothèque</h2>
+                  <p className="text-xs text-slate-400 mt-1">Les images et musiques que tu as importées, par chaîne. Tu peux les supprimer de notre serveur à tout moment.</p>
+                </div>
+
+                {libraryLoading ? (
+                  <SkeletonGrid count={3} cardClassName="min-h-[100px]" />
+                ) : !libraryOverview || libraryOverview.length === 0 ? (
+                  <div className="text-center py-16 text-slate-500 text-sm">Aucune chaîne pour le moment.</div>
+                ) : (
+                  <div className="space-y-3">
+                    {libraryOverview.map(c => {
+                      const expanded = libraryExpandedId === c.channel_id;
+                      const detail = libraryImages[c.channel_id];
+                      const tracks = libraryTracks[c.channel_id] || [];
+                      const hasContent = c.image_count > 0 || c.music_track_count > 0;
+                      return (
+                        <div key={c.channel_id} className="bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-2xl overflow-hidden">
+                          <button
+                            type="button"
+                            onClick={() => toggleLibraryChannel(c.channel_id)}
+                            className="w-full flex items-center justify-between gap-3 px-5 py-4 text-left hover:bg-[var(--bg-surface-alt)] transition-colors"
+                          >
+                            <div className="min-w-0">
+                              <div className="text-sm font-bold text-white truncate">{c.channel_name}</div>
+                              <div className="text-[11px] text-slate-500 mt-0.5">
+                                {c.image_count} image{c.image_count !== 1 ? 's' : ''} · {c.music_track_count} musique{c.music_track_count !== 1 ? 's' : ''}
+                                {!hasContent && ' · rien d\'importé'}
+                              </div>
+                            </div>
+                            <span className={`material-symbols-outlined text-[22px] text-slate-400 transition-transform ${expanded ? 'rotate-180' : ''}`}>expand_more</span>
+                          </button>
+
+                          {expanded && (
+                            <div className="px-5 pb-5 border-t border-[var(--border-soft)] pt-4 space-y-5">
+                              {detail?.loading ? (
+                                <div className="text-center text-slate-500 text-xs py-6">Chargement...</div>
+                              ) : (
+                                <>
+                                  <div>
+                                    <div className="flex items-center justify-between mb-2">
+                                      <h4 className="text-xs font-bold text-slate-300">Images ({detail?.total || 0})</h4>
+                                      {(detail?.filenames?.length || 0) > 0 && (
+                                        <button
+                                          onClick={() => deleteAllLibraryImages(c.channel_id)}
+                                          disabled={libraryBusyKey === `${c.channel_id}:__all__`}
+                                          className="text-[11px] font-bold text-rose-400 hover:text-rose-300 disabled:opacity-50 flex items-center gap-1"
+                                        >
+                                          <span className="material-symbols-outlined text-[14px]">delete_sweep</span>
+                                          Tout supprimer
+                                        </button>
+                                      )}
+                                    </div>
+                                    {!detail?.filenames?.length ? (
+                                      <p className="text-[11px] text-slate-500">Aucune image importée.</p>
+                                    ) : (
+                                      <div className="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-6 gap-2">
+                                        {detail.filenames.map(name => {
+                                          const busy = libraryBusyKey === `${c.channel_id}:${name}`;
+                                          return (
+                                            <div key={name} className="relative group aspect-video rounded-lg overflow-hidden bg-[var(--bg-surface-alt)]">
+                                              <img
+                                                src={`${API_BASE}/channels/${c.channel_id}/library/images/${encodeURIComponent(name)}`}
+                                                alt=""
+                                                className="w-full h-full object-cover"
+                                                loading="lazy"
+                                              />
+                                              <button
+                                                onClick={() => deleteLibraryImage(c.channel_id, name)}
+                                                disabled={busy}
+                                                title="Supprimer cette image"
+                                                className="absolute top-1 right-1 w-6 h-6 rounded-lg bg-slate-950/80 text-rose-400 hover:text-rose-300 hover:bg-slate-950 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-50"
+                                              >
+                                                <span className="material-symbols-outlined text-[14px]">{busy ? 'progress_activity' : 'delete'}</span>
+                                              </button>
+                                            </div>
+                                          );
+                                        })}
+                                      </div>
+                                    )}
+                                  </div>
+
+                                  <div>
+                                    <h4 className="text-xs font-bold text-slate-300 mb-2">Musiques ({tracks.length})</h4>
+                                    {tracks.length === 0 ? (
+                                      <p className="text-[11px] text-slate-500">Aucune musique importée.</p>
+                                    ) : (
+                                      <div className="space-y-1.5">
+                                        {tracks.map(trackPath => {
+                                          const busy = libraryBusyKey === `${c.channel_id}:track:${trackPath}`;
+                                          const label = (trackPath.split('/').pop() || trackPath).replace(/^[0-9a-f]{8}_/, '');
+                                          return (
+                                            <div key={trackPath} className="flex items-center gap-2.5 bg-[var(--bg-surface-alt)] rounded-xl px-3 py-2">
+                                              <span className="material-symbols-outlined text-[16px] text-[#00c2ff] shrink-0">music_note</span>
+                                              <span className="text-[11px] text-slate-300 truncate flex-1" title={label}>{label}</span>
+                                              <button
+                                                onClick={() => deleteLibraryMusicTrack(c.channel_id, trackPath)}
+                                                disabled={busy}
+                                                title="Supprimer cette piste"
+                                                className="shrink-0 p-1 rounded-lg text-rose-400 hover:text-rose-300 hover:bg-rose-950/40 disabled:opacity-50"
+                                              >
+                                                <span className="material-symbols-outlined text-[15px]">{busy ? 'progress_activity' : 'delete'}</span>
+                                              </button>
+                                            </div>
+                                          );
+                                        })}
+                                      </div>
+                                    )}
+                                  </div>
+                                </>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </section>
             )}
 
