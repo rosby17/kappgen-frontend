@@ -257,7 +257,15 @@ const getVideoUrl = (path) => {
 // creator sees here matches exactly what gets uploaded to YouTube.
 const getVideoThumbnailUrl = (vid, bustKey) => {
   if (!vid?.output_path) return null;
-  return getVideoUrl(vid.output_path.replace(/[^/]+$/, 'thumbnail.jpg')) + `?v=${bustKey || vid.finished_at || ''}`;
+  // thumbnail.jpg is overwritten in place at a fixed path — regenerating it
+  // never changes finished_at, so a page refresh right after a regen used to
+  // reuse the exact same URL as before and could serve a stale cached copy
+  // (browser or CDN) instead of the new file. thumbnail_updated_at, bumped
+  // server-side on every regeneration, takes priority once it exists so the
+  // URL — and therefore the cache — always changes with it, everywhere a
+  // video's thumbnail is shown; `bustKey` (from local state, lost on
+  // refresh) only helps this tab update instantly without a re-fetch.
+  return getVideoUrl(vid.output_path.replace(/[^/]+$/, 'thumbnail.jpg')) + `?v=${bustKey || vid.thumbnail_updated_at || vid.finished_at || ''}`;
 };
 
 // Preset Subtitle Styles
