@@ -4705,6 +4705,7 @@ export default function App() {
 
   const [folders, setFolders] = useState([]);
   const [videoFilterFolderId, setVideoFilterFolderId] = useState('all');
+  const [showTrash, setShowTrash] = useState(false);
   // Which folder we're browsing inside of, file-explorer style — null is the
   // root (top-level folders + videos with no folder). Distinct from
   // videoFilterFolderId ('all' | folder id | null) which decides what the
@@ -9223,6 +9224,16 @@ export default function App() {
                     </select>
 
                     <button
+                      onClick={() => setShowTrash(v => !v)}
+                      title={showTrash ? 'Revenir aux vidéos actives' : 'Voir la corbeille (fichiers expirés, archivés)'}
+                      className={`px-4 py-2 font-bold text-xs rounded-xl transition-all flex items-center gap-2 flex-shrink-0 border ${
+                        showTrash ? 'bg-rose-500/10 text-rose-300 border-rose-500/60' : 'bg-[var(--bg-surface-alt)] text-slate-300 hover:text-white border-[var(--border)]'
+                      }`}
+                    >
+                      <span className="material-symbols-outlined text-[18px]">{showTrash ? 'undo' : 'delete_sweep'}</span>
+                      {showTrash ? 'Vidéos actives' : 'Corbeille'}
+                    </button>
+                    <button
                       onClick={() => videoSelectionMode ? exitVideoSelectionMode() : setVideoSelectionMode(true)}
                       className={`px-4 py-2 font-bold text-xs rounded-xl transition-all flex items-center gap-2 flex-shrink-0 border ${
                         videoSelectionMode ? 'bg-[#00c2ff]/10 text-[#00c2ff] border-[#00c2ff]' : 'bg-[var(--bg-surface-alt)] text-slate-300 hover:text-white border-[var(--border)]'
@@ -9361,6 +9372,7 @@ export default function App() {
                       .filter(v => productChannelIds.has(v.channel_id))
                       .filter(v => videoFilterChannelId === 'all' || v.channel_id === videoFilterChannelId)
                       .filter(v => videoFilterFolderId === 'all' || v.folder_id === videoFilterFolderId)
+                      .filter(v => showTrash ? !!v.purged_at : !v.purged_at)
                       .map(vid => {
                         const channelObj = channels.find(c => c.id === vid.channel_id);
                         const isSelected = selectedVideoIds.has(vid.id);
@@ -9958,7 +9970,8 @@ export default function App() {
                   // in one flat, ever-growing list.
                   const channelFolderVideos = allVideos
                     .filter(v => v.channel_id === activeChannel.id)
-                    .filter(v => videoFilterFolderId === 'all' || v.folder_id === videoFilterFolderId);
+                    .filter(v => videoFilterFolderId === 'all' || v.folder_id === videoFilterFolderId)
+                    .filter(v => showTrash ? !!v.purged_at : !v.purged_at);
                   return (
                 <section className="space-y-4">
                   <div className="flex items-center justify-between gap-3">
@@ -13821,6 +13834,9 @@ export default function App() {
                 {{ overview: 'dashboard', users: 'group', plans: 'sell', videos: 'movie', library: 'diversity_3', transactions: 'payments' }[adminTab]}
               </span>
               {{ overview: "Vue d'ensemble", users: 'Utilisateurs', plans: 'Offres', videos: 'Vidéos', library: 'Bibliothèque collaborative', transactions: 'Transactions', costs: 'Coûts', resources: 'Ressources' }[adminTab]}
+              {adminTab === 'users' && (
+                <span className="text-2xl font-black text-[#00c2ff] tabular-nums">{adminUsers.length}{adminUsers.length >= 500 ? '+' : ''}</span>
+              )}
             </h2>
             <p className="text-xs text-slate-400 mt-1">
               {{
