@@ -11515,11 +11515,25 @@ export default function App() {
 
                           {/* Folder Picker & File Fallback Dropzone */}
                           <div
+                            role="button"
+                            tabIndex={0}
+                            onClick={async () => {
+                              const channelKey = wizardMode === 'edit' ? editingChannelId : null;
+                              const handled = await pickFolderModern(channelKey);
+                              if (!handled) wizardFolderInputRef.current?.click();
+                            }}
+                            onKeyDown={async (e) => {
+                              if (e.key !== 'Enter' && e.key !== ' ') return;
+                              e.preventDefault();
+                              const channelKey = wizardMode === 'edit' ? editingChannelId : null;
+                              const handled = await pickFolderModern(channelKey);
+                              if (!handled) wizardFolderInputRef.current?.click();
+                            }}
                             onDragOver={(e) => { e.preventDefault(); setIsFolderDragging(true); }}
                             onDragLeave={() => setIsFolderDragging(false)}
                             onDrop={handleFolderDrop}
-                            className={`border-2 border-dashed rounded-xl p-4 text-center cursor-pointer transition-all ${
-                              isFolderDragging ? 'border-[#00c2ff] bg-[#00c2ff]/10' : 'border-[var(--border)] hover:border-[#00c2ff] bg-[var(--bg-input-alt)]/60'
+                            className={`flex min-h-36 cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed px-4 text-center text-[11px] transition-colors ${
+                              isFolderDragging ? 'border-[#00c2ff] bg-[#00c2ff]/10 text-[#00c2ff]' : 'border-slate-600 text-slate-400 hover:border-[#00c2ff] hover:bg-[#00c2ff]/5 hover:text-[#00c2ff]'
                             }`}
                           >
                             <input
@@ -11531,22 +11545,9 @@ export default function App() {
                               onChange={handleLocalFolderSelect}
                               className="hidden"
                             />
-                            <span className="material-symbols-outlined text-slate-400 text-[28px] mb-1">drive_folder_upload</span>
-                            
-                            <div className="flex flex-col gap-2 mt-1">
-                              <button
-                                type="button"
-                                onClick={async (e) => {
-                                  e.stopPropagation();
-                                  const channelKey = wizardMode === 'edit' ? editingChannelId : null;
-                                  const handled = await pickFolderModern(channelKey);
-                                  if (!handled && wizardFolderInputRef.current) wizardFolderInputRef.current.click();
-                                }}
-                                className="px-3 py-1.5 bg-[#00c2ff] text-slate-950 rounded-lg text-xs font-bold hover:bg-[#38d0ff] transition-all"
-                              >
-                                📁 Choisir un dossier d'images
-                              </button>
-                            </div>
+                            <span className="material-symbols-outlined text-3xl">drive_folder_upload</span>
+                            <span className="mt-2 font-bold">Glisse-dépose ton dossier de médias</span>
+                            <span className="mt-0.5 text-slate-500">ou clique ici</span>
                             
                             {localImageFiles.length > 0 && (
                               <div className="mt-3 px-2.5 py-1 bg-emerald-950 text-emerald-300 rounded-lg text-[10px] font-bold font-mono truncate">
@@ -11593,21 +11594,18 @@ export default function App() {
                                 )}
                               </div>
                             )}
-                            {isOptionAChecked && (
-                              <div className="flex items-start gap-2 pt-1" onClick={(e) => e.stopPropagation()}>
-                                <input
-                                  type="checkbox"
-                                  id="share-with-community"
-                                  checked={!!newChannel.image_style.share_with_community}
-                                  onChange={() => setNewChannel({ ...newChannel, image_style: { ...newChannel.image_style, share_with_community: !newChannel.image_style.share_with_community } })}
-                                  className="w-4 h-4 mt-0.5 accent-[#00c2ff] cursor-pointer shrink-0"
-                                />
-                                <label htmlFor="share-with-community" className="text-[10px] text-slate-400 cursor-pointer">
-                                  Partager cette bibliothèque avec la communauté KappGen (aide les autres créateurs de ta niche à démarrer plus vite).
-                                </label>
-                              </div>
-                            )}
                           </div>
+                          {isOptionAChecked && (
+                            <label className="flex cursor-pointer items-center gap-2 text-[10px] text-slate-400" onClick={(e) => e.stopPropagation()}>
+                              <input
+                                type="checkbox"
+                                checked={!!newChannel.image_style.share_with_community}
+                                onChange={() => setNewChannel({ ...newChannel, image_style: { ...newChannel.image_style, share_with_community: !newChannel.image_style.share_with_community } })}
+                                className="kappgen-checkbox shrink-0"
+                              />
+                              Partager avec la communauté
+                            </label>
+                          )}
                         </div>
 
                         {/* OPTION B: GÉNÉRATION IA AUTOMATIQUE */}
