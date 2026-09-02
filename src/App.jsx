@@ -3350,6 +3350,8 @@ export default function App() {
   const [youtubeComplianceReport, setYoutubeComplianceReport] = useState(null);
   const [youtubeComplianceLoading, setYoutubeComplianceLoading] = useState(false);
   const [youtubeComplianceConfirmed, setYoutubeComplianceConfirmed] = useState(false);
+  const [youtubeComplianceDossier, setYoutubeComplianceDossier] = useState(null);
+  const [youtubeComplianceDossierLoading, setYoutubeComplianceDossierLoading] = useState(false);
   const [publishDescriptionDraft, setPublishDescriptionDraft] = useState('');
   const [videoSelectionMode, setVideoSelectionMode] = useState(false);
   const [selectedVideoIds, setSelectedVideoIds] = useState(new Set());
@@ -7226,6 +7228,7 @@ export default function App() {
     setPublishReviewVideo(vid);
     setYoutubeComplianceReport(null);
     setYoutubeComplianceConfirmed(false);
+    setYoutubeComplianceDossier(null);
     setYoutubeComplianceLoading(true);
     try {
       const res = await authFetch(`${API_BASE}/videos/${vid.id}/youtube/compliance`);
@@ -7233,6 +7236,21 @@ export default function App() {
       if (res.ok) setYoutubeComplianceReport(report);
     } finally {
       setYoutubeComplianceLoading(false);
+    }
+  };
+
+  const loadYoutubeComplianceDossier = async () => {
+    if (!publishReviewVideo) return;
+    setYoutubeComplianceDossierLoading(true);
+    try {
+      const res = await authFetch(`${API_BASE}/videos/${publishReviewVideo.id}/youtube/compliance/dossier`);
+      const body = await res.json();
+      if (!res.ok) throw new Error('Dossier de traçabilité indisponible.');
+      setYoutubeComplianceDossier(body);
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setYoutubeComplianceDossierLoading(false);
     }
   };
 
@@ -15488,6 +15506,21 @@ export default function App() {
                   )}
                   {youtubeComplianceReport.status === 'red' && <p className="text-[10px] font-bold text-rose-300">Publication bloquée : corrigez les alertes rouges avant de continuer.</p>}
                   <p className="text-[9px] text-slate-500">{youtubeComplianceReport.disclaimer}</p>
+                  <button type="button" onClick={loadYoutubeComplianceDossier} disabled={youtubeComplianceDossierLoading}
+                    className="inline-flex items-center gap-1.5 text-[9px] font-bold text-[#00c2ff] hover:underline disabled:opacity-50">
+                    <span className={`material-symbols-outlined text-[14px] ${youtubeComplianceDossierLoading ? 'animate-spin' : ''}`}>{youtubeComplianceDossierLoading ? 'progress_activity' : 'fact_check'}</span>
+                    {youtubeComplianceDossier ? 'Actualiser le dossier de traçabilité' : 'Voir le dossier de traçabilité'}
+                  </button>
+                  {youtubeComplianceDossier && (
+                    <div className="grid grid-cols-2 gap-2 rounded-xl border border-[var(--border)] bg-black/15 p-2.5 text-[9px] text-slate-400">
+                      <div><strong className="block text-slate-200">Scénario</strong>{youtubeComplianceDossier.content?.script_word_count || 0} mots · empreinte {youtubeComplianceDossier.content?.script_sha256?.slice(0, 10)}…</div>
+                      <div><strong className="block text-slate-200">Sources</strong>{youtubeComplianceDossier.content?.description_source_urls?.length || 0} lien(s) enregistré(s)</div>
+                      <div><strong className="block text-slate-200">Visuels</strong>{(youtubeComplianceDossier.media?.visual_sources || []).join(', ') || 'Non documenté'}</div>
+                      <div><strong className="block text-slate-200">Audio</strong>Voix {youtubeComplianceDossier.media?.voice_id || 'par défaut'} · {(youtubeComplianceDossier.media?.music_tracks || []).length} musique(s)</div>
+                      <div><strong className="block text-slate-200">Déclaration IA</strong>{youtubeComplianceDossier.youtube_declarations?.contains_synthetic_media ? 'Activée' : 'Désactivée'}</div>
+                      <div><strong className="block text-slate-200">Historique</strong>{youtubeComplianceDossier.audit_history?.length || 0} événement(s)</div>
+                    </div>
+                  )}
                 </div>
               ) : <p className="text-[10px] text-slate-500">Le rapport n’a pas pu être chargé.</p>}
             </div>
