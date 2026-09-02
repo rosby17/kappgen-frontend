@@ -11859,54 +11859,62 @@ export default function App() {
                           <h4 className="text-xs font-bold text-white">3. Générer une miniature IA</h4>
                           <span className="text-[10px] font-medium text-slate-500">{THUMBNAIL_GENERATION_CREDITS.toLocaleString()} crédits / miniature</span>
                         </div>
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            {/* Mini mockup of a YouTube video card — makes it obvious at a
-                                glance that this section is about the clickable thumbnail
-                                image, not the video content itself. */}
-                            <div className="w-28 h-16 rounded-md bg-[var(--bg-input-alt)] border border-[var(--border)] flex-shrink-0 relative overflow-hidden">
-                              <img
-                                src={
-                                  newChannel.thumbnail_style?.reference_image_paths?.[0]
-                                    ? `${STORAGE_BASE}/${newChannel.thumbnail_style.reference_image_paths[0]}`
-                                    : STABLE_EFFECT_PREVIEW_IMAGES[0]
-                                }
-                                alt=""
-                                className="absolute inset-0 w-full h-full object-cover"
-                              />
-                              <span className="absolute inset-0 flex items-center justify-center">
-                                <PlayCircleIcon className="w-6 h-6 text-white/90" />
-                              </span>
-                              <span className="absolute bottom-1 right-1 px-1 rounded bg-black/70 text-[9px] font-bold text-white leading-tight">4:12</span>
-                            </div>
-                            <div>
-                              <h4 className="font-bold text-white text-xs">Références de style</h4>
-                              <p className="text-[10px] text-slate-500 mt-0.5">Ajoute les miniatures à reproduire</p>
-                            </div>
+                        <input
+                          ref={thumbnailStyleInputRef}
+                          type="file"
+                          accept="image/png,image/jpeg,image/webp"
+                          multiple
+                          onChange={handleUploadThumbnailStyle}
+                          className="hidden"
+                        />
+                        {/* One zone, two states: the dropzone prompt when empty, or the
+                            uploaded references themselves (each removable) once there
+                            are any — instead of a separate preview mockup + dropzone +
+                            caption + list all stacked and saturating the space. */}
+                        {(newChannel.thumbnail_style?.reference_image_paths || []).length > 0 ? (
+                          <div className={`flex min-h-36 flex-wrap content-start gap-2 rounded-xl border-2 border-dashed p-3 transition-colors ${thumbnailDragOver ? 'border-[#00c2ff] bg-[#00c2ff]/10' : 'border-slate-700'}`}>
+                            {newChannel.thumbnail_style.reference_image_paths.map((path) => (
+                              <div key={path} className="relative group w-16 h-16 shrink-0">
+                                <img
+                                  src={`${STORAGE_BASE}/${path}`}
+                                  alt="Référence miniature"
+                                  className="w-16 h-16 rounded-lg object-cover border border-[var(--border)]"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveThumbnailStyle(path)}
+                                  disabled={thumbnailStyleAnalyzing}
+                                  title="Retirer cette image"
+                                  className="absolute -top-1.5 -right-1.5 w-4.5 h-4.5 rounded-full bg-red-500 hover:bg-red-400 text-white flex items-center justify-center disabled:opacity-50 opacity-0 group-hover:opacity-100 transition-opacity"
+                                >
+                                  <span className="material-symbols-outlined text-[12px]">close</span>
+                                </button>
+                              </div>
+                            ))}
+                            <button
+                              type="button"
+                              onClick={() => !thumbnailStyleAnalyzing && editingChannelId && thumbnailStyleInputRef.current?.click()}
+                              disabled={thumbnailStyleAnalyzing}
+                              title="Ajouter d'autres images"
+                              className="w-16 h-16 shrink-0 rounded-lg border-2 border-dashed border-slate-600 text-slate-400 hover:border-[#00c2ff] hover:text-[#00c2ff] flex items-center justify-center disabled:opacity-50"
+                            >
+                              <span className={`material-symbols-outlined text-xl ${thumbnailStyleAnalyzing ? 'animate-spin' : ''}`}>{thumbnailStyleAnalyzing ? 'progress_activity' : 'add'}</span>
+                            </button>
                           </div>
-                          <div onClick={(e) => e.stopPropagation()}>
-                            <input
-                              ref={thumbnailStyleInputRef}
-                              type="file"
-                              accept="image/png,image/jpeg,image/webp"
-                              multiple
-                              onChange={handleUploadThumbnailStyle}
-                              className="hidden"
-                            />
+                        ) : (
+                          <div
+                              role="button"
+                              tabIndex={0}
+                              onClick={() => !thumbnailStyleAnalyzing && editingChannelId && thumbnailStyleInputRef.current?.click()}
+                              onKeyDown={e => { if ((e.key === 'Enter' || e.key === ' ') && !thumbnailStyleAnalyzing && editingChannelId) thumbnailStyleInputRef.current?.click(); }}
+                              className={`flex min-h-36 cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed px-4 text-center text-[11px] transition-colors ${thumbnailDragOver ? 'border-[#00c2ff] bg-[#00c2ff]/10 text-[#00c2ff]' : 'border-slate-600 text-slate-400 hover:border-[#00c2ff] hover:bg-[#00c2ff]/5 hover:text-[#00c2ff]'} ${!editingChannelId ? 'cursor-not-allowed opacity-50' : ''}`}
+                            >
+                              <span className={`material-symbols-outlined text-3xl ${thumbnailStyleAnalyzing ? 'animate-spin' : ''}`}>{thumbnailStyleAnalyzing ? 'progress_activity' : 'cloud_upload'}</span>
+                              <span className="mt-2 font-bold">{thumbnailStyleAnalyzing ? 'Analyse des miniatures…' : 'Glisse-dépose les miniatures à reproduire'}</span>
+                              {!thumbnailStyleAnalyzing && <span className="mt-0.5 text-slate-500">ou clique ici</span>}
+                              {!editingChannelId && <span className="mt-2 text-amber-300">Enregistre d’abord la chaîne</span>}
                           </div>
-                        </div>
-                        <div
-                            role="button"
-                            tabIndex={0}
-                            onClick={() => !thumbnailStyleAnalyzing && editingChannelId && thumbnailStyleInputRef.current?.click()}
-                            onKeyDown={e => { if ((e.key === 'Enter' || e.key === ' ') && !thumbnailStyleAnalyzing && editingChannelId) thumbnailStyleInputRef.current?.click(); }}
-                            className={`flex min-h-36 cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed px-4 text-center text-[11px] transition-colors ${thumbnailDragOver ? 'border-[#00c2ff] bg-[#00c2ff]/10 text-[#00c2ff]' : 'border-slate-600 text-slate-400 hover:border-[#00c2ff] hover:bg-[#00c2ff]/5 hover:text-[#00c2ff]'} ${!editingChannelId ? 'cursor-not-allowed opacity-50' : ''}`}
-                          >
-                            <span className={`material-symbols-outlined text-3xl ${thumbnailStyleAnalyzing ? 'animate-spin' : ''}`}>{thumbnailStyleAnalyzing ? 'progress_activity' : 'cloud_upload'}</span>
-                            <span className="mt-2 font-bold">{thumbnailStyleAnalyzing ? 'Analyse des miniatures…' : 'Glisse-dépose des miniatures de référence'}</span>
-                            {!thumbnailStyleAnalyzing && <span className="mt-0.5 text-slate-500">ou clique ici</span>}
-                            {!editingChannelId && <span className="mt-2 text-amber-300">Enregistre d’abord la chaîne</span>}
-                        </div>
+                        )}
                         {/* AI concept proposal removed: reference images are the source of truth.
                             visual identity (subject/character + palette + style), not a
                             generic template. Once approved it's locked as this channel's
@@ -11985,7 +11993,6 @@ export default function App() {
                           )}
                         </div>
 
-                        <div className="mt-3 rounded-xl border border-white/10 bg-black/10 p-3 text-[10px] text-slate-400">Le style sera appris automatiquement.</div>
                         {/* Manual prompt and preset templates intentionally removed. */}
                         {/* <textarea
                           rows="2"
@@ -12047,43 +12054,9 @@ export default function App() {
                             Solde de crédits insuffisant — recharger
                           </button>
                         )}
-                        {(newChannel.thumbnail_style?.reference_image_paths || []).length > 0 ? (
-                          <div className="bg-[var(--bg-input-alt)] border border-[var(--border)] rounded-lg p-2.5 space-y-2">
-                            <div className="flex flex-wrap gap-2">
-                              {(newChannel.thumbnail_style.reference_image_paths || []).map((path) => (
-                                <div key={path} className="relative group shrink-0">
-                                  <img
-                                    src={`${STORAGE_BASE}/${path}`}
-                                    alt="Référence miniature"
-                                    className="w-14 h-14 rounded-lg object-cover border border-[var(--border)]"
-                                  />
-                                  <button
-                                    type="button"
-                                    onClick={() => handleRemoveThumbnailStyle(path)}
-                                    disabled={thumbnailStyleAnalyzing}
-                                    title="Retirer cette image"
-                                    className="absolute -top-1.5 -right-1.5 w-4.5 h-4.5 rounded-full bg-red-500 hover:bg-red-400 text-white flex items-center justify-center disabled:opacity-50"
-                                  >
-                                    <span className="material-symbols-outlined text-[12px]">close</span>
-                                  </button>
-                                </div>
-                              ))}
-                            </div>
-                            <div>
-                              <p className="text-[10px] text-slate-500">{newChannel.thumbnail_style.reference_image_paths.length} référence(s) analysée(s).</p>
-                              <button
-                                type="button"
-                                onClick={() => handleRemoveThumbnailStyle()}
-                                disabled={thumbnailStyleAnalyzing}
-                                className="mt-1 text-[10px] font-semibold text-red-400 hover:text-red-300 disabled:opacity-50"
-                              >
-                                Retirer les images de référence
-                              </button>
-                            </div>
-                          </div>
-                        ) : !editingChannelId ? (
+                        {(newChannel.thumbnail_style?.reference_image_paths || []).length === 0 && !editingChannelId && (
                           <p className="text-[10px] text-amber-400/80">Enregistre d'abord la chaîne pour pouvoir ajouter des images de référence de miniature.</p>
-                        ) : null}
+                        )}
                       </div>
                     </div>
                   );
