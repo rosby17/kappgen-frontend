@@ -195,8 +195,24 @@ body {
 .effect-preview-sparks { animation: effectSparksRise 2.7s ease-out infinite; }
 .effect-preview-light-leak { animation: effectLightLeakMove 6s ease-in-out infinite; }
 
+/* "En file d'attente" hourglass — a genuine 3D tumble (all three axes at
+   once, not a flat 2D spin) so a queued video card reads as "about to
+   move" rather than just static-with-a-clock-icon. */
+@keyframes hourglassTumble {
+  0% { transform: perspective(240px) rotateX(0deg) rotateY(0deg) rotateZ(0deg); }
+  25% { transform: perspective(240px) rotateX(18deg) rotateY(100deg) rotateZ(-10deg); }
+  50% { transform: perspective(240px) rotateX(0deg) rotateY(180deg) rotateZ(0deg); }
+  75% { transform: perspective(240px) rotateX(-18deg) rotateY(280deg) rotateZ(10deg); }
+  100% { transform: perspective(240px) rotateX(0deg) rotateY(360deg) rotateZ(0deg); }
+}
+.animate-hourglass-tumble {
+  display: inline-block;
+  animation: hourglassTumble 2.6s ease-in-out infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .effect-preview-stars, .effect-preview-dust-near, .effect-preview-dust-far,
   .effect-preview-snow, .effect-preview-rain, .effect-preview-fog,
-  .effect-preview-sparks, .effect-preview-light-leak { animation: none; }
+  .effect-preview-sparks, .effect-preview-light-leak,
+  .animate-hourglass-tumble { animation: none; }
 }

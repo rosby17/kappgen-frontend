@@ -9246,8 +9246,8 @@ export default function App() {
                                 </div>
                               ) : (
                                 <div className="p-4 text-center space-y-2">
-                                  <span className="material-symbols-outlined text-[36px] text-amber-400">hourglass_empty</span>
-                                  <div className="text-[11px] font-bold font-mono text-amber-300">En file d'attente</div>
+                                  <span className="material-symbols-outlined animate-hourglass-tumble text-[36px] text-[#00c2ff]">hourglass_empty</span>
+                                  <div className="text-[11px] font-bold font-mono text-[#00c2ff]">En file d'attente</div>
                                 </div>
                               )}
 
@@ -9821,8 +9821,8 @@ export default function App() {
                               </div>
                             ) : (
                               <div className="p-4 text-center space-y-2">
-                                <span className="material-symbols-outlined text-[36px] text-amber-400">hourglass_empty</span>
-                                <div className="text-[11px] font-bold font-mono text-amber-300">En file</div>
+                                <span className="material-symbols-outlined animate-hourglass-tumble text-[36px] text-[#00c2ff]">hourglass_empty</span>
+                                <div className="text-[11px] font-bold font-mono text-[#00c2ff]">En file</div>
                               </div>
                             )}
 
