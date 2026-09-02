@@ -13748,7 +13748,6 @@ export default function App() {
                 { id: 'profile', label: 'Profil', icon: 'person' },
                 { id: 'appearance', label: 'Apparence', icon: 'palette' },
                 { id: 'security', label: 'Sécurité', icon: 'lock' },
-                { id: 'izivoice', label: 'Izivoice', icon: 'record_voice_over' },
                 { id: 'api', label: 'Clés API', icon: 'key' },
                 { id: 'billing', label: 'Abonnement', icon: 'workspace_premium' },
               ].map(tab => (
@@ -14007,55 +14006,6 @@ export default function App() {
                         ))
                       )}
                     </div>
-                  </div>
-                )}
-
-                {settingsTab === 'izivoice' && (
-                  <div className="space-y-5">
-                    <div>
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="material-symbols-outlined text-[#59d8ff]">record_voice_over</span>
-                        <h4 className="text-sm font-extrabold text-white">Synchronisation Izivoice</h4>
-                      </div>
-                      <p className="text-[11px] leading-5 text-slate-400">
-                        Sans connexion, KappGen utilise automatiquement son propre moteur Izivoice. En connectant ta clé, tu retrouves dans KappGen tes voix, tes clones et les ressources liées à ton compte Izivoice.
-                      </p>
-                    </div>
-
-                    {izivoiceConnection.connected ? (
-                      <div className="bg-emerald-950/25 border border-emerald-700/40 rounded-2xl p-4 space-y-4">
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="flex gap-3">
-                            <span className="material-symbols-outlined text-emerald-400">cloud_done</span>
-                            <div>
-                              <p className="text-xs font-bold text-white">Compte Izivoice connecté</p>
-                              <p className="text-[10px] text-emerald-300 mt-1 font-mono">{izivoiceConnection.key_prefix}</p>
-                              <p className="text-[10px] text-slate-400 mt-2">Les prochaines générations utilisent ton compte et tes propres voix.</p>
-                            </div>
-                          </div>
-                          <span className="px-2 py-1 rounded-full bg-emerald-500/10 text-emerald-300 text-[9px] font-bold uppercase tracking-wider">Synchronisé</span>
-                        </div>
-                        <button type="button" onClick={handleDisconnectIzivoice} className="text-[11px] font-bold text-rose-400 hover:text-rose-300">Déconnecter mon compte Izivoice</button>
-                      </div>
-                    ) : (
-                      <form onSubmit={handleConnectIzivoice} className="bg-[var(--bg-input)] border border-[var(--border-soft)] rounded-2xl p-4 space-y-4">
-                        <div className="flex gap-3">
-                          <span className="material-symbols-outlined text-[#00c2ff]">hub</span>
-                          <div>
-                            <p className="text-xs font-bold text-white">Moteur KappGen actif</p>
-                            <p className="text-[10px] text-slate-400 mt-1">Tu peux créer tes vidéos normalement. La connexion Izivoice ajoute la synchronisation de ton espace personnel.</p>
-                          </div>
-                        </div>
-                        <div>
-                          <label className="block text-[11px] font-bold text-slate-300 mb-2">Clé API Izivoice</label>
-                          <input type="password" autoComplete="off" value={izivoiceApiKey} onChange={e => setIzivoiceApiKey(e.target.value)} placeholder="Colle ta clé API Izivoice" className="w-full bg-[var(--bg-deep)] border border-[var(--border)] rounded-xl p-3 text-xs text-white focus:border-[#00c2ff] outline-none" />
-                          <p className="text-[9px] leading-4 text-slate-500 mt-2">La clé est vérifiée auprès d’Izivoice, chiffrée côté serveur et n’est jamais réaffichée.</p>
-                        </div>
-                        <button type="submit" disabled={izivoiceConnecting || !izivoiceApiKey.trim()} className="w-full py-3 bg-gradient-to-r from-[#65e0ff] to-[#1a9cff] text-[var(--bg-deep)] font-extrabold text-xs rounded-xl disabled:opacity-50">
-                          {izivoiceConnecting ? 'Vérification…' : 'Connecter et synchroniser'}
-                        </button>
-                      </form>
-                    )}
                   </div>
                 )}
 
