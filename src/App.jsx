@@ -3547,7 +3547,7 @@ function viewFromPath(path) {
 // so a page refresh stays on the current tab instead of bouncing back to
 // the overview.
 const ADMIN_TABS = ['overview', 'users', 'plans', 'videos', 'library', 'transactions', 'costs', 'resources'];
-const AI_TEXT_PROVIDER_LABELS = { anthropic: 'Claude (Anthropic)', deepseek: 'DeepSeek', fal: 'Claude via fal.ai', openai: 'OpenAI', groq: 'Groq (gratuit)' };
+const AI_TEXT_PROVIDER_LABELS = { anthropic: 'Claude (Anthropic)', deepseek: 'DeepSeek', fal: 'Claude via fal.ai', openai: 'OpenAI', groq: 'Groq (gratuit)', gemini: 'Google Gemini (gratuit)' };
 function adminTabFromPath(path) {
   const m = path.match(/^\/admin\/([a-z_]+)$/);
   if (m && ADMIN_TABS.includes(m[1])) return m[1];
@@ -11538,7 +11538,13 @@ export default function App() {
                             </button>
                           ))}
                         </div>
-                        {newChannel.image_style.media_mode === 'videos' && <p className="mt-2 text-[10px] text-amber-300">Ce mode nécessite au moins un clip B-roll importé dans la Bibliothèque.</p>}
+                        {/* Option C (community + Pexels) supplies real stock B-roll
+                            clips automatically for every scene — this warning only
+                            applies when NEITHER a local library NOR that option is
+                            in play, since otherwise there's nothing actually missing. */}
+                        {newChannel.image_style.media_mode === 'videos' && !isCommunityChecked && !hasStoredLibrary && (
+                          <p className="mt-2 text-[10px] text-amber-300">Ce mode nécessite au moins un clip B-roll importé dans la Bibliothèque, ou l'Option C (banque de stock Pexels) cochée ci-dessous.</p>
+                        )}
                       </div>
 
                       {/* 2 CARDS SELECTION GRID WITH CHECKBOXES */}
