@@ -6095,6 +6095,13 @@ export default function App() {
   const [hfAccountChecking, setHfAccountChecking] = useState(null);
   const [editingHfLabelId, setEditingHfLabelId] = useState(null);
   const [editingHfLabelValue, setEditingHfLabelValue] = useState('');
+  const [izivoiceAccounts, setIzivoiceAccounts] = useState([]);
+  const [izivoiceAccountsLoading, setIzivoiceAccountsLoading] = useState(false);
+  const [izivoiceAccountForm, setIzivoiceAccountForm] = useState({ token: '', label: '' });
+  const [izivoiceAccountBusy, setIzivoiceAccountBusy] = useState(false);
+  const [izivoiceAccountChecking, setIzivoiceAccountChecking] = useState(null);
+  const [editingIzivoiceLabelId, setEditingIzivoiceLabelId] = useState(null);
+  const [editingIzivoiceLabelValue, setEditingIzivoiceLabelValue] = useState('');
   const [adminProvidersLoading, setAdminProvidersLoading] = useState(false);
 
   // Billing (subscription) tab, under Paramètres — public plan list + this
@@ -6635,7 +6642,7 @@ export default function App() {
   };
 
   useEffect(() => {
-    if (view === 'admin' && currentUser?.is_admin && adminTab === 'resources') { fetchAdminProviders(); fetchHfAccounts(); fetchThumbnailProviderMode(); fetchAiTextProvider(); }
+    if (view === 'admin' && currentUser?.is_admin && adminTab === 'resources') { fetchAdminProviders(); fetchHfAccounts(); fetchIzivoiceAccounts(); fetchThumbnailProviderMode(); fetchAiTextProvider(); }
   }, [view, currentUser?.is_admin, adminTab]);
 
   const fetchThumbnailProviderMode = async () => {
@@ -6774,6 +6781,88 @@ export default function App() {
       const res = await authFetch(`${API_BASE}/admin/hf-accounts/${id}`, { method: 'DELETE' });
       if (!res.ok) throw new Error();
       setHfAccounts(prev => prev.filter(a => a.id !== id));
+    } catch {
+      showToast('Échec de la suppression.', 'error');
+    }
+  };
+
+  const fetchIzivoiceAccounts = async () => {
+    setIzivoiceAccountsLoading(true);
+    try {
+      const res = await authFetch(`${API_BASE}/admin/izivoice-accounts`);
+      if (res.ok) setIzivoiceAccounts(await res.json());
+    } catch (err) {
+      console.error("Erreur chargement comptes Izivoice:", err);
+    } finally {
+      setIzivoiceAccountsLoading(false);
+    }
+  };
+
+  const addIzivoiceAccount = async () => {
+    const token = izivoiceAccountForm.token.trim();
+    if (!token) return showToast('Colle une clé Izivoice.', 'error');
+    setIzivoiceAccountBusy(true);
+    try {
+      const res = await authFetch(`${API_BASE}/admin/izivoice-accounts`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, label: izivoiceAccountForm.label.trim() || null }),
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || "Échec de l'ajout.");
+      const account = await res.json();
+      setIzivoiceAccounts(prev => [...prev, account]);
+      setIzivoiceAccountForm({ token: '', label: '' });
+      showToast(account.status === 'active' ? 'Compte ajouté et fonctionnel.' : `Compte ajouté (statut: ${account.status}).`, account.status === 'active' ? 'success' : 'error');
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setIzivoiceAccountBusy(false);
+    }
+  };
+
+  const checkIzivoiceAccount = async (id) => {
+    setIzivoiceAccountChecking(id);
+    try {
+      const res = await authFetch(`${API_BASE}/admin/izivoice-accounts/${id}/check`, { method: 'POST' });
+      if (!res.ok) throw new Error();
+      const account = await res.json();
+      setIzivoiceAccounts(prev => prev.map(a => a.id === id ? account : a));
+    } catch {
+      showToast('Échec de la vérification.', 'error');
+    } finally {
+      setIzivoiceAccountChecking(null);
+    }
+  };
+
+  const toggleIzivoiceAccount = async (id, isEnabled) => {
+    try {
+      const res = await authFetch(`${API_BASE}/admin/izivoice-accounts/${id}?is_enabled=${isEnabled}`, { method: 'PATCH' });
+      if (!res.ok) throw new Error();
+      const account = await res.json();
+      setIzivoiceAccounts(prev => prev.map(a => a.id === id ? account : a));
+    } catch {
+      showToast('Échec de la mise à jour.', 'error');
+    }
+  };
+
+  const renameIzivoiceAccount = async (id) => {
+    const label = editingIzivoiceLabelValue.trim();
+    try {
+      const res = await authFetch(`${API_BASE}/admin/izivoice-accounts/${id}?label=${encodeURIComponent(label)}`, { method: 'PATCH' });
+      if (!res.ok) throw new Error();
+      const account = await res.json();
+      setIzivoiceAccounts(prev => prev.map(a => a.id === id ? account : a));
+      setEditingIzivoiceLabelId(null);
+    } catch {
+      showToast('Échec du renommage.', 'error');
+    }
+  };
+
+  const deleteIzivoiceAccount = async (id) => {
+    if (!window.confirm('Retirer ce compte Izivoice ?')) return;
+    try {
+      const res = await authFetch(`${API_BASE}/admin/izivoice-accounts/${id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error();
+      setIzivoiceAccounts(prev => prev.filter(a => a.id !== id));
     } catch {
       showToast('Échec de la suppression.', 'error');
     }
@@ -14233,6 +14322,109 @@ export default function App() {
                     </div>
                   );
                 })()}
+
+                <div className="pt-2">
+                  <p className="text-[11px] text-slate-500 mt-1 max-w-xl mb-3">
+                    Plusieurs clés Izivoice possibles ici — bascule automatique sur la suivante dès qu'une clé est épuisée ou invalide, pour la voix off, la musique IA et les images Izivoice. N'affecte jamais la clé personnelle d'un créateur qui a connecté la sienne.
+                  </p>
+                  <div className="flex flex-col sm:flex-row gap-2 mb-3">
+                    <input
+                      value={izivoiceAccountForm.token}
+                      onChange={e => setIzivoiceAccountForm({ ...izivoiceAccountForm, token: e.target.value })}
+                      placeholder="Clé API Izivoice..."
+                      className="flex-1 min-w-0 bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-3 py-2 text-xs text-white focus:border-[#00c2ff] outline-none font-mono"
+                    />
+                    <input
+                      value={izivoiceAccountForm.label}
+                      onChange={e => setIzivoiceAccountForm({ ...izivoiceAccountForm, label: e.target.value })}
+                      placeholder="Étiquette (optionnel)"
+                      className="sm:w-48 bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-3 py-2 text-xs text-white focus:border-[#00c2ff] outline-none"
+                    />
+                    <button
+                      onClick={addIzivoiceAccount}
+                      disabled={izivoiceAccountBusy}
+                      className="shrink-0 px-4 py-2 rounded-xl bg-[#00c2ff] text-slate-950 font-bold text-xs disabled:opacity-50"
+                    >
+                      {izivoiceAccountBusy ? 'Ajout...' : '+ Ajouter'}
+                    </button>
+                  </div>
+
+                  {izivoiceAccountsLoading ? (
+                    <div className="space-y-2">
+                      <AdminSkeletonCards count={2} className="h-14" />
+                    </div>
+                  ) : izivoiceAccounts.length === 0 ? (
+                    <p className="text-xs text-slate-500">Aucun compte Izivoice enregistré — la clé partagée du serveur (variable d'environnement) est utilisée par défaut.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {izivoiceAccounts.map(a => {
+                        const dotColor = a.status === 'active' ? 'bg-emerald-500' : a.status === 'quota_exhausted' ? 'bg-amber-500' : 'bg-red-500';
+                        const statusLabel = { active: 'Actif', quota_exhausted: 'Quota épuisé', invalid: 'Invalide' }[a.status] || a.status;
+                        const statusClass = a.status === 'active' ? 'bg-emerald-950/60 text-emerald-400' : a.status === 'quota_exhausted' ? 'bg-amber-950/60 text-amber-400' : 'bg-rose-950/60 text-rose-400';
+                        return (
+                          <div key={a.id} className={`flex items-center gap-3 bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-xl p-3 ${!a.is_enabled ? 'opacity-50' : ''}`}>
+                            <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${dotColor}`} />
+                            <div className="min-w-0 flex-1">
+                              {editingIzivoiceLabelId === a.id ? (
+                                <div className="flex items-center gap-1.5">
+                                  <input
+                                    autoFocus
+                                    value={editingIzivoiceLabelValue}
+                                    onChange={e => setEditingIzivoiceLabelValue(e.target.value)}
+                                    onKeyDown={e => { if (e.key === 'Enter') renameIzivoiceAccount(a.id); if (e.key === 'Escape') setEditingIzivoiceLabelId(null); }}
+                                    placeholder="Étiquette"
+                                    className="min-w-0 flex-1 bg-[var(--bg-surface-alt)] border border-[#00c2ff] rounded-lg px-2 py-1 text-xs text-white outline-none"
+                                  />
+                                  <button onClick={() => renameIzivoiceAccount(a.id)} title="Enregistrer" className="shrink-0 p-1 rounded-lg text-emerald-400 hover:bg-[var(--bg-surface-alt)]">
+                                    <span className="material-symbols-outlined text-[16px]">check</span>
+                                  </button>
+                                  <button onClick={() => setEditingIzivoiceLabelId(null)} title="Annuler" className="shrink-0 p-1 rounded-lg text-slate-400 hover:bg-[var(--bg-surface-alt)]">
+                                    <span className="material-symbols-outlined text-[16px]">close</span>
+                                  </button>
+                                </div>
+                              ) : (
+                                <div className="text-xs font-bold text-white truncate">{a.label || a.token_preview}</div>
+                              )}
+                              <div className="text-[10px] text-slate-500 font-mono truncate">{a.token_preview}{a.last_error ? ` — ${a.last_error.slice(0, 80)}` : ''}</div>
+                            </div>
+                            <span className={`shrink-0 text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full ${statusClass}`}>{statusLabel}</span>
+                            {editingIzivoiceLabelId !== a.id && (
+                              <button
+                                onClick={() => { setEditingIzivoiceLabelId(a.id); setEditingIzivoiceLabelValue(a.label || ''); }}
+                                title="Renommer"
+                                className="shrink-0 p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-[var(--bg-surface-alt)]"
+                              >
+                                <span className="material-symbols-outlined text-[16px]">edit</span>
+                              </button>
+                            )}
+                            <button
+                              onClick={() => checkIzivoiceAccount(a.id)}
+                              disabled={izivoiceAccountChecking === a.id}
+                              title="Revérifier"
+                              className="shrink-0 p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-[var(--bg-surface-alt)] disabled:opacity-50"
+                            >
+                              <span className={`material-symbols-outlined text-[16px] ${izivoiceAccountChecking === a.id ? 'animate-spin' : ''}`}>{izivoiceAccountChecking === a.id ? 'progress_activity' : 'refresh'}</span>
+                            </button>
+                            <button
+                              onClick={() => toggleIzivoiceAccount(a.id, !a.is_enabled)}
+                              title={a.is_enabled ? 'Désactiver' : 'Activer'}
+                              className="shrink-0 p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-[var(--bg-surface-alt)]"
+                            >
+                              <span className="material-symbols-outlined text-[16px]">{a.is_enabled ? 'toggle_on' : 'toggle_off'}</span>
+                            </button>
+                            <button
+                              onClick={() => deleteIzivoiceAccount(a.id)}
+                              title="Retirer"
+                              className="shrink-0 p-1.5 rounded-lg text-rose-400 hover:text-rose-300 hover:bg-rose-950/40"
+                            >
+                              <span className="material-symbols-outlined text-[16px]">delete</span>
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div className="pt-6 border-t border-[var(--border-soft)] space-y-3">
