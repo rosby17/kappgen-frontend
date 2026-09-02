@@ -8640,6 +8640,19 @@ export default function App() {
         const detail = await res.json().catch(() => ({}));
         throw new Error(detail.detail || "Échec de la régénération de la miniature.");
       }
+      // The endpoint only starts the job — the AI background-image call it
+      // can trigger routinely takes well over a minute, longer than
+      // Cloudflare's edge proxy holds a request open, which used to surface
+      // here as a raw "Failed to fetch" once the connection got cut mid-
+      // request. Poll the dedicated status endpoint instead of awaiting one
+      // long response.
+      for (let attempt = 0; attempt < 40; attempt++) {
+        await new Promise(r => setTimeout(r, 3000));
+        const statusRes = await authFetch(`${API_BASE}/videos/${vid.id}/thumbnail/regenerate/status`);
+        if (!statusRes.ok) break;
+        const body = await statusRes.json().catch(() => ({}));
+        if (!body.regenerating) break;
+      }
       // thumbnail.jpg is overwritten in place — vid.finished_at doesn't change,
       // so the <img>/poster would keep serving the old cached file without this.
       setThumbnailBust(prev => ({ ...prev, [vid.id]: Date.now() }));
