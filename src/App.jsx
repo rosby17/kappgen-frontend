@@ -3108,7 +3108,7 @@ const PIPELINE_PATHS = {
     { match: /recherche du sujet/i, floor: 0, label: 'Sujet', icon: 'travel_explore' },
     { match: /rédaction du script|scénario à corriger/i, floor: 5, label: 'Script', icon: 'edit_note' },
     { match: /reprise|génération de la voix/i, floor: 20, label: 'Audio', icon: 'graphic_eq' },
-    { match: /transcription/i, floor: 25, label: 'Transcription', icon: 'subtitles' },
+    { match: /transcription/i, floor: 25, label: 'SRT', icon: 'subtitles' },
     { match: /découpage|scènes en/i, floor: 40, label: 'Scènes', icon: 'auto_stories' },
     { match: /préparation des visuels/i, floor: 48, label: 'Visuels', icon: 'image' },
     { match: /sous-titres|animation|mixage|montage final/i, floor: 60, label: 'Montage', icon: 'movie' },
@@ -3117,7 +3117,7 @@ const PIPELINE_PATHS = {
   script: [
     { match: /contrôle|scénario à corriger|montage forcé/i, floor: 0, label: 'Script', icon: 'edit_note' },
     { match: /reprise|génération de la voix/i, floor: 15, label: 'Audio', icon: 'graphic_eq' },
-    { match: /transcription/i, floor: 18, label: 'Transcription', icon: 'subtitles' },
+    { match: /transcription/i, floor: 18, label: 'SRT', icon: 'subtitles' },
     { match: /découpage|scènes en/i, floor: 35, label: 'Scènes', icon: 'auto_stories' },
     { match: /préparation des visuels/i, floor: 45, label: 'Visuels', icon: 'image' },
     { match: /sous-titres|animation|mixage|montage final/i, floor: 60, label: 'Montage', icon: 'movie' },
@@ -3125,7 +3125,7 @@ const PIPELINE_PATHS = {
   ],
   audio: [
     { match: /démarrage|reprise|audio|contrôle/i, floor: 0, label: 'Audio', icon: 'audio_file' },
-    { match: /transcription/i, floor: 8, label: 'Transcription', icon: 'subtitles' },
+    { match: /transcription/i, floor: 8, label: 'SRT', icon: 'subtitles' },
     { match: /découpage|scènes en/i, floor: 35, label: 'Scènes', icon: 'auto_stories' },
     { match: /préparation des visuels/i, floor: 45, label: 'Visuels', icon: 'image' },
     { match: /sous-titres|animation|mixage|montage final/i, floor: 60, label: 'Montage', icon: 'movie' },
@@ -3160,28 +3160,47 @@ function PipelineStepper({ stage, percent, failed = false, source = 'automatic' 
         {steps.map((step, i) => {
         const state = failed && i === activeIndex ? 'failed' : i < activeIndex ? 'done' : i === activeIndex ? 'active' : 'pending';
         return (
-          <div key={step.label} className="relative flex flex-col items-center gap-1.5" title={step.label}>
-            {i > 0 && <div className={`absolute right-1/2 top-3 h-px w-full ${i <= activeIndex ? 'bg-[#00c2ff]/45' : 'bg-slate-800'}`} />}
-            <div className={`relative z-10 w-6 h-6 rounded-full flex items-center justify-center shrink-0 transition-all border ${
+          <div key={step.label} className="relative flex min-w-0 w-full flex-col items-center gap-1" title={step.label}>
+            {i > 0 && <div className={`absolute right-1/2 top-2.5 h-px w-full ${i <= activeIndex ? 'bg-[#00c2ff]/45' : 'bg-slate-800'}`} />}
+            <div className={`relative z-10 w-5 h-5 rounded-full flex items-center justify-center shrink-0 transition-all border ${
               state === 'done' ? 'bg-[#0b2b2b] text-emerald-400 border-emerald-500/25' :
               state === 'active' ? 'bg-[#062d40] text-[#4ed9ff] border-[#00c2ff]/70 shadow-[0_0_14px_rgba(0,194,255,.25)]' :
               state === 'failed' ? 'bg-rose-500/20 text-rose-400' :
               'bg-[#111a27] text-slate-600 border-slate-800'
             }`}>
               {state === 'done' ? (
-                <span className="material-symbols-outlined text-[12px]">check</span>
+                <span className="material-symbols-outlined text-[11px]">check</span>
               ) : step.icon === 'youtube' ? (
-                <YouTubeIcon className="w-2.5 h-2" />
+                <YouTubeIcon className="w-2 h-1.5" />
               ) : (
-                <span className={`material-symbols-outlined text-[12px] ${state === 'active' ? 'animate-pulse' : ''}`}>{step.icon}</span>
+                <span className={`material-symbols-outlined text-[11px] ${state === 'active' ? 'animate-pulse' : ''}`}>{step.icon}</span>
               )}
             </div>
-            <span className={`text-[7px] font-bold truncate max-w-[45px] ${state === 'active' ? 'text-[#62dcff]' : state === 'done' ? 'text-slate-400' : 'text-slate-600'}`}>{step.label}</span>
+            <span className={`w-full text-center text-[6.5px] leading-tight font-bold truncate px-px ${state === 'active' ? 'text-[#62dcff]' : state === 'done' ? 'text-slate-400' : 'text-slate-600'}`}>{step.label}</span>
           </div>
         );
         })}
       </div>
     </div>
+  );
+}
+
+function VideoTrustBadge({ video, onClick }) {
+  const report = video.youtube_compliance_report;
+  const score = report?.score;
+  const tone = score == null ? 'border-slate-600/70 bg-slate-900/60 text-slate-400' : score >= 80 ? 'border-emerald-400/35 bg-emerald-400/10 text-emerald-300' : score >= 60 ? 'border-amber-400/35 bg-amber-400/10 text-amber-300' : 'border-rose-400/35 bg-rose-400/10 text-rose-300';
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`mt-2 inline-flex max-w-full items-center gap-1.5 rounded-lg border px-2 py-1 text-[9px] font-bold transition-all hover:brightness-125 ${tone}`}
+      title="Voir le score de confiance et les contrôles"
+    >
+      <span className="material-symbols-outlined text-[13px]">verified_user</span>
+      <span>Confiance YouTube</span>
+      <strong className="font-black">{score == null ? 'À analyser' : `${score}/100`}</strong>
+      <span className="material-symbols-outlined text-[12px]">chevron_right</span>
+    </button>
   );
 }
 
@@ -3463,6 +3482,7 @@ export default function App() {
   };
   const [publishingVideoId, setPublishingVideoId] = useState(null);
   const [publishReviewVideo, setPublishReviewVideo] = useState(null);
+  const [publishReviewMode, setPublishReviewMode] = useState('publish');
   const [publishTitleDraft, setPublishTitleDraft] = useState('');
   const [youtubeComplianceReport, setYoutubeComplianceReport] = useState(null);
   const [youtubeComplianceLoading, setYoutubeComplianceLoading] = useState(false);
@@ -7501,6 +7521,7 @@ export default function App() {
     // finished — let the creator see and tweak them before anything goes live.
     setPublishTitleDraft((vid.title || '').slice(0, 100));
     setPublishDescriptionDraft(vid.youtube_description || '');
+    setPublishReviewMode('publish');
     setPublishReviewVideo(vid);
     setYoutubeComplianceReport(null);
     setYoutubeComplianceConfirmed(false);
@@ -7510,6 +7531,29 @@ export default function App() {
       const res = await authFetch(`${API_BASE}/videos/${vid.id}/youtube/compliance`);
       const report = await res.json();
       if (res.ok) setYoutubeComplianceReport(report);
+    } finally {
+      setYoutubeComplianceLoading(false);
+    }
+  };
+
+  const handleViewTrustScore = async (vid, e) => {
+    if (e) e.stopPropagation();
+    setOpenVideoMenuId(null);
+    setPublishReviewMode('trust');
+    setPublishReviewVideo(vid);
+    setYoutubeComplianceReport(vid.youtube_compliance_report || null);
+    setYoutubeComplianceConfirmed(false);
+    setYoutubeComplianceDossier(null);
+    setYoutubeComplianceLoading(true);
+    try {
+      const res = await authFetch(`${API_BASE}/videos/${vid.id}/youtube/compliance`);
+      const report = await res.json();
+      if (!res.ok) throw new Error('Score de confiance indisponible.');
+      setYoutubeComplianceReport(report);
+      fetchAllVideos();
+      if (activeChannel) fetchChannelVideos(activeChannel.id);
+    } catch (err) {
+      showToast(err.message, 'error');
     } finally {
       setYoutubeComplianceLoading(false);
     }
@@ -9357,6 +9401,7 @@ export default function App() {
                                 <p className="text-[10px] text-slate-500 mt-1 font-mono">
                                   {formatRelativeDate(vid.finished_at || vid.created_at)}
                                 </p>
+                                <VideoTrustBadge video={vid} onClick={(e) => handleViewTrustScore(vid, e)} />
                               </div>
 
                             </div>
@@ -9922,6 +9967,7 @@ export default function App() {
                               <p className="text-[10px] text-slate-500 mt-1 font-mono">
                                 {formatRelativeDate(vid.finished_at || vid.created_at)}
                               </p>
+                              <VideoTrustBadge video={vid} onClick={(e) => handleViewTrustScore(vid, e)} />
                             </div>
 
                             {vid.status === 'failed' && vid.error_message === CREDIT_INSUFFICIENT_MESSAGE && (
@@ -15846,7 +15892,8 @@ export default function App() {
           <div className="bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-3xl p-6 max-w-[760px] w-full max-h-[calc(100vh-3rem)] overflow-y-auto shadow-2xl space-y-5">
             <div className="flex justify-between items-center">
               <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                <YouTubeIcon className="w-5 h-3.5" /> Publier sur YouTube
+                {publishReviewMode === 'publish' ? <YouTubeIcon className="w-5 h-3.5" /> : <span className="material-symbols-outlined text-[20px] text-[#00c2ff]">verified_user</span>}
+                {publishReviewMode === 'publish' ? 'Publier sur YouTube' : 'Score de confiance'}
               </h3>
               <button
                 onClick={() => { if (!publishingVideoId) setPublishReviewVideo(null); }}
@@ -15856,7 +15903,9 @@ export default function App() {
               </button>
             </div>
             <p className="text-xs text-slate-400">
-              KappGen a déjà préparé le titre et la description de cette vidéo. Vérifiez-les et ajustez-les si nécessaire avant publication.
+              {publishReviewMode === 'publish'
+                ? 'KappGen a déjà préparé le titre et la description de cette vidéo. Vérifiez-les et ajustez-les si nécessaire avant publication.'
+                : 'Retrouvez le score de confiance et le détail des contrôles de cette vidéo, même après sa publication.'}
             </p>
 
             <div className={`rounded-2xl border p-4 ${youtubeComplianceReport?.score >= 80 ? 'border-emerald-500/40 bg-emerald-500/5' : youtubeComplianceReport?.score >= 60 ? 'border-amber-500/40 bg-amber-500/5' : youtubeComplianceReport ? 'border-rose-500/40 bg-rose-500/5' : 'border-slate-700 bg-slate-900/30'}`}>
@@ -15888,7 +15937,7 @@ export default function App() {
                       />
                     </div>
                   </div>
-                  {youtubeComplianceReport.requires_human_review && youtubeComplianceReport.score >= 80 && (
+                  {publishReviewMode === 'publish' && youtubeComplianceReport.requires_human_review && youtubeComplianceReport.score >= 80 && (
                     <div className="inline-flex items-center gap-1.5 rounded-full bg-amber-400/10 px-2 py-1 text-[9px] font-bold text-amber-300">
                       <span className="material-symbols-outlined text-[13px]">person_search</span>Validation humaine requise
                     </div>
@@ -15904,14 +15953,14 @@ export default function App() {
                       </div>
                     ))}
                   </div>
-                  {youtubeComplianceReport.requires_human_review && (
+                  {publishReviewMode === 'publish' && youtubeComplianceReport.requires_human_review && (
                     <label className="flex items-start gap-2 rounded-lg border border-amber-500/25 bg-black/15 p-2.5 text-[10px] text-amber-100 cursor-pointer">
                       <input type="checkbox" checked={youtubeComplianceConfirmed} onChange={e => setYoutubeComplianceConfirmed(e.target.checked)} className="peer sr-only" />
                       <span className={`mt-px flex h-4 w-4 shrink-0 items-center justify-center rounded border text-[12px] ${youtubeComplianceConfirmed ? 'border-[#00c2ff] bg-[#00c2ff] text-slate-950' : 'border-amber-300/50 text-transparent'}`}><span className="material-symbols-outlined text-[12px]">check</span></span>
                       J’ai relu la vidéo, vérifié ses affirmations et je confirme la publication.
                     </label>
                   )}
-                  {youtubeComplianceReport.status === 'red' && (
+                  {publishReviewMode === 'publish' && youtubeComplianceReport.status === 'red' && (
                     <div className="space-y-2">
                       <p className="text-[10px] font-bold text-rose-300">Le second filtre bloque la publication. Corrigez la vidéo ou assumez explicitement le risque.</p>
                       <label className="flex cursor-pointer items-start gap-2 rounded-lg border border-rose-500/30 bg-black/15 p-2.5 text-[10px] text-rose-100">
@@ -15941,7 +15990,7 @@ export default function App() {
               ) : <p className="text-[10px] text-slate-500">Le rapport n’a pas pu être chargé.</p>}
             </div>
 
-            <div>
+            {publishReviewMode === 'publish' && <div>
               <div className="flex items-center justify-between mb-1.5">
                 <label className="text-xs font-bold text-slate-300">Titre YouTube</label>
                 <span className={`text-[10px] font-mono ${publishTitleDraft.length > 100 ? 'text-rose-400' : 'text-slate-500'}`}>{publishTitleDraft.length}/100</span>
@@ -15953,9 +16002,9 @@ export default function App() {
                 className="w-full bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-3 py-2.5 text-sm text-white focus:border-[#00c2ff] outline-none"
                 placeholder="Titre de la vidéo (100 caractères max)"
               />
-            </div>
+            </div>}
 
-            <div>
+            {publishReviewMode === 'publish' && <div>
               <label className="block text-xs font-bold text-slate-300 mb-1.5">Description</label>
               <textarea
                 value={publishDescriptionDraft}
@@ -15963,9 +16012,9 @@ export default function App() {
                 className="w-full bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-3 py-2.5 text-xs leading-relaxed text-white focus:border-[#00c2ff] outline-none min-h-[220px]"
                 placeholder="Description de la vidéo..."
               />
-            </div>
+            </div>}
 
-            <div className="flex gap-3">
+            {publishReviewMode === 'publish' ? <div className="flex gap-3">
               <button
                 onClick={() => setPublishReviewVideo(null)}
                 disabled={!!publishingVideoId}
@@ -15984,7 +16033,7 @@ export default function App() {
                   <><YouTubeIcon className="w-4 h-3" /> {youtubeComplianceReport?.status === 'red' ? 'Forcer la publication' : 'Publier'}</>
                 )}
               </button>
-            </div>
+            </div> : <button onClick={() => setPublishReviewVideo(null)} className="w-full rounded-xl border border-[var(--border)] bg-[var(--bg-surface-alt)] py-2.5 text-xs font-bold text-slate-300 transition-colors hover:bg-[var(--border-soft)]">Fermer</button>}
           </div>
         </div>
       )}
