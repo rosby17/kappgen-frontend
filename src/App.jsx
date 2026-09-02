@@ -4457,7 +4457,25 @@ export default function App() {
         const detail = await res.json().catch(() => ({}));
         throw new Error(detail.detail || "Analyse impossible.");
       }
-      const data = await res.json();
+      let data = await res.json();
+      // Uploading the files is fast; the endpoint only starts the vision
+      // analysis and returns immediately. It falls back across up to 3 AI
+      // providers (~75s worst case) and takes even longer with several
+      // large reference images at once — well past what Cloudflare's edge
+      // proxy holds a request open for, which used to surface here as a
+      // raw "Failed to fetch". Poll the dedicated status endpoint instead
+      // of awaiting one long response.
+      for (let attempt = 0; attempt < 40 && data.thumbnail_style?.analyzing; attempt++) {
+        await new Promise(r => setTimeout(r, 3000));
+        const statusRes = await authFetch(`${API_BASE}/channels/${editingChannelId}/thumbnail-style/status`);
+        if (!statusRes.ok) break;
+        const body = await statusRes.json().catch(() => ({}));
+        if (body.channel) data = body.channel;
+        if (!body.analyzing) {
+          if (body.analysis_error) throw new Error(body.analysis_error);
+          break;
+        }
+      }
       setNewChannel(prev => ({ ...prev, thumbnail_style: data.thumbnail_style }));
       setChannels(prev => prev.map(c => c.id === data.id ? data : c));
       showToast(`Style de miniature ré-analysé sur ${(data.thumbnail_style?.reference_image_paths || []).length} image(s).`, "success");
