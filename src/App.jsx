@@ -13726,7 +13726,7 @@ export default function App() {
             )}
       {/* SETTINGS — dedicated page (view === 'settings'), not a popup */}
       {view === 'settings' && currentUser && (
-        <div className="max-w-[980px] mx-auto">
+        <div className="max-w-[1280px] w-full mx-auto px-2 lg:px-4">
           <div className="flex items-center gap-4 mb-6">
             <div className="w-14 h-14 rounded-2xl overflow-hidden bg-[#00c2ff] text-slate-950 flex items-center justify-center font-extrabold text-xl shadow-md flex-shrink-0">
               {currentUser.picture_url ? (
@@ -13741,9 +13741,9 @@ export default function App() {
             </div>
           </div>
 
-          <div className="flex flex-col md:flex-row gap-6 items-start">
+          <div className="flex flex-col md:flex-row gap-8 items-start">
             {/* Settings side nav */}
-            <div className="w-full md:w-[220px] flex-shrink-0 bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-2xl p-3 space-y-1 md:sticky md:top-8">
+            <div className="w-full md:w-[250px] flex-shrink-0 bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-2xl p-4 space-y-1 md:sticky md:top-8">
               {[
                 { id: 'profile', label: 'Profil', icon: 'person' },
                 { id: 'appearance', label: 'Apparence', icon: 'palette' },
@@ -14051,7 +14051,7 @@ export default function App() {
                       const sortedPlans = [...billingPlans].sort((a, b) => a.price_fcfa - b.price_fcfa);
                       const currentPlanName = billingSubscription?.active ? billingSubscription.subscription.plan_name : null;
                       return (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-stretch">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 items-stretch">
                           {sortedPlans.map(p => {
                             const details = PLAN_DETAILS[p.name] || { tagline: '', features: [] };
                             const isCurrent = currentPlanName === p.name;
