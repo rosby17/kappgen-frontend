@@ -11851,6 +11851,10 @@ export default function App() {
                               <span className="material-symbols-outlined text-[13px]">{thumbnailStyleAnalyzing ? 'hourglass_top' : 'image_search'}</span>
                               {thumbnailStyleAnalyzing ? 'Analyse...' : (newChannel.thumbnail_style?.style_prompt ? "Ajouter d'autres images" : "Ajouter des images de référence")}
                             </button>
+                            <div className="mt-2 flex items-center gap-2">
+                              <input type="file" accept="image/png,image/jpeg,image/webp" multiple onChange={handleUploadThumbnailStyle} className="hidden" id="thumbnail-character-upload" />
+                              <label htmlFor="thumbnail-character-upload" className="cursor-pointer text-[10px] text-slate-400 hover:text-[#00c2ff]">Personnage principal privé ? Ajouter sa photo</label>
+                            </div>
                           </div>
                         </div>
                         {/* AI concept proposal removed: reference images are the source of truth.
