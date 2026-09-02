@@ -645,10 +645,9 @@ const SUBTITLE_PRESETS = [
 // use (see fetchNicheOptions/GET /api/channels/niches), merged in at runtime.
 const NICHE_OPTIONS = [
   "Philosophie", "Philosophie Stoïcienne", "Philosophie de Machiavel", "Philosophie de Napoleon Hill",
-  "Stoïcisme", "Prière", "Méditation", "Bouddhisme", "Islam",
-  "Mythologie", "Histoires Antiques", "Histoire Européenne", "Histoire",
-  "Développement Personnel", "Motivation", "Récits Captivants", "Psychologie de Carl Jung", "Finance", "Business",
-  "Santé & Bien-être", "Football", "Sport", "Science", "Faits Divers", "True Crime", "Voyage", "Cuisine",
+  "Prière", "Bouddhisme", "Islam", "Méditation", "Motivation", "Développement Personnel",
+  "Psychologie de Carl Jung", "Astuces Maison", "Business", "Cuisine", "Finance", "Faits Divers",
+  "Football", "Histoire Africaine", "Histoire Européenne", "Santé & Bien-être", "Science", "Astronomie & Espace",
 ];
 
 // Every family below is actually installed on the render server (see
