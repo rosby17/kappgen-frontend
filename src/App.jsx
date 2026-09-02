@@ -2398,16 +2398,18 @@ function VideoPlayer({ src, autoPlay, className, onTimeUpdate, seekTo, onPlaying
       {/* Centered play/seek cluster — big, clickable rewind/play/forward
           buttons over the middle of the frame, not just the small bottom-bar
           icons. Stays fully visible while paused (so there's always an
-          obvious way in); fades to a hover reveal once playing, so it
-          doesn't sit on top of the video the whole time someone's watching. */}
+          obvious way in); disappears outright the moment playback starts —
+          no hover reveal, since the cursor sitting on the button right after
+          the click that started playback made it look "stuck" on screen. */}
       <div
-        className={`absolute inset-0 flex items-center justify-center gap-5 pointer-events-none transition-opacity ${
-          isPlaying ? 'opacity-0 group-hover:opacity-100' : 'opacity-100'
+        className={`absolute inset-0 flex items-center justify-center gap-5 transition-opacity ${
+          isPlaying ? 'opacity-0 pointer-events-none' : 'opacity-100 pointer-events-none'
         }`}
       >
         <button
           onClick={skip(-10)}
           title="Reculer de 10s"
+          disabled={isPlaying}
           className="pointer-events-auto w-12 h-12 rounded-full bg-black/55 backdrop-blur-sm border border-white/15 text-white flex items-center justify-center hover:bg-black/75 hover:scale-105 transition-all"
         >
           <span className="material-symbols-outlined text-[26px]">replay_10</span>
@@ -2415,6 +2417,7 @@ function VideoPlayer({ src, autoPlay, className, onTimeUpdate, seekTo, onPlaying
         <button
           onClick={togglePlay}
           title={isPlaying ? 'Pause' : 'Lecture'}
+          disabled={isPlaying}
           className="pointer-events-auto w-16 h-16 rounded-full text-[#00c2ff] drop-shadow-lg hover:text-[#38d0ff] hover:scale-105 transition-all"
         >
           <PlayCircleIcon variant={isPlaying ? 'pause' : 'play'} className="w-16 h-16" />
@@ -2422,6 +2425,7 @@ function VideoPlayer({ src, autoPlay, className, onTimeUpdate, seekTo, onPlaying
         <button
           onClick={skip(10)}
           title="Avancer de 10s"
+          disabled={isPlaying}
           className="pointer-events-auto w-12 h-12 rounded-full bg-black/55 backdrop-blur-sm border border-white/15 text-white flex items-center justify-center hover:bg-black/75 hover:scale-105 transition-all"
         >
           <span className="material-symbols-outlined text-[26px]">forward_10</span>
