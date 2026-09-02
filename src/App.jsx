@@ -655,6 +655,7 @@ const NICHE_OPTIONS = [
 // Dockerfile) — verified by downloading each Debian font package and
 // reading its real name table, not guessed from the package name.
 const SUBTITLE_FONTS = [
+  { value: 'Arial', label: 'Arial', group: 'Sans-serif' },
   { value: 'Roboto', label: 'Roboto', group: 'Sans-serif' },
   { value: 'Open Sans', label: 'Open Sans', group: 'Sans-serif' },
   { value: 'Lato', label: 'Lato', group: 'Sans-serif' },
@@ -678,6 +679,7 @@ const SUBTITLE_FONTS = [
   { value: 'Play', label: 'Play', group: 'Display / Impact' },
   { value: 'Jura', label: 'Jura', group: 'Display / Impact' },
   { value: 'B612', label: 'B612', group: 'Display / Impact' },
+  { value: 'Playfair Display', label: 'Playfair Display', group: 'Display / Impact' },
 
   { value: 'Comfortaa', label: 'Comfortaa', group: 'Rond, doux' },
   { value: 'Quicksand', label: 'Quicksand', group: 'Rond, doux' },
@@ -701,9 +703,36 @@ const SUBTITLE_FONTS = [
   { value: 'Linux Libertine O', label: 'Linux Libertine', group: 'Éditorial / Serif' },
   { value: 'Roboto Slab', label: 'Roboto Slab', group: 'Éditorial / Serif' },
   { value: 'Karmilla', label: 'Karmilla', group: 'Éditorial / Serif' },
+  { value: 'Cinzel', label: 'Cinzel', group: 'Éditorial / Serif' },
 
   { value: 'Courier Prime', label: 'Courier Prime', group: 'Machine à écrire' },
 ];
+
+const fontGroupFor = (name) => {
+  const value = name.toLowerCase();
+  if (/mono|code|courier|console|typewriter|ocr|hack|fixed/.test(value)) return 'Machine à écrire';
+  if (/script|hand|cursive|callig|brush|lobster|dancing|kaushan|leckerli/.test(value)) return 'Script / Manuscrit';
+  if (/serif|garamond|roman|times|libertine|book|schoolbook|palladio|cinzel|playfair|cardo|vollkorn/.test(value)) return 'Éditorial / Serif';
+  if (/display|condensed|narrow|black|fatface|bebas|spartan|impact|yanone|jura|play/.test(value)) return 'Display / Impact';
+  if (/rounded|comfortaa|quicksand|dosis/.test(value)) return 'Rond, doux';
+  return 'Sans-serif';
+};
+
+const mergeFontCatalog = (installed = []) => {
+  const unique = new Map();
+  for (const font of SUBTITLE_FONTS) unique.set(font.value.toLowerCase(), font);
+  for (const rawName of installed) {
+    const name = String(rawName || '').trim();
+    if (name && !unique.has(name.toLowerCase())) {
+      unique.set(name.toLowerCase(), { value: name, label: name, group: fontGroupFor(name) });
+    }
+  }
+  const groupOrder = ['Sans-serif', 'Display / Impact', 'Rond, doux', 'Script / Manuscrit', 'Éditorial / Serif', 'Machine à écrire'];
+  return [...unique.values()].sort((a, b) => {
+    const groupDifference = groupOrder.indexOf(a.group) - groupOrder.indexOf(b.group);
+    return groupDifference || a.label.localeCompare(b.label, 'fr', { sensitivity: 'base' });
+  });
+};
 
 // Available Voice Models
 // Stable, bundled stock photos for the Effets step's preview when the client
@@ -3286,6 +3315,7 @@ export default function App() {
 
   const [channels, setChannels] = useState([]);
   const [nicheOptions, setNicheOptions] = useState(NICHE_OPTIONS);
+  const [subtitleFonts, setSubtitleFonts] = useState(() => mergeFontCatalog());
   const [activeChannel, setActiveChannel] = useState(null);
   const [channelVideos, setChannelVideos] = useState([]);
   const [allVideos, setAllVideos] = useState([]);
@@ -4346,6 +4376,19 @@ export default function App() {
     }
   };
 
+  const fetchSubtitleFonts = async () => {
+    try {
+      const res = await authFetch(`${API_BASE}/channels/fonts`);
+      if (!res.ok) return;
+      const data = await res.json();
+      if (Array.isArray(data?.fonts) && data.fonts.length) {
+        setSubtitleFonts(mergeFontCatalog(data.fonts));
+      }
+    } catch (e) {
+      console.error("Erreur lors du chargement des polices:", e);
+    }
+  };
+
   const fetchAllVideos = async () => {
     if (!currentUser) return;
     try {
@@ -4758,6 +4801,7 @@ export default function App() {
 
   useEffect(() => {
     fetchNicheOptions();
+    fetchSubtitleFonts();
   }, []);
 
   useEffect(() => {
@@ -11562,11 +11606,11 @@ export default function App() {
                               className="w-full flex items-center justify-between bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-4 py-2.5 text-left hover:border-[#00c2ff] transition-colors"
                             >
                               <span style={{ fontFamily: newChannel.subtitle_style.font }} className="text-sm text-white truncate">
-                                {SUBTITLE_FONTS.find(f => f.value === newChannel.subtitle_style.font)?.label || newChannel.subtitle_style.font}
+                                {subtitleFonts.find(f => f.value === newChannel.subtitle_style.font)?.label || newChannel.subtitle_style.font}
                               </span>
                               <span className="material-symbols-outlined text-[18px] text-slate-400 flex-shrink-0">expand_more</span>
                             </button>
-                            <p className="text-[10px] text-slate-500 mt-1.5">{SUBTITLE_FONTS.length} polices réellement installées sur le serveur de rendu — l'aperçu est fidèle au rendu final.</p>
+                            <p className="text-[10px] text-slate-500 mt-1.5">{subtitleFonts.length} polices auto-hébergées disponibles pour le rendu final.</p>
                           </div>
 
                           <div>
@@ -16361,7 +16405,7 @@ export default function App() {
 
       {fontPickerOpen && (() => {
         const query = fontSearchQuery.trim().toLowerCase();
-        const filtered = SUBTITLE_FONTS.filter(f => !query || f.label.toLowerCase().includes(query) || f.group.toLowerCase().includes(query));
+        const filtered = subtitleFonts.filter(f => !query || f.label.toLowerCase().includes(query) || f.group.toLowerCase().includes(query));
         const groups = [];
         for (const f of filtered) {
           const lastGroup = groups[groups.length - 1];
