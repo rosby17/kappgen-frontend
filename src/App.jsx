@@ -6673,18 +6673,21 @@ export default function App() {
     }
   };
 
-  const setAiTextProvider = async (primary) => {
+  const toggleAiTextProvider = async (id) => {
+    const current = aiTextProvider?.order || [];
+    const nextOrder = current.includes(id) ? current.filter(p => p !== id) : [...current, id];
     setAiTextProviderSaving(true);
     try {
       const res = await authFetch(`${API_BASE}/admin/settings/ai-text-provider`, {
         method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ primary }),
+        body: JSON.stringify({ order: nextOrder }),
       });
       if (!res.ok) throw new Error();
-      setAiTextProviderState(prev => ({ ...prev, primary }));
-      showToast(`Fournisseur IA texte basculé sur ${AI_TEXT_PROVIDER_LABELS[primary] || primary}.`, 'success');
+      const data = await res.json();
+      setAiTextProviderState(prev => ({ ...prev, order: data.order, effective_order: [...data.order, ...(prev?.available || []).filter(p => !data.order.includes(p))] }));
+      showToast(nextOrder.includes(id) ? `${AI_TEXT_PROVIDER_LABELS[id] || id} ajouté à la priorité.` : `${AI_TEXT_PROVIDER_LABELS[id] || id} retiré de la priorité.`, 'success');
     } catch {
-      showToast('Échec du basculement de fournisseur.', 'error');
+      showToast('Échec de la mise à jour de la priorité.', 'error');
     } finally {
       setAiTextProviderSaving(false);
     }
@@ -14271,32 +14274,33 @@ export default function App() {
                 <div>
                   <h4 className="text-sm font-bold text-white">Fournisseur IA texte (script, titres, miniatures...)</h4>
                   <p className="text-[11px] text-slate-500 mt-1 max-w-xl">
-                    Choisis le fournisseur utilisé en premier pour toutes les tâches de génération de texte par IA. Si le fournisseur choisi échoue, les autres prennent le relais automatiquement dans l'ordre affiché sur les cartes ci-dessus — bascule ici à tout moment, sans redéploiement.
+                    Clique un fournisseur pour l'ajouter à la priorité, un autre clic le retire. L'ordre de clic devient l'ordre d'essai (le n°1 en premier) ; tout fournisseur configuré non sélectionné reste utilisable en dernier recours. Le point indique l'état réel de la clé (vert = active, rouge = en panne, gris = aucune clé) d'après les cartes ci-dessus — bascule à tout moment, sans redéploiement.
                   </p>
                 </div>
                 {!aiTextProvider ? (
                   <div className="text-center text-slate-500 text-xs py-4">Chargement...</div>
                 ) : (
                   <div className="flex flex-wrap items-center gap-2">
-                    {(aiTextProvider.order || []).map(id => {
-                      const active = aiTextProvider.primary === id;
-                      const isConfigured = aiTextProvider.configured?.[id];
+                    {(aiTextProvider.available || []).map(id => {
+                      const rank = (aiTextProvider.order || []).indexOf(id);
+                      const selected = rank !== -1;
+                      const health = (adminProviders || []).find(p => p.id === id);
+                      const dotColor = health?.status === 'ok' ? 'bg-emerald-500' : health?.status === 'error' ? 'bg-rose-500' : 'bg-slate-600';
                       return (
                         <button
                           key={id}
                           type="button"
-                          onClick={() => setAiTextProvider(id)}
-                          disabled={aiTextProviderSaving || !isConfigured}
-                          title={!isConfigured ? 'Aucune clé configurée pour ce fournisseur.' : ''}
-                          className={`px-4 py-2 rounded-xl text-xs font-bold border transition-colors disabled:opacity-40 ${
-                            active
+                          onClick={() => toggleAiTextProvider(id)}
+                          disabled={aiTextProviderSaving}
+                          className={`px-4 py-2 rounded-xl text-xs font-bold border transition-colors disabled:opacity-50 ${
+                            selected
                               ? 'bg-[#00c2ff]/10 text-[#00c2ff] border-[#00c2ff]/60'
                               : 'bg-[var(--bg-surface-alt)] text-slate-400 border-[var(--border)] hover:border-slate-500'
                           }`}
                         >
-                          <span className={`inline-block w-1.5 h-1.5 rounded-full mr-1.5 align-middle ${isConfigured ? 'bg-emerald-500' : 'bg-slate-600'}`} />
+                          <span className={`inline-block w-1.5 h-1.5 rounded-full mr-1.5 align-middle ${dotColor}`} />
                           {AI_TEXT_PROVIDER_LABELS[id] || id}
-                          {active && <span className="material-symbols-outlined text-[13px] align-middle ml-1">check_circle</span>}
+                          {selected && <span className="ml-1.5 inline-flex items-center justify-center w-4 h-4 rounded-full bg-[#00c2ff] text-[#04121a] text-[10px] font-black align-middle">{rank + 1}</span>}
                         </button>
                       );
                     })}
