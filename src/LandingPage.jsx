@@ -6,7 +6,6 @@ import {
   WandSparkles, X, Zap
 } from 'lucide-react';
 import './landing.css';
-import freedomSunrise from './assets/dashboard/freedom-sunrise.png';
 
 const APP_ORIGIN = import.meta.env.VITE_APP_ORIGIN || 'https://app.kappgen.com';
 const API_DOCS_URL = import.meta.env.VITE_API_ORIGIN ? `${import.meta.env.VITE_API_ORIGIN}/docs` : 'https://api.kappgen.com/docs';
@@ -66,45 +65,6 @@ function buildPlanFeatureRows(plan) {
     { text: 'Accès à la publication automatique YouTube', included: !!plan.autopublish_enabled },
   ];
   return rows;
-}
-
-function ProductPreview() {
-  return (
-    <div className="product-preview" aria-label="Aperçu de l’interface KappGen">
-      <div className="preview-glow" />
-      <div className="preview-window">
-        <div className="preview-topbar">
-          <div className="window-dots"><i /><i /><i /></div>
-          <span>app.kappgen.com/dashboard</span>
-          <div className="preview-avatar">R</div>
-        </div>
-        <div className="preview-body">
-          <aside className="preview-sidebar">
-            <div className="preview-brand"><img src="/assets/logo/logo-kappgen.png" alt="" /><span><b>KappGen</b><small>Video Automation</small></span></div>
-            <div className="preview-mode"><Clapperboard size={13} /> Montage Simple <ChevronRight size={12} /></div>
-            <div className="preview-nav active"><Layers3 size={15} /> Home</div>
-            <div className="preview-nav"><CirclePlay size={15} /> Mes chaînes</div>
-            <div className="preview-nav"><Clapperboard size={15} /> Mes vidéos</div>
-            <div className="preview-nav"><Images size={15} /> Bibliothèque</div>
-          </aside>
-          <div className="preview-content">
-            <div className="preview-current-heading">
-              <small>TON ESPACE KAPPGEN</small>
-              <strong>Crée et pilote tes vidéos depuis un seul espace.</strong>
-            </div>
-            <div className="preview-freedom-card">
-              <img src={freedomSunrise} alt="" />
-              <div><strong>Tu vis. KappGen travaille.</strong><span>Configure ta chaîne, tes visuels et ton calendrier de publication.</span><button>Voir mes chaînes</button></div>
-            </div>
-            <div className="preview-channels-current">
-              <strong>Aperçu des chaînes</strong>
-              <div className="preview-channel-card"><i>R</i><span><b>Rivière de Grâce</b><small>Prière · montage mixte</small></span><em>PRÊTE</em><small>2 vidéos prêtes</small></div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
 }
 
 export default function LandingPage() {
@@ -169,7 +129,6 @@ export default function LandingPage() {
             </div>
             <div className="hero-trust"><span><Check size={15} /> De l’idée au rendu</span><span><Check size={15} /> Montage automatisé ou éditable</span><span><Check size={15} /> Publication YouTube en option</span></div>
           </div>
-          <ProductPreview />
         </section>
 
         <section className="proof-strip"><span>TON RÉSEAU DE CHAÎNES AVANCE SANS STRESS</span><div>{['Idées', 'Script', 'Voix off', 'Images', 'Musique', 'Montage', 'Miniature', 'Titre & description', 'Publication'].map((label, index, arr) => (
