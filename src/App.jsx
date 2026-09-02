@@ -11505,7 +11505,7 @@ export default function App() {
                                 checked={isOptionAChecked}
                                 onChange={toggleOptionA}
                                 onClick={(e) => e.stopPropagation()}
-                                className="w-5 h-5 accent-[#00c2ff] cursor-pointer rounded"
+                                className="kappgen-checkbox shrink-0"
                               />
                             </div>
                             <p className="text-[11px] text-slate-400">
@@ -11634,7 +11634,7 @@ export default function App() {
                                 disabled={!isOptionBChecked && !canGenerateAIImages}
                                 onChange={toggleOptionB}
                                 onClick={(e) => e.stopPropagation()}
-                                className="w-5 h-5 accent-[#00c2ff] cursor-pointer rounded disabled:cursor-not-allowed disabled:opacity-50"
+                                className="kappgen-checkbox shrink-0 disabled:cursor-not-allowed disabled:opacity-50"
                               />
                             </div>
                             <p className="text-[11px] text-slate-400">
@@ -11769,17 +11769,17 @@ export default function App() {
                         return (
                           <div
                             onClick={() => { if (!disabled) toggleCommunity(); }}
-                            className={`p-4 rounded-xl border transition-colors ${disabled ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'} ${
-                              isCommunityChecked ? 'border-[#00c2ff] bg-[#00c2ff]/5' : 'border-[var(--border)] bg-[#171b23] hover:border-slate-500'
+                            className={`p-5 rounded-2xl border-2 transition-all space-y-4 flex flex-col justify-between ${disabled ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'} ${
+                              isCommunityChecked ? 'bg-[var(--bg-surface-alt)] border-[#00c2ff] shadow-lg shadow-[#00c2ff]/10' : 'bg-[var(--bg-surface-soft)] border-[var(--border-soft)] hover:border-slate-500 opacity-60'
                             }`}
                           >
                             <div className="flex items-start justify-between gap-3">
                               <div className="min-w-0">
                                 <div className="flex items-center gap-2">
-                                  <span className="material-symbols-outlined text-[18px] text-[#00c2ff]">diversity_3</span>
-                                  <span className="text-sm font-bold text-white">Option C : Bibliothèque Communautaire</span>
+                                  <span className="material-symbols-outlined text-[24px] text-[#00c2ff]">diversity_3</span>
+                                  <h4 className="text-xs font-bold text-white">Option C : Bibliothèque Communautaire</h4>
                                 </div>
-                                <p className="text-xs text-slate-400 mt-1">
+                                <p className="mt-1 text-[11px] text-slate-400">
                                   {!nicheSet
                                     ? "Choisis d'abord une niche (étape 1) pour voir si une bibliothèque partagée existe déjà."
                                     : available
