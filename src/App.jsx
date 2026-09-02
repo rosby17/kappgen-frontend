@@ -4423,7 +4423,7 @@ export default function App() {
       const res = await authFetch(`${API_BASE}/channels/${editingChannelId}/thumbnail-concept/approve`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ style_prompt: c.style_prompt, concept_name: c.concept_name, text_style: c.text_style, font_family: c.font_family, accent_hex: c.accent_hex, text_position: c.text_position }),
+        body: JSON.stringify({ style_prompt: c.style_prompt, concept_name: c.concept_name, text_style: c.text_style, font_family: c.font_family, accent_hex: c.accent_hex, text_position: c.text_position, text_side: c.text_side, niche_examples: c.niche_examples }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || "Validation impossible.");
@@ -11823,6 +11823,7 @@ export default function App() {
                             </div>
                             <div>
                               <h4 className="font-bold text-white text-xs">Style de la miniature YouTube</h4>
+                              <p className="text-[10px] text-slate-500 mt-0.5">Ajoute idéalement 4 à 10 captures de concurrents : le système apprendra leur grammaire visuelle commune.</p>
                             </div>
                           </div>
                           <div onClick={(e) => e.stopPropagation()}>
@@ -11897,6 +11898,12 @@ export default function App() {
                               />
                               <p className="text-xs font-bold text-white">{thumbnailConceptProposal.concept.concept_name}</p>
                               <p className="text-[10px] text-slate-400">{thumbnailConceptProposal.concept.rationale}</p>
+                              {!!thumbnailConceptProposal.concept.niche_examples?.length && (
+                                <div className="rounded-lg bg-black/20 border border-[var(--border)] p-2">
+                                  <p className="text-[10px] font-bold text-[#00c2ff] mb-1">Exemples étudiés pour cette niche</p>
+                                  {thumbnailConceptProposal.concept.niche_examples.map((example, i) => <p key={i} className="text-[10px] text-slate-400">{i + 1}. {example}</p>)}
+                                </div>
+                              )}
                               <div className="flex items-center gap-2 pt-1">
                                 <button
                                   type="button"
@@ -11919,7 +11926,7 @@ export default function App() {
                         </div>
 
                         <p className="text-[11px] text-slate-400">
-                          Ou configure-le toi-même : décris le style de fond voulu, ou donne des exemples en image. {THUMBNAIL_GENERATION_CREDITS.toLocaleString()} crédits/miniature.
+                          Pour un rendu fidèle, envoie plusieurs miniatures que tu apprécies. L’IA analyse les personnages, cadrages, symboles, densité, lumière, palette et emplacement du texte, puis construit une identité réutilisable sans copier une image précise. {THUMBNAIL_GENERATION_CREDITS.toLocaleString()} crédits/miniature.
                         </p>
                         <textarea
                           rows="2"
@@ -12004,7 +12011,7 @@ export default function App() {
                               ))}
                             </div>
                             <div>
-                              <p className="text-[10px] text-slate-500">Style dérivé des images ci-dessus — modifie le texte plus haut si tu veux l'affiner.</p>
+                              <p className="text-[10px] text-slate-500">Moodboard analysé sur {newChannel.thumbnail_style.reference_image_paths.length} image(s). {newChannel.thumbnail_style?.analysis_summary || 'Ajoute encore quelques exemples pour rendre les constantes plus fiables.'}</p>
                               <button
                                 type="button"
                                 onClick={() => handleRemoveThumbnailStyle()}
