@@ -9630,10 +9630,15 @@ export default function App() {
                             <div className="mt-3 space-y-2 flex-1 flex flex-col justify-between">
                               <div>
                                 {channelObj && (
-                                  <div className="flex items-center gap-1.5 mb-1">
+                                  <button
+                                    type="button"
+                                    onClick={(e) => { e.stopPropagation(); setActiveChannel(channelObj); fetchChannelVideos(channelObj.id); setView('channel_detail'); }}
+                                    title={`Voir la chaîne « ${channelObj.name} »`}
+                                    className="flex items-center gap-1.5 mb-1 max-w-full hover:opacity-80 transition-opacity"
+                                  >
                                     <ChannelAvatar channel={channelObj} logoUrl={getChannelLogoUrl(channelObj)} sizeClass="w-4 h-4" roundedClass="rounded-md" textClass="text-[8px]" />
-                                    <span className="text-[11px] font-bold text-[#00c2ff] truncate">{channelObj.name}</span>
-                                  </div>
+                                    <span className="text-[11px] font-bold text-[#00c2ff] truncate hover:underline">{channelObj.name}</span>
+                                  </button>
                                 )}
 
                                 {editingTitleId === vid.id ? (
