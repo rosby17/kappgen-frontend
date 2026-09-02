@@ -14573,7 +14573,7 @@ export default function App() {
                     titre)" until the AI metadata step eventually runs, and
                     skips that guesswork entirely once one is set here. */}
                 <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-2">Titre de la vidéo <span className="text-rose-400 font-normal normal-case">(obligatoire)</span></label>
+                  <label className="block text-xs font-bold text-slate-300 mb-2">Titre de la vidéo <span className="text-rose-400 font-normal normal-case">*</span></label>
                   <input
                     type="text"
                     value={submitVideoTitle}
