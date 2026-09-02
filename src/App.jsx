@@ -6679,6 +6679,11 @@ export default function App() {
   const [hfAccounts, setHfAccounts] = useState([]);
   const [hfAccountsLoading, setHfAccountsLoading] = useState(false);
   const [hfAccountForm, setHfAccountForm] = useState({ token: '', label: '' });
+  // Which image-generation provider's key pool is shown/edited — the pool
+  // mechanism (rotate through multiple keys, skip exhausted ones) is the
+  // same for all three, just scoped by this tab.
+  const [hfAccountsProvider, setHfAccountsProvider] = useState('huggingface');
+  const IMAGE_KEY_PROVIDER_LABELS = { huggingface: 'Hugging Face', fal: 'fal.ai', izivoice: 'Izivoice' };
   const [hfAccountBusy, setHfAccountBusy] = useState(false);
   const [hfAccountChecking, setHfAccountChecking] = useState(null);
   const [editingHfLabelId, setEditingHfLabelId] = useState(null);
@@ -7282,8 +7287,12 @@ export default function App() {
   };
 
   useEffect(() => {
-    if (view === 'admin' && currentUser?.is_admin && adminTab === 'resources') { fetchAdminProviders(); fetchHfAccounts(); fetchThumbnailProviderMode(); fetchVoiceoverProviderMode(); fetchAiTextProvider(); fetchRenderConcurrency(); }
+    if (view === 'admin' && currentUser?.is_admin && adminTab === 'resources') { fetchAdminProviders(); fetchThumbnailProviderMode(); fetchVoiceoverProviderMode(); fetchAiTextProvider(); fetchRenderConcurrency(); }
   }, [view, currentUser?.is_admin, adminTab]);
+
+  useEffect(() => {
+    if (view === 'admin' && currentUser?.is_admin && adminTab === 'resources') fetchHfAccounts(hfAccountsProvider);
+  }, [view, currentUser?.is_admin, adminTab, hfAccountsProvider]);
 
   const fetchRenderConcurrency = async () => {
     try {
@@ -7401,13 +7410,13 @@ export default function App() {
     }
   };
 
-  const fetchHfAccounts = async () => {
+  const fetchHfAccounts = async (provider = hfAccountsProvider) => {
     setHfAccountsLoading(true);
     try {
-      const res = await authFetch(`${API_BASE}/admin/hf-accounts`);
+      const res = await authFetch(`${API_BASE}/admin/hf-accounts?provider=${provider}`);
       if (res.ok) setHfAccounts(await res.json());
     } catch (err) {
-      console.error("Erreur chargement comptes Hugging Face:", err);
+      console.error("Erreur chargement des clés:", err);
     } finally {
       setHfAccountsLoading(false);
     }
@@ -7415,12 +7424,12 @@ export default function App() {
 
   const addHfAccount = async () => {
     const token = hfAccountForm.token.trim();
-    if (!token) return showToast('Colle un token Hugging Face.', 'error');
+    if (!token) return showToast(`Colle une clé ${IMAGE_KEY_PROVIDER_LABELS[hfAccountsProvider]}.`, 'error');
     setHfAccountBusy(true);
     try {
       const res = await authFetch(`${API_BASE}/admin/hf-accounts`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token, label: hfAccountForm.label.trim() || null }),
+        body: JSON.stringify({ token, label: hfAccountForm.label.trim() || null, provider: hfAccountsProvider }),
       });
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || "Échec de l'ajout.");
       const account = await res.json();
@@ -15375,14 +15384,30 @@ export default function App() {
 
               <div className="pt-6 border-t border-[var(--border-soft)] space-y-4">
                 <div>
-                  <h4 className="text-sm font-bold text-white">Comptes Hugging Face (gratuit)</h4>
+                  <h4 className="text-sm font-bold text-white">Clés des moteurs de génération d'image</h4>
+                  <p className="text-[11px] text-slate-500 mt-1 max-w-xl">
+                    Ajoute plusieurs clés par fournisseur pour basculer automatiquement à la suivante dès qu'une clé est épuisée ou invalide — même mécanisme de rotation pour les trois.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-1 bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl p-1 w-fit">
+                  {Object.entries(IMAGE_KEY_PROVIDER_LABELS).map(([id, label]) => (
+                    <button
+                      key={id}
+                      type="button"
+                      onClick={() => setHfAccountsProvider(id)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${hfAccountsProvider === id ? 'bg-[#00c2ff] text-slate-950' : 'text-slate-400 hover:text-white'}`}
+                    >
+                      {label}
+                    </button>
+                  ))}
                 </div>
 
                 <div className="flex flex-col sm:flex-row gap-2">
                   <input
                     value={hfAccountForm.token}
                     onChange={e => setHfAccountForm({ ...hfAccountForm, token: e.target.value })}
-                    placeholder="hf_..."
+                    placeholder={hfAccountsProvider === 'huggingface' ? 'hf_...' : `Clé API ${IMAGE_KEY_PROVIDER_LABELS[hfAccountsProvider]}...`}
                     className="flex-1 min-w-0 bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-3 py-2 text-xs text-white focus:border-[#00c2ff] outline-none font-mono"
                   />
                   <input
@@ -15405,7 +15430,7 @@ export default function App() {
                     <AdminSkeletonCards count={6} className="h-16" />
                   </div>
                 ) : hfAccounts.length === 0 ? (
-                  <p className="text-xs text-slate-500">Aucun compte Hugging Face enregistré.</p>
+                  <p className="text-xs text-slate-500">Aucune clé {IMAGE_KEY_PROVIDER_LABELS[hfAccountsProvider]} enregistrée.</p>
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                     {hfAccounts.map(a => {
@@ -15455,14 +15480,16 @@ export default function App() {
                                 <span className="material-symbols-outlined text-[13px]">edit</span>
                               </button>
                             )}
-                            <button
-                              onClick={() => checkHfAccount(a.id)}
-                              disabled={hfAccountChecking === a.id}
-                              title="Revérifier"
-                              className="p-1 rounded text-slate-400 hover:text-white hover:bg-[var(--bg-surface-alt)] disabled:opacity-50"
-                            >
-                              <span className={`material-symbols-outlined text-[13px] ${hfAccountChecking === a.id ? 'animate-spin' : ''}`}>{hfAccountChecking === a.id ? 'progress_activity' : 'refresh'}</span>
-                            </button>
+                            {a.provider === 'huggingface' && (
+                              <button
+                                onClick={() => checkHfAccount(a.id)}
+                                disabled={hfAccountChecking === a.id}
+                                title="Revérifier"
+                                className="p-1 rounded text-slate-400 hover:text-white hover:bg-[var(--bg-surface-alt)] disabled:opacity-50"
+                              >
+                                <span className={`material-symbols-outlined text-[13px] ${hfAccountChecking === a.id ? 'animate-spin' : ''}`}>{hfAccountChecking === a.id ? 'progress_activity' : 'refresh'}</span>
+                              </button>
+                            )}
                             <button
                               onClick={() => toggleHfAccount(a.id, !a.is_enabled)}
                               title={a.is_enabled ? 'Désactiver' : 'Activer'}
