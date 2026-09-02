@@ -9192,24 +9192,15 @@ export default function App() {
 
             {/* VIEW 3: MES VIDÉOS (Videos Library View) */}
             {view === 'videos' && (
-              <div className="flex items-start gap-2">
-                {/* Folder rail as its own column, glued right next to the main
-                    sidebar — moved out here (rather than sitting between the
-                    title and the grid) specifically so it never pushes the
-                    title and the video grid out of alignment with each other;
-                    both now share the same left edge no matter the rail's
-                    width or collapsed state. */}
-                {/* Pulled left by the page's own md:p-8 padding (md:-ml-8,
-                    compensated by md:pl-8 so the buttons inside stay exactly
-                    where they'd otherwise sit) — glues the rail flush against
-                    the main sidebar without dragging the title/grid section
-                    next to it out of place; gap-2 on the parent row is
-                    measured from this box's unmoved right edge, so the
-                    section's position is untouched. Width is bumped by the
-                    same 32px (border-box sizing means padding eats into the
-                    declared width otherwise) so the buttons keep their usual
-                    room instead of getting squeezed. */}
-                <aside className={`flex-shrink-0 space-y-1 md:-ml-8 md:pl-8 transition-[width] duration-200 ${folderSidebarCollapsed ? 'w-10 md:w-[72px]' : 'w-36 md:w-44'}`}>
+              <div className="flex items-start gap-2 md:-ml-8">
+                {/* Whole block (folder rail + title + grid, all together)
+                    pulled left by the page's own md:p-8 padding, so it sits
+                    flush against the main sidebar instead of floating with
+                    that padding's worth of dead space in front of it. The
+                    folder rail stays a separate column from the title/grid
+                    section so the two always share the same left edge with
+                    each other, no matter the rail's width or collapsed state. */}
+                <aside className={`flex-shrink-0 space-y-1 transition-[width] duration-200 ${folderSidebarCollapsed ? 'w-10' : 'w-36'}`}>
                   <button
                     onClick={toggleFolderSidebarCollapsed}
                     title={folderSidebarCollapsed ? 'Agrandir les dossiers' : 'Réduire les dossiers'}
