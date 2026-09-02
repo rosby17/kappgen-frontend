@@ -11777,7 +11777,6 @@ export default function App() {
                             <p className="text-[10px] text-slate-500 mt-1.5">Ce style guide chaque image générée — plus c'est précis, plus le résultat est cohérent d'une vidéo à l'autre.</p>
                           </div>
                         </div>
-                        </div>
 
                       {(() => {
                         const nicheSet = (newChannel.niche || '').trim();
@@ -11816,6 +11815,7 @@ export default function App() {
                           </div>
                         );
                       })()}
+                        </div>
                       </div>
 
                       <div
