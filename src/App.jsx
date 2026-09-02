@@ -3186,6 +3186,7 @@ function viewFromPath(path) {
 // so a page refresh stays on the current tab instead of bouncing back to
 // the overview.
 const ADMIN_TABS = ['overview', 'users', 'plans', 'videos', 'library', 'transactions', 'costs', 'resources'];
+const AI_TEXT_PROVIDER_LABELS = { anthropic: 'Claude (Anthropic)', deepseek: 'DeepSeek', fal: 'Claude via fal.ai', openai: 'OpenAI', groq: 'Groq (gratuit)' };
 function adminTabFromPath(path) {
   const m = path.match(/^\/admin\/([a-z_]+)$/);
   if (m && ADMIN_TABS.includes(m[1])) return m[1];
@@ -6067,6 +6068,8 @@ export default function App() {
   const [adminProviders, setAdminProviders] = useState(null);
   const [thumbnailProviderMode, setThumbnailProviderModeState] = useState('free_only');
   const [thumbnailProviderModeSaving, setThumbnailProviderModeSaving] = useState(false);
+  const [aiTextProvider, setAiTextProviderState] = useState(null);
+  const [aiTextProviderSaving, setAiTextProviderSaving] = useState(false);
   const [hfAccounts, setHfAccounts] = useState([]);
   const [hfAccountsLoading, setHfAccountsLoading] = useState(false);
   const [hfAccountForm, setHfAccountForm] = useState({ token: '', label: '' });
@@ -6614,7 +6617,7 @@ export default function App() {
   };
 
   useEffect(() => {
-    if (view === 'admin' && currentUser?.is_admin && adminTab === 'resources') { fetchAdminProviders(); fetchHfAccounts(); fetchThumbnailProviderMode(); }
+    if (view === 'admin' && currentUser?.is_admin && adminTab === 'resources') { fetchAdminProviders(); fetchHfAccounts(); fetchThumbnailProviderMode(); fetchAiTextProvider(); }
   }, [view, currentUser?.is_admin, adminTab]);
 
   const fetchThumbnailProviderMode = async () => {
@@ -6640,6 +6643,32 @@ export default function App() {
       showToast('Échec de la mise à jour.', 'error');
     } finally {
       setThumbnailProviderModeSaving(false);
+    }
+  };
+
+  const fetchAiTextProvider = async () => {
+    try {
+      const res = await authFetch(`${API_BASE}/admin/settings/ai-text-provider`);
+      if (res.ok) setAiTextProviderState(await res.json());
+    } catch (err) {
+      console.error("Erreur chargement du fournisseur IA texte:", err);
+    }
+  };
+
+  const setAiTextProvider = async (primary) => {
+    setAiTextProviderSaving(true);
+    try {
+      const res = await authFetch(`${API_BASE}/admin/settings/ai-text-provider`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ primary }),
+      });
+      if (!res.ok) throw new Error();
+      setAiTextProviderState(prev => ({ ...prev, primary }));
+      showToast(`Fournisseur IA texte basculé sur ${AI_TEXT_PROVIDER_LABELS[primary] || primary}.`, 'success');
+    } catch {
+      showToast('Échec du basculement de fournisseur.', 'error');
+    } finally {
+      setAiTextProviderSaving(false);
     }
   };
 
@@ -14173,6 +14202,44 @@ export default function App() {
                   </button>
                   {thumbnailProviderModeSaving && <span className="material-symbols-outlined text-[16px] text-slate-500 animate-spin">progress_activity</span>}
                 </div>
+              </div>
+
+              <div className="pt-6 border-t border-[var(--border-soft)] space-y-3">
+                <div>
+                  <h4 className="text-sm font-bold text-white">Fournisseur IA texte (script, titres, miniatures...)</h4>
+                  <p className="text-[11px] text-slate-500 mt-1 max-w-xl">
+                    Choisis le fournisseur utilisé en premier pour toutes les tâches de génération de texte par IA. Si le fournisseur choisi échoue, les autres prennent le relais automatiquement dans l'ordre affiché sur les cartes ci-dessus — bascule ici à tout moment, sans redéploiement.
+                  </p>
+                </div>
+                {!aiTextProvider ? (
+                  <div className="text-center text-slate-500 text-xs py-4">Chargement...</div>
+                ) : (
+                  <div className="flex flex-wrap items-center gap-2">
+                    {(aiTextProvider.order || []).map(id => {
+                      const active = aiTextProvider.primary === id;
+                      const isConfigured = aiTextProvider.configured?.[id];
+                      return (
+                        <button
+                          key={id}
+                          type="button"
+                          onClick={() => setAiTextProvider(id)}
+                          disabled={aiTextProviderSaving || !isConfigured}
+                          title={!isConfigured ? 'Aucune clé configurée pour ce fournisseur.' : ''}
+                          className={`px-4 py-2 rounded-xl text-xs font-bold border transition-colors disabled:opacity-40 ${
+                            active
+                              ? 'bg-[#00c2ff]/10 text-[#00c2ff] border-[#00c2ff]/60'
+                              : 'bg-[var(--bg-surface-alt)] text-slate-400 border-[var(--border)] hover:border-slate-500'
+                          }`}
+                        >
+                          <span className={`inline-block w-1.5 h-1.5 rounded-full mr-1.5 align-middle ${isConfigured ? 'bg-emerald-500' : 'bg-slate-600'}`} />
+                          {AI_TEXT_PROVIDER_LABELS[id] || id}
+                          {active && <span className="material-symbols-outlined text-[13px] align-middle ml-1">check_circle</span>}
+                        </button>
+                      );
+                    })}
+                    {aiTextProviderSaving && <span className="material-symbols-outlined text-[16px] text-slate-500 animate-spin">progress_activity</span>}
+                  </div>
+                )}
               </div>
 
               <div className="pt-6 border-t border-[var(--border-soft)] space-y-4">
