@@ -12306,7 +12306,6 @@ export default function App() {
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                           {[
                             { value: 'manual', icon: 'download', label: 'Manuelle', desc: 'Tu télécharges la vidéo, ou tu cliques « Publier » quand tu veux' },
-                            { value: 'scheduled', icon: 'schedule', label: 'Programmée', desc: 'Une seule vidéo, publiée un nombre de jours donné après le rendu' },
                             { value: 'auto', icon: 'bolt', label: 'Automatique', desc: 'Planning récurrent — les jours et l\'heure que tu choisis' },
                           ].map(opt => {
                             const active = (newChannel.publish_mode || 'manual') === opt.value;
@@ -12341,13 +12340,16 @@ export default function App() {
                             <span className="mt-0.5 block text-[9px] leading-relaxed text-slate-500">Activez uniquement si l’audience principale est composée d’enfants. KappGen transmettra cette déclaration à YouTube.</span>
                           </span>
                         </label>
-                        <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
-                          <label className="text-[10px] font-bold text-slate-400">Visibilité par défaut
-                            <select value={newChannel.youtube_privacy_status || 'public'} onChange={e => setNewChannel({ ...newChannel, youtube_privacy_status: e.target.value })} className="mt-1.5 w-full rounded-xl border border-[var(--border)] bg-[var(--bg-surface-alt)] px-3 py-2 text-xs text-white"><option value="public">Publique</option><option value="unlisted">Non répertoriée</option><option value="private">Privée</option></select>
-                          </label>
-                          <label className="text-[10px] font-bold text-slate-400">Catégorie YouTube
-                            <select value={newChannel.youtube_category_id || '22'} onChange={e => setNewChannel({ ...newChannel, youtube_category_id: e.target.value })} className="mt-1.5 w-full rounded-xl border border-[var(--border)] bg-[var(--bg-surface-alt)] px-3 py-2 text-xs text-white"><option value="22">People & Blogs</option><option value="27">Education</option><option value="24">Entertainment</option><option value="26">Howto & Style</option><option value="10">Music</option><option value="20">Gaming</option><option value="25">News & Politics</option></select>
-                          </label>
+                        <div className="mt-3 space-y-3">
+                          <div>
+                            <span className="block text-[10px] font-bold text-slate-400 mb-1.5">Visibilité par défaut</span>
+                            <div className="grid grid-cols-3 gap-2">{[['public','Publique','public'],['unlisted','Non répertoriée','link_off'],['private','Privée','lock']].map(([id,label,icon]) => <button key={id} type="button" onClick={() => setNewChannel({ ...newChannel, youtube_privacy_status: id })} className={`rounded-xl border px-2.5 py-2 text-left text-[10px] font-bold transition-colors ${(newChannel.youtube_privacy_status || 'public') === id ? 'border-[#00c2ff] bg-[#00c2ff]/10 text-[#00c2ff]' : 'border-[var(--border)] bg-[var(--bg-surface-alt)] text-slate-300 hover:border-slate-500'}`}><span className="material-symbols-outlined text-[15px] align-middle mr-1">{icon}</span>{label}</button>)}</div>
+                          </div>
+                          <div>
+                            <span className="block text-[10px] font-bold text-slate-400 mb-1.5">Catégorie YouTube</span>
+                            <div className="flex flex-wrap gap-2">{[['22','People & Blogs'],['27','Education'],['24','Entertainment'],['26','Howto & Style'],['10','Music'],['20','Gaming'],['25','News & Politics']].map(([id,label]) => <button key={id} type="button" onClick={() => setNewChannel({ ...newChannel, youtube_category_id: id })} className={`rounded-lg border px-2.5 py-1.5 text-[10px] font-bold transition-colors ${(newChannel.youtube_category_id || '22') === id ? 'border-[#00c2ff] bg-[#00c2ff]/10 text-[#00c2ff]' : 'border-[var(--border)] bg-[var(--bg-surface-alt)] text-slate-300 hover:border-slate-500'}`}>{label}</button>)}</div>
+                          </div>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                           <label className="text-[10px] font-bold text-slate-400">Description ajoutée à chaque vidéo
                             <textarea value={newChannel.youtube_default_description || ''} onChange={e => setNewChannel({ ...newChannel, youtube_default_description: e.target.value.slice(0, 4500) })} placeholder="Présentation permanente, liens, avertissements…" className="mt-1.5 min-h-[82px] w-full rounded-xl border border-[var(--border)] bg-[var(--bg-surface-alt)] px-3 py-2 text-xs text-white placeholder:text-slate-600" />
                           </label>
@@ -12366,28 +12368,7 @@ export default function App() {
                             <label key={field} className="flex items-start gap-2 rounded-xl border border-[var(--border)] bg-[var(--bg-surface-alt)] px-3 py-2.5 text-[10px] text-slate-300 cursor-pointer"><input type="checkbox" checked={newChannel[field] !== false} onChange={e => setNewChannel({ ...newChannel, [field]: e.target.checked })} className="mt-0.5 accent-[#00c2ff]" /><span><strong className="block text-white">{label}</strong><span className="text-[9px] text-slate-500">{help}</span></span></label>
                           ))}
                         </div>
-                        <label className="mt-3 block text-[10px] font-bold text-slate-400">Licence
-                          <select value={newChannel.youtube_license || 'youtube'} onChange={e => setNewChannel({ ...newChannel, youtube_license: e.target.value })} className="mt-1.5 w-full md:w-1/2 rounded-xl border border-[var(--border)] bg-[var(--bg-surface-alt)] px-3 py-2 text-xs text-white"><option value="youtube">Licence YouTube standard</option><option value="creativeCommon">Creative Commons</option></select>
-                        </label>
-                        {newChannel.publish_mode === 'scheduled' && (
-                          <div className="mt-3 space-y-2">
-                            <div>
-                              <label className="block text-[11px] font-bold text-slate-300 mb-1">Combien de jours après le rendu</label>
-                              <select
-                                value={newChannel.publish_schedule_day_offset ?? 1}
-                                onChange={e => setNewChannel({ ...newChannel, publish_schedule_day_offset: parseInt(e.target.value) })}
-                                className="bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-3 py-2 text-xs text-white focus:border-[#00c2ff] outline-none"
-                              >
-                                <option value={0}>Le jour même</option>
-                                <option value={1}>Le lendemain</option>
-                                <option value={2}>Dans 2 jours</option>
-                                <option value={3}>Dans 3 jours</option>
-                              </select>
-                            </div>
-                            {timeControls}
-                            {timezonePicker}
-                          </div>
-                        )}
+                        <div className="mt-3"><span className="block text-[10px] font-bold text-slate-400 mb-1.5">Licence</span><div className="grid grid-cols-2 gap-2 md:w-1/2">{[['youtube','Licence YouTube standard'],['creativeCommon','Creative Commons']].map(([id,label]) => <button key={id} type="button" onClick={() => setNewChannel({ ...newChannel, youtube_license: id })} className={`rounded-xl border px-3 py-2 text-left text-[10px] font-bold transition-colors ${(newChannel.youtube_license || 'youtube') === id ? 'border-[#00c2ff] bg-[#00c2ff]/10 text-[#00c2ff]' : 'border-[var(--border)] bg-[var(--bg-surface-alt)] text-slate-300 hover:border-slate-500'}`}>{label}</button>)}</div></div>
                         {newChannel.publish_mode === 'auto' && (
                           <div className="mt-3 space-y-2">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-2 items-start">
@@ -12397,6 +12378,7 @@ export default function App() {
                             {timezonePicker}
                           </div>
                         )}
+                        </div>
                       </div>
                     </div>
                   );
