@@ -23,7 +23,7 @@ const PRIVACY_SECTIONS = [
           <li><strong>Compte</strong> — nom, adresse email, mot de passe (chiffré), numéro de téléphone si vous le renseignez, photo de profil si vous vous connectez avec Google.</li>
           <li><strong>Contenu que vous fournissez</strong> — scripts texte, fichiers audio importés, images, clips vidéo B-roll, morceaux de musique, et échantillons vocaux pour le clonage de voix (uniquement avec votre confirmation explicite de consentement).</li>
           <li><strong>Contenu généré</strong> — vidéos produites, sous-titres, voix off générées, miniatures, et la configuration de style de chaque chaîne (y compris le mode images, vidéos ou mixte).</li>
-          <li><strong>Connexion à des services tiers</strong> — jetons d'autorisation YouTube, et le cas échéant votre propre clé API Izivoice si vous connectez votre compte personnel plutôt que d'utiliser le moteur vocal partagé.</li>
+          <li><strong>Connexion à des services tiers</strong> — jetons d'autorisation YouTube lorsque vous choisissez de connecter une chaîne.</li>
           <li><strong>Facturation</strong> — l'historique et le statut de vos abonnements. Les informations de paiement (carte, mobile money) sont traitées directement par notre prestataire de paiement ; nous ne les stockons jamais sur nos serveurs.</li>
         </ul>
       </>
@@ -60,13 +60,13 @@ const PRIVACY_SECTIONS = [
         <p>Nous ne vendons aucune donnée. Certaines opérations sont sous-traitées à des prestataires spécialisés, strictement pour exécuter les fonctions ci-dessous :</p>
         <div className="legal-table-wrap">
           <table className="legal-table">
-            <thead><tr><th>Prestataire</th><th>Rôle</th></tr></thead>
+            <thead><tr><th>Catégorie</th><th>Rôle</th></tr></thead>
             <tbody>
-              <tr><td>Anthropic</td><td>Génération des scripts et de la structure éditoriale à partir de vos consignes.</td></tr>
-              <tr><td>Izivoice</td><td>Synthèse et clonage de voix off à partir du texte ou de l'audio fourni.</td></tr>
-              <tr><td>Google / YouTube API</td><td>Publication de vos vidéos sur votre chaîne, avec votre autorisation.</td></tr>
-              <tr><td>Brevo</td><td>Envoi des emails transactionnels (codes de récupération de compte, notifications).</td></tr>
-              <tr><td>Prestataire de paiement</td><td>Traitement des abonnements et des transactions de paiement.</td></tr>
+              <tr><td>Services de traitement IA</td><td>Génération et transformation des scripts, voix off, sous-titres et visuels nécessaires au rendu.</td></tr>
+              <tr><td>Services de stockage et de diffusion</td><td>Conservation temporaire des fichiers importés et des vidéos générées.</td></tr>
+              <tr><td>Services de publication</td><td>Publication sur les plateformes que vous connectez, uniquement avec votre autorisation.</td></tr>
+              <tr><td>Services de communication</td><td>Envoi des emails transactionnels liés au compte et au service.</td></tr>
+              <tr><td>Services de paiement</td><td>Traitement sécurisé des achats et abonnements.</td></tr>
             </tbody>
           </table>
         </div>
