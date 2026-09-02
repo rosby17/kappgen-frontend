@@ -11801,7 +11801,7 @@ export default function App() {
                               <div className="min-w-0">
                                 <div className="flex items-center gap-2">
                                   <span className="material-symbols-outlined text-[18px] text-[#00c2ff]">diversity_3</span>
-                                  <span className="text-sm font-bold text-white">Bibliothèque Communautaire</span>
+                                  <span className="text-sm font-bold text-white">Option C : Bibliothèque Communautaire</span>
                                 </div>
                                 <p className="text-xs text-slate-400 mt-1">
                                   {!nicheSet
