@@ -15843,7 +15843,7 @@ export default function App() {
 
       {publishReviewVideo && (
         <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-[60] flex items-center justify-center p-6">
-          <div className="bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-3xl p-6 max-w-[520px] w-full shadow-2xl space-y-5">
+          <div className="bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-3xl p-6 max-w-[760px] w-full max-h-[calc(100vh-3rem)] overflow-y-auto shadow-2xl space-y-5">
             <div className="flex justify-between items-center">
               <h3 className="text-sm font-bold text-white flex items-center gap-2">
                 <YouTubeIcon className="w-5 h-3.5" /> Publier sur YouTube
@@ -15856,40 +15856,67 @@ export default function App() {
               </button>
             </div>
             <p className="text-xs text-slate-400">
-              L'IA a déjà préparé un titre et une description prêts à publier — relis-les et modifie-les si besoin avant de mettre la vidéo en ligne.
+              KappGen a déjà préparé le titre et la description de cette vidéo. Vérifiez-les et ajustez-les si nécessaire avant publication.
             </p>
 
-            <div className={`rounded-2xl border p-3 ${youtubeComplianceReport?.status === 'green' ? 'border-emerald-500/40 bg-emerald-500/5' : youtubeComplianceReport?.status === 'red' ? 'border-rose-500/40 bg-rose-500/5' : 'border-amber-500/40 bg-amber-500/5'}`}>
+            <div className={`rounded-2xl border p-4 ${youtubeComplianceReport?.score >= 80 ? 'border-emerald-500/40 bg-emerald-500/5' : youtubeComplianceReport?.score >= 60 ? 'border-amber-500/40 bg-amber-500/5' : youtubeComplianceReport ? 'border-rose-500/40 bg-rose-500/5' : 'border-slate-700 bg-slate-900/30'}`}>
               {youtubeComplianceLoading ? (
                 <div className="flex items-center gap-2 text-xs text-slate-300"><span className="material-symbols-outlined animate-spin text-[17px]">progress_activity</span>Contrôle YouTube en cours…</div>
               ) : youtubeComplianceReport ? (
                 <div className="space-y-2.5">
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-2">
-                      <span className={`material-symbols-outlined text-[19px] ${youtubeComplianceReport.status === 'green' ? 'text-emerald-400' : youtubeComplianceReport.status === 'red' ? 'text-rose-400' : 'text-amber-400'}`}>{youtubeComplianceReport.status === 'green' ? 'verified' : youtubeComplianceReport.status === 'red' ? 'block' : 'warning'}</span>
-                      <span className="text-xs font-extrabold text-white">Contrôle YouTube</span>
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2">
+                      <span className={`material-symbols-outlined text-[19px] ${youtubeComplianceReport.score >= 80 ? 'text-emerald-400' : youtubeComplianceReport.score >= 60 ? 'text-amber-400' : 'text-rose-400'}`}>{youtubeComplianceReport.score >= 80 ? 'verified' : youtubeComplianceReport.score >= 60 ? 'info' : 'block'}</span>
+                      <div>
+                        <span className="text-xs font-extrabold text-white">Score de confiance YouTube</span>
+                        <p className="text-[9px] text-slate-500">Conformité estimée au règlement YouTube</p>
+                      </div>
                     </div>
-                    <span className="text-lg font-black text-white">{youtubeComplianceReport.score}/100</span>
+                    <span className={`text-xl font-black ${youtubeComplianceReport.score >= 80 ? 'text-emerald-300' : youtubeComplianceReport.score >= 60 ? 'text-amber-300' : 'text-rose-300'}`}>{youtubeComplianceReport.score}/100</span>
+                    </div>
+                  <div className="rounded-xl border border-white/5 bg-slate-950/25 p-3">
+                    <div className="mb-2 flex items-center justify-between gap-3 text-[10px] font-bold">
+                      <span className={youtubeComplianceReport.score >= 80 ? 'text-emerald-300' : youtubeComplianceReport.score >= 60 ? 'text-amber-300' : 'text-rose-300'}>
+                        {youtubeComplianceReport.score >= 80 ? 'Feu vert · prêt pour la prochaine étape' : youtubeComplianceReport.score >= 60 ? 'À confirmer · quelques points à vérifier' : 'À corriger · publication protégée'}
+                      </span>
+                      <span className="text-slate-500">Objectif : 80</span>
+                    </div>
+                    <div className="h-2 overflow-hidden rounded-full bg-slate-800/90 p-px">
+                      <div
+                        className={`h-full rounded-full transition-all duration-700 ${youtubeComplianceReport.score >= 80 ? 'bg-gradient-to-r from-emerald-500 to-[#72f5ca]' : youtubeComplianceReport.score >= 60 ? 'bg-gradient-to-r from-amber-500 to-yellow-300' : 'bg-gradient-to-r from-rose-600 to-rose-400'}`}
+                        style={{ width: `${Math.max(0, Math.min(100, youtubeComplianceReport.score || 0))}%` }}
+                      />
+                    </div>
                   </div>
-                  <div className="space-y-1">
+                  {youtubeComplianceReport.requires_human_review && youtubeComplianceReport.score >= 80 && (
+                    <div className="inline-flex items-center gap-1.5 rounded-full bg-amber-400/10 px-2 py-1 text-[9px] font-bold text-amber-300">
+                      <span className="material-symbols-outlined text-[13px]">person_search</span>Validation humaine requise
+                    </div>
+                  )}
+                  <div className="grid gap-2 sm:grid-cols-2">
                     {(youtubeComplianceReport.checks || []).map(check => (
-                      <div key={check.code} className="flex items-start gap-1.5 text-[10px] text-slate-300">
-                        <span className={`material-symbols-outlined text-[13px] mt-px ${check.state === 'pass' ? 'text-emerald-400' : check.state === 'fail' ? 'text-rose-400' : 'text-amber-400'}`}>{check.state === 'pass' ? 'check_circle' : check.state === 'fail' ? 'cancel' : 'error'}</span>
-                        <span><strong>{check.label} :</strong> {check.message}</span>
+                      <div key={check.code} className="group relative overflow-hidden rounded-xl border border-white/5 bg-black/15 px-3 py-2.5 text-[10px] text-slate-300 transition-colors hover:border-[#00c2ff]/30">
+                        <div className="flex items-start gap-2.5">
+                          <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-[11px] font-black ${check.state === 'pass' ? 'border-emerald-400/35 bg-emerald-400/10 text-emerald-300' : check.state === 'fail' ? 'border-rose-400/35 bg-rose-400/10 text-rose-300' : 'border-amber-400/35 bg-amber-400/10 text-amber-300'}`}>{check.score ?? (check.state === 'pass' ? 100 : check.state === 'warning' ? 70 : 30)}</span>
+                          <span className="min-w-0 flex-1"><strong className="flex items-center gap-1 text-slate-100"><span className={`material-symbols-outlined text-[13px] ${check.state === 'pass' ? 'text-emerald-400' : check.state === 'fail' ? 'text-rose-400' : 'text-amber-400'}`}>{check.state === 'pass' ? 'check_circle' : check.state === 'fail' ? 'cancel' : 'error'}</span>{check.label}</strong><span className="block mt-0.5 leading-relaxed text-slate-500">{check.message}</span></span>
+                        </div>
+                        <div className="mt-2 h-px overflow-hidden bg-slate-800"><div className={`h-full ${check.state === 'pass' ? 'bg-emerald-400' : check.state === 'fail' ? 'bg-rose-400' : 'bg-amber-400'}`} style={{ width: `${check.score ?? (check.state === 'pass' ? 100 : check.state === 'warning' ? 70 : 30)}%` }} /></div>
                       </div>
                     ))}
                   </div>
                   {youtubeComplianceReport.requires_human_review && (
-                    <label className="flex items-start gap-2 rounded-lg border border-amber-500/25 bg-black/15 p-2 text-[10px] text-amber-100 cursor-pointer">
-                      <input type="checkbox" checked={youtubeComplianceConfirmed} onChange={e => setYoutubeComplianceConfirmed(e.target.checked)} className="mt-0.5 accent-amber-400" />
+                    <label className="flex items-start gap-2 rounded-lg border border-amber-500/25 bg-black/15 p-2.5 text-[10px] text-amber-100 cursor-pointer">
+                      <input type="checkbox" checked={youtubeComplianceConfirmed} onChange={e => setYoutubeComplianceConfirmed(e.target.checked)} className="peer sr-only" />
+                      <span className={`mt-px flex h-4 w-4 shrink-0 items-center justify-center rounded border text-[12px] ${youtubeComplianceConfirmed ? 'border-[#00c2ff] bg-[#00c2ff] text-slate-950' : 'border-amber-300/50 text-transparent'}`}><span className="material-symbols-outlined text-[12px]">check</span></span>
                       J’ai relu la vidéo, vérifié ses affirmations et je confirme la publication.
                     </label>
                   )}
                   {youtubeComplianceReport.status === 'red' && (
                     <div className="space-y-2">
                       <p className="text-[10px] font-bold text-rose-300">Le second filtre bloque la publication. Corrigez la vidéo ou assumez explicitement le risque.</p>
-                      <label className="flex cursor-pointer items-start gap-2 rounded-lg border border-rose-500/30 bg-black/15 p-2 text-[10px] text-rose-100">
-                        <input type="checkbox" checked={youtubeComplianceConfirmed} onChange={e => setYoutubeComplianceConfirmed(e.target.checked)} className="mt-0.5 accent-rose-400" />
+                      <label className="flex cursor-pointer items-start gap-2 rounded-lg border border-rose-500/30 bg-black/15 p-2.5 text-[10px] text-rose-100">
+                        <input type="checkbox" checked={youtubeComplianceConfirmed} onChange={e => setYoutubeComplianceConfirmed(e.target.checked)} className="peer sr-only" />
+                        <span className={`mt-px flex h-4 w-4 shrink-0 items-center justify-center rounded border text-[12px] ${youtubeComplianceConfirmed ? 'border-[#00c2ff] bg-[#00c2ff] text-slate-950' : 'border-rose-300/50 text-transparent'}`}><span className="material-symbols-outlined text-[12px]">check</span></span>
                         Je comprends que cette vidéo peut être refusée ou démonétisée par YouTube et je décide de forcer sa publication.
                       </label>
                     </div>
@@ -15933,7 +15960,7 @@ export default function App() {
               <textarea
                 value={publishDescriptionDraft}
                 onChange={e => setPublishDescriptionDraft(e.target.value)}
-                className="w-full bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-3 py-2.5 text-xs text-white focus:border-[#00c2ff] outline-none min-h-[140px]"
+                className="w-full bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-3 py-2.5 text-xs leading-relaxed text-white focus:border-[#00c2ff] outline-none min-h-[220px]"
                 placeholder="Description de la vidéo..."
               />
             </div>
