@@ -11789,15 +11789,7 @@ export default function App() {
                               isCommunityChecked ? 'border-[#00c2ff] bg-[#00c2ff]/5' : 'border-[var(--border)] bg-[#171b23] hover:border-slate-500'
                             }`}
                           >
-                            <div className="flex items-start gap-3">
-                              <input
-                                type="checkbox"
-                                checked={isCommunityChecked}
-                                disabled={disabled}
-                                onChange={() => { if (!disabled) toggleCommunity(); }}
-                                onClick={(e) => e.stopPropagation()}
-                                className="w-5 h-5 mt-0.5 accent-[#00c2ff] cursor-pointer rounded shrink-0"
-                              />
+                            <div className="flex items-start justify-between gap-3">
                               <div className="min-w-0">
                                 <div className="flex items-center gap-2">
                                   <span className="material-symbols-outlined text-[18px] text-[#00c2ff]">diversity_3</span>
@@ -11811,6 +11803,14 @@ export default function App() {
                                       : `Pas encore de bibliothèque disponible pour la niche « ${nicheSet} » — sois le premier à partager la tienne (case ci-dessus) !`}
                                 </p>
                               </div>
+                              <input
+                                type="checkbox"
+                                checked={isCommunityChecked}
+                                disabled={disabled}
+                                onChange={() => { if (!disabled) toggleCommunity(); }}
+                                onClick={(e) => e.stopPropagation()}
+                                className="kappgen-checkbox shrink-0"
+                              />
                             </div>
                           </div>
                         );
