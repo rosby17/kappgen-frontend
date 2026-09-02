@@ -3215,6 +3215,28 @@ function HourglassSandIcon({ className = '' }) {
   );
 }
 
+// Solid play button used on every video thumbnail — a filled disc
+// (currentColor) with a soft-cornered triangle, not Material Symbols'
+// sharp-pointed play_circle. The triangle is drawn once as a fill, then
+// traced again with a same-color round-joined stroke so its three corners
+// round off instead of coming to a hard point (a plain <path> fill alone
+// can't round its own corners).
+function PlayCircleIcon({ className = '' }) {
+  return (
+    <svg viewBox="0 0 48 48" className={className} xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <circle cx="24" cy="24" r="24" fill="currentColor" />
+      <path
+        d="M20 16.5 L32 24 L20 31.5 Z"
+        fill="#04121a"
+        stroke="#04121a"
+        strokeWidth="4.5"
+        strokeLinejoin="round"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
 function VideoTrustBadge({ video, onClick }) {
   const report = video.youtube_compliance_report;
   const score = report?.score;
@@ -9330,7 +9352,7 @@ export default function App() {
                                     preload="metadata"
                                   />
                                   <div className="absolute inset-0 bg-black/40 group-hover:bg-black/20 transition-colors flex items-center justify-center">
-                                    <span className="material-symbols-outlined text-[48px] text-[#00c2ff] drop-shadow-lg group-hover:scale-110 transition-transform">play_circle</span>
+                                    <PlayCircleIcon className="w-12 h-12 text-[#00c2ff] drop-shadow-lg group-hover:scale-110 transition-transform" />
                                   </div>
                                   {vid.duration_seconds != null && (
                                     <div className="absolute bottom-2 right-2 bg-black/70 text-white text-[10px] font-mono font-bold px-1.5 py-0.5 rounded">
@@ -10038,7 +10060,7 @@ export default function App() {
                                   preload="metadata"
                                 />
                                 <div className="absolute inset-0 bg-black/40 group-hover:bg-black/20 transition-colors flex items-center justify-center">
-                                  <span className="material-symbols-outlined text-[48px] text-[#00c2ff] drop-shadow-lg group-hover:scale-110 transition-transform">play_circle</span>
+                                  <PlayCircleIcon className="w-12 h-12 text-[#00c2ff] drop-shadow-lg group-hover:scale-110 transition-transform" />
                                 </div>
                                 {vid.duration_seconds != null && (
                                   <div className="absolute bottom-2 right-2 bg-black/70 text-white text-[10px] font-mono font-bold px-1.5 py-0.5 rounded">
