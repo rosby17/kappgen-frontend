@@ -2979,7 +2979,40 @@ function DirectHourInput({ value, onChange }) {
       setDraft(format(value));
     }
   };
-  return <div ref={ref} className="relative flex h-10 w-full items-center rounded-xl border border-[var(--border)] bg-[var(--bg-surface-alt)] focus-within:border-[#00c2ff]"><input type="text" inputMode="numeric" value={draft} onFocus={e => e.target.select()} onChange={e => setDraft(e.target.value.slice(0, 5))} onBlur={commit} onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); }} className="h-full min-w-0 flex-1 bg-transparent px-3 text-[11px] font-bold text-white outline-none" aria-label="Heure de publication" /><button type="button" onMouseDown={e => e.preventDefault()} onClick={() => setOpen(v => !v)} className="flex h-full w-9 items-center justify-center text-slate-500 hover:text-[#00c2ff]" aria-label="Choisir une heure"><span className={`material-symbols-outlined text-[16px] transition-transform ${open ? 'rotate-180' : ''}`}>expand_more</span></button>{open && <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-56 overflow-y-auto rounded-xl border border-[var(--border-dropdown)] bg-[var(--bg-dropdown)] p-1 shadow-2xl">{Array.from({ length: 24 }, (_, hour) => <button key={hour} type="button" onMouseDown={e => e.preventDefault()} onClick={() => { onChange(hour); setDraft(format(hour)); setOpen(false); }} className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-[11px] ${hour === value ? 'bg-[#00c2ff]/10 font-bold text-[#00c2ff]' : 'text-slate-300 hover:bg-[var(--bg-hover)]'}`}><span>{format(hour)}</span>{hour === value && <span className="material-symbols-outlined text-[14px]">check</span>}</button>)}</div>}</div>;
+  return (
+    <div ref={ref} className="relative flex h-10 w-full items-center rounded-xl border border-[var(--border)] bg-[var(--bg-surface-alt)] focus-within:border-[#00c2ff]">
+      <input
+        type="text"
+        inputMode="numeric"
+        value={draft}
+        onFocus={e => e.target.select()}
+        onChange={e => setDraft(e.target.value.slice(0, 5))}
+        onBlur={commit}
+        onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); }}
+        className="h-full min-w-0 flex-1 appearance-none border-0 bg-transparent px-3 text-[11px] font-bold text-white shadow-none outline-none ring-0 focus:border-0 focus:outline-none focus:ring-0"
+        aria-label="Heure de publication"
+      />
+      <button
+        type="button"
+        onMouseDown={e => e.preventDefault()}
+        onClick={() => setOpen(v => !v)}
+        className="flex h-full w-9 appearance-none items-center justify-center border-0 bg-transparent text-slate-500 outline-none ring-0 hover:text-[#00c2ff] focus:outline-none focus:ring-0"
+        aria-label="Choisir une heure"
+      >
+        <span className={`material-symbols-outlined text-[16px] transition-transform ${open ? 'rotate-180' : ''}`}>expand_more</span>
+      </button>
+      {open && (
+        <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-56 overflow-y-auto rounded-xl border border-[var(--border-dropdown)] bg-[var(--bg-dropdown)] p-1 shadow-2xl">
+          {Array.from({ length: 24 }, (_, hour) => (
+            <button key={hour} type="button" onMouseDown={e => e.preventDefault()} onClick={() => { onChange(hour); setDraft(format(hour)); setOpen(false); }} className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-[11px] ${hour === value ? 'bg-[#00c2ff]/10 font-bold text-[#00c2ff]' : 'text-slate-300 hover:bg-[var(--bg-hover)]'}`}>
+              <span>{format(hour)}</span>
+              {hour === value && <span className="material-symbols-outlined text-[14px]">check</span>}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function MinuteDropdown({ value, onChange }) {
@@ -3054,50 +3087,69 @@ function ScriptTimeInput({ hour, minute, second, onChange }) {
 // Ordered pipeline steps shown to the creator while a video renders (and, for
 // auto-published channels, while it's uploaded to YouTube afterwards) — turns
 // the raw progress_stage string from the backend into a visual "what's
-// happening right now" strip instead of just a percentage bar.
+// happening right now" strip instead of just a percentage bar. Three distinct
+// paths, one per real starting point a video can have (Video.creation_source):
+// "automatic" (a topic researched by AI), "script" (the creator supplies the
+// text directly, so there's no topic-research step), and "audio" (the
+// creator uploads a pre-recorded voiceover, so there's neither a topic nor a
+// script step). Every path still shows a distinct "Transcription" step right
+// after "Audio" — the backend reports both as one combined progress event
+// ("Génération de la voix et transcription" / "Préparation et transcription
+// de l'audio"), so this is a cosmetic split of that single stage into two
+// visual steps, not two separate backend events; see getActivePipelineStepIndex.
 // Matches the real order in backend/src/pipeline/orchestrator.py's progress()
-// calls: voiceover/transcription always runs first (from the script if typed,
-// or straight from an uploaded audio file — either way it's the audio step,
-// there's no separate "writing the script" stage in the render itself, that
-// already happened before the video was queued), *then* the already-written
+// calls: voiceover/transcription always runs first, *then* the already-written
 // script gets cut into scene-length segments, then visuals, subtitles, scene
 // animation, the voice/music mix, and the final assembly. The scene-cutting
 // step used to be labeled "Script" here, which read as "the script gets
 // written after the audio" — backwards, and confusing, even though the real
-// order was always correct (the script exists before rendering starts at
-// all). Relabeled "Scènes" since that's what this step actually does.
-// The first two steps only apply to auto-generated videos (channel
-// automation writes its own topic + script before the video even exists
-// yet) — a manually-typed script or an uploaded audio file skips straight
-// to "Audio" since there's nothing for these two to show. See
-// generate_and_queue_auto_video in backend/src/worker/queue_runner.py,
-// which now creates the video row at "Recherche du sujet" instead of only
-// once the script is already fully written.
-const PIPELINE_STEPS = [
-  { match: /recherche du sujet/i, floor: 0, label: 'Sujet', icon: 'travel_explore' },
-  { match: /rédaction du script/i, floor: 5, label: 'Script', icon: 'edit_note' },
-  { match: /transcription|voix|reprise/i, floor: 25, label: 'Audio', icon: 'graphic_eq' },
-  { match: /découpage|scènes en/i, floor: 40, label: 'Scènes', icon: 'auto_stories' },
-  { match: /préparation des visuels/i, floor: 48, label: 'Visuels', icon: 'image' },
-  { match: /sous-titres|animation|mixage|montage final/i, floor: 60, label: 'Montage', icon: 'movie' },
-  { match: /assemblage|youtube|miniature|publication/i, floor: 90, label: 'Finalisation', icon: 'movie_edit' },
-];
+const PIPELINE_PATHS = {
+  automatic: [
+    { match: /recherche du sujet/i, floor: 0, label: 'Sujet', icon: 'travel_explore' },
+    { match: /rédaction du script|scénario à corriger/i, floor: 5, label: 'Script', icon: 'edit_note' },
+    { match: /reprise|génération de la voix/i, floor: 20, label: 'Audio', icon: 'graphic_eq' },
+    { match: /transcription/i, floor: 25, label: 'Transcription', icon: 'subtitles' },
+    { match: /découpage|scènes en/i, floor: 40, label: 'Scènes', icon: 'auto_stories' },
+    { match: /préparation des visuels/i, floor: 48, label: 'Visuels', icon: 'image' },
+    { match: /sous-titres|animation|mixage|montage final/i, floor: 60, label: 'Montage', icon: 'movie' },
+    { match: /assemblage|youtube|miniature|publication/i, floor: 90, label: 'Finalisation', icon: 'movie_edit' },
+  ],
+  script: [
+    { match: /contrôle|scénario à corriger|montage forcé/i, floor: 0, label: 'Script', icon: 'edit_note' },
+    { match: /reprise|génération de la voix/i, floor: 15, label: 'Audio', icon: 'graphic_eq' },
+    { match: /transcription/i, floor: 18, label: 'Transcription', icon: 'subtitles' },
+    { match: /découpage|scènes en/i, floor: 35, label: 'Scènes', icon: 'auto_stories' },
+    { match: /préparation des visuels/i, floor: 45, label: 'Visuels', icon: 'image' },
+    { match: /sous-titres|animation|mixage|montage final/i, floor: 60, label: 'Montage', icon: 'movie' },
+    { match: /assemblage|youtube|miniature|publication/i, floor: 90, label: 'Finalisation', icon: 'movie_edit' },
+  ],
+  audio: [
+    { match: /démarrage|reprise|audio|contrôle/i, floor: 0, label: 'Audio', icon: 'audio_file' },
+    { match: /transcription/i, floor: 8, label: 'Transcription', icon: 'subtitles' },
+    { match: /découpage|scènes en/i, floor: 35, label: 'Scènes', icon: 'auto_stories' },
+    { match: /préparation des visuels/i, floor: 45, label: 'Visuels', icon: 'image' },
+    { match: /sous-titres|animation|mixage|montage final/i, floor: 60, label: 'Montage', icon: 'movie' },
+    { match: /assemblage|youtube|miniature|publication/i, floor: 90, label: 'Finalisation', icon: 'movie_edit' },
+  ],
+};
 
-function getActivePipelineStepIndex(stage, percent) {
+function getActivePipelineStepIndex(steps, stage, percent) {
   const stageText = stage || '';
-  const byStage = PIPELINE_STEPS.findIndex(s => s.match.test(stageText));
+  const matches = steps.map((item, index) => item.match.test(stageText) ? index : -1).filter(index => index >= 0);
+  const byStage = matches.length ? matches[matches.length - 1] : -1;
   if (byStage !== -1) return byStage;
   // Fallback purely on percent for stages whose exact wording changes.
   let idx = 0;
-  PIPELINE_STEPS.forEach((s, i) => { if ((percent || 0) >= s.floor) idx = i; });
+  steps.forEach((step, index) => { if ((percent || 0) >= step.floor) idx = index; });
   return idx;
 }
 
-function PipelineStepper({ stage, percent, failed = false }) {
-  const activeIndex = getActivePipelineStepIndex(stage, percent);
+function PipelineStepper({ stage, percent, failed = false, source = 'automatic' }) {
+  const steps = PIPELINE_PATHS[source] || PIPELINE_PATHS.automatic;
+  const activeIndex = getActivePipelineStepIndex(steps, stage, percent);
   return (
-    <div className="grid grid-cols-7 items-start w-full">
-      {PIPELINE_STEPS.map((step, i) => {
+    <div className="grid items-start w-full" style={{ gridTemplateColumns: `repeat(${steps.length}, minmax(0, 1fr))` }}>
+      {steps.map((step, i) => {
         const state = failed && i === activeIndex ? 'failed' : i < activeIndex ? 'done' : i === activeIndex ? 'active' : 'pending';
         return (
           <div key={step.label} className="relative flex flex-col items-center gap-1.5" title={step.label}>
@@ -3778,6 +3830,8 @@ export default function App() {
   // Izivoice STT transcription (for accurate audio-upload subtitles) is billable —
   // default on, but the user can opt out in the final preview to avoid credit cost.
   const [transcribeAudio, setTranscribeAudio] = useState(true);
+  const [audioRightsConfirmed, setAudioRightsConfirmed] = useState(false);
+  const [audioSourceType, setAudioSourceType] = useState('');
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef(null);
 
@@ -5237,6 +5291,8 @@ export default function App() {
     // (style, titles, montage) was already set once at channel creation.
     if (channel.content_type !== 'music' && channel.automation_mode !== 'auto') {
       setActiveChannel(channel);
+      setAudioRightsConfirmed(false);
+      setAudioSourceType('');
       setShowSubmitModal(true);
       return;
     }
@@ -6003,7 +6059,7 @@ export default function App() {
     }
   };
 
-  const handleSubjectSubmit = async () => {
+  const handleSubjectSubmit = async (forceScriptRender = false) => {
     if (!activeChannel) return showToast("Veuillez sélectionner une chaîne.", "error");
     if (!submitVideoTitle.trim()) return showToast("Le titre de la vidéo est obligatoire.", "error");
 
@@ -6012,16 +6068,21 @@ export default function App() {
     formData.append("input_type", submitMode === 'audio_upload' ? 'audio' : 'text');
     formData.append("voice_id", selectedVoice);
     formData.append("title", submitVideoTitle.trim());
+    formData.append("force_script_render", forceScriptRender ? "true" : "false");
 
     if (submitMode === 'text') {
       if (!singleScriptText.trim()) return showToast("Veuillez saisir le texte de votre script.", "error");
       formData.append("script_text", singleScriptText.trim());
     } else if (submitMode === 'audio_upload') {
       if (audioFilesList.length === 0) return showToast("Veuillez glisser-déposer au moins un fichier audio.", "error");
+      if (!audioRightsConfirmed) return showToast("Confirmez que vous possédez les droits sur l’audio et la voix.", "error");
+      if (!audioSourceType) return showToast("Indiquez la provenance de l’audio.", "error");
       audioFilesList.forEach(file => {
         formData.append("audio_files", file);
       });
       formData.append("transcribe_audio", transcribeAudio ? "true" : "false");
+      formData.append("audio_rights_confirmed", audioRightsConfirmed ? "true" : "false");
+      formData.append("audio_source_type", audioSourceType);
     }
 
     try {
@@ -6039,6 +6100,8 @@ export default function App() {
         setSingleScriptText('');
         setSubmitVideoTitle('');
         setAudioFilesList([]);
+        setAudioRightsConfirmed(false);
+        setAudioSourceType('');
         setShowSubmitModal(false);
         fetchChannelVideos(activeChannel.id);
         fetchChannels();
@@ -6048,7 +6111,17 @@ export default function App() {
         showToast("Ta session a expiré — reconnecte-toi puis relance la vidéo.", "error");
       } else {
         const err = await res.json().catch(() => ({}));
-        showToast(err.detail || "Erreur lors de l'envoi.", "error");
+        const detail = err.detail;
+        if (detail?.code === 'script_compliance_blocked' && !forceScriptRender) {
+          setLoading(false);
+          const confirmed = await askConfirm(
+            `${detail.message}\n\nForcer le montage peut produire une vidéo non monétisable. Cette décision sera enregistrée.`,
+            { title: `Scénario bloqué · ${detail.report?.score ?? 0}/100`, danger: true },
+          );
+          if (confirmed) return handleSubjectSubmit(true);
+          return;
+        }
+        showToast((typeof detail === 'string' ? detail : detail?.message) || "Erreur lors de l'envoi.", "error");
       }
     } catch (e) {
       showToast(
@@ -7291,6 +7364,29 @@ export default function App() {
     }
   };
 
+  const handleForceScriptRender = async (vid, e) => {
+    if (e) e.stopPropagation();
+    const confirmed = await askConfirm(
+      `${vid.error_message || 'Le contrôle considère ce contenu insuffisamment original.'}\n\nLe montage peut être non monétisable. La décision sera enregistrée dans le dossier de conformité.`,
+      { title: 'Forcer quand même le montage ?', danger: true },
+    );
+    if (!confirmed) return;
+    try {
+      const res = await authFetch(`${API_BASE}/videos/${vid.id}/script-compliance/override`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ confirm_risk: true }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(typeof body.detail === 'string' ? body.detail : body.detail?.message || 'Impossible de forcer le montage.');
+      showToast('Montage forcé — le risque a été enregistré.', 'success');
+      fetchAllVideos();
+      if (activeChannel) fetchChannelVideos(activeChannel.id);
+    } catch (error) {
+      showToast(error.message, 'error');
+    }
+  };
+
   // One-click escape hatch from a channel-wide outage (e.g. every paid AI
   // provider out of credits at once): automation_mode "auto" hides the
   // manual script/voice form, so a creator stuck behind a SERVICE_UNAVAILABLE
@@ -7446,7 +7542,10 @@ export default function App() {
       const res = await authFetch(`${API_BASE}/videos/${vid.id}/youtube/publish`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ confirm_human_review: youtubeComplianceConfirmed }),
+        body: JSON.stringify({
+          confirm_human_review: youtubeComplianceConfirmed,
+          force_publish: youtubeComplianceReport?.status === 'red' && youtubeComplianceConfirmed,
+        }),
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -7986,6 +8085,8 @@ export default function App() {
       if (channel) setActiveChannel(channel);
       setSubmitMode('audio_upload');
       setAudioFilesList([file]);
+      setAudioRightsConfirmed(false);
+      setAudioSourceType('');
       setSubmitStep(1);
       setShowSubmitModal(true);
     } catch (err) {
@@ -9044,7 +9145,7 @@ export default function App() {
                                 </>
                               ) : vid.status === 'rendering' ? (
                                 <div className="px-4 py-5 text-center w-full max-w-[245px]">
-                                  <PipelineStepper stage={vid.progress_stage} percent={vid.progress_percent} />
+                                  <PipelineStepper stage={vid.progress_stage} percent={vid.progress_percent} source={vid.creation_source || (vid.input_type === 'audio' ? 'audio' : 'script')} />
                                   <div className="mt-4 text-[11px] font-bold text-slate-100 truncate">{vid.progress_stage || 'Rendu en cours…'}</div>
                                   <div className="mt-2.5 h-1 rounded-full bg-slate-800/90 overflow-hidden">
                                     <div className="h-full bg-gradient-to-r from-[#20bff0] to-[#62dcff] transition-all duration-700 rounded-full" style={{ width: `${vid.progress_percent || 2}%` }} />
@@ -9062,12 +9163,12 @@ export default function App() {
                                     {(vid.error_message || 'Erreur inconnue').split('\n')[0]}
                                   </div>
                                   <button
-                                    onClick={(e) => { e.stopPropagation(); handleRetryVideo(vid.id); }}
-                                    title="Relancer la génération"
+                                    onClick={(e) => (vid.youtube_compliance_report?.phase?.endsWith('_preflight') && vid.youtube_compliance_report?.can_render === false && !vid.script_compliance_overridden) ? handleForceScriptRender(vid, e) : (e.stopPropagation(), handleRetryVideo(vid.id))}
+                                    title={(vid.youtube_compliance_report?.phase?.endsWith('_preflight') && vid.youtube_compliance_report?.can_render === false && !vid.script_compliance_overridden) ? 'Forcer le montage à vos risques' : 'Relancer la génération'}
                                     className="mt-0.5 inline-flex items-center justify-center gap-1.5 rounded-lg bg-[#00c2ff] px-4 py-1.5 text-[11px] font-extrabold text-slate-950 shadow-lg shadow-[#00c2ff]/20 transition-all hover:bg-[#32ceff] hover:scale-[1.03] active:scale-95"
                                   >
-                                    <span className="material-symbols-outlined text-[19px]">refresh</span>
-                                    Relancer
+                                    <span className="material-symbols-outlined text-[19px]">{(vid.youtube_compliance_report?.phase?.endsWith('_preflight') && vid.youtube_compliance_report?.can_render === false && !vid.script_compliance_overridden) ? 'warning' : 'refresh'}</span>
+                                    {(vid.youtube_compliance_report?.phase?.endsWith('_preflight') && vid.youtube_compliance_report?.can_render === false && !vid.script_compliance_overridden) ? 'Forcer le montage' : 'Relancer'}
                                   </button>
                                 </div>
                               ) : vid.status === 'done' ? (
@@ -9629,7 +9730,7 @@ export default function App() {
                               </>
                             ) : vid.status === 'rendering' ? (
                               <div className="px-4 py-5 text-center w-full max-w-[245px]">
-                                <PipelineStepper stage={vid.progress_stage} percent={vid.progress_percent} />
+                                <PipelineStepper stage={vid.progress_stage} percent={vid.progress_percent} source={vid.creation_source || (vid.input_type === 'audio' ? 'audio' : 'script')} />
                                 <div className="mt-4 text-[11px] font-bold text-slate-100 truncate">{vid.progress_stage || 'Rendu en cours…'}</div>
                                 <div className="mt-2.5 h-1 rounded-full bg-slate-800/90 overflow-hidden">
                                   <div className="h-full bg-gradient-to-r from-[#20bff0] to-[#62dcff] transition-all duration-700 rounded-full" style={{ width: `${vid.progress_percent || 2}%` }} />
@@ -9647,12 +9748,12 @@ export default function App() {
                                   {(vid.error_message || 'Erreur inconnue').split('\n')[0]}
                                 </div>
                                 <button
-                                  onClick={(e) => { e.stopPropagation(); handleRetryVideo(vid.id); }}
-                                  title="Relancer la génération"
+                                  onClick={(e) => (vid.youtube_compliance_report?.phase?.endsWith('_preflight') && vid.youtube_compliance_report?.can_render === false && !vid.script_compliance_overridden) ? handleForceScriptRender(vid, e) : (e.stopPropagation(), handleRetryVideo(vid.id))}
+                                  title={(vid.youtube_compliance_report?.phase?.endsWith('_preflight') && vid.youtube_compliance_report?.can_render === false && !vid.script_compliance_overridden) ? 'Forcer le montage à vos risques' : 'Relancer la génération'}
                                   className="mt-0.5 inline-flex items-center justify-center gap-1.5 rounded-lg bg-[#00c2ff] px-4 py-1.5 text-[11px] font-extrabold text-slate-950 shadow-lg shadow-[#00c2ff]/20 transition-all hover:bg-[#32ceff] hover:scale-[1.03] active:scale-95"
                                 >
-                                  <span className="material-symbols-outlined text-[19px]">refresh</span>
-                                  Relancer
+                                  <span className="material-symbols-outlined text-[19px]">{(vid.youtube_compliance_report?.phase?.endsWith('_preflight') && vid.youtube_compliance_report?.can_render === false && !vid.script_compliance_overridden) ? 'warning' : 'refresh'}</span>
+                                  {(vid.youtube_compliance_report?.phase?.endsWith('_preflight') && vid.youtube_compliance_report?.can_render === false && !vid.script_compliance_overridden) ? 'Forcer le montage' : 'Relancer'}
                                 </button>
                               </div>
                             ) : vid.status === 'done' ? (
@@ -14963,6 +15064,40 @@ export default function App() {
                       <span className="material-symbols-outlined text-[16px] shrink-0">{transcribeAudio ? 'check_box' : 'check_box_outline_blank'}</span>
                     </button>
                   )}
+                  {submitMode === 'audio_upload' && (
+                    <div className="space-y-2">
+                      <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-input)] p-3">
+                        <p className="mb-2 text-[11px] font-bold text-slate-300">Provenance de l’audio</p>
+                        <div className="grid grid-cols-2 gap-1.5">
+                          {[
+                            ['personal', 'Voix personnelle'],
+                            ['cloned', 'Voix clonée'],
+                            ['licensed', 'Audio sous licence'],
+                            ['third_party', 'Podcast / contenu tiers'],
+                            ['music', 'Musique / extrait'],
+                          ].map(([value, label]) => (
+                            <button key={value} type="button" onClick={() => setAudioSourceType(value)} className={`flex items-center gap-2 rounded-lg border px-2.5 py-2 text-left text-[10px] font-bold transition-colors ${audioSourceType === value ? 'border-[#00c2ff] bg-[#00c2ff]/10 text-[#00c2ff]' : 'border-[var(--border)] text-slate-400 hover:border-slate-500'}`}>
+                              <span className="material-symbols-outlined text-[14px]">{audioSourceType === value ? 'radio_button_checked' : 'radio_button_unchecked'}</span>
+                              {label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setAudioRightsConfirmed(value => !value)}
+                        className={`w-full px-3 py-2.5 rounded-xl text-xs font-bold border transition-colors flex items-start gap-2.5 text-left ${
+                          audioRightsConfirmed
+                            ? 'bg-emerald-950/60 border-emerald-700 text-emerald-400'
+                            : 'bg-[var(--bg-surface-alt)] border-[var(--border)] text-slate-400 hover:border-slate-500'
+                        }`}
+                      >
+                        <span className="material-symbols-outlined text-[17px] shrink-0 mt-0.5">verified_user</span>
+                        <span className="flex-1 leading-relaxed">Je confirme posséder les droits nécessaires sur cet audio et sur la voix enregistrée.</span>
+                        <span className="material-symbols-outlined text-[17px] shrink-0 mt-0.5">{audioRightsConfirmed ? 'check_box' : 'check_box_outline_blank'}</span>
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 <div className="space-y-3">
@@ -15074,6 +15209,8 @@ export default function App() {
                     if (!submitVideoTitle.trim()) return showToast("Le titre de la vidéo est obligatoire.", "error");
                     if (submitMode === 'text' && !singleScriptText.trim()) return showToast("Veuillez saisir le texte de votre script.", "error");
                     if (submitMode === 'audio_upload' && audioFilesList.length === 0) return showToast("Veuillez ajouter au moins un fichier audio.", "error");
+                    if (submitMode === 'audio_upload' && !audioRightsConfirmed) return showToast("Confirmez que vous possédez les droits sur l’audio et la voix.", "error");
+                    if (submitMode === 'audio_upload' && !audioSourceType) return showToast("Indiquez la provenance de l’audio.", "error");
                     setSubmitStep(2);
                   }}
                   className="w-full py-3.5 bg-gradient-to-r from-[#00c2ff] to-[#0088ff] text-slate-950 font-bold text-sm rounded-xl hover:opacity-90 transition-all flex items-center justify-center gap-2 shadow-lg shadow-[#00c2ff]/25"
@@ -15731,7 +15868,15 @@ export default function App() {
                       J’ai relu la vidéo, vérifié ses affirmations et je confirme la publication.
                     </label>
                   )}
-                  {youtubeComplianceReport.status === 'red' && <p className="text-[10px] font-bold text-rose-300">Publication bloquée : corrigez les alertes rouges avant de continuer.</p>}
+                  {youtubeComplianceReport.status === 'red' && (
+                    <div className="space-y-2">
+                      <p className="text-[10px] font-bold text-rose-300">Le second filtre bloque la publication. Corrigez la vidéo ou assumez explicitement le risque.</p>
+                      <label className="flex cursor-pointer items-start gap-2 rounded-lg border border-rose-500/30 bg-black/15 p-2 text-[10px] text-rose-100">
+                        <input type="checkbox" checked={youtubeComplianceConfirmed} onChange={e => setYoutubeComplianceConfirmed(e.target.checked)} className="mt-0.5 accent-rose-400" />
+                        Je comprends que cette vidéo peut être refusée ou démonétisée par YouTube et je décide de forcer sa publication.
+                      </label>
+                    </div>
+                  )}
                   <p className="text-[9px] text-slate-500">{youtubeComplianceReport.disclaimer}</p>
                   <button type="button" onClick={loadYoutubeComplianceDossier} disabled={youtubeComplianceDossierLoading}
                     className="inline-flex items-center gap-1.5 text-[9px] font-bold text-[#00c2ff] hover:underline disabled:opacity-50">
@@ -15786,13 +15931,13 @@ export default function App() {
               </button>
               <button
                 onClick={confirmPublishYouTube}
-                disabled={!!publishingVideoId || !publishTitleDraft.trim() || youtubeComplianceLoading || !youtubeComplianceReport || youtubeComplianceReport.status === 'red' || (youtubeComplianceReport.requires_human_review && !youtubeComplianceConfirmed)}
+                disabled={!!publishingVideoId || !publishTitleDraft.trim() || youtubeComplianceLoading || !youtubeComplianceReport || ((youtubeComplianceReport.status === 'red' || youtubeComplianceReport.requires_human_review) && !youtubeComplianceConfirmed)}
                 className="flex-1 py-2.5 bg-[#00c2ff] text-slate-950 rounded-xl font-bold text-xs hover:bg-[#38d0ff] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
               >
                 {publishingVideoId ? (
                   <><span className="material-symbols-outlined text-[16px] animate-spin">progress_activity</span> Publication…</>
                 ) : (
-                  <><YouTubeIcon className="w-4 h-3" /> Publier</>
+                  <><YouTubeIcon className="w-4 h-3" /> {youtubeComplianceReport?.status === 'red' ? 'Forcer la publication' : 'Publier'}</>
                 )}
               </button>
             </div>
