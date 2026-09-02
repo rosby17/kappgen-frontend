@@ -7587,7 +7587,7 @@ export default function App() {
         if (!serverVoices.length) return;
         const mapped = serverVoices.map(v => ({
           id: v.id, name: v.name, gender: v.gender, desc: 'Voix personnelle clonée', cloned: true,
-          preview_url: v.preview_url ? `${API_BASE}${v.preview_url}` : null,
+          preview_url: v.preview_url ? (String(v.preview_url).startsWith('http') ? v.preview_url : `${API_BASE}${v.preview_url}`) : null,
         }));
         setAvailableVoices(prev => {
           const newOnes = mapped.filter(v => !prev.some(p => p.id === v.id));
