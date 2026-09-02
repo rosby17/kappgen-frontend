@@ -3347,6 +3347,9 @@ export default function App() {
   const [publishingVideoId, setPublishingVideoId] = useState(null);
   const [publishReviewVideo, setPublishReviewVideo] = useState(null);
   const [publishTitleDraft, setPublishTitleDraft] = useState('');
+  const [youtubeComplianceReport, setYoutubeComplianceReport] = useState(null);
+  const [youtubeComplianceLoading, setYoutubeComplianceLoading] = useState(false);
+  const [youtubeComplianceConfirmed, setYoutubeComplianceConfirmed] = useState(false);
   const [publishDescriptionDraft, setPublishDescriptionDraft] = useState('');
   const [videoSelectionMode, setVideoSelectionMode] = useState(false);
   const [selectedVideoIds, setSelectedVideoIds] = useState(new Set());
@@ -7206,7 +7209,7 @@ export default function App() {
     }
   };
 
-  const handlePublishYouTube = (vid, e) => {
+  const handlePublishYouTube = async (vid, e) => {
     if (e) e.stopPropagation();
     setOpenVideoMenuId(null);
     if (vid.youtube_video_id) {
@@ -7219,6 +7222,16 @@ export default function App() {
     setPublishTitleDraft((vid.title || '').slice(0, 100));
     setPublishDescriptionDraft(vid.youtube_description || '');
     setPublishReviewVideo(vid);
+    setYoutubeComplianceReport(null);
+    setYoutubeComplianceConfirmed(false);
+    setYoutubeComplianceLoading(true);
+    try {
+      const res = await authFetch(`${API_BASE}/videos/${vid.id}/youtube/compliance`);
+      const report = await res.json();
+      if (res.ok) setYoutubeComplianceReport(report);
+    } finally {
+      setYoutubeComplianceLoading(false);
+    }
   };
 
   const confirmPublishYouTube = async () => {
@@ -7239,7 +7252,11 @@ export default function App() {
       // right away instead of making the creator sit and wait. Progress from
       // here on shows up on the video card itself (see the youtube_publish
       // progress_stage badge), the same way auto/scheduled publishes do.
-      const res = await authFetch(`${API_BASE}/videos/${vid.id}/youtube/publish`, { method: 'POST' });
+      const res = await authFetch(`${API_BASE}/videos/${vid.id}/youtube/publish`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ confirm_human_review: youtubeComplianceConfirmed }),
+      });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) {
         const detail = body.detail;
@@ -7248,6 +7265,7 @@ export default function App() {
           if (detail.auth_url) window.location.assign(detail.auth_url);
           return;
         }
+        if (detail?.report) setYoutubeComplianceReport(detail.report);
         throw new Error(typeof detail === 'string' ? detail : detail?.message || 'Publication impossible.');
       }
       if (body.status === 'already_published') {
@@ -15432,6 +15450,38 @@ export default function App() {
               L'IA a déjà préparé un titre et une description prêts à publier — relis-les et modifie-les si besoin avant de mettre la vidéo en ligne.
             </p>
 
+            <div className={`rounded-2xl border p-3 ${youtubeComplianceReport?.status === 'green' ? 'border-emerald-500/40 bg-emerald-500/5' : youtubeComplianceReport?.status === 'red' ? 'border-rose-500/40 bg-rose-500/5' : 'border-amber-500/40 bg-amber-500/5'}`}>
+              {youtubeComplianceLoading ? (
+                <div className="flex items-center gap-2 text-xs text-slate-300"><span className="material-symbols-outlined animate-spin text-[17px]">progress_activity</span>Contrôle YouTube en cours…</div>
+              ) : youtubeComplianceReport ? (
+                <div className="space-y-2.5">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      <span className={`material-symbols-outlined text-[19px] ${youtubeComplianceReport.status === 'green' ? 'text-emerald-400' : youtubeComplianceReport.status === 'red' ? 'text-rose-400' : 'text-amber-400'}`}>{youtubeComplianceReport.status === 'green' ? 'verified' : youtubeComplianceReport.status === 'red' ? 'block' : 'warning'}</span>
+                      <span className="text-xs font-extrabold text-white">Contrôle YouTube</span>
+                    </div>
+                    <span className="text-lg font-black text-white">{youtubeComplianceReport.score}/100</span>
+                  </div>
+                  <div className="space-y-1">
+                    {(youtubeComplianceReport.checks || []).map(check => (
+                      <div key={check.code} className="flex items-start gap-1.5 text-[10px] text-slate-300">
+                        <span className={`material-symbols-outlined text-[13px] mt-px ${check.state === 'pass' ? 'text-emerald-400' : check.state === 'fail' ? 'text-rose-400' : 'text-amber-400'}`}>{check.state === 'pass' ? 'check_circle' : check.state === 'fail' ? 'cancel' : 'error'}</span>
+                        <span><strong>{check.label} :</strong> {check.message}</span>
+                      </div>
+                    ))}
+                  </div>
+                  {youtubeComplianceReport.requires_human_review && (
+                    <label className="flex items-start gap-2 rounded-lg border border-amber-500/25 bg-black/15 p-2 text-[10px] text-amber-100 cursor-pointer">
+                      <input type="checkbox" checked={youtubeComplianceConfirmed} onChange={e => setYoutubeComplianceConfirmed(e.target.checked)} className="mt-0.5 accent-amber-400" />
+                      J’ai relu la vidéo, vérifié ses affirmations et je confirme la publication.
+                    </label>
+                  )}
+                  {youtubeComplianceReport.status === 'red' && <p className="text-[10px] font-bold text-rose-300">Publication bloquée : corrigez les alertes rouges avant de continuer.</p>}
+                  <p className="text-[9px] text-slate-500">{youtubeComplianceReport.disclaimer}</p>
+                </div>
+              ) : <p className="text-[10px] text-slate-500">Le rapport n’a pas pu être chargé.</p>}
+            </div>
+
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <label className="text-xs font-bold text-slate-300">Titre YouTube</label>
@@ -15466,7 +15516,7 @@ export default function App() {
               </button>
               <button
                 onClick={confirmPublishYouTube}
-                disabled={!!publishingVideoId || !publishTitleDraft.trim()}
+                disabled={!!publishingVideoId || !publishTitleDraft.trim() || youtubeComplianceLoading || !youtubeComplianceReport || youtubeComplianceReport.status === 'red' || (youtubeComplianceReport.requires_human_review && !youtubeComplianceConfirmed)}
                 className="flex-1 py-2.5 bg-[#00c2ff] text-slate-950 rounded-xl font-bold text-xs hover:bg-[#38d0ff] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
               >
                 {publishingVideoId ? (
