@@ -9406,19 +9406,22 @@ export default function App() {
                                 </div>
                               ) : vid.status === 'failed' ? (
                                 <div className="w-full h-full px-4 py-3 text-center flex flex-col items-center justify-center gap-1.5">
-                                  <span className="material-symbols-outlined text-[38px] leading-none text-rose-400">replay</span>
-                                  <div className="text-[11px] font-extrabold text-rose-300">Échec</div>
+                                  {(() => {
+                                    const mustForce = vid.youtube_compliance_report?.phase?.endsWith('_preflight') && vid.youtube_compliance_report?.can_render === false && !vid.script_compliance_overridden;
+                                    return (
+                                      <button
+                                        onClick={(e) => mustForce ? handleForceScriptRender(vid, e) : (e.stopPropagation(), handleRetryVideo(vid.id))}
+                                        title={mustForce ? 'Forcer le montage à vos risques' : 'Relancer la génération'}
+                                        className="group/retry flex flex-col items-center gap-1.5"
+                                      >
+                                        <span className="material-symbols-outlined text-[38px] leading-none text-rose-400 group-hover/retry:text-[#00c2ff] group-hover/retry:rotate-[-25deg] transition-all">{mustForce ? 'warning' : 'replay'}</span>
+                                        <div className="text-[11px] font-extrabold text-rose-300 group-hover/retry:text-[#00c2ff] transition-colors">{mustForce ? 'Forcer le montage' : 'Échec — relancer'}</div>
+                                      </button>
+                                    );
+                                  })()}
                                   <div className="max-w-full text-[9px] leading-relaxed text-rose-300/80 line-clamp-2" title={vid.error_message || ''}>
                                     {(vid.error_message || 'Erreur inconnue').split('\n')[0]}
                                   </div>
-                                  <button
-                                    onClick={(e) => (vid.youtube_compliance_report?.phase?.endsWith('_preflight') && vid.youtube_compliance_report?.can_render === false && !vid.script_compliance_overridden) ? handleForceScriptRender(vid, e) : (e.stopPropagation(), handleRetryVideo(vid.id))}
-                                    title={(vid.youtube_compliance_report?.phase?.endsWith('_preflight') && vid.youtube_compliance_report?.can_render === false && !vid.script_compliance_overridden) ? 'Forcer le montage à vos risques' : 'Relancer la génération'}
-                                    className="mt-0.5 inline-flex items-center justify-center gap-1.5 rounded-lg bg-[#00c2ff] px-4 py-1.5 text-[11px] font-extrabold text-slate-950 shadow-lg shadow-[#00c2ff]/20 transition-all hover:bg-[#32ceff] hover:scale-[1.03] active:scale-95"
-                                  >
-                                    <span className="material-symbols-outlined text-[19px]">{(vid.youtube_compliance_report?.phase?.endsWith('_preflight') && vid.youtube_compliance_report?.can_render === false && !vid.script_compliance_overridden) ? 'warning' : 'refresh'}</span>
-                                    {(vid.youtube_compliance_report?.phase?.endsWith('_preflight') && vid.youtube_compliance_report?.can_render === false && !vid.script_compliance_overridden) ? 'Forcer le montage' : 'Relancer'}
-                                  </button>
                                 </div>
                               ) : vid.status === 'done' ? (
                                 <div className="p-4 text-center space-y-2">
@@ -10103,19 +10106,22 @@ export default function App() {
                               </div>
                             ) : vid.status === 'failed' ? (
                               <div className="w-full h-full px-4 py-3 text-center flex flex-col items-center justify-center gap-1.5">
-                                <span className="material-symbols-outlined text-[38px] leading-none text-rose-400">replay</span>
-                                <div className="text-[11px] font-extrabold text-rose-300">Échec</div>
+                                {(() => {
+                                  const mustForce = vid.youtube_compliance_report?.phase?.endsWith('_preflight') && vid.youtube_compliance_report?.can_render === false && !vid.script_compliance_overridden;
+                                  return (
+                                    <button
+                                      onClick={(e) => mustForce ? handleForceScriptRender(vid, e) : (e.stopPropagation(), handleRetryVideo(vid.id))}
+                                      title={mustForce ? 'Forcer le montage à vos risques' : 'Relancer la génération'}
+                                      className="group/retry flex flex-col items-center gap-1.5"
+                                    >
+                                      <span className="material-symbols-outlined text-[38px] leading-none text-rose-400 group-hover/retry:text-[#00c2ff] group-hover/retry:rotate-[-25deg] transition-all">{mustForce ? 'warning' : 'replay'}</span>
+                                      <div className="text-[11px] font-extrabold text-rose-300 group-hover/retry:text-[#00c2ff] transition-colors">{mustForce ? 'Forcer le montage' : 'Échec — relancer'}</div>
+                                    </button>
+                                  );
+                                })()}
                                 <div className="max-w-full text-[9px] leading-relaxed text-rose-300/80 line-clamp-2" title={vid.error_message || ''}>
                                   {(vid.error_message || 'Erreur inconnue').split('\n')[0]}
                                 </div>
-                                <button
-                                  onClick={(e) => (vid.youtube_compliance_report?.phase?.endsWith('_preflight') && vid.youtube_compliance_report?.can_render === false && !vid.script_compliance_overridden) ? handleForceScriptRender(vid, e) : (e.stopPropagation(), handleRetryVideo(vid.id))}
-                                  title={(vid.youtube_compliance_report?.phase?.endsWith('_preflight') && vid.youtube_compliance_report?.can_render === false && !vid.script_compliance_overridden) ? 'Forcer le montage à vos risques' : 'Relancer la génération'}
-                                  className="mt-0.5 inline-flex items-center justify-center gap-1.5 rounded-lg bg-[#00c2ff] px-4 py-1.5 text-[11px] font-extrabold text-slate-950 shadow-lg shadow-[#00c2ff]/20 transition-all hover:bg-[#32ceff] hover:scale-[1.03] active:scale-95"
-                                >
-                                  <span className="material-symbols-outlined text-[19px]">{(vid.youtube_compliance_report?.phase?.endsWith('_preflight') && vid.youtube_compliance_report?.can_render === false && !vid.script_compliance_overridden) ? 'warning' : 'refresh'}</span>
-                                  {(vid.youtube_compliance_report?.phase?.endsWith('_preflight') && vid.youtube_compliance_report?.can_render === false && !vid.script_compliance_overridden) ? 'Forcer le montage' : 'Relancer'}
-                                </button>
                               </div>
                             ) : vid.status === 'done' ? (
                               <div className="p-4 text-center space-y-2">
