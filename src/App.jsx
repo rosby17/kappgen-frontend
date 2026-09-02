@@ -9192,7 +9192,50 @@ export default function App() {
 
             {/* VIEW 3: MES VIDÉOS (Videos Library View) */}
             {view === 'videos' && (
-              <section className="space-y-6">
+              <div className="flex items-start gap-2">
+                {/* Folder rail as its own column, glued right next to the main
+                    sidebar — moved out here (rather than sitting between the
+                    title and the grid) specifically so it never pushes the
+                    title and the video grid out of alignment with each other;
+                    both now share the same left edge no matter the rail's
+                    width or collapsed state. */}
+                <aside className={`flex-shrink-0 space-y-1 transition-[width] duration-200 ${folderSidebarCollapsed ? 'w-10' : 'w-36'}`}>
+                  <button
+                    onClick={toggleFolderSidebarCollapsed}
+                    title={folderSidebarCollapsed ? 'Agrandir les dossiers' : 'Réduire les dossiers'}
+                    className={`w-full flex items-center py-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-[var(--bg-hover)] transition-colors mb-1 ${folderSidebarCollapsed ? 'justify-center' : 'justify-end px-1'}`}
+                  >
+                    <span className="material-symbols-outlined text-[16px]">{folderSidebarCollapsed ? 'dock_to_right' : 'dock_to_left'}</span>
+                  </button>
+                  <button
+                    onClick={() => { setCurrentFolderId(null); setVideoFilterFolderId('all'); }}
+                    onDragOver={(e) => { if (draggedVideoId) { e.preventDefault(); setDragOverFolderId('all'); } }}
+                    onDragLeave={() => setDragOverFolderId(id => id === 'all' ? null : id)}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      setDragOverFolderId(null);
+                      const videoId = draggedVideoId || e.dataTransfer.getData('text/plain');
+                      setDraggedVideoId(null);
+                      if (videoId) moveVideoToFolder(videoId, null);
+                    }}
+                    title={`Toutes (${allVideos.filter(v => productChannelIds.has(v.channel_id)).length})`}
+                    className={`w-full text-left py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${folderSidebarCollapsed ? 'px-0 justify-center' : 'px-2'} ${
+                      videoFilterFolderId === 'all' ? 'bg-[#00c2ff] text-slate-950' : 'text-slate-300 hover:text-white hover:bg-[var(--bg-hover)]'
+                    } ${dragOverFolderId === 'all' ? 'ring-2 ring-[#00c2ff] ring-offset-1 ring-offset-[var(--bg-page)]' : ''}`}
+                  >
+                    <span className="material-symbols-outlined text-[15px]">apps</span> {!folderSidebarCollapsed && `Toutes (${allVideos.filter(v => productChannelIds.has(v.channel_id)).length})`}
+                  </button>
+                  {renderFolderTree(null, 0)}
+                  <button
+                    onClick={() => setShowNewFolderModal(true)}
+                    title="Nouveau dossier"
+                    className={`w-full text-left py-1.5 rounded-lg text-xs font-bold text-[#00c2ff] hover:bg-[#00c2ff]/10 border border-dashed border-[#00c2ff]/40 flex items-center gap-1.5 transition-all ${folderSidebarCollapsed ? 'px-0 justify-center' : 'px-2'}`}
+                  >
+                    <span className="material-symbols-outlined text-[15px]">create_new_folder</span> {!folderSidebarCollapsed && 'Nouveau dossier'}
+                  </button>
+                </aside>
+
+                <section className="flex-1 min-w-0 space-y-6">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                   <div>
                     <h2 className="text-xl font-extrabold text-white">Mes Vidéos</h2>
@@ -9270,45 +9313,6 @@ export default function App() {
                     </button>
                   </div>
                 </div>
-
-                <div className={`flex items-start transition-[gap] duration-200 ${folderSidebarCollapsed ? 'gap-1' : 'gap-4'}`}>
-                <aside className={`flex-shrink-0 space-y-1 transition-[width] duration-200 ${folderSidebarCollapsed ? 'w-10' : 'w-36'}`}>
-                  <button
-                    onClick={toggleFolderSidebarCollapsed}
-                    title={folderSidebarCollapsed ? 'Agrandir les dossiers' : 'Réduire les dossiers'}
-                    className={`w-full flex items-center py-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-[var(--bg-hover)] transition-colors mb-1 ${folderSidebarCollapsed ? 'justify-center' : 'justify-end px-1'}`}
-                  >
-                    <span className="material-symbols-outlined text-[16px]">{folderSidebarCollapsed ? 'dock_to_right' : 'dock_to_left'}</span>
-                  </button>
-                  <button
-                    onClick={() => { setCurrentFolderId(null); setVideoFilterFolderId('all'); }}
-                    onDragOver={(e) => { if (draggedVideoId) { e.preventDefault(); setDragOverFolderId('all'); } }}
-                    onDragLeave={() => setDragOverFolderId(id => id === 'all' ? null : id)}
-                    onDrop={(e) => {
-                      e.preventDefault();
-                      setDragOverFolderId(null);
-                      const videoId = draggedVideoId || e.dataTransfer.getData('text/plain');
-                      setDraggedVideoId(null);
-                      if (videoId) moveVideoToFolder(videoId, null);
-                    }}
-                    title={`Toutes (${allVideos.filter(v => productChannelIds.has(v.channel_id)).length})`}
-                    className={`w-full text-left py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${folderSidebarCollapsed ? 'px-0 justify-center' : 'px-2'} ${
-                      videoFilterFolderId === 'all' ? 'bg-[#00c2ff] text-slate-950' : 'text-slate-300 hover:text-white hover:bg-[var(--bg-hover)]'
-                    } ${dragOverFolderId === 'all' ? 'ring-2 ring-[#00c2ff] ring-offset-1 ring-offset-[var(--bg-page)]' : ''}`}
-                  >
-                    <span className="material-symbols-outlined text-[15px]">apps</span> {!folderSidebarCollapsed && `Toutes (${allVideos.filter(v => productChannelIds.has(v.channel_id)).length})`}
-                  </button>
-                  {renderFolderTree(null, 0)}
-                  <button
-                    onClick={() => setShowNewFolderModal(true)}
-                    title="Nouveau dossier"
-                    className={`w-full text-left py-1.5 rounded-lg text-xs font-bold text-[#00c2ff] hover:bg-[#00c2ff]/10 border border-dashed border-[#00c2ff]/40 flex items-center gap-1.5 transition-all ${folderSidebarCollapsed ? 'px-0 justify-center' : 'px-2'}`}
-                  >
-                    <span className="material-symbols-outlined text-[15px]">create_new_folder</span> {!folderSidebarCollapsed && 'Nouveau dossier'}
-                  </button>
-                </aside>
-
-                <div className="flex-1 min-w-0 space-y-6">
 
                 {videoSelectionMode && (
                   <div className="sticky top-0 z-10 bg-[#0f1621] border border-[#00c2ff]/30 rounded-xl px-4 py-2.5 flex items-center justify-between gap-3 shadow-lg">
@@ -9650,9 +9654,8 @@ export default function App() {
                   </div>
                 )}
 
-                </div>
-                </div>
               </section>
+              </div>
             )}
 
             {/* VIEW 3.5: BIBLIOTHÈQUE (uploaded images + music per channel, with delete) */}
