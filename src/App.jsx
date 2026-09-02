@@ -7565,31 +7565,24 @@ export default function App() {
     }
   };
 
-  // Direct switch, always visible on the channel page — no need to go
-  // through the edit wizard (and its own "Enregistrer" step) just to flip
-  // whether KappGen writes the script/topic itself ("auto") or waits for a
-  // manual submission ("manual") each time. A PUT with only this one field
-  // is enough (the backend applies it as a partial update), so it takes
-  // effect immediately and can never silently fail to save the way a
-  // multi-step wizard edit that isn't fully submitted can.
-  const [togglingAutomationId, setTogglingAutomationId] = useState(null);
-  const handleToggleChannelAutomation = async (channel) => {
-    const nextMode = channel.automation_mode === 'auto' ? 'manual' : 'auto';
-    setTogglingAutomationId(channel.id);
+  // One-click escape hatch from a channel-wide outage (e.g. every paid AI
+  // provider out of credits at once): automation_mode "auto" hides the
+  // manual script/voice form, so a creator stuck behind a SERVICE_UNAVAILABLE
+  // failure has no way to keep producing videos by hand until this flips
+  // them back to "manual" — never leaves them fully blocked on our own outage.
+  const handleDisableChannelAutomation = async (channelId) => {
     try {
-      const res = await authFetch(`${API_BASE}/channels/${channel.id}`, {
+      const res = await authFetch(`${API_BASE}/channels/${channelId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ automation_mode: nextMode }),
+        body: JSON.stringify({ automation_mode: 'manual' }),
       });
-      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || 'Échec de la mise à jour.');
-      showToast(nextMode === 'auto' ? 'Écriture automatique activée.' : 'Écriture automatique désactivée — tu soumets toi-même chaque vidéo.', 'success');
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || 'Échec de la désactivation.');
+      showToast("Automatisation désactivée — tu peux maintenant soumettre une vidéo manuellement.", 'success');
       fetchChannels();
-      if (activeChannel?.id === channel.id) setActiveChannel(prev => prev ? { ...prev, automation_mode: nextMode } : prev);
+      if (activeChannel?.id === channelId) setActiveChannel(prev => prev ? { ...prev, automation_mode: 'manual' } : prev);
     } catch (e) {
       showToast(e.message, 'error');
-    } finally {
-      setTogglingAutomationId(null);
     }
   };
 
@@ -9798,17 +9791,6 @@ export default function App() {
                           Connecter YouTube
                         </button>
                       )}
-                      <button
-                        onClick={async (e) => { e.stopPropagation(); await handleToggleChannelAutomation(activeChannel); }}
-                        disabled={togglingAutomationId === activeChannel.id}
-                        title={activeChannel.automation_mode === 'auto' ? "Désactiver l'écriture automatique du script — tu soumettras chaque vidéo toi-même" : "Activer l'écriture automatique du script — KappGen choisit le sujet et écrit le script seul"}
-                        className="inline-flex items-center gap-2 mt-2.5 px-2.5 py-1 rounded-full text-[9px] font-bold uppercase tracking-[.1em] bg-slate-800/80 text-[#cbd5e1] border border-slate-700/60 hover:bg-slate-700/80 hover:text-[#f1f5f9] transition-colors disabled:opacity-50"
-                      >
-                        <span className={`relative w-7 h-4 rounded-full shrink-0 transition-colors ${activeChannel.automation_mode === 'auto' ? 'bg-[#00c2ff]' : 'bg-slate-600'}`}>
-                          <span className={`absolute top-0.5 left-0.5 w-3 h-3 rounded-full bg-white transition-transform ${activeChannel.automation_mode === 'auto' ? 'translate-x-3' : ''}`} />
-                        </span>
-                        {togglingAutomationId === activeChannel.id ? 'Mise à jour…' : `Script auto ${activeChannel.automation_mode === 'auto' ? 'activé' : 'désactivé'}`}
-                      </button>
                     </div>
                   </div>
                   {/* Mobile/tablet copy — same row as the channel name, icon-only.
