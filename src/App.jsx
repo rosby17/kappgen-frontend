@@ -6544,6 +6544,7 @@ export default function App() {
   const [adminVideos, setAdminVideos] = useState([]);
   const [adminVideosLoading, setAdminVideosLoading] = useState(false);
   const [adminVideosViewMode, setAdminVideosViewMode] = useState('list'); // 'list' | 'grid'
+  const [adminVideoMenuId, setAdminVideoMenuId] = useState(null);
   const [adminLibraryFolders, setAdminLibraryFolders] = useState([]);
   const [adminLibraryNamePattern, setAdminLibraryNamePattern] = useState('');
   const [editingLibraryLabelChannelId, setEditingLibraryLabelChannelId] = useState(null);
@@ -7174,6 +7175,23 @@ export default function App() {
       showToast(err.message, 'error');
     }
   };
+
+  // Keep the admin list actions identical to the creator video menu. Actions
+  // that need the full editor/modal open the same existing UI, while the
+  // admin-specific detail/retry/delete handlers remain available here too.
+  const renderAdminVideoMenu = (vid) => (
+    <div className="absolute right-0 top-full z-40 mt-1 w-52 rounded-xl border border-[var(--border-dropdown)] bg-[var(--bg-dropdown)] py-1.5 text-left shadow-2xl">
+      <button onClick={(e) => { e.stopPropagation(); setAdminVideoMenuId(null); openRenameModal(vid, e); }} className="w-full px-3 py-2 text-left text-xs font-medium text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2"><span className="material-symbols-outlined text-[15px] text-[#00c2ff]">drive_file_rename_outline</span>Renommer</button>
+      <button onClick={(e) => { e.stopPropagation(); setAdminVideoMenuId(null); openThumbnailModal(vid, e); }} className="w-full px-3 py-2 text-left text-xs font-medium text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2"><span className="material-symbols-outlined text-[15px] text-[#00c2ff]">photo_camera</span>Voir la miniature</button>
+      <button onClick={(e) => { e.stopPropagation(); setAdminVideoMenuId(null); openAdminVideoDetail(vid.id); }} className="w-full px-3 py-2 text-left text-xs font-medium text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2"><span className="material-symbols-outlined text-[15px] text-[#00c2ff]">movie_edit</span>Éditer la vidéo</button>
+      <button onClick={(e) => handleDownloadVideo(vid, e)} disabled={!vid.output_path} className="w-full px-3 py-2 text-left text-xs font-medium text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 disabled:opacity-40"><span className="material-symbols-outlined text-[15px] text-[#00c2ff]">download</span>Télécharger</button>
+      <button onClick={(e) => openRetentionModal(vid, e)} className="w-full px-3 py-2 text-left text-xs font-medium text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2"><span className="material-symbols-outlined text-[15px] text-[#00c2ff]">schedule</span>Conserver plus longtemps</button>
+      <button onClick={(e) => handlePublishYouTube(vid, e)} disabled={vid.status !== 'done'} className="w-full px-3 py-2 text-left text-xs font-medium text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 disabled:opacity-40"><span className="material-symbols-outlined text-[15px] text-[#00c2ff]">smart_display</span>{vid.youtube_video_id ? 'Voir sur YouTube' : 'Publier sur YouTube'}</button>
+      <button onClick={(e) => { e.stopPropagation(); setAdminVideoMenuId(null); setMovingVideoId(vid.id); }} className="w-full px-3 py-2 text-left text-xs font-medium text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2"><span className="material-symbols-outlined text-[15px] text-[#00c2ff]">drive_file_move</span>Déplacer vers…</button>
+      <div className="my-1 h-px bg-[var(--border-dropdown)]" />
+      <button onClick={(e) => { e.stopPropagation(); setAdminVideoMenuId(null); deleteAdminVideo(vid.id); }} className="w-full px-3 py-2 text-left text-xs font-medium text-rose-400 hover:bg-rose-950/50 flex items-center gap-2"><span className="material-symbols-outlined text-[15px]">delete</span>Supprimer</button>
+    </div>
+  );
 
   const fetchAdminOrders = async () => {
     setAdminOrdersLoading(true);
@@ -14345,7 +14363,7 @@ export default function App() {
                   ) : (
                     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
                       {adminVideos.map(v => (
-                        <div key={v.id} className="bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-2xl overflow-hidden">
+                        <div key={v.id} className="relative bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-2xl overflow-visible">
                           <button
                             onClick={() => openAdminVideoDetail(v.id)}
                             className="block w-full aspect-video bg-slate-950 relative group"
@@ -14399,7 +14417,10 @@ export default function App() {
                             </div>
                             <div className="flex items-center justify-between text-[10px] text-slate-500">
                               <span>{v.created_at ? new Date(v.created_at).toLocaleDateString('fr-FR') : '—'}</span>
-                              <button onClick={() => deleteAdminVideo(v.id)} className="text-rose-400 font-bold hover:underline">Supprimer</button>
+                              <div className="relative">
+                                <button onClick={(e) => { e.stopPropagation(); setAdminVideoMenuId(adminVideoMenuId === v.id ? null : v.id); }} className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-[var(--bg-hover)] hover:text-white" title="Actions vidéo"><span className="material-symbols-outlined text-[18px]">more_vert</span></button>
+                                {adminVideoMenuId === v.id && renderAdminVideoMenu(v)}
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -14476,7 +14497,10 @@ export default function App() {
                         </td>
                         <td className="px-4 py-2.5 text-slate-400">{v.created_at ? new Date(v.created_at).toLocaleDateString('fr-FR') : '—'}</td>
                         <td className="px-4 py-2.5 text-right">
-                          <button onClick={event => { event.stopPropagation(); deleteAdminVideo(v.id); }} className="text-rose-400 font-bold hover:underline">Supprimer</button>
+                          <div className="relative inline-block">
+                            <button onClick={event => { event.stopPropagation(); setAdminVideoMenuId(adminVideoMenuId === v.id ? null : v.id); }} className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-[var(--bg-hover)] hover:text-white" title="Actions vidéo"><span className="material-symbols-outlined text-[18px]">more_vert</span></button>
+                            {adminVideoMenuId === v.id && renderAdminVideoMenu(v)}
+                          </div>
                         </td>
                       </tr>
                     ))}
