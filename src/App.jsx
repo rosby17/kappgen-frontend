@@ -10673,18 +10673,25 @@ export default function App() {
                 {/* STEP 2: GÉNÉRATION DU SCRIPT */}
                 {wizardStep === 2 && (
                   <div className="space-y-6">
-                    <div>
+                    <div className="flex items-center justify-between">
                       <h3 className="text-base font-bold text-white">2. Génération du Script</h3>
-                      {wizardMode === 'edit' ? (
-                        <p className="text-xs text-slate-400 mt-1">
-                          Mode actuel : <strong className="text-white">{(newChannel.automation_mode || 'manual') === 'auto' ? 'Automatique' : 'Manuel'}</strong> — {(newChannel.automation_mode || 'manual') === 'auto' ? "KappGen AI choisit le sujet et écrit le script pour toi." : 'Tu écris ou colles le script toi-même à chaque vidéo.'} Pour changer de mode, utilise l'interrupteur sur la page de la chaîne (pas ici).
-                        </p>
-                      ) : (
-                        <p className="text-xs text-slate-400 mt-1">
-                          La chaîne démarre en mode manuel (tu écris ou colles le script toi-même). Tu pourras activer l'écriture automatique après coup, depuis la page de la chaîne.
-                        </p>
-                      )}
+                      <label className="inline-flex items-center gap-2 cursor-pointer select-none">
+                        <span className="text-[11px] font-bold text-slate-400">Manuel</span>
+                        <button
+                          type="button"
+                          onClick={() => setNewChannel({ ...newChannel, automation_mode: (newChannel.automation_mode || 'manual') === 'auto' ? 'manual' : 'auto' })}
+                          className={`relative w-9 h-5 rounded-full overflow-hidden transition-colors ${(newChannel.automation_mode || 'manual') === 'auto' ? 'bg-[#00c2ff]' : 'bg-[var(--border)]'}`}
+                        >
+                          <span className={`absolute left-0.5 top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${(newChannel.automation_mode || 'manual') === 'auto' ? 'translate-x-4' : 'translate-x-0'}`} />
+                        </button>
+                        <span className="text-[11px] font-bold text-slate-400">Automatique</span>
+                      </label>
                     </div>
+                    <p className="text-xs text-slate-400 -mt-4">
+                      {(newChannel.automation_mode || 'manual') === 'auto'
+                        ? "KappGen AI choisit le sujet et écrit le script pour toi."
+                        : 'Tu écris ou colles le script toi-même à chaque vidéo.'}
+                    </p>
 
                     {newChannel.automation_mode === 'auto' && !hasActiveSubscription
                       && (currentUser?.free_video_quota_granted - currentUser?.free_videos_used <= 0)
