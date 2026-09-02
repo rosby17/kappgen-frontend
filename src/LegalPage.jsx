@@ -76,7 +76,7 @@ const PRIVACY_SECTIONS = [
   },
   {
     id: 'conservation', title: 'Durée de conservation', body: (
-      <p>Vos vidéos finales et les fichiers sources associés (voix off, images, clips vidéo B-roll, sous-titres et configuration au moment du rendu) sont conservés tant que votre compte est actif, afin que vous puissiez télécharger ou modifier une vidéo. Si vous supprimez votre compte, vos données sont effacées sous 30 jours, sauf obligation légale de conservation plus longue (facturation notamment).</p>
+      <p>Vos vidéos finales et les fichiers sources associés (voix off, images, clips vidéo B-roll, sous-titres et configuration au moment du rendu) sont conservés pendant 48 heures après la fin du rendu ou leur mise à disposition, afin que vous puissiez les télécharger ou les modifier. Passé ce délai, les fichiers de production sont automatiquement supprimés. Les données strictement nécessaires à la gestion du compte ou à la facturation peuvent être conservées plus longtemps lorsque la loi l'exige. Cette durée pourra évoluer avec le service ; toute modification substantielle sera signalée dans une mise à jour de cette politique.</p>
     )
   },
   {
