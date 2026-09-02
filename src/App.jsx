@@ -647,7 +647,7 @@ const NICHE_OPTIONS = [
   "Philosophie", "Philosophie Stoïcienne", "Philosophie de Machiavel", "Philosophie de Napoleon Hill",
   "Prière", "Bouddhisme", "Islam", "Méditation", "Motivation", "Développement Personnel",
   "Psychologie de Carl Jung", "Astuces Maison", "Business", "Cuisine", "Finance", "Faits Divers",
-  "Football", "Histoire Africaine", "Histoire Européenne", "Santé & Bien-être", "Science", "Astronomie & Espace",
+  "Football", "Géopolitique", "Histoire Africaine", "Histoire Européenne", "Santé & Bien-être", "Science", "Astronomie & Espace",
 ];
 
 // Every family below is actually installed on the render server (see
