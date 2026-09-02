@@ -221,7 +221,7 @@ export default function LandingPage() {
             <h4>Ressources</h4>
             <a href="#faq">FAQ</a>
             <a href={API_DOCS_URL} target="_blank" rel="noopener">Doc API</a>
-            <a href="mailto:contact@kappgen.com">Contact</a>
+            <a href="/contact">Contact</a>
           </div>
           <div className="footer-col">
             <h4>Légal</h4>

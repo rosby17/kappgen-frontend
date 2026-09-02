@@ -6,6 +6,7 @@ import './index.css'
 import App from './App.jsx'
 import LandingPage from './LandingPage.jsx'
 import LegalPage from './LegalPage.jsx'
+import ContactPage from './ContactPage.jsx'
 
 // Self-hosted GlitchTip (Sentry-protocol-compatible) — no-ops entirely if
 // unset, so this is safe in any environment (local dev included).
@@ -33,6 +34,7 @@ const appSurface = isAppHostname || isLocalAppPath
 // marketing domain even though the app also has its own routing elsewhere.
 const path = window.location.pathname.replace(/\/+$/, '') || '/'
 const legalType = !appSurface && path === '/privacy' ? 'privacy' : !appSurface && path === '/terms' ? 'terms' : null
+const isContactPage = !appSurface && path === '/contact'
 
 class AppErrorBoundary extends Component {
   constructor(props) {
@@ -74,7 +76,7 @@ createRoot(document.getElementById('root')).render(
   <StrictMode>
     <AppErrorBoundary>
       <BrowserRouter basename={isLocalAppPath ? '/app' : undefined}>
-        {legalType ? <LegalPage type={legalType} /> : appSurface ? <App /> : <LandingPage />}
+        {legalType ? <LegalPage type={legalType} /> : isContactPage ? <ContactPage /> : appSurface ? <App /> : <LandingPage />}
       </BrowserRouter>
     </AppErrorBoundary>
   </StrictMode>,
