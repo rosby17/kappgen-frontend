@@ -11853,11 +11853,11 @@ export default function App() {
                             </button>
                           </div>
                         </div>
-                        {/* AI concept proposal — the primary path: a real, niche-specific
+                        {/* AI concept proposal removed: reference images are the source of truth.
                             visual identity (subject/character + palette + style), not a
                             generic template. Once approved it's locked as this channel's
                             thumbnail_style, so every future thumbnail follows it automatically. */}
-                        <div className="bg-[#0d1117] border border-[var(--border)] rounded-xl p-3 space-y-2.5">
+                        <div className="hidden">
                           <div className="flex items-center justify-between gap-2">
                             <p className="text-[11px] font-bold text-white flex items-center gap-1.5">
                               <span className="material-symbols-outlined text-[15px] text-[#00c2ff]">auto_awesome</span>
@@ -11934,20 +11934,21 @@ export default function App() {
                         <p className="text-[11px] text-slate-400">
                           Pour un rendu fidèle, envoie plusieurs miniatures que tu apprécies. L’IA analyse les personnages, cadrages, symboles, densité, lumière, palette et emplacement du texte, puis construit une identité réutilisable sans copier une image précise. {THUMBNAIL_GENERATION_CREDITS.toLocaleString()} crédits/miniature.
                         </p>
-                        <textarea
+                        {/* Manual prompt and preset templates intentionally removed. */}
+                        {/* <textarea
                           rows="2"
                           value={newChannel.thumbnail_style?.style_prompt || ''}
                           onChange={e => setNewChannel({ ...newChannel, thumbnail_style: { ...(newChannel.thumbnail_style || {}), style_prompt: e.target.value } })}
                           className="w-full bg-[var(--bg-input-alt)] border border-[var(--border)] rounded-xl p-2.5 text-[11px] text-white focus:border-[#00c2ff] outline-none placeholder-slate-500"
                           placeholder="Ex: peinture à l'huile classique, palette dorée, contre-jour dramatique..."
-                        />
+                        /> */}
                         {/* Visual style picker — these are proven YouTube-thumbnail
                             archetypes (the composition + text pattern that actually drives
                             clicks), not generic art-style mood boards. Each card previews a
                             real example so the choice is "which of these click patterns fits
                             my niche", not a guess from an aesthetic label. See
                             /assets/thumbnail-styles for the reference images. */}
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                        <div className="hidden">
                           {[
                             { key: 'shocked_face', label: 'Visage choqué', prompt: 'Gros plan visage à l’expression choquée/intense, éclairage dramatique, texte énorme en gras avec contour noir, couleurs saturées, haut contraste' },
                             { key: 'before_after', label: 'Avant / Après', prompt: 'Image divisée en deux, avant terne à gauche, après lumineux et vivant à droite, texte blanc énorme en gras, contraste marqué entre les deux moitiés' },
