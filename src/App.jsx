@@ -12291,12 +12291,13 @@ export default function App() {
                               <h4 className="text-xs font-extrabold text-white">Contrôle YouTube automatique</h4>
                               <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[9px] font-bold text-emerald-300">ACTIF</span>
                             </div>
-                            <p className="mt-1 text-[10px] leading-relaxed text-slate-400">Avant chaque publication, KappGen vérifie l’originalité du scénario, les répétitions, les métadonnées, la niche et les déclarations YouTube. Le rapport détaillé s’affiche lorsque vous ouvrez la fenêtre « Publier sur YouTube ».</p>
+                            <p className="mt-1 text-[10px] leading-relaxed text-slate-400">À la fin du rendu, chaque vidéo reçoit un score de conformité. Le contrôle vérifie le scénario (longueur et originalité), le titre et la description, les répétitions, la niche, les sources lorsque nécessaire, les promesses sensibles et les déclarations YouTube. Le détail et l’historique restent consultables dans les statistiques de la vidéo.</p>
                             <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-2">
-                              <div className="rounded-lg border border-emerald-500/25 bg-emerald-500/5 px-2.5 py-2"><span className="block text-[10px] font-bold text-emerald-300">Vert</span><span className="text-[9px] text-slate-500">Publication automatique</span></div>
-                              <div className="rounded-lg border border-amber-500/25 bg-amber-500/5 px-2.5 py-2"><span className="block text-[10px] font-bold text-amber-300">Orange</span><span className="text-[9px] text-slate-500">Validation humaine</span></div>
-                              <div className="rounded-lg border border-rose-500/25 bg-rose-500/5 px-2.5 py-2"><span className="block text-[10px] font-bold text-rose-300">Rouge</span><span className="text-[9px] text-slate-500">Publication bloquée</span></div>
+                              <div className="rounded-lg border border-emerald-500/25 bg-emerald-500/5 px-2.5 py-2"><span className="block text-[10px] font-bold text-emerald-300">Vert · 80–100</span><span className="text-[9px] text-slate-500">Tous les contrôles essentiels passent : automatique autorisée.</span></div>
+                              <div className="rounded-lg border border-amber-500/25 bg-amber-500/5 px-2.5 py-2"><span className="block text-[10px] font-bold text-amber-300">Orange · 60–79</span><span className="text-[9px] text-slate-500">Risque ou niche sensible : validation manuelle obligatoire.</span></div>
+                              <div className="rounded-lg border border-rose-500/25 bg-rose-500/5 px-2.5 py-2"><span className="block text-[10px] font-bold text-rose-300">Rouge · 0–59</span><span className="text-[9px] text-slate-500">Blocage : la vidéo doit être corrigée avant publication.</span></div>
                             </div>
+                            <p className="mt-2 text-[9px] leading-relaxed text-slate-500">Même en mode automatique, une vidéo orange est mise en attente d’une validation humaine et une vidéo rouge reste bloquée. Le mode automatique ne contourne jamais ce contrôle.</p>
                           </div>
                         </div>
                       </div>
