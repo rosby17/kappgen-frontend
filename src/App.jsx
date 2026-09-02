@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useId } from 'react';
 import { createPortal } from 'react-dom';
 import { Navigate, useNavigate, useLocation, useParams } from 'react-router-dom';
 import freedomSunrise from './assets/dashboard/freedom-sunrise.png';
@@ -3182,6 +3182,36 @@ function PipelineStepper({ stage, percent, failed = false, source = 'automatic' 
         })}
       </div>
     </div>
+  );
+}
+
+// A queued video's "waiting" state — real sand draining from the top bulb
+// into the bottom one (continuously alternating, so it never needs a flip
+// reset) plus a small trickling grain in the neck, instead of a flat
+// rotating glyph. Color inherits from the parent's text color (currentColor).
+function HourglassSandIcon({ className = '' }) {
+  // Unique per instance — several queued videos can render this icon on
+  // the same page at once, and duplicate SVG ids are invalid HTML even
+  // when (as here) the geometry happens to be identical across instances.
+  const uid = useId();
+  const topClipId = `hgTopClip-${uid}`;
+  const bottomClipId = `hgBottomClip-${uid}`;
+  return (
+    <svg viewBox="0 0 24 32" className={className} xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <path
+        d="M4 3h16M4 29h16M5 4c0 6.5 4 9.5 7 11-3 1.5-7 4.5-7 11M19 4c0 6.5-4 9.5-7 11 3 1.5 7 4.5 7 11"
+        stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" fill="none" opacity="0.55"
+      />
+      <clipPath id={topClipId}><polygon points="5.5,4.5 18.5,4.5 12,15" /></clipPath>
+      <clipPath id={bottomClipId}><polygon points="5.5,27.5 18.5,27.5 12,17" /></clipPath>
+      <g clipPath={`url(#${topClipId})`}>
+        <rect className="hg-sand-top" x="5.5" y="4.5" width="13" height="10.5" fill="currentColor" />
+      </g>
+      <g clipPath={`url(#${bottomClipId})`}>
+        <rect className="hg-sand-bottom" x="5.5" y="17" width="13" height="10.5" fill="currentColor" />
+      </g>
+      <rect className="hg-sand-drop" x="11.3" y="15.2" width="1.4" height="1.6" fill="currentColor" />
+    </svg>
   );
 }
 
@@ -9246,7 +9276,7 @@ export default function App() {
                                 </div>
                               ) : (
                                 <div className="p-4 text-center space-y-2">
-                                  <span className="material-symbols-outlined animate-hourglass-tumble text-[36px] text-[#00c2ff]">hourglass_empty</span>
+                                  <HourglassSandIcon className="w-9 h-9 mx-auto text-[#00c2ff]" />
                                   <div className="text-[11px] font-bold font-mono text-[#00c2ff]">En file d'attente</div>
                                 </div>
                               )}
@@ -9256,7 +9286,7 @@ export default function App() {
                                 <span className={`px-2.5 py-0.5 rounded-lg text-[10px] font-sans font-bold lowercase tracking-normal ${
                                   vid.status === 'done' ? 'bg-emerald-950/90 text-emerald-300 border border-emerald-700/80' :
                                   vid.status === 'failed' ? 'bg-rose-950/90 text-rose-300 border border-rose-700/80' :
-                                  'bg-amber-950/90 text-amber-300 border border-amber-700/80'
+                                  'bg-[#00c2ff]/15 text-[#00c2ff] border border-[#00c2ff]/40'
                                 }`}>
                                   {vid.status === 'done' ? 'Prête' : vid.status === 'failed' ? 'Échec' : 'En file'}
                                 </span>
@@ -9821,7 +9851,7 @@ export default function App() {
                               </div>
                             ) : (
                               <div className="p-4 text-center space-y-2">
-                                <span className="material-symbols-outlined animate-hourglass-tumble text-[36px] text-[#00c2ff]">hourglass_empty</span>
+                                <HourglassSandIcon className="w-9 h-9 mx-auto text-[#00c2ff]" />
                                 <div className="text-[11px] font-bold font-mono text-[#00c2ff]">En file</div>
                               </div>
                             )}
@@ -9831,7 +9861,7 @@ export default function App() {
                               <span className={`px-2 py-0.5 rounded-lg text-[10px] font-sans font-bold lowercase tracking-normal ${
                                 vid.status === 'done' ? 'bg-emerald-950/90 text-emerald-300 border border-emerald-700/80' :
                                 vid.status === 'failed' ? 'bg-rose-950/90 text-rose-300 border border-rose-700/80' :
-                                'bg-amber-950/90 text-amber-300 border border-amber-700/80'
+                                'bg-[#00c2ff]/15 text-[#00c2ff] border border-[#00c2ff]/40'
                               }`}>
                                 {vid.status === 'done' ? 'Prête' : vid.status === 'failed' ? 'Échec' : 'En file'}
                               </span>
