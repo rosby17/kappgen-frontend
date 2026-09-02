@@ -4240,13 +4240,15 @@ export default function App() {
   const fetchChannelLibraryDetail = async (channelId) => {
     setLibraryImages(prev => ({ ...prev, [channelId]: { ...(prev[channelId] || {}), loading: true } }));
     try {
-      const [imgRes, chRes] = await Promise.all([
+      const [imgRes, brollRes, chRes] = await Promise.all([
         authFetch(`${API_BASE}/channels/${channelId}/library/images?limit=120`),
+        authFetch(`${API_BASE}/channels/${channelId}/broll`),
         authFetch(`${API_BASE}/channels/${channelId}`),
       ]);
       const imgData = imgRes.ok ? await imgRes.json() : { filenames: [], total: 0 };
+      const brollData = brollRes.ok ? await brollRes.json() : { filenames: [], total: 0 };
       const chData = chRes.ok ? await chRes.json() : null;
-      setLibraryImages(prev => ({ ...prev, [channelId]: { filenames: imgData.filenames || [], total: imgData.total || 0, loading: false, shareWithCommunity: !!chData?.image_style?.share_with_community } }));
+      setLibraryImages(prev => ({ ...prev, [channelId]: { filenames: imgData.filenames || [], total: imgData.total || 0, brollFilenames: brollData.filenames || [], brollTotal: brollData.total || 0, loading: false, shareWithCommunity: !!chData?.image_style?.share_with_community } }));
       setLibraryTracks(prev => ({ ...prev, [channelId]: (chData?.music_preference?.tracks) || [] }));
     } catch (err) {
       console.error("Erreur chargement du détail de la bibliothèque:", err);
@@ -4303,6 +4305,25 @@ export default function App() {
       const res = await authFetch(`${API_BASE}/channels/${channelId}/library-images`, { method: 'POST', body: formData });
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || "Échec de l'ajout.");
       showToast(`${files.length} image(s) ajoutée(s).`, 'success');
+      await fetchChannelLibraryDetail(channelId);
+      fetchLibraryOverview();
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setLibraryUploadingId(null);
+    }
+  };
+
+  const uploadLibraryBroll = async (channelId, fileList) => {
+    const files = Array.from(fileList || []);
+    if (!files.length) return;
+    setLibraryUploadingId(`${channelId}:broll`);
+    try {
+      const formData = new FormData();
+      files.forEach(f => formData.append('files', f));
+      const res = await authFetch(`${API_BASE}/channels/${channelId}/broll`, { method: 'POST', body: formData });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || 'Échec de l’ajout des B-roll.');
+      showToast(`${files.length} clip(s) B-roll ajouté(s).`, 'success');
       await fetchChannelLibraryDetail(channelId);
       fetchLibraryOverview();
     } catch (err) {
@@ -9899,7 +9920,7 @@ export default function App() {
                   <div className="space-y-3">
                     {libraryOverview
                       .filter(c => c.channel_name.toLowerCase().includes(librarySearch.trim().toLowerCase()))
-                      .filter(c => libraryContentFilter === 'all' || (libraryContentFilter === 'filled' ? c.image_count > 0 || c.music_track_count > 0 : c.image_count === 0 && c.music_track_count === 0))
+                        .filter(c => libraryContentFilter === 'all' || (libraryContentFilter === 'filled' ? c.image_count > 0 || c.music_track_count > 0 || c.broll_count > 0 : c.image_count === 0 && c.music_track_count === 0 && !c.broll_count))
                       .length === 0 && (
                         <div className="rounded-2xl border border-dashed border-[var(--border-soft)] bg-[var(--bg-surface)] px-6 py-12 text-center">
                           <span className="material-symbols-outlined mb-3 text-3xl text-slate-600">search_off</span>
@@ -9909,13 +9930,13 @@ export default function App() {
                       )}
                     {libraryOverview
                       .filter(c => c.channel_name.toLowerCase().includes(librarySearch.trim().toLowerCase()))
-                      .filter(c => libraryContentFilter === 'all' || (libraryContentFilter === 'filled' ? c.image_count > 0 || c.music_track_count > 0 : c.image_count === 0 && c.music_track_count === 0))
-                      .sort((a, b) => ((b.image_count || 0) + (b.music_track_count || 0)) - ((a.image_count || 0) + (a.music_track_count || 0)))
+                      .filter(c => libraryContentFilter === 'all' || (libraryContentFilter === 'filled' ? c.image_count > 0 || c.music_track_count > 0 || c.broll_count > 0 : c.image_count === 0 && c.music_track_count === 0 && !c.broll_count))
+                      .sort((a, b) => ((b.image_count || 0) + (b.music_track_count || 0) + (b.broll_count || 0)) - ((a.image_count || 0) + (a.music_track_count || 0) + (a.broll_count || 0)))
                       .map(c => {
                       const expanded = libraryExpandedId === c.channel_id;
                       const detail = libraryImages[c.channel_id];
                       const tracks = libraryTracks[c.channel_id] || [];
-                      const hasContent = c.image_count > 0 || c.music_track_count > 0;
+                      const hasContent = c.image_count > 0 || c.music_track_count > 0 || c.broll_count > 0;
                       return (
                         <div key={c.channel_id} className={`group overflow-hidden rounded-2xl border bg-[var(--bg-surface)] transition-all duration-200 ${expanded ? 'border-[#00c2ff]/40 shadow-[0_18px_50px_rgba(0,194,255,.07)]' : 'border-[var(--border-soft)] hover:-translate-y-0.5 hover:border-slate-600/70 hover:shadow-xl'} ${!hasContent ? 'opacity-75 hover:opacity-100' : ''}`}>
                           <button
@@ -9930,6 +9951,7 @@ export default function App() {
                                 <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                                   <span className="inline-flex items-center gap-1 rounded-md bg-[#00c2ff]/[.08] px-2 py-1 text-[9px] font-bold text-[#68dfff]"><span className="material-symbols-outlined text-[12px]">image</span>{c.image_count}</span>
                                   <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/[.08] px-2 py-1 text-[9px] font-bold text-emerald-300"><span className="material-symbols-outlined text-[12px]">music_note</span>{c.music_track_count}</span>
+                                  <span className="inline-flex items-center gap-1 rounded-md bg-violet-500/[.08] px-2 py-1 text-[9px] font-bold text-violet-300"><span className="material-symbols-outlined text-[12px]">movie</span>{c.broll_count || 0}</span>
                                   {!hasContent && <span className="text-[9px] font-medium text-slate-500">Aucun média importé</span>}
                                 </div>
                               </div>
@@ -9958,6 +9980,11 @@ export default function App() {
                                             onChange={(e) => { uploadLibraryImages(c.channel_id, e.target.files); e.target.value = ''; }}
                                             className="hidden"
                                           />
+                                        </label>
+                                        <label className="text-[11px] font-bold text-violet-300 hover:text-violet-200 flex items-center gap-1 cursor-pointer">
+                                          <span className={`material-symbols-outlined text-[14px] ${libraryUploadingId === `${c.channel_id}:broll` ? 'animate-spin' : ''}`}>{libraryUploadingId === `${c.channel_id}:broll` ? 'progress_activity' : 'movie'}</span>
+                                          Ajouter des B-roll
+                                          <input type="file" accept="video/mp4,video/quicktime,video/webm,video/x-m4v" multiple disabled={libraryUploadingId === `${c.channel_id}:broll`} onChange={(e) => { uploadLibraryBroll(c.channel_id, e.target.files); e.target.value = ''; }} className="hidden" />
                                         </label>
                                         {(detail?.filenames?.length || 0) > 0 && (
                                           <button
