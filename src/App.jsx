@@ -11819,7 +11819,7 @@ export default function App() {
                       </div>
 
                       <div
-                        className={`bg-[#171b23] border rounded-xl p-3.5 space-y-2.5 transition-colors ${thumbnailDragOver ? 'border-[#00c2ff] bg-[#00c2ff]/[.06]' : 'border-[var(--border)]'}`}
+                        className={`order-3 bg-[#171b23] border rounded-xl p-3.5 space-y-2.5 transition-colors ${thumbnailDragOver ? 'border-[#00c2ff] bg-[#00c2ff]/[.06]' : 'border-[var(--border)]'}`}
                         onDragOver={(e) => { e.preventDefault(); setThumbnailDragOver(true); }}
                         onDragLeave={() => setThumbnailDragOver(false)}
                         onDrop={(e) => { e.preventDefault(); setThumbnailDragOver(false); const files = Array.from(e.dataTransfer.files || []).filter(f => /image\/(png|jpeg|webp)/.test(f.type)); if (files.length) handleUploadThumbnailStyle({ target: { files, value: '' } }); }}
