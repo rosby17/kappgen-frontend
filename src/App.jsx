@@ -2140,8 +2140,12 @@ function MusicChannelWizard({ authFetch, showToast, onCreated, onBack }) {
                   <span className={`material-symbols-outlined text-[15px] ${previewing ? 'animate-spin' : ''}`}>{previewing ? 'progress_activity' : 'music_note'}</span>
                   {previewing ? 'Génération...' : 'Écouter un aperçu (gratuit)'}
                 </button>
-                {previewUrl && <audio controls src={previewUrl} className="h-9" />}
               </div>
+              {previewUrl && (
+                <div className="mt-2">
+                  <ServerAudioPreview src={previewUrl} name="Aperçu généré" />
+                </div>
+              )}
             </div>
             <div>
               <label className="block text-xs font-bold text-slate-300 mb-2">Exemples de titres</label>
@@ -9310,29 +9314,6 @@ export default function App() {
                   </div>
                 )}
 
-                {/* Folder navigation — file-explorer style: breadcrumb for the
-                    current path, then the folders and "Toutes" reset live as
-                    drop targets right below it. */}
-                <div className="flex items-center gap-1.5 flex-wrap text-xs">
-                  <button
-                    onClick={() => openFolder(null)}
-                    className={`px-2 py-1 rounded-lg font-bold flex items-center gap-1 transition-colors ${currentFolderId === null ? 'text-white' : 'text-slate-400 hover:text-white'}`}
-                  >
-                    <span className="material-symbols-outlined text-[16px]">home</span>
-                  </button>
-                  {folderPath.map((f, i) => (
-                    <span key={f.id} className="flex items-center gap-1.5">
-                      <span className="material-symbols-outlined text-[14px] text-slate-600">chevron_right</span>
-                      <button
-                        onClick={() => openFolder(f.id)}
-                        className={`px-2 py-1 rounded-lg font-bold transition-colors ${i === folderPath.length - 1 ? 'text-white' : 'text-slate-400 hover:text-white'}`}
-                      >
-                        {f.name}
-                      </button>
-                    </span>
-                  ))}
-                </div>
-
                 {/* Visual Video Cards Grid */}
                 {!videosLoaded ? (
                   <SkeletonGrid count={8} cardClassName="min-h-[260px]" />
@@ -11861,7 +11842,7 @@ export default function App() {
                           <input type="file" accept="audio/mpeg,audio/wav,audio/mp4,audio/ogg,.mp3,.wav,.m4a,.ogg" className="hidden" onChange={handleMixPreviewVoiceSelect} />
                         </label>
                         {mixPreviewVoiceUrl && (
-                          <audio controls src={mixPreviewVoiceUrl} className="w-full h-9" />
+                          <ServerAudioPreview src={mixPreviewVoiceUrl} name={mixPreviewVoiceFile?.name || 'Extrait de voix test'} />
                         )}
                         <button
                           type="button"
@@ -11875,7 +11856,7 @@ export default function App() {
                         {studioMixPreviewUrl && (
                           <div className="rounded-lg bg-black/20 p-2">
                             <p className="text-[9px] font-bold text-emerald-400 mb-1">APERÇU DU MIXAGE FINAL</p>
-                            <audio controls autoPlay src={studioMixPreviewUrl} className="w-full h-9" />
+                            <ServerAudioPreview src={studioMixPreviewUrl} name="Mixage final (voix + musique + effets)" />
                           </div>
                         )}
                         </div>}
