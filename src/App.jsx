@@ -4224,6 +4224,15 @@ export default function App() {
     script_generation_days: null,
     publish_mode: 'manual',
     youtube_made_for_kids: false,
+    youtube_default_description: '',
+    youtube_default_tags: [],
+    youtube_category_id: '22',
+    youtube_privacy_status: 'public',
+    youtube_contains_synthetic_media: true,
+    youtube_license: 'youtube',
+    youtube_notify_subscribers: true,
+    youtube_embeddable: true,
+    youtube_public_stats_viewable: true,
     publish_time_mode: 'range',
     publish_schedule_hour: 8,
     publish_schedule_day_offset: 1,
@@ -5309,6 +5318,15 @@ export default function App() {
       timezone: channel.timezone || defaultChannelForm.timezone,
       publish_mode: channel.publish_mode || 'manual',
       youtube_made_for_kids: !!channel.youtube_made_for_kids,
+      youtube_default_description: channel.youtube_default_description || '',
+      youtube_default_tags: channel.youtube_default_tags || [],
+      youtube_category_id: channel.youtube_category_id || '22',
+      youtube_privacy_status: channel.youtube_privacy_status || 'public',
+      youtube_contains_synthetic_media: channel.youtube_contains_synthetic_media !== false,
+      youtube_license: channel.youtube_license || 'youtube',
+      youtube_notify_subscribers: channel.youtube_notify_subscribers !== false,
+      youtube_embeddable: channel.youtube_embeddable !== false,
+      youtube_public_stats_viewable: channel.youtube_public_stats_viewable !== false,
       publish_time_mode: channel.publish_time_mode || 'range',
       publish_schedule_hour: channel.publish_schedule_hour ?? 8,
       publish_schedule_day_offset: channel.publish_schedule_day_offset ?? 1,
@@ -12302,6 +12320,34 @@ export default function App() {
                             <span className="block text-[11px] font-bold text-white">Contenu destiné principalement aux enfants</span>
                             <span className="mt-0.5 block text-[9px] leading-relaxed text-slate-500">Activez uniquement si l’audience principale est composée d’enfants. KappGen transmettra cette déclaration à YouTube.</span>
                           </span>
+                        </label>
+                        <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
+                          <label className="text-[10px] font-bold text-slate-400">Visibilité par défaut
+                            <select value={newChannel.youtube_privacy_status || 'public'} onChange={e => setNewChannel({ ...newChannel, youtube_privacy_status: e.target.value })} className="mt-1.5 w-full rounded-xl border border-[var(--border)] bg-[var(--bg-surface-alt)] px-3 py-2 text-xs text-white"><option value="public">Publique</option><option value="unlisted">Non répertoriée</option><option value="private">Privée</option></select>
+                          </label>
+                          <label className="text-[10px] font-bold text-slate-400">Catégorie YouTube
+                            <select value={newChannel.youtube_category_id || '22'} onChange={e => setNewChannel({ ...newChannel, youtube_category_id: e.target.value })} className="mt-1.5 w-full rounded-xl border border-[var(--border)] bg-[var(--bg-surface-alt)] px-3 py-2 text-xs text-white"><option value="22">People & Blogs</option><option value="27">Education</option><option value="24">Entertainment</option><option value="26">Howto & Style</option><option value="10">Music</option><option value="20">Gaming</option><option value="25">News & Politics</option></select>
+                          </label>
+                          <label className="text-[10px] font-bold text-slate-400">Description ajoutée à chaque vidéo
+                            <textarea value={newChannel.youtube_default_description || ''} onChange={e => setNewChannel({ ...newChannel, youtube_default_description: e.target.value.slice(0, 4500) })} placeholder="Présentation permanente, liens, avertissements…" className="mt-1.5 min-h-[82px] w-full rounded-xl border border-[var(--border)] bg-[var(--bg-surface-alt)] px-3 py-2 text-xs text-white placeholder:text-slate-600" />
+                          </label>
+                          <label className="text-[10px] font-bold text-slate-400">Tags permanents
+                            <input value={(newChannel.youtube_default_tags || []).join(', ')} onChange={e => setNewChannel({ ...newChannel, youtube_default_tags: e.target.value.split(',').map(tag => tag.trim()).filter(Boolean).slice(0, 30) })} placeholder="exemple, chaîne, sujet" className="mt-1.5 w-full rounded-xl border border-[var(--border)] bg-[var(--bg-surface-alt)] px-3 py-2 text-xs text-white placeholder:text-slate-600" />
+                            <span className="mt-1 block text-[9px] text-slate-500">Les tags IA seront ajoutés automatiquement.</span>
+                          </label>
+                        </div>
+                        <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          {[
+                            ['youtube_contains_synthetic_media', 'Déclarer le contenu IA / synthétique', 'Déclaration envoyée à YouTube.'],
+                            ['youtube_notify_subscribers', 'Notifier les abonnés', 'Notifier lors de la mise en ligne.'],
+                            ['youtube_embeddable', 'Autoriser l’intégration', 'Autoriser les lecteurs externes.'],
+                            ['youtube_public_stats_viewable', 'Afficher les statistiques publiques', 'Laisser les statistiques visibles.'],
+                          ].map(([field, label, help]) => (
+                            <label key={field} className="flex items-start gap-2 rounded-xl border border-[var(--border)] bg-[var(--bg-surface-alt)] px-3 py-2.5 text-[10px] text-slate-300 cursor-pointer"><input type="checkbox" checked={newChannel[field] !== false} onChange={e => setNewChannel({ ...newChannel, [field]: e.target.checked })} className="mt-0.5 accent-[#00c2ff]" /><span><strong className="block text-white">{label}</strong><span className="text-[9px] text-slate-500">{help}</span></span></label>
+                          ))}
+                        </div>
+                        <label className="mt-3 block text-[10px] font-bold text-slate-400">Licence
+                          <select value={newChannel.youtube_license || 'youtube'} onChange={e => setNewChannel({ ...newChannel, youtube_license: e.target.value })} className="mt-1.5 w-full md:w-1/2 rounded-xl border border-[var(--border)] bg-[var(--bg-surface-alt)] px-3 py-2 text-xs text-white"><option value="youtube">Licence YouTube standard</option><option value="creativeCommon">Creative Commons</option></select>
                         </label>
                         {newChannel.publish_mode === 'scheduled' && (
                           <div className="mt-3 space-y-2">
