@@ -12365,7 +12365,7 @@ export default function App() {
                             );
                           })}
                         </div>
-                        <label className="mt-3 flex items-start gap-3 rounded-xl border border-[var(--border)] bg-[var(--bg-surface-alt)] p-3 cursor-pointer">
+                        <label className={`mt-3 flex items-start gap-3 rounded-xl border border-[var(--border)] bg-[var(--bg-surface-alt)] p-3 cursor-pointer ${newChannel.publish_mode === 'auto' || newChannel.publish_mode === 'scheduled' ? '' : 'hidden'}`}>
                           <input
                             type="checkbox"
                             checked={!!newChannel.youtube_made_for_kids}
@@ -12378,13 +12378,13 @@ export default function App() {
                             <span className="mt-0.5 block text-[9px] leading-relaxed text-slate-500">Activez uniquement si l’audience principale est composée d’enfants. KappGen transmettra cette déclaration à YouTube.</span>
                           </span>
                         </label>
-                        <div className="mt-3 space-y-3">
+                        <div className={`mt-3 space-y-3 ${newChannel.publish_mode === 'auto' || newChannel.publish_mode === 'scheduled' ? '' : 'hidden'}`}>
                           <div>
                             <span className="block text-[10px] font-bold text-slate-400 mb-1.5">Visibilité par défaut</span>
                             <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-surface-alt)] p-3 space-y-1">{[['private','Privée','lock'],['unlisted','Non répertoriée','link_off'],['members','Réservée aux membres','group'],['public','Publique','public']].map(([id,label,icon]) => <button key={id} type="button" onClick={() => setNewChannel({ ...newChannel, youtube_privacy_status: id, publish_mode: 'manual' })} className={`flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-[11px] transition-colors ${(newChannel.youtube_privacy_status || 'public') === id ? 'bg-[#00c2ff]/10 text-white' : 'text-slate-300 hover:bg-white/5'}`}><span className={`flex h-5 w-5 items-center justify-center rounded-full border-2 ${(newChannel.youtube_privacy_status || 'public') === id ? 'border-[#00c2ff]' : 'border-slate-500'}`}>{(newChannel.youtube_privacy_status || 'public') === id && <span className="h-2.5 w-2.5 rounded-full bg-[#00c2ff]" />}</span><span className="material-symbols-outlined text-[15px] text-slate-400">{icon}</span>{label}</button>)}</div>
                             <button type="button" onClick={() => setNewChannel({ ...newChannel, youtube_privacy_status: 'scheduled', publish_mode: 'scheduled' })} className={`mt-2 flex w-full items-center justify-between rounded-2xl border px-4 py-3 text-left text-[12px] font-bold transition-colors ${newChannel.publish_mode === 'scheduled' ? 'border-[#00c2ff] bg-[#00c2ff]/10 text-white' : 'border-[var(--border)] bg-[var(--bg-surface-alt)] text-slate-300 hover:border-slate-500'}`}><span className="flex items-center gap-2"><span className="material-symbols-outlined text-[18px]">event</span>Programmer</span><span className="material-symbols-outlined text-[18px]">{newChannel.publish_mode === 'scheduled' ? 'expand_less' : 'expand_more'}</span></button>
                           </div>
-                          {(newChannel.publish_mode === 'auto' || newChannel.publish_mode === 'scheduled') && (
+                          {newChannel.youtube_privacy_status === 'scheduled' && (
                             <div className="rounded-xl border border-[#00c2ff]/30 bg-[#00c2ff]/5 p-3 space-y-2">
                               <div className="flex items-center gap-2"><span className="material-symbols-outlined text-[16px] text-[#00c2ff]">event</span><span className="text-[10px] font-bold text-white">Programmer la publication</span></div>
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-2 items-start">{timeControls}{weekdaySelector}</div>
