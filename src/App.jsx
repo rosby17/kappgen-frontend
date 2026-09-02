@@ -945,6 +945,53 @@ function VoiceCard({ voice, active, saved, mine, playingId, generatingPreviewId,
   );
 }
 
+// Compact custom-styled dropdown for a plain "pick one of these options"
+// select — replaces the browser's native <select> (unstyled system popup,
+// breaks the app's dark theme and rounded-corner language) with the same
+// dark dropdown + checkmark look used everywhere else in the app.
+function SimpleSelect({ value, onChange, options }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  const current = options.find(o => o.value === value) || options[0];
+
+  useEffect(() => {
+    if (!open) return;
+    const handleClickOutside = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [open]);
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        className="flex items-center gap-1.5 px-2.5 py-2 rounded-xl bg-[var(--bg-surface-alt)] border border-[var(--border)] hover:border-slate-500 transition-colors text-xs text-white"
+      >
+        {current?.label}
+        <span className={`material-symbols-outlined text-[14px] text-slate-400 transition-transform ${open ? 'rotate-180' : ''}`}>expand_more</span>
+      </button>
+      {open && (
+        <div className="absolute left-0 top-full mt-1.5 min-w-full w-max bg-[var(--bg-dropdown)] border border-[var(--border-dropdown)] rounded-xl shadow-2xl z-50 overflow-hidden py-1">
+          {options.map(opt => (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => { onChange(opt.value); setOpen(false); }}
+              className={`w-full text-left px-3 py-1.5 text-[11px] hover:bg-[var(--bg-hover)] transition-colors flex items-center justify-between gap-3 ${value === opt.value ? 'text-[#00c2ff] font-bold' : 'text-slate-300'}`}
+            >
+              <span className="truncate">{opt.label}</span>
+              {value === opt.value && <span className="material-symbols-outlined text-[14px] shrink-0">check</span>}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function VoiceLibrarySelect({ label, value, onChange, options }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
@@ -14629,15 +14676,15 @@ export default function App() {
                         placeholder="Filtrer par niche..."
                         className="bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-3 py-2 text-xs text-white focus:border-[#00c2ff] outline-none"
                       />
-                      <select
+                      <SimpleSelect
                         value={adminLibraryNicheSort}
-                        onChange={e => setAdminLibraryNicheSort(e.target.value)}
-                        className="bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-2.5 py-2 text-xs text-white focus:border-[#00c2ff] outline-none"
-                      >
-                        <option value="count">Le plus d'images</option>
-                        <option value="alpha">Alphabétique</option>
-                        <option value="recent">Plus récent → plus ancien</option>
-                      </select>
+                        onChange={setAdminLibraryNicheSort}
+                        options={[
+                          { value: 'count', label: "Le plus d'images" },
+                          { value: 'alpha', label: 'Alphabétique' },
+                          { value: 'recent', label: 'Plus récent → plus ancien' },
+                        ]}
+                      />
                     </>
                   )}
                   {niche && !user && (
