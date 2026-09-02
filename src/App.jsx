@@ -3197,7 +3197,7 @@ function HourglassSandIcon({ className = '' }) {
   const topClipId = `hgTopClip-${uid}`;
   const bottomClipId = `hgBottomClip-${uid}`;
   return (
-    <svg viewBox="0 0 24 32" className={className} xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <svg viewBox="0 0 24 32" className={`hg-rotate ${className}`} xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
       <path
         d="M4 3h16M4 29h16M5 4c0 6.5 4 9.5 7 11-3 1.5-7 4.5-7 11M19 4c0 6.5-4 9.5-7 11 3 1.5 7 4.5 7 11"
         stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" fill="none" opacity="0.55"

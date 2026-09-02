@@ -196,11 +196,15 @@ body {
 .effect-preview-light-leak { animation: effectLightLeakMove 6s ease-in-out infinite; }
 
 /* "En file d'attente" hourglass (HourglassSandIcon in App.jsx) — real sand
-   draining from the top bulb into the bottom one, continuously alternating
-   (top empties while bottom fills, then reverses) so the animation reads as
-   an actual running hourglass instead of a flat spinning glyph, and never
-   needs a "flip" reset. A small grain trickles through the neck on its own,
-   faster cycle, layered on top. */
+   drains from the top bulb into the bottom one; once it's fully settled the
+   WHOLE icon physically flips 180° (like turning a real hourglass over),
+   then drains again — so the sand only ever falls downward, never appears
+   to flow back up on its own. The flip windows (46%-54%, 96%-100%/0%) are
+   centered exactly on the moments the sand keyframes below hit their
+   extremes (0%/50%/100%), so the flip always happens when a bulb just
+   finished settling, never mid-pour. Ending the rotation at 360deg (not
+   back to 0deg) makes the loop seamless — no snap-back. A small grain
+   trickles through the neck on its own, faster cycle, layered on top. */
 @keyframes hgSandTop {
   0%, 100% { transform: scaleY(1); }
   50% { transform: scaleY(0.04); }
@@ -215,13 +219,20 @@ body {
   45% { opacity: 1; transform: translateY(1.6px); }
   55% { opacity: 0; transform: translateY(1.6px); }
 }
+@keyframes hgFlip {
+  0%, 46% { transform: rotate(0deg); }
+  54%, 96% { transform: rotate(180deg); }
+  100% { transform: rotate(360deg); }
+}
 .hg-sand-top { transform-origin: 12px 4.5px; animation: hgSandTop 3.6s ease-in-out infinite; }
 .hg-sand-bottom { transform-origin: 12px 27.5px; animation: hgSandBottom 3.6s ease-in-out infinite; }
 .hg-sand-drop { animation: hgSandDrop 0.7s linear infinite; }
+.hg-rotate { transform-origin: 50% 50%; animation: hgFlip 3.6s ease-in-out infinite; }
 
 @media (prefers-reduced-motion: reduce) {
   .effect-preview-stars, .effect-preview-dust-near, .effect-preview-dust-far,
   .effect-preview-snow, .effect-preview-rain, .effect-preview-fog,
   .effect-preview-sparks, .effect-preview-light-leak,
+  .hg-rotate,
   .hg-sand-top, .hg-sand-bottom, .hg-sand-drop { animation: none; }
 }
