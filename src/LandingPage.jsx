@@ -194,7 +194,7 @@ export default function LandingPage() {
         </section>
 
         <section className="section faq" id="faq"><div><div className="section-kicker">QUESTIONS FRÉQUENTES</div><h2>Avant d’activer<br />KappGen.</h2></div><div className="faq-list">{[
-          ['Dois-je fournir les idées ou les scripts ?', 'Non. En mode autonome, KappGen AI recherche les sujets, choisit l’angle et rédige lui-même les scripts.'],
+          ['Dois-je fournir les idées ou les scripts ?', 'Tu as le choix. En mode manuel, tu peux soumettre ton propre sujet, une idée même très vague, un script complet ou un fichier audio à transformer en vidéo. En mode automatique, KappGen AI recherche un sujet adapté à ta chaîne, choisit l’angle et rédige le script ; tu peux activer une recherche web pour les niches basées sur l’actualité et les tendances.'],
           ['Dois-je valider chaque vidéo ?', 'Non. Tu peux laisser KappGen AI aller jusqu’à la publication automatique, ou garder une validation manuelle. Tu gardes une vue complète sur son activité.'],
           ['Puis-je utiliser mes propres clips vidéo ?', 'Oui. Importe tes clips dans la bibliothèque de ta chaîne et choisis un montage uniquement vidéo ou mixte images-vidéos. Le mode images uniquement reste disponible.'],
           ['Est-ce du contenu générique produit en masse ?', 'Non. Nous avons conçu KappGen AI à partir des réalités du terrain YouTube : une chaîne doit être originale, cohérente, capable de retenir son audience et respecter les règles de la plateforme. Chaque vidéo possède donc son propre angle, son script et son rendu, tout en restant fidèle à l’identité de ta chaîne.'],
