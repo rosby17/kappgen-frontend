@@ -16665,9 +16665,12 @@ export default function App() {
       )}
 
       {thumbnailModalVideo && (
-        <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-[60] flex items-center justify-center p-6">
-          <div className="bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-3xl p-6 max-w-[1100px] w-full shadow-2xl space-y-4">
-            <div className="flex justify-between items-center">
+        <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-[60] flex items-center justify-center p-4 sm:p-6" onClick={() => setThumbnailModalVideo(null)}>
+          {/* Was max-w-[1100px] with no height cap: on a laptop the 16:9
+              preview alone pushed the header — and its close button — off
+              screen, with nothing scrollable to get back to it. */}
+          <div className="bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-3xl p-5 max-w-[680px] w-full max-h-[88vh] overflow-y-auto shadow-2xl space-y-4" onClick={e => e.stopPropagation()}>
+            <div className="sticky top-0 -mt-1 pt-1 pb-2 bg-[var(--bg-surface)] flex justify-between items-center z-10">
               <h3 className="text-sm font-bold text-white flex items-center gap-2">
                 <span className="material-symbols-outlined text-[18px] text-[#00c2ff]">photo_camera</span> Miniature
               </h3>
