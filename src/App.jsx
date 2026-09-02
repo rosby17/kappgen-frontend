@@ -12391,7 +12391,7 @@ export default function App() {
                                 <label className="flex items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--bg-input)] px-3 py-2 text-[10px] text-slate-400"><span className="material-symbols-outlined text-[15px] text-[#00c2ff]">calendar_month</span><input type="date" value={newChannel.publish_schedule_date || ''} onChange={e => setNewChannel({ ...newChannel, publish_schedule_date: e.target.value })} style={{ colorScheme: 'dark' }} className="min-w-0 flex-1 bg-transparent text-xs text-white outline-none [color-scheme:dark]" /></label>
                                 {timeControls}
                               </div>
-                              <div>{weekdaySelector}</div>
+                              {newChannel.youtube_privacy_status !== 'scheduled' && <div>{weekdaySelector}</div>}
                               {timezonePicker}
                             </div>
                           )}
@@ -14258,7 +14258,7 @@ export default function App() {
                       const rank = (voiceoverProviderMode.order || []).indexOf(id);
                       const selected = rank !== -1;
                       const health = (adminProviders || []).find(p => p.id === id);
-                      const dotColor = health?.status === 'ok' ? 'bg-emerald-500' : health?.status === 'error' ? 'bg-rose-500' : 'bg-slate-600';
+                      const dotColor = health?.status === 'ok' ? 'bg-emerald-500' : health?.status === 'quota_exhausted' ? 'bg-rose-500' : 'bg-slate-600';
                       const label = { izivoice: 'Izivoice' }[id] || id;
                       return (
                         <button
@@ -14298,7 +14298,7 @@ export default function App() {
                       const rank = (thumbnailProviderMode.order || []).indexOf(id);
                       const selected = rank !== -1;
                       const health = (adminProviders || []).find(p => p.id === id);
-                      const dotColor = health?.status === 'ok' ? 'bg-emerald-500' : health?.status === 'error' ? 'bg-rose-500' : id === 'huggingface' ? 'bg-emerald-500' : 'bg-slate-600';
+                      const dotColor = health?.status === 'ok' ? 'bg-emerald-500' : health?.status === 'quota_exhausted' ? 'bg-rose-500' : id === 'huggingface' ? 'bg-emerald-500' : 'bg-slate-600';
                       const label = { huggingface: 'Hugging Face (gratuit)', fal: 'fal.ai', izivoice: 'Izivoice' }[id] || id;
                       return (
                         <button
