@@ -129,6 +129,13 @@ body {
   font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
 }
 
+/* Material Symbols are rendered from ligatures. Keep the ligature text
+   invisible until the webfont is ready, otherwise a refresh briefly shows
+   names such as "home" or "diamond" as plain text. */
+body:not(.icon-font-ready) .material-symbols-outlined {
+  visibility: hidden;
+}
+
 /* Keyframe animations for karaoke preview */
 @keyframes karaokeGlow {
   0%, 100% {
