@@ -3188,24 +3188,17 @@ function PipelineStepper({ stage, percent, failed = false, source = 'automatic' 
 function VideoTrustBadge({ video, onClick }) {
   const report = video.youtube_compliance_report;
   const score = report?.score;
-  const scoreValue = score ?? 0;
   const tone = score == null ? 'border-slate-600/70 bg-slate-900/60 text-slate-400' : score >= 80 ? 'border-emerald-400/35 bg-emerald-400/[.09] text-emerald-200' : score >= 60 ? 'border-amber-400/35 bg-amber-400/[.09] text-amber-200' : 'border-rose-400/35 bg-rose-400/[.09] text-rose-200';
-  const barTone = score == null ? 'bg-slate-600' : score >= 80 ? 'bg-gradient-to-r from-emerald-500 to-[#75f0c8]' : score >= 60 ? 'bg-gradient-to-r from-amber-500 to-yellow-300' : 'bg-gradient-to-r from-rose-600 to-rose-400';
-  const label = score == null ? 'Analyse en cours' : score >= 80 ? 'Prêt pour YouTube' : score >= 60 ? 'À optimiser' : 'À corriger';
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`mt-2 flex w-full items-center gap-2 rounded-xl border px-2.5 py-2 text-left text-[10px] font-bold transition-all hover:brightness-125 ${tone}`}
+      className={`mt-2 flex w-full items-center gap-2 rounded-lg border px-2.5 py-1.5 text-left text-[10px] font-bold transition-colors hover:brightness-125 ${tone}`}
       title="Voir le Trust Score YouTube et les contrôles"
     >
-      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-black/15"><span className="material-symbols-outlined text-[16px]">analytics</span></span>
-      <span className="min-w-0 flex-1">
-        <span className="flex items-center justify-between gap-2"><span>Trust Score YouTube</span><span className="text-[9px] font-medium opacity-75">{label}</span></span>
-        <span className="mt-1.5 block h-1 overflow-hidden rounded-full bg-slate-950/35"><span className={`block h-full rounded-full ${barTone}`} style={{ width: `${scoreValue}%` }} /></span>
-      </span>
-      <strong className="rounded-lg bg-black/15 px-2 py-1 font-black tabular-nums">{score == null ? '…' : `${score}/100`}</strong>
-      <span className="material-symbols-outlined text-[15px]">arrow_forward</span>
+      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-black/15"><span className="material-symbols-outlined text-[13px]">analytics</span></span>
+      <span className="min-w-0 flex-1">Trust Score</span>
+      <strong className="font-black tabular-nums">{score == null ? '…' : `${score}%`}</strong>
     </button>
   );
 }
