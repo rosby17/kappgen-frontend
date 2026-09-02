@@ -2416,7 +2416,7 @@ const applySubtitleCase = (text, caseMode) => {
 };
 
 const subtitleAlignClass = (align) => {
-  const normalized = String(align || 'left').toLowerCase();
+  const normalized = String(align || 'center').toLowerCase();
   if (normalized === 'right') return 'justify-end';
   if (normalized === 'center') return 'justify-center';
   return 'justify-start';
@@ -4172,7 +4172,7 @@ export default function App() {
       outline_color: '#000000',
       outline_width: 3,
       position: 'center',
-      align: 'left',
+      align: 'center',
       karaoke: true,
       highlight_mode: 'word',
       subtitle_mode: 'dynamic',
@@ -11730,7 +11730,7 @@ export default function App() {
                                     key={id}
                                     type="button"
                                     onClick={() => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, align: id } })}
-                                    className={`py-2.5 rounded-xl border transition-colors flex items-center justify-center ${(newChannel.subtitle_style.align || 'left') === id ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]' : 'bg-[var(--bg-surface-alt)] border-[var(--border)] text-slate-300 hover:border-slate-500'}`}
+                                    className={`py-2.5 rounded-xl border transition-colors flex items-center justify-center ${(newChannel.subtitle_style.align || 'center') === id ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]' : 'bg-[var(--bg-surface-alt)] border-[var(--border)] text-slate-300 hover:border-slate-500'}`}
                                   >
                                     <span className="material-symbols-outlined text-[18px]">{icon}</span>
                                   </button>
