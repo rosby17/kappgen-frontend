@@ -11538,7 +11538,13 @@ export default function App() {
                             </button>
                           ))}
                         </div>
-                        {newChannel.image_style.media_mode === 'videos' && <p className="mt-2 text-[10px] text-amber-300">Ce mode nécessite au moins un clip B-roll importé dans la Bibliothèque.</p>}
+                        {/* Option C (community + Pexels) supplies real stock B-roll
+                            clips automatically for every scene — this warning only
+                            applies when NEITHER a local library NOR that option is
+                            in play, since otherwise there's nothing actually missing. */}
+                        {newChannel.image_style.media_mode === 'videos' && !isCommunityChecked && !hasStoredLibrary && (
+                          <p className="mt-2 text-[10px] text-amber-300">Ce mode nécessite au moins un clip B-roll importé dans la Bibliothèque, ou l'Option C (banque de stock Pexels) cochée ci-dessous.</p>
+                        )}
                       </div>
 
                       {/* 2 CARDS SELECTION GRID WITH CHECKBOXES */}
