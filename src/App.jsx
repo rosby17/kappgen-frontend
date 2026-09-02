@@ -11763,7 +11763,10 @@ export default function App() {
                       {(() => {
                         const nicheSet = (newChannel.niche || '').trim();
                         const available = communityLibraryAvailability?.available;
-                        const disabled = !nicheSet || !available;
+                        // Free Pexels stock (video + photos) rides along with this
+                        // option, so it stays usable even before a niche has its
+                        // own shared pool — the niche itself is all that's required.
+                        const disabled = !nicheSet;
                         return (
                           <div
                             onClick={() => { if (!disabled) toggleCommunity(); }}
@@ -11775,14 +11778,14 @@ export default function App() {
                               <div className="min-w-0">
                                 <div className="flex items-center gap-2">
                                   <span className="material-symbols-outlined text-[24px] text-[#00c2ff]">diversity_3</span>
-                                  <h4 className="text-xs font-bold text-white">Option C : Bibliothèque Communautaire</h4>
+                                  <h4 className="text-xs font-bold text-white">Option C : Bibliothèque Communautaire + banque de stock</h4>
                                 </div>
                                 <p className="mt-1 text-[11px] text-slate-400">
                                   {!nicheSet
-                                    ? "Choisis d'abord une niche (étape 1) pour voir si une bibliothèque partagée existe déjà."
+                                    ? "Choisis d'abord une niche (étape 1)."
                                     : available
-                                      ? "Aucun upload requis de ta part."
-                                      : `Pas encore de bibliothèque disponible pour la niche « ${nicheSet} » — sois le premier à partager la tienne (case ci-dessus) !`}
+                                      ? "Images partagées de ta niche + vraies séquences vidéo et photos de stock cherchées automatiquement pour chaque scène. Gratuit, aucun crédit consommé."
+                                      : `Pas encore de bibliothèque partagée pour « ${nicheSet} », mais les séquences vidéo et photos de stock sont cherchées automatiquement pour chaque scène. Gratuit, aucun crédit consommé.`}
                                 </p>
                               </div>
                               <input
@@ -11797,6 +11800,7 @@ export default function App() {
                           </div>
                         );
                       })()}
+
                         </div>
                       </div>
 
