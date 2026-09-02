@@ -3441,6 +3441,34 @@ function ChannelAvatar({ channel, logoUrl, sizeClass = "w-12 h-12", textClass = 
   );
 }
 
+function LibraryChannelAvatar({ channel }) {
+  const [sourceIndex, setSourceIndex] = useState(0);
+  const imageUrls = [
+    channel?.avatar_path ? getVideoUrl(channel.avatar_path) : null,
+    channel?.youtube_channel_thumbnail_url || null,
+    channel?.logo_path ? getVideoUrl(channel.logo_path) : null,
+  ].filter(Boolean);
+  const imageUrl = imageUrls[sourceIndex] || null;
+  const initials = (channel?.channel_name || '?').trim().slice(0, 2).toUpperCase();
+
+  if (!imageUrl) {
+    return (
+      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-[#00c2ff]/20 bg-gradient-to-br from-[#00c2ff]/20 to-indigo-500/10 text-sm font-black text-[#70e1ff]">
+        {initials}
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={imageUrl}
+      alt={`Photo de profil de ${channel.channel_name}`}
+      onError={() => setSourceIndex(index => index + 1)}
+      className="h-11 w-11 shrink-0 rounded-full border border-white/10 bg-[var(--bg-surface-alt)] object-cover shadow-md"
+    />
+  );
+}
+
 function SkeletonGrid({ count = 6, cardClassName = "min-h-[220px]" }) {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -9896,9 +9924,7 @@ export default function App() {
                             className="flex w-full items-center justify-between gap-4 px-4 py-4 text-left transition-colors hover:bg-[var(--bg-surface-alt)] sm:px-5"
                           >
                             <div className="flex min-w-0 items-center gap-3.5">
-                              <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border text-sm font-black ${hasContent ? 'border-[#00c2ff]/20 bg-gradient-to-br from-[#00c2ff]/20 to-indigo-500/10 text-[#70e1ff]' : 'border-white/[.06] bg-white/[.025] text-slate-500'}`}>
-                                {c.channel_name.slice(0, 2).toUpperCase()}
-                              </div>
+                              <LibraryChannelAvatar channel={c} />
                               <div className="min-w-0">
                                 <div className="truncate text-sm font-extrabold text-white">{c.channel_name}</div>
                                 <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
