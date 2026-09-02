@@ -665,6 +665,7 @@ const SUBTITLE_FONTS = [
   { value: 'Cabin', label: 'Cabin', group: 'Sans-serif' },
   { value: 'Karla', label: 'Karla', group: 'Sans-serif' },
   { value: 'Manrope', label: 'Manrope', group: 'Sans-serif' },
+  { value: 'Montserrat', label: 'Montserrat', group: 'Sans-serif' },
   { value: 'Sora', label: 'Sora', group: 'Sans-serif' },
   { value: 'Clear Sans', label: 'Clear Sans', group: 'Sans-serif' },
   { value: 'Carlito', label: 'Carlito', group: 'Sans-serif' },
