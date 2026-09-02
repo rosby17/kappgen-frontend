@@ -6086,6 +6086,8 @@ export default function App() {
   const [adminProviders, setAdminProviders] = useState(null);
   const [thumbnailProviderMode, setThumbnailProviderModeState] = useState(null);
   const [thumbnailProviderModeSaving, setThumbnailProviderModeSaving] = useState(false);
+  const [voiceoverProviderMode, setVoiceoverProviderModeState] = useState(null);
+  const [voiceoverProviderModeSaving, setVoiceoverProviderModeSaving] = useState(false);
   const [aiTextProvider, setAiTextProviderState] = useState(null);
   const [aiTextProviderSaving, setAiTextProviderSaving] = useState(false);
   const [hfAccounts, setHfAccounts] = useState([]);
@@ -6635,7 +6637,7 @@ export default function App() {
   };
 
   useEffect(() => {
-    if (view === 'admin' && currentUser?.is_admin && adminTab === 'resources') { fetchAdminProviders(); fetchHfAccounts(); fetchThumbnailProviderMode(); fetchAiTextProvider(); }
+    if (view === 'admin' && currentUser?.is_admin && adminTab === 'resources') { fetchAdminProviders(); fetchHfAccounts(); fetchThumbnailProviderMode(); fetchVoiceoverProviderMode(); fetchAiTextProvider(); }
   }, [view, currentUser?.is_admin, adminTab]);
 
   const fetchThumbnailProviderMode = async () => {
@@ -6665,6 +6667,36 @@ export default function App() {
       showToast('Échec de la mise à jour.', 'error');
     } finally {
       setThumbnailProviderModeSaving(false);
+    }
+  };
+
+  const fetchVoiceoverProviderMode = async () => {
+    try {
+      const res = await authFetch(`${API_BASE}/admin/settings/voiceover-provider-mode`);
+      if (res.ok) setVoiceoverProviderModeState(await res.json());
+    } catch (err) {
+      console.error("Erreur chargement du mode voix off:", err);
+    }
+  };
+
+  const toggleVoiceoverProvider = async (id) => {
+    const current = voiceoverProviderMode?.order || [];
+    const nextOrder = current.includes(id) ? current.filter(p => p !== id) : [...current, id];
+    setVoiceoverProviderModeSaving(true);
+    try {
+      const res = await authFetch(`${API_BASE}/admin/settings/voiceover-provider-mode`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ order: nextOrder }),
+      });
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      setVoiceoverProviderModeState(prev => ({ ...prev, order: data.order }));
+      const labels = { izivoice: 'Izivoice' };
+      showToast(nextOrder.includes(id) ? `${labels[id] || id} ajouté à la priorité.` : `${labels[id] || id} retiré de la priorité.`, 'success');
+    } catch {
+      showToast('Échec de la mise à jour.', 'error');
+    } finally {
+      setVoiceoverProviderModeSaving(false);
     }
   };
 
@@ -14208,32 +14240,43 @@ export default function App() {
               </div>
 
               <div className="space-y-3">
-                <h4 className="text-sm font-bold text-white">Voix off (audio)</h4>
-                {!adminProviders ? (
+                <div>
+                  <h4 className="text-sm font-bold text-white">Voix off (audio)</h4>
+                  <p className="text-[11px] text-slate-500 mt-1 max-w-xl">
+                    Clique un fournisseur pour l'ajouter à la priorité, un autre clic le retire. L'ordre de clic devient l'ordre d'essai (le n°1 en premier). Une seule clé Izivoice partagée aujourd'hui ; d'autres fournisseurs voix off pourront rejoindre cette liste plus tard.
+                  </p>
+                </div>
+                {!voiceoverProviderMode ? (
                   <div className="text-center text-slate-500 text-xs py-4">Chargement...</div>
-                ) : (() => {
-                  const p = adminProviders.find(x => x.id === 'izivoice');
-                  if (!p) return null;
-                  const dotColor = p.status === 'ok' ? 'bg-emerald-500' : p.status === 'error' ? 'bg-red-500' : p.status === 'unknown' ? 'bg-amber-500' : 'bg-slate-600';
-                  const statusLabel = { ok: 'Actif', error: 'Erreur', unknown: 'Non vérifiable', not_configured: 'Non configuré' }[p.status] || p.status;
-                  return (
-                    <div className="bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-2xl p-5 max-w-sm">
-                      <div className="flex items-center justify-between gap-3 mb-2">
-                        <div className="flex items-center gap-2">
-                          <span className={`w-2.5 h-2.5 rounded-full ${dotColor}`} />
-                          <span className="text-sm font-bold text-white">{p.label}</span>
-                        </div>
-                        <span className={`text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full ${
-                          p.status === 'ok' ? 'bg-emerald-950/60 text-emerald-400' :
-                          p.status === 'error' ? 'bg-rose-950/60 text-rose-400' :
-                          p.status === 'unknown' ? 'bg-amber-950/60 text-amber-400' :
-                          'bg-[var(--bg-surface-alt)] text-slate-500'
-                        }`}>{statusLabel}</span>
-                      </div>
-                      <p className="text-[11px] text-slate-400">{p.detail}</p>
-                    </div>
-                  );
-                })()}
+                ) : (
+                  <div className="flex flex-wrap items-center gap-2">
+                    {(voiceoverProviderMode.available || []).map(id => {
+                      const rank = (voiceoverProviderMode.order || []).indexOf(id);
+                      const selected = rank !== -1;
+                      const health = (adminProviders || []).find(p => p.id === id);
+                      const dotColor = health?.status === 'ok' ? 'bg-emerald-500' : health?.status === 'error' ? 'bg-rose-500' : 'bg-slate-600';
+                      const label = { izivoice: 'Izivoice' }[id] || id;
+                      return (
+                        <button
+                          key={id}
+                          type="button"
+                          onClick={() => toggleVoiceoverProvider(id)}
+                          disabled={voiceoverProviderModeSaving}
+                          className={`px-4 py-2 rounded-xl text-xs font-bold border transition-colors disabled:opacity-50 ${
+                            selected
+                              ? 'bg-[#00c2ff]/10 text-[#00c2ff] border-[#00c2ff]/60'
+                              : 'bg-[var(--bg-surface-alt)] text-slate-400 border-[var(--border)] hover:border-slate-500'
+                          }`}
+                        >
+                          <span className={`inline-block w-1.5 h-1.5 rounded-full mr-1.5 align-middle ${dotColor}`} />
+                          {label}
+                          {selected && <span className="ml-1.5 inline-flex items-center justify-center w-4 h-4 rounded-full bg-[#00c2ff] text-[#04121a] text-[10px] font-black align-middle">{rank + 1}</span>}
+                        </button>
+                      );
+                    })}
+                    {voiceoverProviderModeSaving && <span className="material-symbols-outlined text-[16px] text-slate-500 animate-spin">progress_activity</span>}
+                  </div>
+                )}
               </div>
 
               <div className="pt-6 border-t border-[var(--border-soft)] space-y-3">
