@@ -3144,12 +3144,20 @@ function getActivePipelineStepIndex(steps, stage, percent) {
   return idx;
 }
 
+function pipelinePathLabel(source) {
+  if (source === 'audio') return 'Audio importé · transcription avant le montage';
+  if (source === 'script') return 'Script fourni · production à partir du texte';
+  return 'Sujet pris en charge par KappGen';
+}
+
 function PipelineStepper({ stage, percent, failed = false, source = 'automatic' }) {
   const steps = PIPELINE_PATHS[source] || PIPELINE_PATHS.automatic;
   const activeIndex = getActivePipelineStepIndex(steps, stage, percent);
   return (
-    <div className="grid items-start w-full" style={{ gridTemplateColumns: `repeat(${steps.length}, minmax(0, 1fr))` }}>
-      {steps.map((step, i) => {
+    <div className="w-full">
+      <div className="mb-2 text-[8px] font-semibold text-slate-500">{pipelinePathLabel(source)}</div>
+      <div className="grid items-start w-full" style={{ gridTemplateColumns: `repeat(${steps.length}, minmax(0, 1fr))` }}>
+        {steps.map((step, i) => {
         const state = failed && i === activeIndex ? 'failed' : i < activeIndex ? 'done' : i === activeIndex ? 'active' : 'pending';
         return (
           <div key={step.label} className="relative flex flex-col items-center gap-1.5" title={step.label}>
@@ -3171,7 +3179,8 @@ function PipelineStepper({ stage, percent, failed = false, source = 'automatic' 
             <span className={`text-[7px] font-bold truncate max-w-[45px] ${state === 'active' ? 'text-[#62dcff]' : state === 'done' ? 'text-slate-400' : 'text-slate-600'}`}>{step.label}</span>
           </div>
         );
-      })}
+        })}
+      </div>
     </div>
   );
 }
