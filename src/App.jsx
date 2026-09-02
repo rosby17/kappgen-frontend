@@ -6538,6 +6538,8 @@ export default function App() {
   const [thumbnailProviderModeSaving, setThumbnailProviderModeSaving] = useState(false);
   const [voiceoverProviderMode, setVoiceoverProviderModeState] = useState(null);
   const [voiceoverProviderModeSaving, setVoiceoverProviderModeSaving] = useState(false);
+  const [renderConcurrency, setRenderConcurrencyState] = useState(null);
+  const [renderConcurrencySaving, setRenderConcurrencySaving] = useState(false);
   const [aiTextProvider, setAiTextProviderState] = useState(null);
   const [aiTextProviderSaving, setAiTextProviderSaving] = useState(false);
   const [hfAccounts, setHfAccounts] = useState([]);
@@ -7087,8 +7089,35 @@ export default function App() {
   };
 
   useEffect(() => {
-    if (view === 'admin' && currentUser?.is_admin && adminTab === 'resources') { fetchAdminProviders(); fetchHfAccounts(); fetchThumbnailProviderMode(); fetchVoiceoverProviderMode(); fetchAiTextProvider(); }
+    if (view === 'admin' && currentUser?.is_admin && adminTab === 'resources') { fetchAdminProviders(); fetchHfAccounts(); fetchThumbnailProviderMode(); fetchVoiceoverProviderMode(); fetchAiTextProvider(); fetchRenderConcurrency(); }
   }, [view, currentUser?.is_admin, adminTab]);
+
+  const fetchRenderConcurrency = async () => {
+    try {
+      const res = await authFetch(`${API_BASE}/admin/settings/render-concurrency`);
+      if (res.ok) setRenderConcurrencyState(await res.json());
+    } catch (err) {
+      console.error("Erreur chargement de la concurrence de rendu:", err);
+    }
+  };
+
+  const setRenderConcurrency = async (value) => {
+    setRenderConcurrencySaving(true);
+    try {
+      const res = await authFetch(`${API_BASE}/admin/settings/render-concurrency`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ value }),
+      });
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      setRenderConcurrencyState(prev => ({ ...prev, value: data.value }));
+      showToast(`${data.value} vidéo${data.value > 1 ? 's' : ''} en rendu simultané.`, 'success');
+    } catch {
+      showToast('Échec de la mise à jour.', 'error');
+    } finally {
+      setRenderConcurrencySaving(false);
+    }
+  };
 
   const fetchThumbnailProviderMode = async () => {
     try {
@@ -14858,6 +14887,36 @@ export default function App() {
               </div>
 
               <div className="space-y-3">
+                <div>
+                  <h4 className="text-sm font-bold text-white">Vidéos rendues en même temps</h4>
+                  <p className="text-[11px] text-slate-500 mt-0.5">Nombre de vidéos que le serveur génère simultanément. Monte-le quand la demande est forte, redescends-le à 1 pour libérer des ressources — appliqué en direct, sans redéploiement.</p>
+                </div>
+                {!renderConcurrency ? (
+                  <div className="text-center text-slate-500 text-xs py-4">Chargement...</div>
+                ) : (
+                  <div className="flex flex-wrap items-center gap-2">
+                    {Array.from({ length: renderConcurrency.max || 4 }, (_, i) => i + 1).map(n => (
+                      <button
+                        key={n}
+                        type="button"
+                        onClick={() => setRenderConcurrency(n)}
+                        disabled={renderConcurrencySaving}
+                        className={`w-11 h-11 rounded-xl text-sm font-black border transition-colors disabled:opacity-50 ${
+                          renderConcurrency.value === n
+                            ? 'bg-[#00c2ff]/10 text-[#00c2ff] border-[#00c2ff]/60'
+                            : 'bg-[var(--bg-surface-alt)] text-slate-400 border-[var(--border)] hover:border-slate-500'
+                        }`}
+                      >
+                        {n}
+                      </button>
+                    ))}
+                    {renderConcurrencySaving && <span className="material-symbols-outlined text-[16px] text-slate-500 animate-spin">progress_activity</span>}
+                    <span className="text-[11px] text-slate-500 ml-1">vidéo{renderConcurrency.value > 1 ? 's' : ''} à la fois</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="pt-6 border-t border-[var(--border-soft)] space-y-3">
                 <div>
                   <h4 className="text-sm font-bold text-white">Voix off (audio)</h4>
                 </div>
