@@ -4062,6 +4062,9 @@ export default function App() {
   // is for the compact voice selector on the Voix Off step, outside that modal.
   const [wizardVoicePreviewId, setWizardVoicePreviewId] = useState(null);
   const [wizardVoiceGeneratingId, setWizardVoiceGeneratingId] = useState(null);
+  const [voiceSettingsPreviewLoading, setVoiceSettingsPreviewLoading] = useState(false);
+  const [voiceSettingsPreviewUrl, setVoiceSettingsPreviewUrl] = useState(null);
+  const [voiceSettingsPreviewPlaying, setVoiceSettingsPreviewPlaying] = useState(false);
   const [showVoiceCloner, setShowVoiceCloner] = useState(false);
   const [savedVoiceIds, setSavedVoiceIds] = useState(() => readVoiceIdList(SAVED_VOICE_IDS_KEY));
   const [clonedVoiceIds, setClonedVoiceIds] = useState(() => readVoiceIdList(CLONED_VOICE_IDS_KEY));
@@ -7919,6 +7922,36 @@ export default function App() {
     }
   };
 
+  const previewVoiceSettings = async () => {
+    const voiceId = newChannel.voice_id || selectedVoice;
+    if (!voiceId) {
+      showToast('Choisis une voix avant de générer un aperçu.', 'error');
+      return;
+    }
+    const settings = newChannel.voice_settings || { speed: 0.845, stability: 0.8, similarity_boost: 0.9, style: 0 };
+    setVoiceSettingsPreviewLoading(true);
+    stopVoicePreview();
+    setVoiceSettingsPreviewPlaying(false);
+    try {
+      const res = await authFetch(`${API_BASE}/channels/voice/${encodeURIComponent(voiceId)}/preview/settings`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(settings),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.detail || "Impossible de générer l'aperçu.");
+      const url = String(body.preview_url || '').startsWith('http') ? body.preview_url : `${API_BASE}${body.preview_url}`;
+      if (!body.preview_url) throw new Error("L'aperçu audio est indisponible.");
+      setVoiceSettingsPreviewUrl(url);
+      setVoiceSettingsPreviewPlaying(true);
+      playVoicePreviewExclusive(url, () => setVoiceSettingsPreviewPlaying(false));
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setVoiceSettingsPreviewLoading(false);
+    }
+  };
+
   const handleRetryVideo = async (videoId) => {
     try {
       await authFetch(`${API_BASE}/videos/${videoId}/retry`, { method: 'POST' });
@@ -11487,10 +11520,48 @@ export default function App() {
                           return <label key={field} className="bg-[var(--bg-input)] border border-[var(--border-subtle)] rounded-xl p-3">
                             <span className="flex justify-between text-[10px] font-bold text-slate-300 mb-2"><span>{label}</span><span className="text-[#55d8ff]">{value.toFixed(2)}</span></span>
                             <input type="range" min={min} max={max} step={step} value={value} onChange={e => {
+                              // A previously rendered sample no longer represents
+                              // the current setup once any control changes.
+                              setVoiceSettingsPreviewUrl(null);
+                              setVoiceSettingsPreviewPlaying(false);
+                              stopVoicePreview();
                               setNewChannel({ ...newChannel, voice_settings: { ...settings, [field]: Number(e.target.value) } });
                             }} className="w-full accent-[#00c2ff]" />
                           </label>;
                         })}
+                      </div>
+                      <div className="mt-3 flex flex-wrap items-center gap-3 rounded-xl border border-[#00c2ff]/25 bg-[#00c2ff]/[0.04] px-3 py-2.5">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[11px] font-bold text-slate-200">Aperçu des réglages</p>
+                          <p className="text-[10px] text-slate-500">Écoute un court extrait avant de lancer ta vidéo.</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={previewVoiceSettings}
+                          disabled={voiceSettingsPreviewLoading}
+                          className="shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-[#00c2ff] px-3 py-2 text-[11px] font-extrabold text-slate-950 transition-opacity disabled:cursor-wait disabled:opacity-60"
+                        >
+                          <span className={`material-symbols-outlined text-[16px] ${voiceSettingsPreviewLoading ? 'animate-spin' : ''}`}>{voiceSettingsPreviewLoading ? 'progress_activity' : voiceSettingsPreviewUrl ? 'refresh' : 'play_arrow'}</span>
+                          {voiceSettingsPreviewLoading ? 'Génération…' : voiceSettingsPreviewUrl ? 'Regénérer' : 'Écouter l’aperçu'}
+                        </button>
+                        {voiceSettingsPreviewUrl && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (voiceSettingsPreviewPlaying) {
+                                stopVoicePreview();
+                                setVoiceSettingsPreviewPlaying(false);
+                              } else {
+                                setVoiceSettingsPreviewPlaying(true);
+                                playVoicePreviewExclusive(voiceSettingsPreviewUrl, () => setVoiceSettingsPreviewPlaying(false));
+                              }
+                            }}
+                            className="shrink-0 inline-flex items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--bg-input)] px-3 py-2 text-[11px] font-bold text-slate-200 hover:border-[#00c2ff]/60"
+                          >
+                            <span className="material-symbols-outlined text-[15px]">{voiceSettingsPreviewPlaying ? 'pause' : 'play_arrow'}</span>
+                            {voiceSettingsPreviewPlaying ? 'Pause' : 'Réécouter'}
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -16596,7 +16667,12 @@ export default function App() {
           searchQuery={voiceSearchQuery}
           onSearchChange={setVoiceSearchQuery}
           searching={voiceSearching}
-          onSelect={(voice) => setNewChannel(prev => ({ ...prev, voice_id: voice.id, voice_name: voice.name }))}
+          onSelect={(voice) => {
+            stopVoicePreview();
+            setVoiceSettingsPreviewUrl(null);
+            setVoiceSettingsPreviewPlaying(false);
+            setNewChannel(prev => ({ ...prev, voice_id: voice.id, voice_name: voice.name }));
+          }}
           onToggleSave={toggleSavedVoice}
           onClose={() => setShowVoiceLibrary(false)}
           onOpenCloner={() => setShowVoiceCloner(true)}
