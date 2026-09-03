@@ -7215,6 +7215,20 @@ export default function App() {
     }
   };
 
+  const setAdminVideoPriority = async (videoId, prioritize) => {
+    try {
+      const res = await authFetch(`${API_BASE}/admin/videos/${videoId}/priority`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prioritize }),
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || 'Échec de la mise à jour.');
+      fetchAdminVideos();
+      showToast(prioritize ? 'Vidéo mise en priorité — elle sera rendue avant les autres en attente.' : 'Priorité retirée.', 'success');
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  };
+
   // Keep the admin list actions identical to the creator video menu. Actions
   // that need the full editor/modal open the same existing UI, while the
   // admin-specific detail/retry/delete handlers remain available here too.
@@ -7224,6 +7238,12 @@ export default function App() {
       <button onClick={(e) => { e.stopPropagation(); setAdminVideoMenuId(null); handleRegenerateCardThumbnail(vid, e); }} disabled={regeneratingCardThumbnailIds.has(vid.id)} className="w-full px-3 py-2 text-left text-xs font-medium text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 disabled:opacity-50"><span className="material-symbols-outlined text-[15px] text-[#00c2ff]">autorenew</span>{regeneratingCardThumbnailIds.has(vid.id) ? 'Régénération…' : 'Régénérer la miniature'}</button>
       <button onClick={(e) => { e.stopPropagation(); setAdminVideoMenuId(null); openThumbnailModal(vid, e); }} className="w-full px-3 py-2 text-left text-xs font-medium text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2"><span className="material-symbols-outlined text-[15px] text-[#00c2ff]">photo_library</span>Historique des miniatures</button>
       <button onClick={(e) => { e.stopPropagation(); setAdminVideoMenuId(null); openAdminVideoDetail(vid.id); }} className="w-full px-3 py-2 text-left text-xs font-medium text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2"><span className="material-symbols-outlined text-[15px] text-[#00c2ff]">movie_edit</span>Éditer la vidéo</button>
+      {vid.status === 'queued' && (
+        <button onClick={(e) => { e.stopPropagation(); setAdminVideoMenuId(null); setAdminVideoPriority(vid.id, !vid.admin_priority); }} className="w-full px-3 py-2 text-left text-xs font-medium text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2">
+          <span className={`material-symbols-outlined text-[15px] ${vid.admin_priority ? 'text-amber-400' : 'text-[#00c2ff]'}`}>bolt</span>
+          {vid.admin_priority ? 'Retirer la priorité' : 'Prioriser cette vidéo'}
+        </button>
+      )}
       <button onClick={(e) => handleDownloadVideo(vid, e)} disabled={!vid.output_path} className="w-full px-3 py-2 text-left text-xs font-medium text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 disabled:opacity-40"><span className="material-symbols-outlined text-[15px] text-[#00c2ff]">download</span>Télécharger</button>
       <button onClick={(e) => openRetentionModal(vid, e)} className="w-full px-3 py-2 text-left text-xs font-medium text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2"><span className="material-symbols-outlined text-[15px] text-[#00c2ff]">schedule</span>Conserver plus longtemps</button>
       <button onClick={(e) => handlePublishYouTube(vid, e)} disabled={vid.status !== 'done'} className="w-full px-3 py-2 text-left text-xs font-medium text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 disabled:opacity-40"><span className="material-symbols-outlined text-[15px] text-[#00c2ff]">smart_display</span>{vid.youtube_video_id ? 'Voir sur YouTube' : 'Publier sur YouTube'}</button>
@@ -14519,12 +14539,14 @@ export default function App() {
                                 </span>
                               </div>
                             )}
-                            <span className={`absolute top-1.5 left-1.5 px-2 py-0.5 rounded-full text-[9px] font-bold ${
+                            <span className={`absolute top-1.5 left-1.5 px-2 py-0.5 rounded-full text-[9px] font-bold flex items-center gap-1 ${
                               v.status === 'done' ? 'bg-emerald-950/90 text-emerald-300' :
                               v.status === 'failed' ? 'bg-rose-950/90 text-rose-300' :
                               v.status === 'rendering' ? 'bg-amber-950/90 text-amber-300' :
+                              v.admin_priority ? 'bg-amber-950/90 text-amber-300' :
                               'bg-slate-950/90 text-slate-300'
                             }`}>
+                              {v.status === 'queued' && v.admin_priority && <span className="material-symbols-outlined text-[10px]">bolt</span>}
                               {v.status === 'queued' && v.queue_position ? `attente · #${v.queue_position}` : v.status}
                             </span>
                           </button>
@@ -14607,12 +14629,14 @@ export default function App() {
                         </td>
                         <td className="px-4 py-2.5 text-slate-400">{v.owner_email || '—'}</td>
                         <td className="px-4 py-2.5 cursor-pointer" onClick={() => openAdminVideoDetail(v.id)}>
-                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold inline-flex items-center gap-1 ${
                             v.status === 'done' ? 'bg-emerald-950/60 text-emerald-400' :
                             v.status === 'failed' ? 'bg-rose-950/60 text-rose-400' :
                             v.status === 'rendering' ? 'bg-amber-950/60 text-amber-400' :
+                            v.admin_priority ? 'bg-amber-950/60 text-amber-400' :
                             'bg-[var(--bg-surface-alt)] text-slate-400'
                           }`}>
+                            {v.status === 'queued' && v.admin_priority && <span className="material-symbols-outlined text-[11px]" title="Priorisée par un admin">bolt</span>}
                             {v.status === 'queued' && v.queue_position
                               ? `attente · #${v.queue_position}`
                               : v.status}
