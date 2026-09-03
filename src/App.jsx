@@ -8543,7 +8543,10 @@ export default function App() {
     if (e) e.stopPropagation();
     setOpenVideoMenuId(null);
     if (!vid.output_path) return;
-    setDownloadModalVideo(vid);
+    // The card/menu action is a direct download: no second confirmation or
+    // format picker between the click and the MP4. The HD/SD chooser remains
+    // available only from the dedicated export dialog.
+    runDownload(vid, 'hd');
   };
 
   const [approvingVideoId, setApprovingVideoId] = useState(null);
@@ -17224,7 +17227,7 @@ export default function App() {
                 {retryingVideoVisualsId === selectedVideo.id ? 'Relance…' : 'Relancer le montage'}
               </button>
               <button
-                onClick={() => setDownloadModalVideo(selectedVideo)}
+                onClick={() => runDownload(selectedVideo, 'hd')}
                 className="flex-1 py-3 bg-[#00c2ff] text-slate-950 font-bold text-xs rounded-xl text-center hover:bg-[#38d0ff] transition-all flex items-center justify-center gap-2"
               >
                 <span className="material-symbols-outlined text-[18px]">download</span> Télécharger MP4
