@@ -8994,6 +8994,7 @@ export default function App() {
   // KappGen Studio — post-render editor: swap a bad scene image without
   // redoing TTS/pacing/image-gen for the whole video.
   const [studioScenes, setStudioScenes] = useState([]);
+  const [studioSceneError, setStudioSceneError] = useState('');
   const [studioLoading, setStudioLoading] = useState(false);
   const [studioReplacingIndex, setStudioReplacingIndex] = useState(null);
   const [studioReassembling, setStudioReassembling] = useState(false);
@@ -9086,6 +9087,7 @@ export default function App() {
     setSelectedVideo(null);
     setStudioLoading(true);
     setStudioScenes([]);
+    setStudioSceneError('');
     setStudioSelectedIndex(null);
     setStudioTitleDraft(vid.title || '');
     setStudioEditingTitle(false);
@@ -9105,6 +9107,11 @@ export default function App() {
       if (Array.isArray(scenes)) setStudioFullScriptDraft(scenes.map(s => s.text || '').join('\n\n'));
     } catch (err) {
       console.error("Erreur chargement des scènes:", err);
+      // Le backend restaure automatiquement les fichiers d'édition archivés
+      // sur B2 avant de renvoyer cette erreur — si elle arrive quand même,
+      // c'est que la restauration a échoué (rien à restaurer, ou vidéo
+      // antérieure à l'archivage), pas un simple dépassement de délai.
+      setStudioSceneError(err.message || "Cette vidéo n'est plus éditable (fichiers sources introuvables, même dans l'archive).");
       setStudioScenes(null); // null = "not editable", distinct from [] = "loaded, no scenes"
     } finally {
       setStudioLoading(false);
@@ -16993,7 +17000,7 @@ export default function App() {
                     ) : null}
 
                     {label === 'Audio' && (productionProgress.audio_ready ? (
-                      <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--bg-surface-alt)] p-5"><h3 className="mb-3 text-xs font-extrabold text-white">Voix générée</h3><audio controls preload="metadata" className="w-full" style={{ colorScheme: 'dark' }} src={`${API_BASE}${productionProgress.audio_url}`} /></div>
+                      <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--bg-surface-alt)] p-5"><h3 className="mb-3 text-xs font-extrabold text-white">Voix générée</h3><ServerAudioPreview src={`${API_BASE}${productionProgress.audio_url}`} name="Voix off" /></div>
                     ) : <div className="rounded-xl border border-dashed border-slate-700 p-8 text-center text-xs font-bold text-slate-400">La voix est en cours de préparation. Le lecteur apparaîtra automatiquement.</div>)}
 
                     {isGallery && (productionProgress.scenes?.length ? (
@@ -17499,7 +17506,7 @@ export default function App() {
             <div className="flex-1 flex items-center justify-center text-xs text-slate-500">Chargement des scènes...</div>
           ) : studioScenes === null ? (
             <div className="flex-1 flex items-center justify-center text-xs text-slate-500 px-10 text-center">
-              Cette vidéo n'est plus éditable (fichiers sources purgés après 7 jours, ou vidéo antérieure à cette fonctionnalité).
+              {studioSceneError}
             </div>
           ) : studioScenes.length === 0 ? (
             <div className="flex-1 flex items-center justify-center text-xs text-slate-500">Aucune scène trouvée.</div>
