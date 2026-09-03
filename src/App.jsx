@@ -10148,6 +10148,24 @@ export default function App() {
                                       {formatDuration(vid.duration_seconds)}
                                     </div>
                                   )}
+                                  {/* No generic placeholder is ever written when the channel's
+                                      AI reference style fails to produce a real thumbnail — a
+                                      clear "réessaie" state instead of a mediocre image (see
+                                      generate_thumbnail(strict=...) backend-side). */}
+                                  {vid.thumbnail_error && (
+                                    <div className="absolute top-2 left-2 z-10 flex items-center gap-1.5 bg-amber-950/90 border border-amber-700/60 text-amber-300 text-[9px] font-bold px-2 py-1 rounded-lg max-w-[85%]">
+                                      <span className="material-symbols-outlined text-[13px] shrink-0">image_not_supported</span>
+                                      <span className="truncate">Miniature indisponible</span>
+                                      <button
+                                        onClick={(e) => handleRegenerateCardThumbnail(vid, e)}
+                                        disabled={regeneratingCardThumbnailIds.has(vid.id)}
+                                        title="Réessayer"
+                                        className="shrink-0 hover:text-white disabled:opacity-50"
+                                      >
+                                        <span className={`material-symbols-outlined text-[13px] ${regeneratingCardThumbnailIds.has(vid.id) ? 'animate-spin' : ''}`}>{regeneratingCardThumbnailIds.has(vid.id) ? 'progress_activity' : 'autorenew'}</span>
+                                      </button>
+                                    </div>
+                                  )}
                                   {vid.progress_stage && /youtube|miniature/i.test(vid.progress_stage) && !vid.youtube_video_id && !vid.youtube_publish_error && (
                                     <div className="absolute inset-x-0 bottom-0 bg-black/85 px-2 py-1.5 flex items-center gap-1.5">
                                       <YouTubeIcon className="w-3.5 h-2.5 animate-pulse" />
@@ -11096,6 +11114,20 @@ export default function App() {
                                 {vid.duration_seconds != null && (
                                   <div className="absolute bottom-2 right-2 bg-black/70 text-white text-[10px] font-mono font-bold px-1.5 py-0.5 rounded">
                                     {formatDuration(vid.duration_seconds)}
+                                  </div>
+                                )}
+                                {vid.thumbnail_error && (
+                                  <div className="absolute top-2 left-2 z-10 flex items-center gap-1.5 bg-amber-950/90 border border-amber-700/60 text-amber-300 text-[9px] font-bold px-2 py-1 rounded-lg max-w-[85%]">
+                                    <span className="material-symbols-outlined text-[13px] shrink-0">image_not_supported</span>
+                                    <span className="truncate">Miniature indisponible</span>
+                                    <button
+                                      onClick={(e) => handleRegenerateCardThumbnail(vid, e)}
+                                      disabled={regeneratingCardThumbnailIds.has(vid.id)}
+                                      title="Réessayer"
+                                      className="shrink-0 hover:text-white disabled:opacity-50"
+                                    >
+                                      <span className={`material-symbols-outlined text-[13px] ${regeneratingCardThumbnailIds.has(vid.id) ? 'animate-spin' : ''}`}>{regeneratingCardThumbnailIds.has(vid.id) ? 'progress_activity' : 'autorenew'}</span>
+                                    </button>
                                   </div>
                                 )}
                                 {vid.progress_stage && /youtube|miniature/i.test(vid.progress_stage) && !vid.youtube_video_id && !vid.youtube_publish_error && (
