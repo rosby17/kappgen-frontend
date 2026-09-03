@@ -3922,7 +3922,7 @@ export default function App() {
   const wizardSubtitleDragRef = useRef(null);
   const [mockupSubtitlePreviewRef, mockupSubtitlePreviewScale] = useSubtitlePreviewScale();
   const [submitSubtitlePreviewRef, submitSubtitlePreviewScale] = useSubtitlePreviewScale();
-  const [confirmDialog, setConfirmDialog] = useState(null); // { title, message, danger, resolve }
+  const [confirmDialog, setConfirmDialog] = useState(null); // { title, message, danger, icon, details, confirmLabel, resolve }
 
   const handleWizardSubtitlePointerDown = (event) => {
     if (event.button !== 0) return;
@@ -4033,9 +4033,17 @@ export default function App() {
     return () => clearInterval(timer);
   }, [productionInspector?.video?.id]);
 
-  const askConfirm = (message, { title = "Confirmer l'action", danger = false } = {}) => {
+  const askConfirm = (message, {
+    title = "Confirmer l'action",
+    danger = false,
+    icon = null,
+    eyebrow = null,
+    details = [],
+    confirmLabel = 'Confirmer',
+    cancelLabel = 'Annuler',
+  } = {}) => {
     return new Promise((resolve) => {
-      setConfirmDialog({ title, message, danger, resolve });
+      setConfirmDialog({ title, message, danger, icon, eyebrow, details, confirmLabel, cancelLabel, resolve });
     });
   };
 
@@ -8290,7 +8298,20 @@ export default function App() {
   const [retryingVideoVisualsId, setRetryingVideoVisualsId] = useState(null);
   const handleRetryVideoVisuals = async (videoId) => {
     if (!videoId || retryingVideoVisualsId) return;
-    if (!window.confirm("Relancer uniquement le montage (images/vidéos) ? La voix off actuelle est conservée telle quelle.")) return;
+    const confirmed = await askConfirm(
+      "KappGen va rechercher de nouveaux visuels et reconstruire toutes les scènes de cette vidéo.",
+      {
+        title: 'Relancer le montage ?',
+        eyebrow: 'Nouveau rendu visuel',
+        icon: 'movie_edit',
+        confirmLabel: 'Relancer le montage',
+        details: [
+          { icon: 'graphic_eq', label: 'Voix off conservée', description: 'La narration et sa synchronisation ne seront pas modifiées.', tone: 'success' },
+          { icon: 'auto_awesome_motion', label: 'Visuels régénérés', description: 'Les images, vidéos Pexels et scènes seront reconstruits.', tone: 'info' },
+        ],
+      },
+    );
+    if (!confirmed) return;
     setRetryingVideoVisualsId(videoId);
     try {
       const res = await authFetch(`${API_BASE}/videos/${videoId}/retry-visuals`, { method: 'POST' });
@@ -12234,7 +12255,7 @@ export default function App() {
 
                       <div className="rounded-2xl border border-violet-500/20 bg-violet-500/[.05] p-4 order-2">
                         <h4 className="text-xs font-bold text-white">2. Mode de montage</h4>
-                        <p className="mt-1 text-[10px] text-slate-400">Choisis comment les images et les vidéos B-roll importées doivent être utilisés.</p>
+                        <p className="mt-1 text-[10px] text-slate-400">Choisis la composition du montage. En mode mixte ou vidéo, KappGen complète automatiquement tes médias avec des séquences Pexels.</p>
                         <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
                           {[['images', 'Images uniquement', 'image'], ['videos', 'Vidéos B-roll uniquement', 'movie'], ['mixed', 'Mix images + vidéos', 'perm_media']].map(([value, label, icon]) => (
                             <button type="button" key={value} onClick={() => setNewChannel({ ...newChannel, image_style: { ...newChannel.image_style, media_mode: value } })} className={`flex items-center gap-2 rounded-xl border px-3 py-2.5 text-left text-[10px] font-bold transition ${newChannel.image_style.media_mode === value ? 'border-violet-400 bg-violet-500/20 text-white' : 'border-white/10 bg-black/10 text-slate-400 hover:border-violet-400/50'}`}>
@@ -12242,12 +12263,11 @@ export default function App() {
                             </button>
                           ))}
                         </div>
-                        {/* Option C (community + Pexels) supplies real stock B-roll
-                            clips automatically for every scene — this warning only
-                            applies when NEITHER a local library NOR that option is
-                            in play, since otherwise there's nothing actually missing. */}
-                        {newChannel.image_style.media_mode === 'videos' && !isCommunityChecked && !hasStoredLibrary && (
-                          <p className="mt-2 text-[10px] text-amber-300">Ce mode nécessite au moins un clip B-roll importé dans la Bibliothèque, ou l'Option C (banque de stock Pexels) cochée ci-dessous.</p>
+                        {newChannel.image_style.media_mode === 'mixed' && (
+                          <p className="mt-2 text-[10px] text-violet-200">Le rythme images/vidéos s’adapte automatiquement à la niche. Tes B-roll sont prioritaires et Pexels complète les scènes animées restantes.</p>
+                        )}
+                        {newChannel.image_style.media_mode === 'videos' && (
+                          <p className="mt-2 text-[10px] text-violet-200">Tes B-roll sont utilisés lorsqu’ils existent. Sans vidéo importée, toutes les scènes sont recherchées automatiquement sur Pexels.</p>
                         )}
                       </div>
 
@@ -12469,9 +12489,10 @@ export default function App() {
                       {(() => {
                         const nicheSet = (newChannel.niche || '').trim();
                         const available = communityLibraryAvailability?.available;
-                        // Free Pexels stock (video + photos) rides along with this
-                        // option, so it stays usable even before a niche has its
-                        // own shared pool — the niche itself is all that's required.
+                        // This option controls shared still-image pools. Pexels
+                        // motion footage is controlled by the montage mode above,
+                        // so mixed/video projects remain viable without coupling
+                        // two otherwise independent creator choices.
                         const disabled = !nicheSet;
                         return (
                           <div
@@ -12490,8 +12511,8 @@ export default function App() {
                                   {!nicheSet
                                     ? "Choisis d'abord une niche (étape 1)."
                                     : available
-                                      ? "Images partagées de ta niche (gratuites) + vraies séquences vidéo et photos de stock cherchées automatiquement pour chaque scène (100 crédits par séquence/photo utilisée)."
-                                      : `Pas encore de bibliothèque partagée pour « ${nicheSet} », mais les séquences vidéo et photos de stock sont cherchées automatiquement pour chaque scène (100 crédits par séquence/photo utilisée).`}
+                                      ? "Images partagées et vérifiées de ta niche, utilisées gratuitement dans les scènes prévues en image."
+                                      : `La bibliothèque de « ${nicheSet} » est encore vide. Les autres sources cochées prendront automatiquement le relais.`}
                                 </p>
                               </div>
                               <input
@@ -17784,52 +17805,79 @@ export default function App() {
       )}
 
       {downloadModalVideo && (
-        <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-[60] flex items-center justify-center p-6">
-          <div className="bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-3xl p-6 max-w-[420px] w-full shadow-2xl space-y-5">
-            <div className="flex justify-between items-center">
-              <h3 className="text-sm font-bold text-white">Télécharger la vidéo</h3>
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/90 p-4 backdrop-blur-md sm:p-6" onClick={() => { if (!downloadingQuality) setDownloadModalVideo(null); }}>
+          <div className="w-full max-w-[500px] overflow-hidden rounded-3xl border border-[#00c2ff]/20 bg-[var(--bg-surface)] shadow-[0_32px_100px_rgba(0,0,0,.55)]" onClick={event => event.stopPropagation()}>
+            <div className="relative overflow-hidden border-b border-[var(--border-soft)] px-5 pb-5 pt-6 sm:px-6">
+              <div className="pointer-events-none absolute -right-12 -top-16 h-40 w-40 rounded-full bg-[#00c2ff]/15 blur-3xl" />
+              <div className="relative flex items-start justify-between gap-4">
+                <div className="flex min-w-0 items-center gap-3">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-[#00c2ff]/30 bg-[#00c2ff]/10 text-[#63dcff]">
+                    <span className="material-symbols-outlined text-[23px]">file_download</span>
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-[10px] font-extrabold uppercase tracking-[.16em] text-[#63dcff]">Export terminé</div>
+                    <h3 className="mt-0.5 truncate text-base font-extrabold text-white">Télécharger la vidéo</h3>
+                  </div>
+                </div>
               <button
                 onClick={() => { if (!downloadingQuality) setDownloadModalVideo(null); }}
-                className="text-slate-400 hover:text-white"
+                className="rounded-xl p-2 text-slate-400 transition hover:bg-white/5 hover:text-white disabled:cursor-not-allowed"
+                disabled={!!downloadingQuality}
+                aria-label="Fermer"
               >
                 <span className="material-symbols-outlined">close</span>
               </button>
+              </div>
+              <p className="relative mt-4 truncate text-xs font-medium text-slate-300">{downloadModalVideo.title || 'Vidéo KappGen'}</p>
             </div>
-            <p className="text-xs text-slate-400">Format MP4. Choisissez la qualité d'export — la miniature se télécharge automatiquement avec la vidéo.</p>
 
-            <div className="space-y-2.5">
+            <div className="space-y-3 p-5 sm:p-6">
+              <div className="flex items-center justify-between px-0.5">
+                <p className="text-[11px] font-bold text-slate-300">Choisir le format vidéo</p>
+                <span className="text-[10px] text-slate-500">MP4 · miniature incluse</span>
+              </div>
               {[
-                { key: 'sd', label: 'SD', detail: '854×480 — fichier léger, partage rapide' },
-                { key: 'hd', label: 'HD', detail: '1920×1080 — qualité native du rendu' },
+                { key: 'hd', label: 'Haute définition', format: 'HD · 1920×1080', detail: 'Qualité native du rendu', icon: 'high_quality', recommended: true },
+                { key: 'sd', label: 'Version légère', format: 'SD · 854×480', detail: 'Plus rapide à partager et à envoyer', icon: 'bolt', recommended: false },
               ].map(opt => (
                 <button
                   key={opt.key}
                   disabled={!!downloadingQuality}
                   onClick={() => runDownload(downloadModalVideo, opt.key)}
-                  className="w-full flex items-center justify-between p-3.5 bg-[var(--bg-surface-alt)] hover:bg-[var(--border-soft)] border border-[var(--border)] rounded-2xl transition-all disabled:opacity-50 text-left"
+                  className={`group relative w-full overflow-hidden rounded-2xl border p-4 text-left transition-all disabled:opacity-50 ${opt.recommended ? 'border-[#00c2ff]/45 bg-[#00c2ff]/[.08] hover:border-[#00c2ff] hover:bg-[#00c2ff]/[.13]' : 'border-[var(--border)] bg-[var(--bg-surface-alt)] hover:border-slate-500 hover:bg-[var(--border-soft)]'}`}
                 >
-                  <div>
-                    <div className="text-xs font-bold text-white">{opt.label}</div>
-                    <div className="text-[11px] text-slate-400">{opt.detail}</div>
+                  <div className="flex items-center gap-3">
+                    <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${opt.recommended ? 'bg-[#00c2ff] text-slate-950' : 'bg-slate-800 text-slate-300'}`}>
+                      <span className="material-symbols-outlined text-[20px]">{opt.icon}</span>
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2"><span className="text-xs font-extrabold text-white">{opt.label}</span>{opt.recommended && <span className="rounded-full bg-[#00c2ff] px-1.5 py-0.5 text-[8px] font-extrabold uppercase tracking-wide text-slate-950">Recommandé</span>}</div>
+                      <div className="mt-0.5 text-[10px] font-medium text-slate-400">{opt.format} · {opt.detail}</div>
+                    </div>
                   </div>
                   {downloadingQuality === opt.key ? (
                     <span className="material-symbols-outlined text-[18px] text-[#00c2ff] animate-spin">progress_activity</span>
                   ) : (
-                    <span className="material-symbols-outlined text-[18px] text-[#00c2ff]">download</span>
+                    <span className="material-symbols-outlined text-[20px] text-[#63dcff] transition-transform group-hover:translate-y-0.5">download</span>
                   )}
                 </button>
               ))}
+              <div className="my-4 flex items-center gap-3"><div className="h-px flex-1 bg-[var(--border-soft)]" /><span className="text-[9px] font-bold uppercase tracking-[.12em] text-slate-600">ou séparément</span><div className="h-px flex-1 bg-[var(--border-soft)]" /></div>
               <button
                 disabled={!!downloadingQuality}
                 onClick={() => runThumbnailDownload(downloadModalVideo)}
-                className="w-full flex items-center justify-between p-3.5 bg-[var(--bg-surface-alt)] hover:bg-[var(--border-soft)] border border-dashed border-[var(--border)] rounded-2xl transition-all disabled:opacity-50 text-left"
+                className="group flex w-full items-center justify-between rounded-2xl border border-dashed border-[#00c2ff]/35 bg-[#00c2ff]/[.035] p-4 text-left transition-all hover:border-[#00c2ff]/70 hover:bg-[#00c2ff]/[.08] disabled:opacity-50"
               >
-                <div>
-                  <div className="text-xs font-bold text-white">Miniature seule</div>
-                  <div className="text-[11px] text-slate-400">JPG — pour publier manuellement ailleurs</div>
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#00c2ff]/15 text-[#63dcff]"><span className="material-symbols-outlined text-[20px]">add_photo_alternate</span></div>
+                  <div>
+                    <div className="text-xs font-extrabold text-white">Miniature uniquement</div>
+                    <div className="mt-0.5 text-[10px] font-medium text-slate-400">JPG · prête pour YouTube ou un autre réseau</div>
+                  </div>
                 </div>
-                <span className="material-symbols-outlined text-[18px] text-[#00c2ff]">image</span>
+                <span className="material-symbols-outlined text-[20px] text-[#63dcff] transition-transform group-hover:translate-y-0.5">download</span>
               </button>
+              <p className="pt-1 text-center text-[10px] leading-relaxed text-slate-500">La miniature JPG est ajoutée automatiquement à chaque export vidéo.</p>
             </div>
           </div>
         </div>
@@ -18557,33 +18605,71 @@ export default function App() {
       })()}
 
       {confirmDialog && (
-        <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-[110] flex items-center justify-center p-6">
-          <div className="bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-3xl p-7 max-w-[420px] w-full shadow-2xl space-y-5">
-            <div className="flex items-start gap-3">
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${confirmDialog.danger ? 'bg-rose-950 text-rose-300' : 'bg-[var(--bg-surface-alt)] text-[#00c2ff]'}`}>
-                <span className="material-symbols-outlined text-[20px]">{confirmDialog.danger ? 'warning' : 'help'}</span>
+        <div
+          className="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-[110] flex items-end sm:items-center justify-center p-0 sm:p-6 animate-in fade-in duration-200"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="confirm-dialog-title"
+          onClick={() => resolveConfirm(false)}
+        >
+          <div
+            className="relative overflow-hidden bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-t-3xl sm:rounded-3xl p-6 sm:p-7 max-w-[460px] w-full shadow-2xl space-y-5 animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-200"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className={`absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent ${confirmDialog.danger ? 'via-rose-500' : 'via-[#00c2ff]'} to-transparent`} />
+            <button
+              type="button"
+              onClick={() => resolveConfirm(false)}
+              aria-label="Fermer"
+              className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition hover:bg-white/5 hover:text-white"
+            >
+              <span className="material-symbols-outlined text-[18px]">close</span>
+            </button>
+
+            <div className="flex items-start gap-4 pr-8">
+              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 border ${confirmDialog.danger ? 'bg-rose-500/10 border-rose-500/20 text-rose-300' : 'bg-[#00c2ff]/10 border-[#00c2ff]/20 text-[#56d9ff]'}`}>
+                <span className="material-symbols-outlined text-[24px]">{confirmDialog.icon || (confirmDialog.danger ? 'warning' : 'help')}</span>
               </div>
-              <div>
-                <h3 className="text-base font-extrabold text-white">{confirmDialog.title}</h3>
-                <p className="text-sm text-slate-400 mt-1">{confirmDialog.message}</p>
+              <div className="min-w-0 pt-0.5">
+                {confirmDialog.eyebrow && (
+                  <p className={`text-[9px] font-extrabold uppercase tracking-[.18em] ${confirmDialog.danger ? 'text-rose-300' : 'text-[#56d9ff]'}`}>{confirmDialog.eyebrow}</p>
+                )}
+                <h3 id="confirm-dialog-title" className="text-lg font-extrabold text-white mt-0.5">{confirmDialog.title}</h3>
+                <p className="text-xs leading-relaxed text-slate-400 mt-1.5 whitespace-pre-line">{confirmDialog.message}</p>
               </div>
             </div>
-            <div className="flex justify-end gap-3 pt-1">
+
+            {confirmDialog.details?.length > 0 && (
+              <div className="grid gap-2.5">
+                {confirmDialog.details.map((detail, index) => (
+                  <div key={`${detail.label}-${index}`} className="flex items-start gap-3 rounded-2xl border border-white/[.06] bg-white/[.025] px-3.5 py-3">
+                    <span className={`material-symbols-outlined mt-0.5 text-[18px] ${detail.tone === 'success' ? 'text-emerald-400' : detail.tone === 'danger' ? 'text-rose-400' : 'text-[#56d9ff]'}`}>{detail.icon || 'check_circle'}</span>
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold text-slate-200">{detail.label}</p>
+                      {detail.description && <p className="mt-0.5 text-[10px] leading-relaxed text-slate-500">{detail.description}</p>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2.5 pt-1">
               <button
                 onClick={() => resolveConfirm(false)}
-                className="px-4 py-2.5 bg-[var(--bg-surface-alt)] text-slate-300 border border-[var(--border)] rounded-xl font-bold text-xs hover:bg-[var(--border-soft)] transition-all"
+                className="sm:min-w-28 px-4 py-3 bg-[var(--bg-surface-alt)] text-slate-300 border border-[var(--border)] rounded-xl font-bold text-xs hover:bg-[var(--border-soft)] hover:text-white transition-all"
               >
-                Annuler
+                {confirmDialog.cancelLabel}
               </button>
               <button
                 onClick={() => resolveConfirm(true)}
-                className={`px-4 py-2.5 rounded-xl font-bold text-xs transition-all ${
+                className={`sm:min-w-44 px-4 py-3 rounded-xl font-extrabold text-xs transition-all flex items-center justify-center gap-2 ${
                   confirmDialog.danger
-                    ? 'bg-rose-600 text-white hover:bg-rose-500'
-                    : 'bg-[#00c2ff] text-slate-950 hover:bg-[#38d0ff]'
+                    ? 'bg-rose-600 text-white hover:bg-rose-500 shadow-lg shadow-rose-950/30'
+                    : 'bg-gradient-to-r from-[#65e0ff] to-[#1a9cff] text-slate-950 hover:brightness-110 shadow-lg shadow-[#00c2ff]/20'
                 }`}
               >
-                Confirmer
+                <span className="material-symbols-outlined text-[17px]">{confirmDialog.danger ? 'warning' : (confirmDialog.icon || 'check')}</span>
+                {confirmDialog.confirmLabel}
               </button>
             </div>
           </div>
