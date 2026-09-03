@@ -2883,8 +2883,16 @@ async function getFolderHandle(channelKey) {
 // list would have correctly excluded, some of which then failed partway
 // through upload as a confusing "erreur réseau".
 const LOCAL_IMAGE_EXTENSIONS_RE = /\.(jpg|jpeg|jfif|jpe|png|webp|gif|avif|bmp|tif|tiff|heic|heif)$/i;
+// Matches ALLOWED_BROLL_EXTENSIONS / orchestrator.py's broll_paths filter
+// backend-side — a folder dropped into "Importer un dossier local" can mix
+// images and B-roll video clips together; each goes to its own upload
+// endpoint (library-images vs broll) but from the one folder pick/drop.
+const LOCAL_VIDEO_EXTENSIONS_RE = /\.(mp4|mov|webm|m4v|avi|mkv)$/i;
 
 async function readImagesFromDirHandle(dirHandle) {
+  // Despite the name (kept for the existing call sites' image-only use),
+  // this only ever returns images — see readMediaFromDirHandle for the
+  // images+videos split used by the local-folder importer.
   const files = [];
   for await (const entry of dirHandle.values()) {
     if (entry.kind === "file" && LOCAL_IMAGE_EXTENSIONS_RE.test(entry.name)) {
@@ -2893,6 +2901,16 @@ async function readImagesFromDirHandle(dirHandle) {
     }
   }
   return files;
+}
+
+async function readMediaFromDirHandle(dirHandle) {
+  const images = [], videos = [];
+  for await (const entry of dirHandle.values()) {
+    if (entry.kind !== "file") continue;
+    if (LOCAL_IMAGE_EXTENSIONS_RE.test(entry.name)) images.push(await entry.getFile());
+    else if (LOCAL_VIDEO_EXTENSIONS_RE.test(entry.name)) videos.push(await entry.getFile());
+  }
+  return { images, videos };
 }
 
 function YouTubeIcon({ className = "" }) {
@@ -6427,6 +6445,22 @@ export default function App() {
       .catch(() => {});
   };
 
+  // A folder dropped/picked for "Importer un dossier local" can mix images
+  // and B-roll video clips together (the wizard's own "Mode de montage" step
+  // right below offers "Mix images + vidéos") — videos go to the separate
+  // broll endpoint instead of the image library one. Needs a real channel id
+  // (broll is uploaded directly, no staging-token path for a not-yet-created
+  // channel the way images have) — falls back to a clear toast instead of
+  // silently dropping the files when creating a brand-new channel.
+  const uploadLocalVideoFiles = (videoFiles, channelIdForUpload) => {
+    if (!videoFiles.length) return;
+    if (!channelIdForUpload) {
+      showToast(`${videoFiles.length} vidéo(s) ignorée(s) — enregistre d'abord la chaîne pour ajouter des clips B-roll.`, "error");
+      return;
+    }
+    uploadLibraryBroll(channelIdForUpload, videoFiles);
+  };
+
   // File System Access API (Chrome/Edge): remembers the folder handle so a
   // later "Rafraîchir" can re-read it with one permission click instead of
   // reopening the OS folder picker. Falls back to the classic <input
@@ -6435,13 +6469,14 @@ export default function App() {
     if (!window.showDirectoryPicker) return false;
     try {
       const dirHandle = await window.showDirectoryPicker({ mode: 'read' });
-      const files = await readImagesFromDirHandle(dirHandle);
-      if (files.length === 0) {
-        showToast("Aucune image trouvée dans ce dossier.", "error");
+      const { images, videos } = await readMediaFromDirHandle(dirHandle);
+      if (images.length === 0 && videos.length === 0) {
+        showToast("Aucune image ni vidéo trouvée dans ce dossier.", "error");
         return true;
       }
       if (channelKeyForSync) await saveFolderHandle(channelKeyForSync, dirHandle);
-      prepareLocalImageFiles(files, dirHandle.name, channelKeyForSync);
+      if (images.length > 0) prepareLocalImageFiles(images, dirHandle.name, channelKeyForSync);
+      uploadLocalVideoFiles(videos, channelKeyForSync || editingChannelId);
       return true;
     } catch (err) {
       if (err && err.name === 'AbortError') return true; // user cancelled the picker — not an error
@@ -6459,12 +6494,13 @@ export default function App() {
         permission = await handle.requestPermission({ mode: 'read' });
       }
       if (permission !== 'granted') return false;
-      const files = await readImagesFromDirHandle(handle);
-      if (files.length === 0) {
+      const { images, videos } = await readMediaFromDirHandle(handle);
+      if (images.length === 0 && videos.length === 0) {
         if (!silent) showToast("Le dossier semble vide maintenant.", "error");
         return false;
       }
-      prepareLocalImageFiles(files, handle.name, channelKeyForSync);
+      if (images.length > 0) prepareLocalImageFiles(images, handle.name, channelKeyForSync);
+      if (!silent) uploadLocalVideoFiles(videos, channelKeyForSync || editingChannelId);
       return true;
     } catch {
       return false;
@@ -6472,15 +6508,13 @@ export default function App() {
   };
 
   const handleLocalFolderSelect = (e) => {
-    const files = Array.from(e.target.files).filter(f => 
-      LOCAL_IMAGE_EXTENSIONS_RE.test(f.name)
-    );
-    if (files.length > 0) {
-      // Extract directory name from webkitRelativePath
-      const firstPath = files[0].webkitRelativePath || '';
-      const folderName = firstPath ? firstPath.split('/')[0] : 'Dossier Images';
-      prepareLocalImageFiles(files, folderName);
-    }
+    const allFiles = Array.from(e.target.files);
+    const files = allFiles.filter(f => LOCAL_IMAGE_EXTENSIONS_RE.test(f.name));
+    const videoFiles = allFiles.filter(f => LOCAL_VIDEO_EXTENSIONS_RE.test(f.name));
+    const firstPath = allFiles[0]?.webkitRelativePath || '';
+    const folderName = firstPath ? firstPath.split('/')[0] : 'Dossier Images';
+    if (files.length > 0) prepareLocalImageFiles(files, folderName);
+    uploadLocalVideoFiles(videoFiles, editingChannelId);
   };
 
   const handleFolderDrop = (e) => {
@@ -6488,14 +6522,12 @@ export default function App() {
     e.stopPropagation();
     setIsFolderDragging(false);
 
-    const droppedFiles = Array.from(e.dataTransfer.files).filter(f => 
-      LOCAL_IMAGE_EXTENSIONS_RE.test(f.name)
-    );
+    const allDropped = Array.from(e.dataTransfer.files);
+    const droppedFiles = allDropped.filter(f => LOCAL_IMAGE_EXTENSIONS_RE.test(f.name));
+    const droppedVideos = allDropped.filter(f => LOCAL_VIDEO_EXTENSIONS_RE.test(f.name));
 
-    if (droppedFiles.length > 0) {
-      const folderName = "Dossier Images Déposé";
-      prepareLocalImageFiles(droppedFiles, folderName);
-    }
+    if (droppedFiles.length > 0) prepareLocalImageFiles(droppedFiles, "Dossier Images Déposé");
+    uploadLocalVideoFiles(droppedVideos, editingChannelId);
   };
 
   const uploadChannelLogo = async (channelId) => {
@@ -10910,14 +10942,15 @@ export default function App() {
                             directory="true"
                             multiple
                             onChange={(e) => {
-                              const files = Array.from(e.target.files).filter(f =>
-                                LOCAL_IMAGE_EXTENSIONS_RE.test(f.name)
-                              );
+                              const allFiles = Array.from(e.target.files);
+                              const files = allFiles.filter(f => LOCAL_IMAGE_EXTENSIONS_RE.test(f.name));
+                              const videoFiles = allFiles.filter(f => LOCAL_VIDEO_EXTENSIONS_RE.test(f.name));
                               if (files.length > 0) {
                                 const firstPath = files[0].webkitRelativePath || '';
                                 const folderName = firstPath ? firstPath.split('/')[0] : 'Dossier Images';
                                 prepareLocalImageFiles(files, folderName, activeChannel.id);
                               }
+                              uploadLocalVideoFiles(videoFiles, activeChannel.id);
                               setLibrarySyncing(false);
                             }}
                             className="hidden"
