@@ -277,7 +277,10 @@ const getVideoThumbnailUrl = (vid, bustKey) => {
   // URL — and therefore the cache — always changes with it, everywhere a
   // video's thumbnail is shown; `bustKey` (from local state, lost on
   // refresh) only helps this tab update instantly without a re-fetch.
-  return getVideoUrl(vid.output_path.replace(/[^/]+$/, 'thumbnail.jpg')) + `?v=${bustKey || vid.thumbnail_updated_at || vid.finished_at || ''}`;
+  // Use the inline API endpoint so legacy videos whose local thumbnail was
+  // never generated can be repaired from their MP4 instead of displaying a
+  // black poster forever.
+  return `${API_BASE}/videos/${encodeURIComponent(vid.id)}/thumbnail?v=${bustKey || vid.thumbnail_updated_at || vid.finished_at || ''}`;
 };
 
 // Preset Subtitle Styles
