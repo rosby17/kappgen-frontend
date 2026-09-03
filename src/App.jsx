@@ -684,7 +684,6 @@ const SUBTITLE_FONTS = [
   { value: 'Inter', label: 'Inter', group: 'Sans-serif' },
   { value: 'Liberation Sans', label: 'Liberation Sans', group: 'Sans-serif' },
   { value: 'DejaVu Sans', label: 'DejaVu Sans', group: 'Sans-serif' },
-  { value: 'Noto Sans', label: 'Noto Sans', group: 'Sans-serif' },
   { value: 'Cabin', label: 'Cabin', group: 'Sans-serif' },
   { value: 'Karla', label: 'Karla', group: 'Sans-serif' },
   { value: 'Manrope', label: 'Manrope', group: 'Sans-serif' },
