@@ -3744,6 +3744,20 @@ export default function App() {
   const [youtubeComplianceDossier, setYoutubeComplianceDossier] = useState(null);
   const [youtubeComplianceDossierLoading, setYoutubeComplianceDossierLoading] = useState(false);
   const [publishDescriptionDraft, setPublishDescriptionDraft] = useState('');
+  // How many video cards per row — a personal readability preference (not
+  // everyone wants the same card size), persisted so it sticks across visits.
+  // Tailwind's Play CDN (index.html) compiles by scanning the actual classes
+  // present in the DOM at runtime, so picking a class string from this fixed
+  // lookup (never string-interpolating a column count into a class name)
+  // both works with it and stays namable/predictable.
+  const VIDEO_GRID_DENSITIES = { 2: 'grid-cols-1 sm:grid-cols-2', 3: 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3', 4: 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4', 6: 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6' };
+  const [videoGridDensity, setVideoGridDensity] = useState(() => {
+    try { return VIDEO_GRID_DENSITIES[Number(localStorage.getItem('kappgen_video_grid_density'))] ? Number(localStorage.getItem('kappgen_video_grid_density')) : 4; } catch { return 4; }
+  });
+  const updateVideoGridDensity = (n) => {
+    setVideoGridDensity(n);
+    try { localStorage.setItem('kappgen_video_grid_density', String(n)); } catch {}
+  };
   const [videoSelectionMode, setVideoSelectionMode] = useState(false);
   const [selectedVideoIds, setSelectedVideoIds] = useState(new Set());
   const toggleVideoSelected = (id) => {
@@ -3873,7 +3887,15 @@ export default function App() {
   const [publicLibraryPage, setPublicLibraryPage] = useState(1);
   const [publicLibraryHasNext, setPublicLibraryHasNext] = useState(false);
   const [publicLibraryPreview, setPublicLibraryPreview] = useState(null);
-  const [publicLibraryImportChannelId, setPublicLibraryImportChannelId] = useState('');
+  // Remembered across the session (and across page reloads) instead of
+  // resetting on every import: a creator adding several resources in a row
+  // to the same channel had to reopen the same dropdown every single time,
+  // and — worse — the picker's OWN fallback to options[0] made it *display*
+  // a channel name even while the underlying selection was still empty, so
+  // "Ajouter à cette chaîne" looked ready but silently did nothing.
+  const [publicLibraryImportChannelId, setPublicLibraryImportChannelId] = useState(() => {
+    try { return localStorage.getItem('kappgen_public_library_target_channel') || ''; } catch { return ''; }
+  });
   const [publicLibraryImportBusy, setPublicLibraryImportBusy] = useState(false);
   const [toast, setToast] = useState(null); // { message, type: 'success' | 'error' }
   const [librarySyncHasHandle, setLibrarySyncHasHandle] = useState(false);
@@ -4373,6 +4395,33 @@ export default function App() {
     return url.startsWith('/') ? `${API_BASE}${url}` : url;
   };
 
+  // A plain <a download> silently loses the `download` attribute on a
+  // cross-origin URL (every Pexels asset) — the browser just navigates to it
+  // in a new tab and shows the image instead of saving it. Fetching the bytes
+  // ourselves and downloading from a local blob URL works regardless of
+  // origin, and opens no extra tab.
+  const downloadPublicLibraryAsset = async (item, event) => {
+    if (event) event.stopPropagation();
+    const url = publicLibraryAssetUrl(item);
+    if (!url) return;
+    try {
+      const response = await fetch(url);
+      if (!response.ok) throw new Error();
+      const blob = await response.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const ext = (blob.type.split('/')[1] || (item.type === 'videos' ? 'mp4' : 'jpg')).split('+')[0];
+      const link = document.createElement('a');
+      link.href = objectUrl;
+      link.download = `kappgen-${item.provider === 'community' ? 'communaute' : item.provider === 'ai_generated' ? 'ia' : 'pexels'}-${(item.id || Date.now()).toString().replace(/[^a-zA-Z0-9_-]/g, '')}.${ext}`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(objectUrl);
+    } catch {
+      showToast("Téléchargement impossible pour cette ressource.", 'error');
+    }
+  };
+
   // A Pexels/community item was otherwise a dead end: browsable, but nothing
   // fed it into an actual render. This copies it into one of the creator's
   // OWN channels (library for photos, B-roll for videos) so it becomes
@@ -4381,7 +4430,11 @@ export default function App() {
     if (!item || !targetChannelId) return;
     setPublicLibraryImportBusy(true);
     try {
-      const body = item.provider === 'community'
+      // AI-generated items are physically stored and served exactly like a
+      // community upload (same channels/{id}/library folder, same source_*
+      // fields) — 'ai_generated' is a display-only distinction (see the
+      // provider badge below); the backend only knows 'community'/'pexels'.
+      const body = item.provider !== 'pexels'
         ? { provider: 'community', media_type: item.type, source_channel_id: item.source_channel_id, source_filename: item.source_filename }
         : { provider: 'pexels', media_type: item.type, asset_url: item.asset_url };
       const res = await authFetch(`${API_BASE}/channels/${targetChannelId}/public-library/import`, {
@@ -5412,6 +5465,22 @@ export default function App() {
     // actual search or category pick.
     if (view === 'public_library' && currentUser && publicLibraryQuery.trim()) fetchPublicLibrary();
   }, [view, currentUser, publicLibraryMediaType]);
+
+  useEffect(() => {
+    if (channels.length === 0) return;
+    // Keep the remembered choice if it's still a real channel; otherwise
+    // default to the first one — so the visible dropdown value and the
+    // state it drives never disagree.
+    if (!channels.some(c => c.id === publicLibraryImportChannelId)) {
+      setPublicLibraryImportChannelId(channels[0].id);
+    }
+  }, [channels]);
+
+  useEffect(() => {
+    try {
+      if (publicLibraryImportChannelId) localStorage.setItem('kappgen_public_library_target_channel', publicLibraryImportChannelId);
+    } catch { /* best-effort */ }
+  }, [publicLibraryImportChannelId]);
 
   useEffect(() => {
     if (activeChannel) {
@@ -9863,6 +9932,23 @@ export default function App() {
                       )}
                     </div>
 
+                    {/* Cards-per-row density — not everyone reads a tiny
+                        thumbnail comfortably, so the grid size is a personal
+                        preference, not fixed at 4/row for everyone. */}
+                    <div className="flex items-center gap-0.5 bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl p-1 flex-shrink-0" title="Taille des cartes">
+                      {[2, 3, 4, 6].map(n => (
+                        <button
+                          key={n}
+                          onClick={() => updateVideoGridDensity(n)}
+                          title={`${n} par ligne`}
+                          className={`w-7 h-7 flex items-center justify-center rounded-lg text-[11px] font-bold transition-colors ${
+                            videoGridDensity === n ? 'bg-[#00c2ff] text-slate-950' : 'text-slate-400 hover:text-white hover:bg-[var(--bg-hover)]'
+                          }`}
+                        >
+                          {n}
+                        </button>
+                      ))}
+                    </div>
                     <button
                       onClick={() => setShowTrash(v => !v)}
                       title={showTrash ? 'Revenir aux vidéos actives' : 'Voir la corbeille (fichiers expirés, archivés)'}
@@ -10512,8 +10598,8 @@ export default function App() {
                 ) : publicLibraryItems.length === 0 ? (
                   <div className="rounded-2xl border border-[var(--border-soft)] bg-[var(--bg-surface)] p-10 text-center">
                     <span className="material-symbols-outlined text-[38px] text-slate-500">image_search</span>
-                    <p className="mt-3 text-sm font-bold text-white">Aucune ressource trouvée</p>
-                    <p className="mt-1 text-xs text-slate-400">Essaie un autre mot-clé ou une autre catégorie.</p>
+                    <p className="mt-3 text-sm font-bold text-white">{publicLibraryQuery.trim() ? 'Aucune ressource trouvée' : 'Cherche un thème ou choisis une niche pour commencer'}</p>
+                    <p className="mt-1 text-xs text-slate-400">{publicLibraryQuery.trim() ? 'Essaie un autre mot-clé ou une autre catégorie.' : 'Rien n’est chargé tant que tu n’as rien demandé.'}</p>
                   </div>
                 ) : (
                   <>
@@ -10521,17 +10607,29 @@ export default function App() {
                       {publicLibraryItems.map(item => (
                         <button key={`${item.type}-${item.id}`} type="button" onClick={() => setPublicLibraryPreview(item)} className="group relative aspect-[16/10] overflow-hidden rounded-xl border border-[var(--border-soft)] bg-[var(--bg-surface-alt)] text-left focus:outline-none focus:ring-2 focus:ring-[#00c2ff]">
                           <img src={publicLibraryThumbnailUrl(item)} alt={item.alt || 'Ressource publique'} loading="lazy" className="h-full w-full object-cover transition duration-300 group-hover:scale-105" />
-                          <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-2 bg-gradient-to-t from-slate-950/90 via-slate-950/35 to-transparent px-2.5 pb-2 pt-8">
-                            <span className="truncate text-[10px] font-bold text-white">{item.author || 'Communauté KappGen'}</span>
-                            {item.type === 'videos' && <span className="shrink-0 rounded bg-slate-950/80 px-1.5 py-0.5 text-[9px] font-bold text-white">{item.duration ? `${item.duration}s` : 'B-roll'}</span>}
-                          </div>
+                          {item.type === 'videos' && (
+                            <div className="absolute inset-x-0 bottom-0 flex items-end justify-end bg-gradient-to-t from-slate-950/90 via-slate-950/35 to-transparent px-2.5 pb-2 pt-8">
+                              <span className="shrink-0 rounded bg-slate-950/80 px-1.5 py-0.5 text-[9px] font-bold text-white">{item.duration ? `${item.duration}s` : 'B-roll'}</span>
+                            </div>
+                          )}
                           {item.type === 'videos' && <span className="absolute left-1/2 top-1/2 flex h-11 w-11 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-[#00c2ff]/95 text-slate-950 shadow-lg transition group-hover:scale-110"><span className="material-symbols-outlined text-[25px]">play_arrow</span></span>}
-                          <span className="absolute right-2 top-2 rounded-lg bg-slate-950/75 px-2 py-1 text-[9px] font-bold text-white opacity-0 transition group-hover:opacity-100">{item.provider === 'community' ? 'Communauté' : 'Pexels'}</span>
+                          <span className="absolute right-2 top-2 rounded-lg bg-slate-950/75 px-2 py-1 text-[9px] font-bold text-white opacity-0 transition group-hover:opacity-100">{item.provider === 'community' ? 'Communauté' : item.provider === 'ai_generated' ? 'IA KappGen' : 'Pexels'}</span>
+                          {/* Quick download without opening the full preview. */}
+                          <span
+                            role="button"
+                            tabIndex={0}
+                            onClick={event => downloadPublicLibraryAsset(item, event)}
+                            onKeyDown={event => { if (event.key === 'Enter') downloadPublicLibraryAsset(item, event); }}
+                            title="Télécharger"
+                            className="absolute left-2 top-2 flex h-7 w-7 items-center justify-center rounded-lg bg-slate-950/75 text-white opacity-0 transition hover:bg-slate-950 group-hover:opacity-100"
+                          >
+                            <span className="material-symbols-outlined text-[15px]">download</span>
+                          </span>
                         </button>
                       ))}
                     </div>
                     {publicLibraryHasNext && <div className="flex justify-center"><button type="button" onClick={() => fetchPublicLibrary({ page: publicLibraryPage + 1 })} className="rounded-xl border border-[#00c2ff]/35 bg-[#00c2ff]/10 px-4 py-2.5 text-xs font-bold text-[#62dcff] transition hover:bg-[#00c2ff]/20">Voir plus</button></div>}
-                    <p className="text-center text-[10px] text-slate-500">Aperçu intégré dans KappGen. Sources : Pexels et médias approuvés de la communauté.</p>
+                    <p className="text-center text-[10px] text-slate-500">Aperçu intégré dans KappGen. Sources : Pexels, images générées par l'IA KappGen et médias approuvés de la communauté.</p>
                   </>
                 )}
               </section>
@@ -18044,9 +18142,9 @@ export default function App() {
               <div className="min-w-0">
                 <div className="flex items-center gap-2 text-[10px] font-extrabold uppercase tracking-[.14em] text-[#65dcff]">
                   <span className="material-symbols-outlined text-[16px]">{publicLibraryPreview.type === 'videos' ? 'movie' : 'image'}</span>
-                  {publicLibraryPreview.provider === 'community' ? 'Communauté KappGen' : 'Pexels'}
+                  {publicLibraryPreview.provider === 'community' ? 'Communauté KappGen' : publicLibraryPreview.provider === 'ai_generated' ? 'IA KappGen' : 'Pexels'}
                 </div>
-                <p className="mt-1 truncate text-sm font-bold text-white">{publicLibraryPreview.alt || publicLibraryPreview.author || 'Aperçu de la ressource'}</p>
+                <p className="mt-1 truncate text-sm font-bold text-white">{publicLibraryPreview.alt || 'Aperçu de la ressource'}</p>
               </div>
               <button type="button" onClick={() => setPublicLibraryPreview(null)} className="rounded-xl p-2 text-slate-400 transition hover:bg-[var(--bg-surface-alt)] hover:text-white" aria-label="Fermer l’aperçu">
                 <span className="material-symbols-outlined">close</span>
@@ -18088,16 +18186,14 @@ export default function App() {
               ) : (
                 <p className="text-[11px] text-slate-400">Crée une chaîne pour pouvoir ajouter des ressources à sa bibliothèque.</p>
               )}
-              <a
-                href={publicLibraryAssetUrl(publicLibraryPreview)}
-                download
-                target="_blank"
-                rel="noreferrer"
+              <button
+                type="button"
+                onClick={() => downloadPublicLibraryAsset(publicLibraryPreview)}
                 className="flex items-center justify-center gap-1.5 rounded-xl border border-[var(--border-soft)] px-4 py-2.5 text-xs font-bold text-slate-300 transition hover:border-slate-500 hover:text-white sm:ml-auto"
               >
                 <span className="material-symbols-outlined text-[16px]">download</span>
                 Télécharger
-              </a>
+              </button>
             </div>
           </div>
         </div>
