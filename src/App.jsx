@@ -21,6 +21,18 @@ const SERVICE_UNAVAILABLE_MESSAGE = "Les serveurs de KappGen sont temporairement
 // keep the two in sync so the "recharger" CTA below only shows for this exact message.
 const CREDIT_INSUFFICIENT_MESSAGE = "La génération automatique est en pause : ton solde de crédits KappGen est épuisé. Recharge des crédits pour que cette chaîne continue à écrire et publier ses vidéos automatiquement.";
 
+// Browser/network diagnostics such as "Failed to fetch (api.kappgen.com)"
+// are useful to developers, not creators. Keep them out of every UI surface
+// and give the creator an actionable, reassuring status instead.
+const friendlyErrorMessage = (error, fallback = "Une erreur est survenue. Réessaie dans quelques instants.") => {
+  const message = String(error?.message || error || '').trim();
+  if (!message) return fallback;
+  if (/(failed to fetch|networkerror|load failed|api\.kappgen\.com|err_network|network request failed)/i.test(message)) {
+    return "Les serveurs KappGen sont momentanément indisponibles. Réessaie dans quelques instants.";
+  }
+  return message;
+};
+
 // Mirrors src/utils/billing.py's IZIVOICE_*/THUMBNAIL_CREDITS constants —
 // used here only to show the creator a cost estimate and to gate paid
 // options behind an actual balance; the real charge always happens
@@ -1079,7 +1091,7 @@ function VoiceLibraryModal({
       setAddByIdValue('');
       setAddByIdOpen(false);
     } catch (e) {
-      setAddByIdError(e.message);
+      setAddByIdError(friendlyErrorMessage(e, "Impossible d’ajouter cette voix pour le moment."));
     } finally {
       setAddByIdLoading(false);
     }
@@ -3260,34 +3272,39 @@ function pipelinePathLabel(source) {
   return 'Sujet pris en charge par KappGen';
 }
 
-function PipelineStepper({ stage, percent, failed = false, source = 'automatic' }) {
+function PipelineStepper({ stage, percent, failed = false, source = 'automatic', onStepClick = null }) {
   const steps = PIPELINE_PATHS[source] || PIPELINE_PATHS.automatic;
   const activeIndex = getActivePipelineStepIndex(steps, stage, percent);
+  // Sized in @container units (a card-per-row density slider lets a video
+  // card grow much wider than it used to — see videoGridDensity/@container
+  // on the card wrapper), not fixed px, so a large card actually shows a
+  // legibly bigger stepper instead of the same tiny icons/text stretched
+  // across more empty space.
   return (
     <div className="w-full">
-      <div className="mb-2 text-[8px] font-semibold text-slate-500">{pipelinePathLabel(source)}</div>
+      <div className="mb-2 text-[8px] @sm:text-[10px] @lg:text-xs font-semibold text-slate-500">{pipelinePathLabel(source)}</div>
       <div className="grid items-start w-full" style={{ gridTemplateColumns: `repeat(${steps.length}, minmax(0, 1fr))` }}>
         {steps.map((step, i) => {
         const state = failed && i === activeIndex ? 'failed' : i < activeIndex ? 'done' : i === activeIndex ? 'active' : 'pending';
         return (
-          <div key={step.label} className="relative flex min-w-0 w-full flex-col items-center gap-1" title={step.label}>
-            {i > 0 && <div className={`absolute right-1/2 top-2.5 h-px w-full ${i <= activeIndex ? 'bg-[#00c2ff]/45' : 'bg-slate-800'}`} />}
-            <div className={`relative z-10 w-5 h-5 rounded-full flex items-center justify-center shrink-0 transition-all border ${
+          <button type="button" key={step.label} onClick={(event) => { event.stopPropagation(); onStepClick?.(step, i, state); }} className={`relative flex min-w-0 w-full flex-col items-center gap-1 @lg:gap-1.5 rounded-md py-0.5 ${onStepClick ? 'cursor-pointer hover:bg-white/[.05] focus:outline-none focus:ring-1 focus:ring-[#00c2ff]/50' : ''}`} title={`${step.label} — ouvrir le suivi`}>
+            {i > 0 && <div className={`absolute right-1/2 top-2.5 @sm:top-3.5 @lg:top-5 h-px w-full ${i <= activeIndex ? 'bg-[#00c2ff]/45' : 'bg-slate-800'}`} />}
+            <div className={`relative z-10 w-5 h-5 @sm:w-7 @sm:h-7 @lg:w-10 @lg:h-10 rounded-full flex items-center justify-center shrink-0 transition-all border ${
               state === 'done' ? 'bg-[#0b2b2b] text-emerald-400 border-emerald-500/25' :
               state === 'active' ? 'bg-[#062d40] text-[#4ed9ff] border-[#00c2ff]/70 shadow-[0_0_14px_rgba(0,194,255,.25)]' :
               state === 'failed' ? 'bg-rose-500/20 text-rose-400' :
               'bg-[#111a27] text-slate-600 border-slate-800'
             }`}>
               {state === 'done' ? (
-                <span className="material-symbols-outlined text-[11px]">check</span>
+                <span className="material-symbols-outlined text-[11px] @sm:text-[16px] @lg:text-[22px]">check</span>
               ) : step.icon === 'youtube' ? (
-                <YouTubeIcon className="w-2 h-1.5" />
+                <YouTubeIcon className="w-2 h-1.5 @lg:w-3.5 @lg:h-2.5" />
               ) : (
-                <span className={`material-symbols-outlined text-[11px] ${state === 'active' ? 'animate-pulse' : ''}`}>{step.icon}</span>
+                <span className={`material-symbols-outlined text-[11px] @sm:text-[16px] @lg:text-[22px] ${state === 'active' ? 'animate-pulse' : ''}`}>{step.icon}</span>
               )}
             </div>
-            <span className={`w-full text-center text-[6.5px] leading-tight font-bold truncate px-px ${state === 'active' ? 'text-[#62dcff]' : state === 'done' ? 'text-slate-400' : 'text-slate-600'}`}>{step.label}</span>
-          </div>
+            <span className={`w-full text-center text-[6.5px] @sm:text-[9px] @lg:text-[13px] leading-tight font-bold truncate px-px ${state === 'active' ? 'text-[#62dcff]' : state === 'done' ? 'text-slate-400' : 'text-slate-600'}`}>{step.label}</span>
+          </button>
         );
         })}
       </div>
@@ -3535,6 +3552,7 @@ function viewFromPath(path) {
   if (path === '/channels') return 'channels';
   if (path === '/videos') return 'videos';
   if (path === '/library') return 'library';
+  if (path === '/public-library') return 'public_library';
   if (path === '/channels/new') return 'wizard';
   if (/^\/channels\/[^/]+\/edit$/.test(path)) return 'wizard';
   if (/^\/channels\/[^/]+$/.test(path)) return 'channel_detail';
@@ -3652,19 +3670,35 @@ export default function App() {
   const [channelsLoadError, setChannelsLoadError] = useState('');
   const [videosLoadError, setVideosLoadError] = useState('');
   const [selectedVideo, setSelectedVideo] = useState(null);
-  
+  const [productionInspector, setProductionInspector] = useState(null); // { video, step }
+  const [productionProgress, setProductionProgress] = useState(null);
+  const [productionProgressLoading, setProductionProgressLoading] = useState(false);
+  const [productionProgressError, setProductionProgressError] = useState('');
+  const [cancellingProduction, setCancellingProduction] = useState(false);
+  const [editingQueuedScript, setEditingQueuedScript] = useState(false);
+  const [queuedScriptDraft, setQueuedScriptDraft] = useState('');
+  const [savingQueuedScript, setSavingQueuedScript] = useState(false);
+
   // Modals & Menu Popups
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [generatingAutoVideo, setGeneratingAutoVideo] = useState(false);
+  // Launch errors are part of the channel workflow, not transient toast
+  // noise. They stay visible on that channel until the creator retries.
+  const [channelLaunchErrors, setChannelLaunchErrors] = useState(() => {
+    try { return JSON.parse(sessionStorage.getItem('kappgen_channel_launch_errors') || '{}'); } catch { return {}; }
+  });
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showChannelPickerModal, setShowChannelPickerModal] = useState(false);
   const [showPricingModal, setShowPricingModal] = useState(false);
   const [paymentPlan, setPaymentPlan] = useState(null);
   const [showLanguageModal, setShowLanguageModal] = useState(false);
   const [showScriptStructureModal, setShowScriptStructureModal] = useState(false);
-  const [scriptStructurePasteText, setScriptStructurePasteText] = useState('');
   const [scriptStructureAnalyzing, setScriptStructureAnalyzing] = useState(false);
   const [scriptStructureAnalyzeError, setScriptStructureAnalyzeError] = useState('');
+  // Tracks exactly which pasted text was last successfully analyzed, so
+  // clicking "Analyser" and then "Terminé" doesn't run the (real, billed)
+  // AI analysis twice on the same unchanged text.
+  const [scriptStructureAnalyzedText, setScriptStructureAnalyzedText] = useState(null);
   const [languageSearch, setLanguageSearch] = useState('');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
@@ -3718,6 +3752,27 @@ export default function App() {
   const [youtubeComplianceDossier, setYoutubeComplianceDossier] = useState(null);
   const [youtubeComplianceDossierLoading, setYoutubeComplianceDossierLoading] = useState(false);
   const [publishDescriptionDraft, setPublishDescriptionDraft] = useState('');
+  // How many video cards per row — a personal readability preference (not
+  // everyone wants the same card size), persisted so it sticks across visits.
+  // Tailwind's Play CDN (index.html) compiles by scanning the actual classes
+  // present in the DOM at runtime, so picking a class string from this fixed
+  // lookup (never string-interpolating a column count into a class name)
+  // both works with it and stays namable/predictable.
+  const VIDEO_GRID_DENSITIES = {
+    1: 'grid-cols-1',
+    2: 'grid-cols-1 sm:grid-cols-2',
+    3: 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3',
+    4: 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4',
+    5: 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5',
+    6: 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6',
+  };
+  const [videoGridDensity, setVideoGridDensity] = useState(() => {
+    try { return VIDEO_GRID_DENSITIES[Number(localStorage.getItem('kappgen_video_grid_density'))] ? Number(localStorage.getItem('kappgen_video_grid_density')) : 4; } catch { return 4; }
+  });
+  const updateVideoGridDensity = (n) => {
+    setVideoGridDensity(n);
+    try { localStorage.setItem('kappgen_video_grid_density', String(n)); } catch {}
+  };
   const [videoSelectionMode, setVideoSelectionMode] = useState(false);
   const [selectedVideoIds, setSelectedVideoIds] = useState(new Set());
   const toggleVideoSelected = (id) => {
@@ -3839,6 +3894,24 @@ export default function App() {
   const [librarySearch, setLibrarySearch] = useState('');
   const [libraryContentFilter, setLibraryContentFilter] = useState('all');
   const [libraryBusyKey, setLibraryBusyKey] = useState(null);
+  const [publicLibraryQuery, setPublicLibraryQuery] = useState('');
+  const [publicLibraryMediaType, setPublicLibraryMediaType] = useState('photos');
+  const [publicLibraryItems, setPublicLibraryItems] = useState([]);
+  const [publicLibraryLoading, setPublicLibraryLoading] = useState(false);
+  const [publicLibraryError, setPublicLibraryError] = useState('');
+  const [publicLibraryPage, setPublicLibraryPage] = useState(1);
+  const [publicLibraryHasNext, setPublicLibraryHasNext] = useState(false);
+  const [publicLibraryPreview, setPublicLibraryPreview] = useState(null);
+  // Remembered across the session (and across page reloads) instead of
+  // resetting on every import: a creator adding several resources in a row
+  // to the same channel had to reopen the same dropdown every single time,
+  // and — worse — the picker's OWN fallback to options[0] made it *display*
+  // a channel name even while the underlying selection was still empty, so
+  // "Ajouter à cette chaîne" looked ready but silently did nothing.
+  const [publicLibraryImportChannelId, setPublicLibraryImportChannelId] = useState(() => {
+    try { return localStorage.getItem('kappgen_public_library_target_channel') || ''; } catch { return ''; }
+  });
+  const [publicLibraryImportBusy, setPublicLibraryImportBusy] = useState(false);
   const [toast, setToast] = useState(null); // { message, type: 'success' | 'error' }
   const [librarySyncHasHandle, setLibrarySyncHasHandle] = useState(false);
   const [librarySyncing, setLibrarySyncing] = useState(false);
@@ -3880,8 +3953,85 @@ export default function App() {
   };
 
   const showToast = (message, type = 'success') => {
-    setToast({ message, type });
+    setToast({ message: type === 'error' ? friendlyErrorMessage(message) : message, type });
   };
+
+  const loadProductionProgress = async (videoId, { quiet = false } = {}) => {
+    if (!videoId || String(videoId).startsWith('pending-')) return;
+    if (!quiet) setProductionProgressLoading(true);
+    try {
+      const res = await authFetch(`${API_BASE}/videos/${videoId}/production-progress`);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || 'Impossible de charger le suivi de production.');
+      setProductionProgress(data);
+      setProductionProgressError('');
+    } catch (error) {
+      setProductionProgressError(friendlyErrorMessage(error, 'Impossible de charger le suivi de production.'));
+    } finally {
+      if (!quiet) setProductionProgressLoading(false);
+    }
+  };
+
+  const handleCancelProduction = async (videoId) => {
+    if (!videoId || cancellingProduction) return;
+    if (!window.confirm("Annuler cette vidéo ? Le rendu s'arrêtera à l'étape en cours et les crédits déjà dépensés seront remboursés.")) return;
+    setCancellingProduction(true);
+    try {
+      const res = await authFetch(`${API_BASE}/videos/${videoId}/cancel`, { method: 'POST' });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || "Impossible d'annuler cette vidéo.");
+      setProductionProgress(prev => (prev ? { ...prev, status: data.status } : prev));
+      setAllVideos(prev => prev.map(v => v.id === videoId ? { ...v, ...data } : v));
+      setChannelVideos(prev => prev.map(v => v.id === videoId ? { ...v, ...data } : v));
+      showToast('Vidéo annulée — crédits remboursés.', 'success');
+      setProductionInspector(null);
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setCancellingProduction(false);
+    }
+  };
+
+  const handleSaveQueuedScript = async (videoId) => {
+    if (!videoId || savingQueuedScript) return;
+    setSavingQueuedScript(true);
+    try {
+      const res = await authFetch(`${API_BASE}/videos/${videoId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ script_text: queuedScriptDraft }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || "Impossible d'enregistrer le script.");
+      // Opportunistic edit: the worker can claim the video between opening
+      // this editor and clicking Enregistrer. A 409 above already surfaces
+      // that as an error; on success, reflect the new script immediately
+      // instead of waiting for the next 3s poll.
+      setProductionProgress(prev => (prev ? { ...prev, script: data.script_text } : prev));
+      setEditingQueuedScript(false);
+      showToast('Script mis à jour.', 'success');
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setSavingQueuedScript(false);
+    }
+  };
+
+  const openProductionInspector = (video, step) => {
+    if (!video || video._pending) return;
+    setProductionInspector({ video, step });
+    setProductionProgress(null);
+    setProductionProgressError('');
+    setEditingQueuedScript(false);
+    loadProductionProgress(video.id);
+  };
+
+  useEffect(() => {
+    if (!productionInspector?.video?.id) return;
+    const videoId = productionInspector.video.id;
+    const timer = setInterval(() => loadProductionProgress(videoId, { quiet: true }), 3000);
+    return () => clearInterval(timer);
+  }, [productionInspector?.video?.id]);
 
   const askConfirm = (message, { title = "Confirmer l'action", danger = false } = {}) => {
     return new Promise((resolve) => {
@@ -3899,6 +4049,10 @@ export default function App() {
     const timer = setTimeout(() => setToast(null), 4000);
     return () => clearTimeout(timer);
   }, [toast]);
+
+  useEffect(() => {
+    try { sessionStorage.setItem('kappgen_channel_launch_errors', JSON.stringify(channelLaunchErrors)); } catch {}
+  }, [channelLaunchErrors]);
 
   // Google redirects back here after a YouTube connection attempt (?youtube=connected|error&youtube_channel_id=...).
   useEffect(() => {
@@ -4245,6 +4399,99 @@ export default function App() {
       console.error("Erreur chargement de la bibliothèque:", err);
     } finally {
       setLibraryLoading(false);
+    }
+  };
+
+  const fetchPublicLibrary = async ({ query = publicLibraryQuery, mediaType = publicLibraryMediaType, page = 1 } = {}) => {
+    const cleaned = query.trim();
+    if (!cleaned) {
+      setPublicLibraryItems([]);
+      setPublicLibraryHasNext(false);
+      return;
+    }
+    setPublicLibraryLoading(true);
+    setPublicLibraryError('');
+    try {
+      const params = new URLSearchParams({ query: cleaned, media_type: mediaType, page: String(page), per_page: '24' });
+      const res = await authFetch(`${API_BASE}/channels/public-library/search?${params.toString()}`);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || 'Impossible de charger les ressources publiques.');
+      setPublicLibraryItems(data.items || []);
+      setPublicLibraryPage(data.page || page);
+      setPublicLibraryHasNext(!!data.has_next);
+    } catch (err) {
+      setPublicLibraryItems([]);
+      setPublicLibraryError(friendlyErrorMessage(err, 'Impossible de charger les ressources publiques.'));
+    } finally {
+      setPublicLibraryLoading(false);
+    }
+  };
+
+  const publicLibraryAssetUrl = (item) => {
+    const url = item?.asset_url || item?.thumbnail_url || '';
+    return url.startsWith('/') ? `${API_BASE}${url}` : url;
+  };
+  const publicLibraryThumbnailUrl = (item) => {
+    const url = item?.thumbnail_url || item?.asset_url || '';
+    return url.startsWith('/') ? `${API_BASE}${url}` : url;
+  };
+
+  // A plain <a download> silently loses the `download` attribute on a
+  // cross-origin URL (every Pexels asset) — the browser just navigates to it
+  // in a new tab and shows the image instead of saving it. Fetching the bytes
+  // ourselves and downloading from a local blob URL works regardless of
+  // origin, and opens no extra tab.
+  const downloadPublicLibraryAsset = async (item, event) => {
+    if (event) event.stopPropagation();
+    const url = publicLibraryAssetUrl(item);
+    if (!url) return;
+    try {
+      const response = await fetch(url);
+      if (!response.ok) throw new Error();
+      const blob = await response.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const ext = (blob.type.split('/')[1] || (item.type === 'videos' ? 'mp4' : 'jpg')).split('+')[0];
+      const link = document.createElement('a');
+      link.href = objectUrl;
+      link.download = `kappgen-${item.provider === 'community' ? 'communaute' : item.provider === 'ai_generated' ? 'ia' : 'pexels'}-${(item.id || Date.now()).toString().replace(/[^a-zA-Z0-9_-]/g, '')}.${ext}`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(objectUrl);
+    } catch {
+      showToast("Téléchargement impossible pour cette ressource.", 'error');
+    }
+  };
+
+  // A Pexels/community item was otherwise a dead end: browsable, but nothing
+  // fed it into an actual render. This copies it into one of the creator's
+  // OWN channels (library for photos, B-roll for videos) so it becomes
+  // usable, exactly like a manual upload.
+  const importPublicLibraryAsset = async (item, targetChannelId) => {
+    if (!item || !targetChannelId) return;
+    setPublicLibraryImportBusy(true);
+    try {
+      // AI-generated items are physically stored and served exactly like a
+      // community upload (same channels/{id}/library folder, same source_*
+      // fields) — 'ai_generated' is a display-only distinction (see the
+      // provider badge below); the backend only knows 'community'/'pexels'.
+      const body = item.provider !== 'pexels'
+        ? { provider: 'community', media_type: item.type, source_channel_id: item.source_channel_id, source_filename: item.source_filename }
+        : { provider: 'pexels', media_type: item.type, asset_url: item.asset_url };
+      const res = await authFetch(`${API_BASE}/channels/${targetChannelId}/public-library/import`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || "Importation impossible.");
+      const targetChannel = channels.find(c => c.id === targetChannelId);
+      showToast(`Ajoutée à « ${targetChannel?.name || 'la chaîne'} ».`, 'success');
+      setChannels(prev => prev.map(c => (c.id === targetChannelId ? data : c)));
+    } catch (err) {
+      showToast(friendlyErrorMessage(err, "Importation impossible."), 'error');
+    } finally {
+      setPublicLibraryImportBusy(false);
     }
   };
 
@@ -4753,6 +5000,7 @@ export default function App() {
     automation_style_prompt: '',
     topic_examples: '',
     use_web_trends: false,
+    youtube_topic_sources: '',
     // Auto-detected from the browser — the daily generation window and the
     // scheduled publish hour are both read in this timezone, never a single
     // region imposed on every creator.
@@ -5035,7 +5283,7 @@ export default function App() {
       fetchFolders();
     } catch (e) {
       console.error("Erreur création dossier:", e);
-      alert("Impossible de créer le dossier : " + e.message);
+      alert(friendlyErrorMessage(e, "Impossible de créer le dossier pour le moment."));
     } finally {
       setCreatingFolder(false);
     }
@@ -5052,7 +5300,7 @@ export default function App() {
       fetchFolders();
     } catch (e) {
       console.error("Erreur déplacement dossier:", e);
-      alert("Impossible de déplacer le dossier : " + e.message);
+      alert(friendlyErrorMessage(e, "Impossible de déplacer le dossier pour le moment."));
     }
   };
 
@@ -5110,7 +5358,7 @@ export default function App() {
       fetchFolders();
     } catch (e) {
       console.error("Erreur déplacement vidéo:", e);
-      alert("Impossible de déplacer la vidéo : " + e.message);
+      alert(friendlyErrorMessage(e, "Impossible de déplacer la vidéo pour le moment."));
     }
   };
 
@@ -5139,6 +5387,7 @@ export default function App() {
       case 'channels': return '/channels';
       case 'videos': return '/videos';
       case 'library': return '/library';
+      case 'public_library': return '/public-library';
       case 'channel_detail': return activeChannel ? `/channels/${slugifyChannelName(activeChannel.name)}` : '/channels';
       case 'wizard': return wizardMode === 'edit' && editingChannel ? `/channels/${slugifyChannelName(editingChannel.name)}/edit` : '/channels/new';
       case 'settings': return '/settings';
@@ -5176,6 +5425,7 @@ export default function App() {
     if (path === '/channels') { setView('channels'); return; }
     if (path === '/videos') { setView('videos'); return; }
     if (path === '/library') { setView('library'); return; }
+    if (path === '/public-library') { setView('public_library'); return; }
     if (path === '/settings') { setView('settings'); return; }
     if (path === '/admin' || path.startsWith('/admin/')) { setView('admin'); setAdminTab(adminTabFromPath(path)); return; }
     if (path === '/billing/success') {
@@ -5248,6 +5498,30 @@ export default function App() {
   useEffect(() => {
     if (view === 'library' && currentUser) fetchLibraryOverview();
   }, [view, currentUser]);
+
+  useEffect(() => {
+    // No auto-search on arrival — an empty search box with an unrequested
+    // "nature" catalogue already loaded made every first visit look like the
+    // creator had typed something they hadn't. The page now waits for an
+    // actual search or category pick.
+    if (view === 'public_library' && currentUser && publicLibraryQuery.trim()) fetchPublicLibrary();
+  }, [view, currentUser, publicLibraryMediaType]);
+
+  useEffect(() => {
+    if (channels.length === 0) return;
+    // Keep the remembered choice if it's still a real channel; otherwise
+    // default to the first one — so the visible dropdown value and the
+    // state it drives never disagree.
+    if (!channels.some(c => c.id === publicLibraryImportChannelId)) {
+      setPublicLibraryImportChannelId(channels[0].id);
+    }
+  }, [channels]);
+
+  useEffect(() => {
+    try {
+      if (publicLibraryImportChannelId) localStorage.setItem('kappgen_public_library_target_channel', publicLibraryImportChannelId);
+    } catch { /* best-effort */ }
+  }, [publicLibraryImportChannelId]);
 
   useEffect(() => {
     if (activeChannel) {
@@ -5723,6 +5997,13 @@ export default function App() {
       return;
     }
     setActiveChannel(channel);
+    // A retry is the explicit acknowledgement of a persistent launch error.
+    setChannelLaunchErrors(prev => {
+      if (!prev[channel.id]) return prev;
+      const next = { ...prev };
+      delete next[channel.id];
+      return next;
+    });
     setGeneratingAutoVideo(true);
 
     // generate-now returns instantly (the actual generation runs in a
@@ -5759,7 +6040,9 @@ export default function App() {
       const res = await authFetch(`${API_BASE}/channels/${channel.id}/generate-now`, { method: 'POST' });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        showToast(err.detail || "Erreur lors du lancement.", "error");
+        const message = err.detail || "Erreur lors du lancement.";
+        setChannelLaunchErrors(prev => ({ ...prev, [channel.id]: message }));
+        showToast("Le lancement est bloqué : le détail reste affiché sur cette chaîne.", "error");
         stopPending();
         return;
       }
@@ -5816,7 +6099,9 @@ export default function App() {
       };
       setTimeout(poll, 5000);
     } catch (e) {
-      showToast("Erreur réseau: " + e.message, "error");
+      const message = "Erreur réseau : " + e.message;
+      setChannelLaunchErrors(prev => ({ ...prev, [channel.id]: message }));
+      showToast("Le lancement est bloqué : le détail reste affiché sur cette chaîne.", "error");
       stopPending();
     }
   };
@@ -5874,6 +6159,7 @@ export default function App() {
       automation_style_prompt: channel.automation_style_prompt || '',
       topic_examples: channel.topic_examples || '',
       use_web_trends: !!channel.use_web_trends,
+      youtube_topic_sources: channel.youtube_topic_sources || '',
       videos_per_day: channel.videos_per_day ?? 1,
       automation_window_start_hour: channel.automation_window_start_hour ?? 7,
       automation_window_end_hour: channel.automation_window_end_hour ?? 11,
@@ -6114,7 +6400,7 @@ export default function App() {
     }).catch(error => {
       if (error.message === 'Importation annulée.') return;
       setLibraryUploadStatus('error');
-      setLibraryUploadMessage(error.message);
+      setLibraryUploadMessage(friendlyErrorMessage(error, "Impossible d’importer les médias pour le moment."));
       showToast(error.message, 'error');
       throw error;
     });
@@ -7982,6 +8268,45 @@ export default function App() {
     }
   };
 
+  // On-demand version of the auto-popup at freshly-done detection (below) —
+  // a creator can otherwise only ever see a video's cost once, right as it
+  // finishes; this lets them check it again anytime from the video's menu.
+  const handleShowCostRecap = async (vid, e) => {
+    if (e) e.stopPropagation();
+    setOpenVideoMenuId(null);
+    try {
+      const res = await authFetch(`${API_BASE}/videos/${vid.id}/cost-recap`);
+      const recap = res.ok ? await res.json() : null;
+      if (!recap || !recap.items?.length) {
+        showToast("Aucun coût enregistré pour cette vidéo.", 'error');
+        return;
+      }
+      setCostRecap({ videoTitle: vid.title || 'Vidéo', ...recap });
+    } catch {
+      showToast("Impossible de charger le détail des coûts.", 'error');
+    }
+  };
+
+  const [retryingVideoVisualsId, setRetryingVideoVisualsId] = useState(null);
+  const handleRetryVideoVisuals = async (videoId) => {
+    if (!videoId || retryingVideoVisualsId) return;
+    if (!window.confirm("Relancer uniquement le montage (images/vidéos) ? La voix off actuelle est conservée telle quelle.")) return;
+    setRetryingVideoVisualsId(videoId);
+    try {
+      const res = await authFetch(`${API_BASE}/videos/${videoId}/retry-visuals`, { method: 'POST' });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || "Impossible de relancer le montage.");
+      showToast('Montage relancé — la voix off est conservée.', 'success');
+      setSelectedVideo(null);
+      if (activeChannel) fetchChannelVideos(activeChannel.id);
+      fetchAllVideos();
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setRetryingVideoVisualsId(null);
+    }
+  };
+
   const handleForceScriptRender = async (vid, e) => {
     if (e) e.stopPropagation();
     const confirmed = await askConfirm(
@@ -8589,7 +8914,7 @@ export default function App() {
       pollReassembly(updatedVideo.id);
     } catch (err) {
       console.error("Erreur remplacement image:", err);
-      alert("Le remplacement de l'image a échoué : " + err.message);
+      alert(friendlyErrorMessage(err, "Le remplacement de l’image a échoué. Réessaie dans quelques instants."));
     } finally {
       setStudioReplacingIndex(null);
     }
@@ -8611,7 +8936,7 @@ export default function App() {
       pollReassembly(updatedVideo.id);
     } catch (err) {
       console.error("Erreur édition sous-titre:", err);
-      alert("La correction du sous-titre a échoué : " + err.message);
+      alert(friendlyErrorMessage(err, "La correction du sous-titre a échoué. Réessaie dans quelques instants."));
     } finally {
       setStudioSavingSubtitle(false);
     }
@@ -8633,7 +8958,7 @@ export default function App() {
       pollReassembly(updatedVideo.id);
     } catch (err) {
       console.error("Erreur régénération audio:", err);
-      alert("La régénération de la voix a échoué : " + err.message);
+      alert(friendlyErrorMessage(err, "La régénération de la voix a échoué. Réessaie dans quelques instants."));
     } finally {
       setStudioRegeneratingAudio(false);
     }
@@ -8990,7 +9315,8 @@ export default function App() {
                   { id: 'home', label: 'Home', icon: 'home', active: view === 'home' || view === 'dashboard' },
                   { id: 'channels', label: 'Mes Chaînes', icon: 'subscriptions', active: view === 'channels' || view === 'channel_detail' },
                   { id: 'videos', label: 'Mes Vidéos', icon: 'movie', active: view === 'videos' },
-                  { id: 'library', label: 'Bibliothèque', icon: 'perm_media', active: view === 'library' },
+                  { id: 'library', label: 'Ma bibliothèque', icon: 'perm_media', active: view === 'library' },
+                  { id: 'public_library', label: 'Ressources publiques', icon: 'public', active: view === 'public_library' },
                 ].map(({ id, label, icon, active }) => (
                   <button
                     key={id}
@@ -9174,7 +9500,8 @@ export default function App() {
                 { id: 'home', label: 'Home', icon: 'home', active: view === 'home' || view === 'dashboard', onClick: () => setView('home') },
                 { id: 'channels', label: 'Mes Chaînes', icon: 'subscriptions', active: view === 'channels' || view === 'channel_detail', onClick: () => setView('channels') },
                 { id: 'videos', label: 'Mes Vidéos', icon: 'movie', active: view === 'videos', onClick: () => setView('videos') },
-                { id: 'library', label: 'Bibliothèque', icon: 'perm_media', active: view === 'library', onClick: () => setView('library') },
+                { id: 'library', label: 'Ma bibliothèque', icon: 'perm_media', active: view === 'library', onClick: () => setView('library') },
+                { id: 'public_library', label: 'Ressources publiques', icon: 'public', active: view === 'public_library', onClick: () => setView('public_library') },
               ].map(t => (
                 <button
                   key={t.id}
@@ -9685,6 +10012,27 @@ export default function App() {
                       )}
                     </div>
 
+                    {/* Cards-per-row density — not everyone reads a tiny
+                        thumbnail comfortably, so the grid size is a personal
+                        preference, not fixed at 4/row for everyone. A real
+                        slider (not discrete buttons) so it reads as "drag to
+                        resize the cards" — small cards/many per row on the
+                        right, large cards/few per row on the left. */}
+                    <div className="flex items-center gap-2 bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-3 py-2 flex-shrink-0" title="Taille des cartes">
+                      <span className="material-symbols-outlined text-[16px] text-slate-400 shrink-0">crop_square</span>
+                      <input
+                        type="range"
+                        min="1"
+                        max="6"
+                        step="1"
+                        value={videoGridDensity}
+                        onChange={e => updateVideoGridDensity(Number(e.target.value))}
+                        className="w-20 accent-[#00c2ff]"
+                        title={`${videoGridDensity} par ligne`}
+                      />
+                      <span className="material-symbols-outlined text-[12px] text-slate-400 shrink-0">grid_view</span>
+                      <span className="text-[11px] font-bold text-white w-3 text-center shrink-0">{videoGridDensity}</span>
+                    </div>
                     <button
                       onClick={() => setShowTrash(v => !v)}
                       title={showTrash ? 'Revenir aux vidéos actives' : 'Voir la corbeille (fichiers expirés, archivés)'}
@@ -9767,7 +10115,7 @@ export default function App() {
                     </button>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                  <div className={`grid ${VIDEO_GRID_DENSITIES[videoGridDensity]} gap-6`}>
                     {allVideos
                       .filter(v => productChannelIds.has(v.channel_id))
                       .filter(v => videoFilterChannelId === 'all' || v.channel_id === videoFilterChannelId)
@@ -9783,7 +10131,7 @@ export default function App() {
                             draggable={!videoSelectionMode}
                             onDragStart={(e) => { setDraggedVideoId(vid.id); e.dataTransfer.setData('text/plain', vid.id); e.dataTransfer.effectAllowed = 'move'; }}
                             onDragEnd={() => { setDraggedVideoId(null); setDragOverFolderId(null); }}
-                            className={`bg-[var(--bg-surface)] hover:bg-[var(--bg-hover)] border rounded-2xl p-4 transition-all group flex flex-col justify-between shadow-lg relative card-warm-hover video-menu-container ${
+                            className={`@container bg-[var(--bg-surface)] hover:bg-[var(--bg-hover)] border rounded-2xl p-4 transition-all group flex flex-col justify-between shadow-lg relative card-warm-hover video-menu-container ${
                               videoSelectionMode ? 'cursor-pointer ' + (isSelected ? 'border-[#00c2ff]' : 'border-[var(--border-soft)]') : 'border-[var(--border-soft)] hover:border-[#00c2ff]/40 cursor-grab active:cursor-grabbing'
                             } ${draggedVideoId === vid.id ? 'opacity-40' : ''}`}
                           >
@@ -9819,6 +10167,24 @@ export default function App() {
                                       {formatDuration(vid.duration_seconds)}
                                     </div>
                                   )}
+                                  {/* No generic placeholder is ever written when the channel's
+                                      AI reference style fails to produce a real thumbnail — a
+                                      clear "réessaie" state instead of a mediocre image (see
+                                      generate_thumbnail(strict=...) backend-side). */}
+                                  {vid.thumbnail_error && (
+                                    <div className="absolute top-2 left-2 z-10 flex items-center gap-1.5 bg-amber-950/90 border border-amber-700/60 text-amber-300 text-[9px] font-bold px-2 py-1 rounded-lg max-w-[85%]">
+                                      <span className="material-symbols-outlined text-[13px] shrink-0">image_not_supported</span>
+                                      <span className="truncate">Miniature indisponible</span>
+                                      <button
+                                        onClick={(e) => handleRegenerateCardThumbnail(vid, e)}
+                                        disabled={regeneratingCardThumbnailIds.has(vid.id)}
+                                        title="Réessayer"
+                                        className="shrink-0 hover:text-white disabled:opacity-50"
+                                      >
+                                        <span className={`material-symbols-outlined text-[13px] ${regeneratingCardThumbnailIds.has(vid.id) ? 'animate-spin' : ''}`}>{regeneratingCardThumbnailIds.has(vid.id) ? 'progress_activity' : 'autorenew'}</span>
+                                      </button>
+                                    </div>
+                                  )}
                                   {vid.progress_stage && /youtube|miniature/i.test(vid.progress_stage) && !vid.youtube_video_id && !vid.youtube_publish_error && (
                                     <div className="absolute inset-x-0 bottom-0 bg-black/85 px-2 py-1.5 flex items-center gap-1.5">
                                       <YouTubeIcon className="w-3.5 h-2.5 animate-pulse" />
@@ -9827,46 +10193,46 @@ export default function App() {
                                   )}
                                 </>
                               ) : vid.status === 'rendering' ? (
-                                <div className="px-4 py-5 text-center w-full max-w-[245px]">
-                                  <PipelineStepper stage={vid.progress_stage} percent={vid.progress_percent} source={vid.creation_source || (vid.input_type === 'audio' ? 'audio' : 'script')} />
-                                  <div className="mt-4 text-[11px] font-bold text-slate-100 truncate">{vid.progress_stage || 'Rendu en cours…'}</div>
-                                  <div className="mt-2.5 h-1 rounded-full bg-slate-800/90 overflow-hidden">
+                                <div className="absolute inset-0 flex flex-col items-center justify-center px-4 py-5 @lg:py-8 text-center">
+                                  <PipelineStepper stage={vid.progress_stage} percent={vid.progress_percent} source={vid.creation_source || (vid.input_type === 'audio' ? 'audio' : 'script')} onStepClick={(step) => openProductionInspector(vid, step)} />
+                                  <div className="mt-4 @lg:mt-6 text-[11px] @lg:text-base font-bold text-slate-100 truncate">{vid.progress_stage || 'Rendu en cours…'}</div>
+                                  <div className="mt-2.5 @lg:mt-4 h-1 @lg:h-1.5 rounded-full bg-slate-800/90 overflow-hidden">
                                     <div className="h-full bg-gradient-to-r from-[#20bff0] to-[#62dcff] transition-all duration-700 rounded-full" style={{ width: `${vid.progress_percent || 2}%` }} />
                                   </div>
-                                  <div className="mt-2 flex items-center justify-between text-[9px] font-mono">
+                                  <div className="mt-2 @lg:mt-3 flex items-center justify-between gap-2 text-[9px] @lg:text-xs font-mono">
                                     <span className="text-[#5ddaff] font-bold">{vid.progress_percent || 2}%</span>
                                     {vid.started_at && <span className="text-slate-500">{formatElapsed(vid.started_at)}</span>}
                                   </div>
                                 </div>
                               ) : vid.status === 'failed' ? (
-                                <div className="w-full h-full px-4 py-3 text-center flex flex-col items-center justify-center gap-1.5">
+                                <div className="absolute inset-0 flex flex-col items-center justify-center px-4 py-3 text-center gap-1.5 @lg:gap-3">
                                   {(() => {
                                     const mustForce = vid.youtube_compliance_report?.phase?.endsWith('_preflight') && vid.youtube_compliance_report?.can_render === false && !vid.script_compliance_overridden;
                                     return (
                                       <button
                                         onClick={(e) => mustForce ? handleForceScriptRender(vid, e) : (e.stopPropagation(), handleRetryVideo(vid.id))}
                                         title={mustForce ? 'Forcer le montage à vos risques' : 'Relancer la génération'}
-                                        className="group/retry flex flex-col items-center gap-1.5"
+                                        className="group/retry flex flex-col items-center gap-1.5 @lg:gap-2.5"
                                       >
-                                        <span className="material-symbols-outlined text-[38px] leading-none text-rose-400 group-hover/retry:text-[#00c2ff] group-hover/retry:rotate-[-25deg] transition-all">{mustForce ? 'warning' : 'replay'}</span>
-                                        <div className="text-[11px] font-extrabold text-rose-300 group-hover/retry:text-[#00c2ff] transition-colors">{mustForce ? 'Forcer le montage' : 'Échec — relancer'}</div>
+                                        <span className="material-symbols-outlined text-[38px] @lg:text-[64px] leading-none text-rose-400 group-hover/retry:text-[#00c2ff] group-hover/retry:rotate-[-25deg] transition-all">{mustForce ? 'warning' : 'replay'}</span>
+                                        <div className="text-[11px] @lg:text-base font-extrabold text-rose-300 group-hover/retry:text-[#00c2ff] transition-colors">{mustForce ? 'Forcer le montage' : 'Échec — relancer'}</div>
                                       </button>
                                     );
                                   })()}
-                                  <div className="max-w-full text-[9px] leading-relaxed text-rose-300/80 line-clamp-2" title={vid.error_message || ''}>
+                                  <div className="max-w-full text-[9px] @lg:text-xs leading-relaxed text-rose-300/80 line-clamp-2" title={vid.error_message || ''}>
                                     {(vid.error_message || 'Erreur inconnue').split('\n')[0]}
                                   </div>
                                 </div>
                               ) : vid.status === 'done' ? (
-                                <div className="p-4 text-center space-y-2">
-                                  <span className="material-symbols-outlined text-[36px] text-slate-500">inventory_2</span>
-                                  <div className="text-[11px] font-bold font-mono text-slate-400">Fichier expiré</div>
-                                  <div className="text-[9px] text-slate-500">Rendu terminé, fichier purgé après la période de rétention.</div>
+                                <div className="absolute inset-0 flex flex-col items-center justify-center text-center space-y-2 @lg:space-y-3">
+                                  <span className="material-symbols-outlined text-[36px] @lg:text-[56px] text-slate-500">inventory_2</span>
+                                  <div className="text-[11px] @lg:text-base font-bold font-mono text-slate-400">Fichier expiré</div>
+                                  <div className="text-[9px] @lg:text-xs text-slate-500">Rendu terminé, fichier purgé après la période de rétention.</div>
                                 </div>
                               ) : (
-                                <div className="p-4 text-center space-y-2">
-                                  <HourglassSandIcon className="w-9 h-9 mx-auto text-[#00c2ff]" />
-                                  <div className="text-[11px] font-bold font-mono text-[#00c2ff]">En file d'attente</div>
+                                <div className="absolute inset-0 flex flex-col items-center justify-center text-center space-y-2 @lg:space-y-3">
+                                  <HourglassSandIcon className="w-9 h-9 @lg:w-16 @lg:h-16 mx-auto text-[#00c2ff]" />
+                                  <div className="text-[11px] @lg:text-base font-bold font-mono text-[#00c2ff]">En file d'attente</div>
                                 </div>
                               )}
 
@@ -9929,6 +10295,11 @@ export default function App() {
                                   {vid.status === 'done' && (
                                     <button onClick={(e) => handleDownloadVideo(vid, e)} className="w-full text-left px-3 py-1.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium">
                                       <span className="material-symbols-outlined text-[14px] text-[#00c2ff]">download</span> Télécharger
+                                    </button>
+                                  )}
+                                  {vid.status === 'done' && (
+                                    <button onClick={(e) => handleShowCostRecap(vid, e)} className="w-full text-left px-3 py-1.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium">
+                                      <span className="material-symbols-outlined text-[14px] text-[#00c2ff]">toll</span> Détail du coût
                                     </button>
                                   )}
                                   {vid.status === 'done' && (
@@ -10274,6 +10645,103 @@ export default function App() {
               </section>
             )}
 
+            {/* VIEW 3.6: Public resources — Pexels plus creator-approved
+                community media, always separate from private libraries. */}
+            {view === 'public_library' && (
+              <section className="space-y-6">
+                <div className="relative overflow-hidden rounded-3xl border border-[#00c2ff]/20 bg-[var(--bg-surface)] p-6 sm:p-8 shadow-[0_24px_70px_rgba(0,0,0,.14)]">
+                  <div className="pointer-events-none absolute -right-16 -top-20 h-64 w-64 rounded-full bg-[#00c2ff]/10 blur-3xl" />
+                  <div className="relative max-w-2xl">
+                    <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-[#00c2ff]/25 bg-[#00c2ff]/10 px-3 py-1 text-[10px] font-extrabold uppercase tracking-[.16em] text-[#65dcff]">
+                      <span className="material-symbols-outlined text-[15px]">public</span>
+                      Ressources publiques
+                    </div>
+                    <h2 className="text-2xl font-extrabold tracking-[-.025em] text-white sm:text-3xl">Des visuels libres pour tes vidéos.</h2>
+                    <p className="mt-2 text-sm leading-relaxed text-slate-400">Explore Pexels et les médias partagés par la communauté, classés par niche. Tes propres médias restent privés dans Ma bibliothèque.</p>
+                  </div>
+                </div>
+
+                <form
+                  onSubmit={event => { event.preventDefault(); fetchPublicLibrary({ page: 1 }); }}
+                  className="flex flex-col gap-3 rounded-2xl border border-[var(--border-soft)] bg-[var(--bg-surface)] p-3 sm:flex-row"
+                >
+                  <label className="relative block min-w-0 flex-1">
+                    <span className="material-symbols-outlined pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[18px] text-slate-500">search</span>
+                    <input
+                      value={publicLibraryQuery}
+                      onChange={event => setPublicLibraryQuery(event.target.value)}
+                      placeholder="Chercher un thème ou une niche…"
+                      className="w-full rounded-xl border border-[var(--border-soft)] bg-[var(--bg-surface-alt)] py-2.5 pl-10 pr-4 text-xs font-medium text-white outline-none transition focus:border-[#00c2ff]/60 focus:ring-2 focus:ring-[#00c2ff]/10"
+                    />
+                  </label>
+                  <div className="flex rounded-xl bg-[var(--bg-surface-alt)] p-1">
+                    {[{ id: 'photos', label: 'Images', icon: 'image' }, { id: 'videos', label: 'B-roll', icon: 'movie' }].map(option => (
+                      <button key={option.id} type="button" onClick={() => setPublicLibraryMediaType(option.id)} className={`flex items-center gap-1.5 rounded-lg px-3 py-2 text-[10px] font-bold transition-colors ${publicLibraryMediaType === option.id ? 'bg-[#00c2ff] text-slate-950 shadow-sm' : 'text-slate-400 hover:text-white'}`}>
+                        <span className="material-symbols-outlined text-[15px]">{option.icon}</span>{option.label}
+                      </button>
+                    ))}
+                  </div>
+                  <button type="submit" className="rounded-xl bg-[#00c2ff] px-4 py-2.5 text-xs font-extrabold text-slate-950 transition hover:bg-[#45d4ff]">Rechercher</button>
+                </form>
+
+                <div className="flex flex-wrap gap-2">
+                  {/* Same canonical niche list used everywhere else in the app
+                      (channel creation, admin library) — a category here has
+                      to mean the same thing it means when picking a channel's
+                      own niche, not a separate, looser vocabulary. */}
+                  {NICHE_OPTIONS.map(category => (
+                    <button key={category} type="button" onClick={() => { setPublicLibraryQuery(category); fetchPublicLibrary({ query: category, page: 1 }); }} className={`rounded-full border px-3 py-1.5 text-[10px] font-bold transition ${publicLibraryQuery.toLowerCase() === category.toLowerCase() ? 'border-[#00c2ff]/60 bg-[#00c2ff]/10 text-[#63dcff]' : 'border-[var(--border)] bg-[var(--bg-surface)] text-slate-400 hover:border-slate-500 hover:text-white'}`}>{category}</button>
+                  ))}
+                </div>
+
+                {publicLibraryError ? (
+                  <div role="alert" className="rounded-2xl border border-rose-500/35 bg-rose-500/[.08] p-5 text-sm text-rose-200">
+                    <div className="flex items-center gap-2 font-bold"><span className="material-symbols-outlined">error</span> Impossible de charger les ressources publiques</div>
+                    <p className="mt-1.5 text-xs leading-relaxed text-rose-200/80">{publicLibraryError}</p>
+                    <button type="button" onClick={() => fetchPublicLibrary()} className="mt-4 rounded-lg border border-rose-400/35 px-3 py-2 text-xs font-bold transition hover:bg-rose-400/10">Réessayer</button>
+                  </div>
+                ) : publicLibraryLoading ? (
+                  <SkeletonGrid count={8} cardClassName="aspect-[16/10]" />
+                ) : publicLibraryItems.length === 0 ? (
+                  <div className="rounded-2xl border border-[var(--border-soft)] bg-[var(--bg-surface)] p-10 text-center">
+                    <span className="material-symbols-outlined text-[38px] text-slate-500">image_search</span>
+                    <p className="mt-3 text-sm font-bold text-white">{publicLibraryQuery.trim() ? 'Aucune ressource trouvée' : 'Cherche un thème ou choisis une niche pour commencer'}</p>
+                    <p className="mt-1 text-xs text-slate-400">{publicLibraryQuery.trim() ? 'Essaie un autre mot-clé ou une autre catégorie.' : 'Rien n’est chargé tant que tu n’as rien demandé.'}</p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
+                      {publicLibraryItems.map(item => (
+                        <button key={`${item.type}-${item.id}`} type="button" onClick={() => setPublicLibraryPreview(item)} className="group relative aspect-[16/10] overflow-hidden rounded-xl border border-[var(--border-soft)] bg-[var(--bg-surface-alt)] text-left focus:outline-none focus:ring-2 focus:ring-[#00c2ff]">
+                          <img src={publicLibraryThumbnailUrl(item)} alt={item.alt || 'Ressource publique'} loading="lazy" className="h-full w-full object-cover transition duration-300 group-hover:scale-105" />
+                          {item.type === 'videos' && (
+                            <div className="absolute inset-x-0 bottom-0 flex items-end justify-end bg-gradient-to-t from-slate-950/90 via-slate-950/35 to-transparent px-2.5 pb-2 pt-8">
+                              <span className="shrink-0 rounded bg-slate-950/80 px-1.5 py-0.5 text-[9px] font-bold text-white">{item.duration ? `${item.duration}s` : 'B-roll'}</span>
+                            </div>
+                          )}
+                          {item.type === 'videos' && <span className="absolute left-1/2 top-1/2 flex h-11 w-11 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-[#00c2ff]/95 text-slate-950 shadow-lg transition group-hover:scale-110"><span className="material-symbols-outlined text-[25px]">play_arrow</span></span>}
+                          <span className="absolute left-2 top-2 rounded-lg bg-slate-950/75 px-2 py-1 text-[9px] font-bold text-white opacity-0 transition group-hover:opacity-100">{item.provider === 'community' ? 'Communauté' : item.provider === 'ai_generated' ? 'IA KappGen' : 'Pexels'}</span>
+                          {/* Quick download without opening the full preview. */}
+                          <span
+                            role="button"
+                            tabIndex={0}
+                            onClick={event => downloadPublicLibraryAsset(item, event)}
+                            onKeyDown={event => { if (event.key === 'Enter') downloadPublicLibraryAsset(item, event); }}
+                            title="Télécharger"
+                            className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-lg bg-slate-950/75 text-white opacity-0 transition hover:bg-slate-950 group-hover:opacity-100"
+                          >
+                            <span className="material-symbols-outlined text-[15px]">download</span>
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                    {publicLibraryHasNext && <div className="flex justify-center"><button type="button" onClick={() => fetchPublicLibrary({ page: publicLibraryPage + 1 })} className="rounded-xl border border-[#00c2ff]/35 bg-[#00c2ff]/10 px-4 py-2.5 text-xs font-bold text-[#62dcff] transition hover:bg-[#00c2ff]/20">Voir plus</button></div>}
+                    <p className="text-center text-[10px] text-slate-500">Aperçu intégré dans KappGen. Sources : Pexels, images générées par l'IA KappGen et médias approuvés de la communauté.</p>
+                  </>
+                )}
+              </section>
+            )}
+
             {/* VIEW 4: CHANNEL DETAIL VIEW */}
             {view === 'channel_detail' && activeChannel && (
               <div className="space-y-8">
@@ -10463,6 +10931,24 @@ export default function App() {
                   </div>
                 </section>
 
+                {channelLaunchErrors[activeChannel.id] && (
+                  <section role="alert" className="rounded-2xl border border-rose-500/40 bg-rose-500/[.08] p-4 sm:p-5 shadow-[0_10px_32px_rgba(244,63,94,.08)]">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="flex gap-3">
+                        <span className="material-symbols-outlined mt-0.5 text-[22px] text-rose-300">error</span>
+                        <div>
+                          <h3 className="text-sm font-extrabold text-rose-100">Le lancement de la vidéo est bloqué</h3>
+                          <p className="mt-1 text-xs leading-relaxed text-rose-100/80">{channelLaunchErrors[activeChannel.id]}</p>
+                          <p className="mt-2 text-[10px] text-rose-200/60">Ce message reste affiché jusqu’à une nouvelle tentative.</p>
+                        </div>
+                      </div>
+                      <button onClick={() => startNewVideoFor(activeChannel)} disabled={generatingAutoVideo} className="shrink-0 rounded-xl border border-rose-300/35 bg-rose-300/10 px-4 py-2.5 text-xs font-extrabold text-rose-100 transition hover:bg-rose-300/20 disabled:opacity-50">
+                        {generatingAutoVideo ? 'Relance…' : 'Réessayer'}
+                      </button>
+                    </div>
+                  </section>
+                )}
+
                 {(() => {
                   // Same folders as "Mes Vidéos", scoped to this channel — moving
                   // a video into a folder here or there shows up in both, and old
@@ -10476,17 +10962,37 @@ export default function App() {
                 <section className="space-y-4">
                   <div className="flex items-center justify-between gap-3">
                     <h3 className="text-lg font-bold text-white">Vidéos de la Chaîne ({channelVideos.length})</h3>
-                    {channelVideos.length > 0 && (
-                      <button
-                        onClick={() => videoSelectionMode ? exitVideoSelectionMode() : setVideoSelectionMode(true)}
-                        className={`px-3.5 py-1.5 font-bold text-xs rounded-xl transition-all flex items-center gap-1.5 flex-shrink-0 border ${
-                          videoSelectionMode ? 'bg-[#00c2ff]/10 text-[#00c2ff] border-[#00c2ff]' : 'bg-[var(--bg-surface-alt)] text-slate-300 hover:text-white border-[var(--border)]'
-                        }`}
-                      >
-                        <span className="material-symbols-outlined text-[16px]">{videoSelectionMode ? 'close' : 'checklist'}</span>
-                        {videoSelectionMode ? 'Annuler' : 'Sélectionner'}
-                      </button>
-                    )}
+                    <div className="flex items-center gap-3 flex-shrink-0">
+                      {/* Same cards-per-row slider as Mes Vidéos — shares the
+                          same persisted preference, so the choice sticks
+                          across both screens without a second setting. */}
+                      <div className="flex items-center gap-2 bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-3 py-2" title="Taille des cartes">
+                        <span className="material-symbols-outlined text-[16px] text-slate-400 shrink-0">crop_square</span>
+                        <input
+                          type="range"
+                          min="1"
+                          max="6"
+                          step="1"
+                          value={videoGridDensity}
+                          onChange={e => updateVideoGridDensity(Number(e.target.value))}
+                          className="w-20 accent-[#00c2ff]"
+                          title={`${videoGridDensity} par ligne`}
+                        />
+                        <span className="material-symbols-outlined text-[12px] text-slate-400 shrink-0">grid_view</span>
+                        <span className="text-[11px] font-bold text-white w-3 text-center shrink-0">{videoGridDensity}</span>
+                      </div>
+                      {channelVideos.length > 0 && (
+                        <button
+                          onClick={() => videoSelectionMode ? exitVideoSelectionMode() : setVideoSelectionMode(true)}
+                          className={`px-3.5 py-1.5 font-bold text-xs rounded-xl transition-all flex items-center gap-1.5 flex-shrink-0 border ${
+                            videoSelectionMode ? 'bg-[#00c2ff]/10 text-[#00c2ff] border-[#00c2ff]' : 'bg-[var(--bg-surface-alt)] text-slate-300 hover:text-white border-[var(--border)]'
+                          }`}
+                        >
+                          <span className="material-symbols-outlined text-[16px]">{videoSelectionMode ? 'close' : 'checklist'}</span>
+                          {videoSelectionMode ? 'Annuler' : 'Sélectionner'}
+                        </button>
+                      )}
+                    </div>
                   </div>
                   {videoSelectionMode && (
                     <div className="sticky top-0 z-10 bg-[#0f1621] border border-[#00c2ff]/30 rounded-xl px-4 py-2.5 flex items-center justify-between gap-3 shadow-lg">
@@ -10588,7 +11094,7 @@ export default function App() {
                         <p className="text-xs text-slate-400">Aucune vidéo de cette chaîne dans ce dossier.</p>
                       </div>
                     ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                    <div className={`grid ${VIDEO_GRID_DENSITIES[videoGridDensity]} gap-6`}>
                       {channelFolderVideos.map(vid => {
                         const isSelected = selectedVideoIds.has(vid.id);
                         return (
@@ -10598,7 +11104,7 @@ export default function App() {
                           draggable={!videoSelectionMode}
                           onDragStart={(e) => { setDraggedVideoId(vid.id); e.dataTransfer.setData('text/plain', vid.id); e.dataTransfer.effectAllowed = 'move'; }}
                           onDragEnd={() => { setDraggedVideoId(null); setDragOverFolderId(null); }}
-                          className={`bg-[var(--bg-surface)] hover:bg-[var(--bg-hover)] border rounded-2xl p-4 transition-all group flex flex-col justify-between shadow-lg relative card-warm-hover video-menu-container ${
+                          className={`@container bg-[var(--bg-surface)] hover:bg-[var(--bg-hover)] border rounded-2xl p-4 transition-all group flex flex-col justify-between shadow-lg relative card-warm-hover video-menu-container ${
                             videoSelectionMode ? 'cursor-pointer ' + (isSelected ? 'border-[#00c2ff]' : 'border-[var(--border-soft)]') : 'border-[var(--border-soft)] hover:border-[#00c2ff]/40 cursor-grab active:cursor-grabbing'
                           } ${draggedVideoId === vid.id ? 'opacity-40' : ''}`}
                         >
@@ -10634,6 +11140,20 @@ export default function App() {
                                     {formatDuration(vid.duration_seconds)}
                                   </div>
                                 )}
+                                {vid.thumbnail_error && (
+                                  <div className="absolute top-2 left-2 z-10 flex items-center gap-1.5 bg-amber-950/90 border border-amber-700/60 text-amber-300 text-[9px] font-bold px-2 py-1 rounded-lg max-w-[85%]">
+                                    <span className="material-symbols-outlined text-[13px] shrink-0">image_not_supported</span>
+                                    <span className="truncate">Miniature indisponible</span>
+                                    <button
+                                      onClick={(e) => handleRegenerateCardThumbnail(vid, e)}
+                                      disabled={regeneratingCardThumbnailIds.has(vid.id)}
+                                      title="Réessayer"
+                                      className="shrink-0 hover:text-white disabled:opacity-50"
+                                    >
+                                      <span className={`material-symbols-outlined text-[13px] ${regeneratingCardThumbnailIds.has(vid.id) ? 'animate-spin' : ''}`}>{regeneratingCardThumbnailIds.has(vid.id) ? 'progress_activity' : 'autorenew'}</span>
+                                    </button>
+                                  </div>
+                                )}
                                 {vid.progress_stage && /youtube|miniature/i.test(vid.progress_stage) && !vid.youtube_video_id && !vid.youtube_publish_error && (
                                   <div className="absolute inset-x-0 bottom-0 bg-black/85 px-2 py-1.5 flex items-center gap-1.5">
                                     <YouTubeIcon className="w-3.5 h-2.5 animate-pulse" />
@@ -10642,45 +11162,45 @@ export default function App() {
                                 )}
                               </>
                             ) : vid.status === 'rendering' ? (
-                              <div className="px-4 py-5 text-center w-full max-w-[245px]">
-                                <PipelineStepper stage={vid.progress_stage} percent={vid.progress_percent} source={vid.creation_source || (vid.input_type === 'audio' ? 'audio' : 'script')} />
-                                <div className="mt-4 text-[11px] font-bold text-slate-100 truncate">{vid.progress_stage || 'Rendu en cours…'}</div>
-                                <div className="mt-2.5 h-1 rounded-full bg-slate-800/90 overflow-hidden">
+                              <div className="absolute inset-0 flex flex-col items-center justify-center px-4 py-5 @lg:py-8 text-center">
+                                <PipelineStepper stage={vid.progress_stage} percent={vid.progress_percent} source={vid.creation_source || (vid.input_type === 'audio' ? 'audio' : 'script')} onStepClick={(step) => openProductionInspector(vid, step)} />
+                                <div className="mt-4 @lg:mt-6 text-[11px] @lg:text-base font-bold text-slate-100 truncate">{vid.progress_stage || 'Rendu en cours…'}</div>
+                                <div className="mt-2.5 @lg:mt-4 h-1 @lg:h-1.5 rounded-full bg-slate-800/90 overflow-hidden">
                                   <div className="h-full bg-gradient-to-r from-[#20bff0] to-[#62dcff] transition-all duration-700 rounded-full" style={{ width: `${vid.progress_percent || 2}%` }} />
                                 </div>
-                                <div className="mt-2 flex items-center justify-between text-[9px] font-mono">
+                                <div className="mt-2 @lg:mt-3 flex items-center justify-between gap-2 text-[9px] @lg:text-xs font-mono">
                                   <span className="text-[#5ddaff] font-bold">{vid.progress_percent || 2}%</span>
                                   {vid.started_at && <span className="text-slate-500">{formatElapsed(vid.started_at)}</span>}
                                 </div>
                               </div>
                             ) : vid.status === 'failed' ? (
-                              <div className="w-full h-full px-4 py-3 text-center flex flex-col items-center justify-center gap-1.5">
+                              <div className="absolute inset-0 flex flex-col items-center justify-center px-4 py-3 text-center gap-1.5 @lg:gap-3">
                                 {(() => {
                                   const mustForce = vid.youtube_compliance_report?.phase?.endsWith('_preflight') && vid.youtube_compliance_report?.can_render === false && !vid.script_compliance_overridden;
                                   return (
                                     <button
                                       onClick={(e) => mustForce ? handleForceScriptRender(vid, e) : (e.stopPropagation(), handleRetryVideo(vid.id))}
                                       title={mustForce ? 'Forcer le montage à vos risques' : 'Relancer la génération'}
-                                      className="group/retry flex flex-col items-center gap-1.5"
+                                      className="group/retry flex flex-col items-center gap-1.5 @lg:gap-2.5"
                                     >
-                                      <span className="material-symbols-outlined text-[38px] leading-none text-rose-400 group-hover/retry:text-[#00c2ff] group-hover/retry:rotate-[-25deg] transition-all">{mustForce ? 'warning' : 'replay'}</span>
-                                      <div className="text-[11px] font-extrabold text-rose-300 group-hover/retry:text-[#00c2ff] transition-colors">{mustForce ? 'Forcer le montage' : 'Échec — relancer'}</div>
+                                      <span className="material-symbols-outlined text-[38px] @lg:text-[64px] leading-none text-rose-400 group-hover/retry:text-[#00c2ff] group-hover/retry:rotate-[-25deg] transition-all">{mustForce ? 'warning' : 'replay'}</span>
+                                      <div className="text-[11px] @lg:text-base font-extrabold text-rose-300 group-hover/retry:text-[#00c2ff] transition-colors">{mustForce ? 'Forcer le montage' : 'Échec — relancer'}</div>
                                     </button>
                                   );
                                 })()}
-                                <div className="max-w-full text-[9px] leading-relaxed text-rose-300/80 line-clamp-2" title={vid.error_message || ''}>
+                                <div className="max-w-full text-[9px] @lg:text-xs leading-relaxed text-rose-300/80 line-clamp-2" title={vid.error_message || ''}>
                                   {(vid.error_message || 'Erreur inconnue').split('\n')[0]}
                                 </div>
                               </div>
                             ) : vid.status === 'done' ? (
-                              <div className="p-4 text-center space-y-2">
-                                <span className="material-symbols-outlined text-[36px] text-slate-500">inventory_2</span>
-                                <div className="text-[11px] font-bold font-mono text-slate-400">Fichier expiré</div>
+                              <div className="absolute inset-0 flex flex-col items-center justify-center text-center space-y-2 @lg:space-y-3">
+                                <span className="material-symbols-outlined text-[36px] @lg:text-[56px] text-slate-500">inventory_2</span>
+                                <div className="text-[11px] @lg:text-base font-bold font-mono text-slate-400">Fichier expiré</div>
                               </div>
                             ) : (
-                              <div className="p-4 text-center space-y-2">
-                                <HourglassSandIcon className="w-9 h-9 mx-auto text-[#00c2ff]" />
-                                <div className="text-[11px] font-bold font-mono text-[#00c2ff]">En file</div>
+                              <div className="absolute inset-0 flex flex-col items-center justify-center text-center space-y-2 @lg:space-y-3">
+                                <HourglassSandIcon className="w-9 h-9 @lg:w-16 @lg:h-16 mx-auto text-[#00c2ff]" />
+                                <div className="text-[11px] @lg:text-base font-bold font-mono text-[#00c2ff]">En file</div>
                               </div>
                             )}
 
@@ -10739,6 +11259,11 @@ export default function App() {
                                 {vid.status === 'done' && (
                                   <button onClick={(e) => handleDownloadVideo(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium">
                                     <span className="material-symbols-outlined text-[16px] text-[#00c2ff]">download</span> Télécharger
+                                  </button>
+                                )}
+                                {vid.status === 'done' && (
+                                  <button onClick={(e) => handleShowCostRecap(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium">
+                                    <span className="material-symbols-outlined text-[16px] text-[#00c2ff]">toll</span> Détail du coût
                                   </button>
                                 )}
                                 {vid.status === 'done' && (
@@ -11318,78 +11843,116 @@ export default function App() {
                       );
                     })()}
 
-                    {newChannel.automation_mode === 'auto' && (
-                      <div>
-                        <label className="block text-xs font-bold text-slate-300 mb-1.5">Exemples de sujets / titres</label>
-                        <textarea
-                          value={newChannel.topic_examples || ''}
-                          onChange={e => setNewChannel({ ...newChannel, topic_examples: e.target.value })}
-                          placeholder={"Colle directement une liste de vidéos qui marchent dans ta niche — les tiennes, ou celles d'une chaîne concurrente copiées en vrac (avec le nombre de vues et la date, aucun souci). L'IA s'occupe de repérer les plus virales et d'en tirer le style pour écrire tes prochains scripts.\n\nEx :\nLe jour où tu arrêtes de demander la permission de vivre — 2,3 M de vues — il y a 4 mois\nPourquoi le silence de Dieu n'est pas un abandon"}
-                          rows={12}
-                          className="w-full bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-3 py-2.5 text-xs text-white focus:border-[#00c2ff] outline-none resize-y"
-                        />
-                        <p className="text-[10px] text-slate-500 mt-1.5 px-1">Sans ça, le choix des sujets reste générique. Colle en vrac (vues, dates compris) — l'IA analyse elle-même pour repérer les vidéos les plus virales et s'en inspirer.</p>
-                      </div>
-                    )}
+                    {newChannel.automation_mode === 'auto' && (() => {
+                      const hasExamples = !!(newChannel.topic_examples || '').trim();
+                      const webTrendsOn = !!newChannel.use_web_trends;
+                      const hasYouTubeSources = !!(newChannel.youtube_topic_sources || '').trim();
+                      // All three are plain text-driven fields (no separate
+                      // enabled/disabled flag on the channel) — "unchecking"
+                      // a card is the same action as clearing its text, kept
+                      // to one source of truth instead of a second field that
+                      // could drift from what's actually in the box.
+                      const toggleExamples = () => setNewChannel({ ...newChannel, topic_examples: hasExamples ? '' : (newChannel.topic_examples || '') });
+                      const toggleYouTube = () => setNewChannel({ ...newChannel, youtube_topic_sources: hasYouTubeSources ? '' : (newChannel.youtube_topic_sources || '') });
+                      const cardClass = (active) => `p-4 rounded-2xl border-2 transition-all ${active ? 'bg-[var(--bg-surface-alt)] border-[#00c2ff] shadow-lg shadow-[#00c2ff]/10' : 'bg-[var(--bg-surface-soft)] border-[var(--border-soft)] hover:border-slate-500'}`;
+                      return (
+                        <div className="space-y-2">
+                          <label className="block text-xs font-bold text-slate-300 px-1">Recherche de sujets</label>
+                          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 items-stretch">
+                            {/* 1. Exemples de sujets — the one that needs real
+                                writing room, so it gets the whole left column
+                                at full height instead of competing for space
+                                with the two lighter, secondary options. */}
+                            <div className={`${cardClass(hasExamples)} flex flex-col gap-2.5`}>
+                              <div className="flex items-center justify-between gap-3">
+                                <div className="flex items-center gap-2">
+                                  <span className="material-symbols-outlined text-[20px] text-[#00c2ff]">history_edu</span>
+                                  <h4 className="text-xs font-bold text-white">Exemples de sujets / titres</h4>
+                                </div>
+                                <input
+                                  type="checkbox"
+                                  checked={hasExamples}
+                                  onChange={toggleExamples}
+                                  className="kappgen-checkbox shrink-0"
+                                />
+                              </div>
+                              <p className="text-[10px] text-slate-500">Colle des vidéos qui marchent dans ta niche (vues, dates comprises) — l'IA en tire les sujets les plus viraux.</p>
+                              <textarea
+                                value={newChannel.topic_examples || ''}
+                                onChange={e => setNewChannel({ ...newChannel, topic_examples: e.target.value })}
+                                placeholder={"Ex :\nLe jour où tu arrêtes de demander la permission de vivre — 2,3 M de vues — il y a 4 mois\nPourquoi le silence de Dieu n'est pas un abandon"}
+                                className="w-full flex-1 min-h-[220px] bg-[var(--bg-input-alt)] border border-[var(--border)] rounded-xl px-3 py-2.5 text-xs text-white focus:border-[#00c2ff] outline-none resize-y"
+                              />
+                            </div>
 
-                    {newChannel.automation_mode === 'auto' && (
-                      <label className="flex items-center gap-2.5 bg-[var(--bg-input)] border border-[var(--border-subtle)] rounded-xl px-3 py-2.5 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={!!newChannel.use_web_trends}
-                          onChange={e => setNewChannel({ ...newChannel, use_web_trends: e.target.checked })}
-                          className="w-4 h-4 accent-[#00c2ff]"
-                        />
-                        <span className="material-symbols-outlined text-[16px] text-slate-500 shrink-0">travel_explore</span>
-                        <span className="text-[11px] text-slate-300">Puiser dans l'actualité récente (recherche web) — pour une chaîne d'actu/tendances</span>
-                      </label>
-                    )}
+                            <div className="flex flex-col gap-3">
+                              {/* 2. Recherche YouTube */}
+                              <div className={`${cardClass(hasYouTubeSources)} flex-1 flex flex-col gap-2`}>
+                                <div className="flex items-center justify-between gap-3">
+                                  <div className="flex items-center gap-2">
+                                    <span className="material-symbols-outlined text-[20px] text-[#00c2ff]">smart_display</span>
+                                    <h4 className="text-xs font-bold text-white">Recherche YouTube</h4>
+                                  </div>
+                                  <input
+                                    type="checkbox"
+                                    checked={hasYouTubeSources}
+                                    onChange={toggleYouTube}
+                                    className="kappgen-checkbox shrink-0"
+                                  />
+                                </div>
+                                <p className="text-[10px] text-slate-500">Colle des liens de chaînes/vidéos — l'IA étudie leurs angles pour proposer des sujets originaux.</p>
+                                <textarea
+                                  value={newChannel.youtube_topic_sources || ''}
+                                  onChange={e => setNewChannel({ ...newChannel, youtube_topic_sources: e.target.value })}
+                                  placeholder={'https://www.youtube.com/@une-chaine\nhttps://www.youtube.com/watch?v=...'}
+                                  className="w-full flex-1 min-h-[80px] bg-[var(--bg-input-alt)] border border-[var(--border)] rounded-xl px-3 py-2.5 text-xs text-white focus:border-[#00c2ff] outline-none resize-y"
+                                />
+                              </div>
 
-                    {newChannel.automation_mode === 'auto' && (
-                      <div>
-                        <div className="flex items-center gap-2 bg-[var(--bg-input)] border border-[var(--border-subtle)] rounded-xl px-3 py-2.5">
-                          <span className="material-symbols-outlined text-[16px] text-slate-500 shrink-0">calendar_today</span>
-                          <span className="text-[11px] text-slate-400 shrink-0">Scripts (vidéos) par jour :</span>
-                          <div className="flex-1 flex items-center justify-end gap-2">
-                            <button
-                              type="button"
-                              onClick={() => setNewChannel({ ...newChannel, videos_per_day: Math.max(1, (newChannel.videos_per_day || 1) - 1) })}
-                              className="w-7 h-7 rounded-lg bg-[var(--bg-surface-alt)] border border-[var(--border)] text-white hover:border-slate-500 flex items-center justify-center"
-                            >
-                              <span className="material-symbols-outlined text-[16px]">remove</span>
-                            </button>
-                            <input
-                              type="number"
-                              min={1}
-                              max={100}
-                              value={newChannel.videos_per_day || 1}
-                              onChange={e => {
-                                const n = parseInt(e.target.value);
-                                setNewChannel({ ...newChannel, videos_per_day: Number.isFinite(n) ? Math.min(100, Math.max(1, n)) : 1 });
-                              }}
-                              className="w-14 text-center bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-lg py-1 text-xs font-bold text-white focus:border-[#00c2ff] outline-none"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => setNewChannel({ ...newChannel, videos_per_day: Math.min(100, (newChannel.videos_per_day || 1) + 1) })}
-                              className="w-7 h-7 rounded-lg bg-[var(--bg-surface-alt)] border border-[var(--border)] text-white hover:border-slate-500 flex items-center justify-center"
-                            >
-                              <span className="material-symbols-outlined text-[16px]">add</span>
-                            </button>
+                              {/* 3. Recherche web — real per-search cost (billed to
+                                  the creator like any other paid call), so it stays
+                                  an explicit opt-in. */}
+                              <div
+                                onClick={() => setNewChannel({ ...newChannel, use_web_trends: !webTrendsOn })}
+                                className={`${cardClass(webTrendsOn)} flex-1 flex flex-col justify-center gap-2 cursor-pointer`}
+                              >
+                                <div className="flex items-center justify-between gap-3">
+                                  <div className="flex items-center gap-2">
+                                    <span className="material-symbols-outlined text-[20px] text-[#00c2ff]">travel_explore</span>
+                                    <h4 className="text-xs font-bold text-white">Recherche web</h4>
+                                  </div>
+                                  <input
+                                    type="checkbox"
+                                    checked={webTrendsOn}
+                                    onChange={() => setNewChannel({ ...newChannel, use_web_trends: !webTrendsOn })}
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="kappgen-checkbox shrink-0"
+                                  />
+                                </div>
+                                <p className="text-[10px] text-slate-500">Actualité/tendance réelle du moment — pour une chaîne d'actu (sport, news...). Complémentaire.</p>
+                              </div>
+                            </div>
                           </div>
                         </div>
-                        <p className="text-[10px] text-slate-500 mt-1.5 px-1">La plage horaire, les jours et le fuseau de publication de la vidéo finie se règlent à l'étape « Publication ».</p>
-                      </div>
-                    )}
+                      );
+                    })()}
 
                     {newChannel.automation_mode === 'auto' && (() => {
                       const hasFixedHour = (newChannel.script_generation_hour ?? -1) >= 0;
                       const genDays = newChannel.script_generation_days;
                       return (
-                        <div className="space-y-2">
-                          <div className="flex items-center gap-2 bg-[var(--bg-input)] border border-[var(--border-subtle)] rounded-xl px-3 py-2.5 flex-wrap">
-                            <span className="material-symbols-outlined text-[16px] text-slate-500 shrink-0">schedule</span>
-                            <span className="text-[11px] text-slate-400 shrink-0">Écriture du script :</span>
+                        <div className="flex flex-col gap-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-input)] p-3 xl:flex-row xl:items-center">
+                          <div className="flex items-center gap-2 xl:border-r xl:border-[var(--border)] xl:pr-4">
+                            <span className="material-symbols-outlined text-[16px] text-slate-500">calendar_today</span>
+                            <span className="whitespace-nowrap text-[11px] text-slate-400">Par jour</span>
+                            <button type="button" onClick={() => setNewChannel({ ...newChannel, videos_per_day: Math.max(1, (newChannel.videos_per_day || 1) - 1) })} className="flex h-7 w-7 items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--bg-surface-alt)] text-white hover:border-slate-500"><span className="material-symbols-outlined text-[16px]">remove</span></button>
+                            <input type="number" min={1} max={100} value={newChannel.videos_per_day || 1} onChange={e => { const n = parseInt(e.target.value); setNewChannel({ ...newChannel, videos_per_day: Number.isFinite(n) ? Math.min(100, Math.max(1, n)) : 1 }); }} className="w-12 rounded-lg border border-[var(--border)] bg-[var(--bg-surface-alt)] py-1 text-center text-xs font-bold text-white outline-none focus:border-[#00c2ff]" />
+                            <button type="button" onClick={() => setNewChannel({ ...newChannel, videos_per_day: Math.min(100, (newChannel.videos_per_day || 1) + 1) })} className="flex h-7 w-7 items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--bg-surface-alt)] text-white hover:border-slate-500"><span className="material-symbols-outlined text-[16px]">add</span></button>
+                          </div>
+
+                          <div className="flex items-center gap-2 xl:border-r xl:border-[var(--border)] xl:pr-4">
+                            <span className="material-symbols-outlined text-[16px] text-slate-500">schedule</span>
+                            <span className="whitespace-nowrap text-[11px] text-slate-400">Écriture</span>
                             <div className="flex items-center gap-1 bg-[var(--bg-input-alt)] border border-[var(--border)] rounded-lg p-0.5 shrink-0">
                               <button
                                 type="button"
@@ -11420,44 +11983,33 @@ export default function App() {
                             )}
                           </div>
 
-                          {hasFixedHour && (
-                            <div className="bg-[var(--bg-input)] border border-[var(--border-subtle)] rounded-xl px-3 py-2.5">
-                              <div className="flex items-center gap-2 mb-2">
-                                <span className="material-symbols-outlined text-[16px] text-slate-500 shrink-0">event_repeat</span>
-                                <span className="text-[11px] text-slate-400">Jours de génération</span>
-                              </div>
-                              <div className="flex gap-1.5">
-                                {[
-                                  { id: 0, label: 'L' }, { id: 1, label: 'M' }, { id: 2, label: 'M' },
-                                  { id: 3, label: 'J' }, { id: 4, label: 'V' }, { id: 5, label: 'S' }, { id: 6, label: 'D' },
-                                ].map(({ id, label }) => {
-                                  const isOn = !genDays || genDays.length === 0 || genDays.includes(id);
-                                  return (
-                                    <button
-                                      key={id}
-                                      type="button"
-                                      onClick={() => {
-                                        const current = (genDays && genDays.length > 0) ? genDays : [0, 1, 2, 3, 4, 5, 6];
-                                        const next = current.includes(id) ? current.filter(d => d !== id) : [...current, id].sort();
-                                        setNewChannel({ ...newChannel, script_generation_days: next.length === 7 ? null : next });
-                                      }}
-                                      className={`flex-1 py-2 rounded-lg text-[11px] font-bold border transition-colors ${
-                                        isOn ? 'bg-[#00c2ff] text-slate-950 border-[#00c2ff]' : 'bg-[var(--bg-surface-alt)] border-[var(--border)] text-slate-300 hover:border-slate-500'
-                                      }`}
-                                    >
-                                      {label}
-                                    </button>
-                                  );
-                                })}
-                              </div>
+                          <div className="flex min-w-0 flex-1 items-center gap-2">
+                            <span className="material-symbols-outlined shrink-0 text-[16px] text-slate-500">event_repeat</span>
+                            <div className="flex min-w-0 flex-1 gap-1">
+                              {[
+                                { id: 0, label: 'L' }, { id: 1, label: 'M' }, { id: 2, label: 'M' },
+                                { id: 3, label: 'J' }, { id: 4, label: 'V' }, { id: 5, label: 'S' }, { id: 6, label: 'D' },
+                              ].map(({ id, label }) => {
+                                const isOn = !genDays || genDays.length === 0 || genDays.includes(id);
+                                return (
+                                  <button
+                                    key={id}
+                                    type="button"
+                                    onClick={() => {
+                                      const current = (genDays && genDays.length > 0) ? genDays : [0, 1, 2, 3, 4, 5, 6];
+                                      const next = current.includes(id) ? current.filter(d => d !== id) : [...current, id].sort();
+                                      setNewChannel({ ...newChannel, script_generation_days: next.length === 7 ? null : next });
+                                    }}
+                                    className={`min-w-7 flex-1 rounded-lg border py-1.5 text-[10px] font-bold transition-colors ${
+                                      isOn ? 'bg-[#00c2ff] text-slate-950 border-[#00c2ff]' : 'bg-[var(--bg-surface-alt)] border-[var(--border)] text-slate-300 hover:border-slate-500'
+                                    }`}
+                                  >
+                                    {label}
+                                  </button>
+                                );
+                              })}
                             </div>
-                          )}
-
-                          <p className="text-[10px] text-slate-500 px-1">
-                            {hasFixedHour
-                              ? `KappGen AI commence à écrire le script à partir de ${String(newChannel.script_generation_hour).padStart(2, '0')}:${String(newChannel.script_generation_minute ?? 0).padStart(2, '0')}:${String(newChannel.script_generation_second ?? 0).padStart(2, '0')} (fuseau de la chaîne, vérifié toutes les ~10 min — les secondes sont enregistrées mais pas garanties à l'exécution) — pratique pour vérifier que l'automatisation se déclenche bien.`
-                              : "Le script est écrit dès qu'un créneau du jour est libre, sans heure fixe."} Dès que le script est prêt, la vidéo part automatiquement en rendu.
-                          </p>
+                          </div>
                         </div>
                       );
                     })()}
@@ -11859,71 +12411,6 @@ export default function App() {
                             )}
                           </div>
 
-                          {isOptionBChecked && (
-                            <div onClick={(e) => e.stopPropagation()} className="p-3 rounded-xl bg-[var(--bg-input-alt)] border border-[var(--border)] space-y-3">
-                              <div className="grid grid-cols-2 gap-2">
-                                <button
-                                  type="button"
-                                  onClick={() => setNewChannel({ ...newChannel, image_style: { ...newChannel.image_style, image_count_mode: 'auto', max_unique_images: null } })}
-                                  className={`px-3 py-2 rounded-lg text-[10px] font-bold border transition-colors ${
-                                    imageCountMode === 'auto' ? 'bg-[#00c2ff]/15 border-[#00c2ff] text-white' : 'bg-transparent border-[var(--border)] text-slate-400 hover:text-white'
-                                  }`}
-                                >
-                                  Auto — KappGen décide
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => setNewChannel({ ...newChannel, image_style: { ...newChannel.image_style, image_count_mode: 'manual' } })}
-                                  className={`px-3 py-2 rounded-lg text-[10px] font-bold border transition-colors ${
-                                    imageCountMode === 'manual' ? 'bg-[#00c2ff]/15 border-[#00c2ff] text-white' : 'bg-transparent border-[var(--border)] text-slate-400 hover:text-white'
-                                  }`}
-                                >
-                                  Nombre précis
-                                </button>
-                              </div>
-
-                              {imageCountMode === 'auto' ? (
-                                <p className="text-[10px] text-slate-500">
-                                  Le nombre d’images est adapté automatiquement à la vidéo.
-                                </p>
-                              ) : (
-                                <>
-                                  <div className="flex items-center justify-between gap-3">
-                                    <label className="text-[10px] font-bold text-slate-300">Nombre d'images à générer par vidéo</label>
-                                    <input
-                                      type="number"
-                                      min={1}
-                                      value={maxUniqueImages}
-                                      onChange={e => {
-                                        const raw = e.target.value;
-                                        if (raw === '') return; // let them clear the field while typing a new value
-                                        const parsed = parseInt(raw, 10);
-                                        if (Number.isNaN(parsed)) return;
-                                        setNewChannel({ ...newChannel, image_style: { ...newChannel.image_style, max_unique_images: Math.max(1, parsed) } });
-                                      }}
-                                      onBlur={e => {
-                                        if (e.target.value !== '' && !Number.isNaN(parseInt(e.target.value, 10))) return;
-                                        setNewChannel({ ...newChannel, image_style: { ...newChannel.image_style, max_unique_images: 1 } });
-                                      }}
-                                      className="w-16 bg-[var(--bg-input)] border border-[var(--border)] rounded-lg px-2 py-1 text-xs text-white text-center focus:border-[#00c2ff] outline-none"
-                                    />
-                                  </div>
-                                  <p className="text-[10px] text-slate-500">
-                                    Le reste de la vidéo réutilise ces images au lieu d'en générer une nouvelle par scène — tu maîtrises le coût, pas la durée.
-                                  </p>
-                                  <p className="text-[11px] font-bold text-[#56d9ff]">
-                                    Coût estimé par vidéo générée : {maxUniqueImages} × {IMAGE_GENERATION_CREDITS_MIN.toLocaleString()}–{IMAGE_GENERATION_CREDITS_MAX.toLocaleString()} = {(maxUniqueImages * IMAGE_GENERATION_CREDITS_MIN).toLocaleString()}–{(maxUniqueImages * IMAGE_GENERATION_CREDITS_MAX).toLocaleString()} crédits
-                                  </p>
-                                  {creditBalance != null && !isSubscriptionExempt && maxUniqueImages * IMAGE_GENERATION_CREDITS_MAX > creditBalance && (
-                                    <p className="text-[10px] font-bold text-amber-400">
-                                      ⚠ Ton solde ({creditBalance.toLocaleString()} crédits) peut ne pas couvrir ce nombre d'images — les images manquantes utiliseront ta bibliothèque à la place.
-                                    </p>
-                                  )}
-                                </>
-                              )}
-                            </div>
-                          )}
-
                           <div className="space-y-2">
                             <label className="block text-[10px] font-bold text-slate-300">Références visuelles</label>
                             <input
@@ -11977,28 +12464,14 @@ export default function App() {
                               <div className="min-w-0">
                                 <div className="flex items-center gap-2">
                                   <span className="material-symbols-outlined text-[24px] text-[#00c2ff]">diversity_3</span>
-                                  <h4 className="text-xs font-bold text-white">Option C : Bibliothèque Communautaire + banque de stock</h4>
+                                  <h4 className="text-xs font-bold text-white">Option C : Ressources publiques</h4>
                                 </div>
                                 <p className="mt-1 text-[11px] text-slate-400">
                                   {!nicheSet
                                     ? "Choisis d'abord une niche (étape 1)."
                                     : available
-                                      ? "Images partagées de ta niche + vraies séquences vidéo et photos de stock cherchées automatiquement pour chaque scène. Gratuit, aucun crédit consommé."
-                                      : `Pas encore de bibliothèque partagée pour « ${nicheSet} », mais les séquences vidéo et photos de stock sont cherchées automatiquement pour chaque scène. Gratuit, aucun crédit consommé.`}
-                                </p>
-                                {/* Pexels' API guidelines ask for a visible link
-                                    to Pexels wherever their media is used. */}
-                                <p className="mt-1.5 text-[10px] text-slate-500">
-                                  Séquences et photos fournies par{' '}
-                                  <a
-                                    href="https://www.pexels.com"
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    onClick={(e) => e.stopPropagation()}
-                                    className="text-[#56d9ff] hover:underline"
-                                  >
-                                    Pexels
-                                  </a>
+                                      ? "Images partagées de ta niche (gratuites) + vraies séquences vidéo et photos de stock cherchées automatiquement pour chaque scène (100 crédits par séquence/photo utilisée)."
+                                      : `Pas encore de bibliothèque partagée pour « ${nicheSet} », mais les séquences vidéo et photos de stock sont cherchées automatiquement pour chaque scène (100 crédits par séquence/photo utilisée).`}
                                 </p>
                               </div>
                               <input
@@ -12015,6 +12488,82 @@ export default function App() {
                       })()}
 
                         </div>
+                      </div>
+
+                      {/* Nombre de visuels — moved out of Option B (AI generation) to sit
+                          below all three sources: it's a source-agnostic promise ("use at
+                          most N distinct visuals, repeat them across the video") that
+                          applies no matter which of A/B/C is checked, not just AI. For
+                          library/community sources it can only ever LIMIT what's already
+                          uploaded, never conjure up images that don't exist — a small
+                          pool left on "Auto" already uses everything available. */}
+                      <div onClick={(e) => e.stopPropagation()} className="p-3.5 rounded-xl bg-[#171b23] border border-[var(--border)] space-y-3">
+                        <div className="flex items-center gap-2">
+                          <span className="material-symbols-outlined text-[#00c2ff] text-[18px]">filter_none</span>
+                          <h4 className="text-xs font-bold text-white">Nombre de visuels utilisés dans le montage</h4>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setNewChannel({ ...newChannel, image_style: { ...newChannel.image_style, image_count_mode: 'auto', max_unique_images: null } })}
+                            className={`px-3 py-2 rounded-lg text-[10px] font-bold border transition-colors ${
+                              imageCountMode === 'auto' ? 'bg-[#00c2ff]/15 border-[#00c2ff] text-white' : 'bg-transparent border-[var(--border)] text-slate-400 hover:text-white'
+                            }`}
+                          >
+                            Auto — KappGen décide
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setNewChannel({ ...newChannel, image_style: { ...newChannel.image_style, image_count_mode: 'manual' } })}
+                            className={`px-3 py-2 rounded-lg text-[10px] font-bold border transition-colors ${
+                              imageCountMode === 'manual' ? 'bg-[#00c2ff]/15 border-[#00c2ff] text-white' : 'bg-transparent border-[var(--border)] text-slate-400 hover:text-white'
+                            }`}
+                          >
+                            Nombre précis
+                          </button>
+                        </div>
+
+                        {imageCountMode === 'auto' ? (
+                          <p className="text-[10px] text-slate-500">
+                            Le nombre de visuels est adapté automatiquement à la vidéo, quelle que soit la source choisie ci-dessus.
+                          </p>
+                        ) : (
+                          <>
+                            <div className="flex items-center justify-between gap-3">
+                              <label className="text-[10px] font-bold text-slate-300">Nombre de visuels distincts par vidéo</label>
+                              <input
+                                type="number"
+                                min={1}
+                                value={maxUniqueImages}
+                                onChange={e => {
+                                  const raw = e.target.value;
+                                  if (raw === '') return; // let them clear the field while typing a new value
+                                  const parsed = parseInt(raw, 10);
+                                  if (Number.isNaN(parsed)) return;
+                                  setNewChannel({ ...newChannel, image_style: { ...newChannel.image_style, max_unique_images: Math.max(1, parsed) } });
+                                }}
+                                onBlur={e => {
+                                  if (e.target.value !== '' && !Number.isNaN(parseInt(e.target.value, 10))) return;
+                                  setNewChannel({ ...newChannel, image_style: { ...newChannel.image_style, max_unique_images: 1 } });
+                                }}
+                                className="w-16 bg-[var(--bg-input)] border border-[var(--border)] rounded-lg px-2 py-1 text-xs text-white text-center focus:border-[#00c2ff] outline-none"
+                              />
+                            </div>
+                            <p className="text-[10px] text-slate-500">
+                              Le reste de la vidéo réutilise ces visuels au lieu d'en chercher/générer un nouveau par scène — tu maîtrises le nombre, pas la durée. Pour une bibliothèque ou une communauté trop petite, ce réglage limite/répète ce qui existe déjà ; il ne peut pas créer de nouvelles images.
+                            </p>
+                            {isOptionBChecked && (
+                              <p className="text-[11px] font-bold text-[#56d9ff]">
+                                Coût estimé (Génération IA) par vidéo générée : {maxUniqueImages} × {IMAGE_GENERATION_CREDITS_MIN.toLocaleString()}–{IMAGE_GENERATION_CREDITS_MAX.toLocaleString()} = {(maxUniqueImages * IMAGE_GENERATION_CREDITS_MIN).toLocaleString()}–{(maxUniqueImages * IMAGE_GENERATION_CREDITS_MAX).toLocaleString()} crédits
+                              </p>
+                            )}
+                            {isOptionBChecked && creditBalance != null && !isSubscriptionExempt && maxUniqueImages * IMAGE_GENERATION_CREDITS_MAX > creditBalance && (
+                              <p className="text-[10px] font-bold text-amber-400">
+                                ⚠ Ton solde ({creditBalance.toLocaleString()} crédits) peut ne pas couvrir ce nombre d'images — les images manquantes utiliseront ta bibliothèque à la place.
+                              </p>
+                            )}
+                          </>
+                        )}
                       </div>
 
                       <div
@@ -15894,6 +16443,136 @@ export default function App() {
       </main>
 
       {/* NOUVELLE VIDÉO MAIN ACTION MODAL */}
+      {productionInspector && (
+        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-slate-950/80 p-3 backdrop-blur-sm" onClick={() => setProductionInspector(null)}>
+          <div className="flex max-h-[88vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--bg-surface)] shadow-2xl" onClick={event => event.stopPropagation()}>
+            <div className="flex items-start justify-between gap-4 border-b border-[var(--border-soft)] px-5 py-4 sm:px-6">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 text-[#54d8ff]">
+                  <span className="material-symbols-outlined text-[20px]">{productionInspector.step.icon}</span>
+                  <h2 className="text-base font-extrabold text-white">Suivi · {productionInspector.step.label}</h2>
+                  {productionProgress && <span className="rounded-full border border-[#00c2ff]/25 bg-[#00c2ff]/10 px-2 py-0.5 text-[9px] font-bold">{productionProgress.percent || 0}%</span>}
+                </div>
+                <p className="mt-1 truncate text-xs text-slate-400">{productionProgress?.title || productionInspector.video.title || 'Production en cours'}</p>
+              </div>
+              <button type="button" onClick={() => setProductionInspector(null)} className="rounded-lg p-1.5 text-slate-400 transition hover:bg-white/[.05] hover:text-white"><span className="material-symbols-outlined">close</span></button>
+            </div>
+
+            <div className="overflow-y-auto p-5 sm:p-6">
+              {productionProgressError ? (
+                <div role="alert" className="rounded-xl border border-rose-500/35 bg-rose-500/[.08] p-4 text-xs text-rose-200">
+                  <div className="font-bold">Suivi momentanément indisponible</div><p className="mt-1">{productionProgressError}</p>
+                  <button type="button" onClick={() => loadProductionProgress(productionInspector.video.id)} className="mt-3 rounded-lg border border-rose-300/30 px-3 py-1.5 font-bold">Réessayer</button>
+                </div>
+              ) : productionProgressLoading && !productionProgress ? (
+                <div className="flex min-h-48 items-center justify-center text-slate-400"><span className="material-symbols-outlined mr-2 animate-spin text-[#00c2ff]">progress_activity</span>Chargement du suivi…</div>
+              ) : productionProgress && (() => {
+                const label = productionInspector.step.label;
+                const textContent = label === 'Sujet' ? productionProgress.title : label === 'Script' ? productionProgress.script : (label === 'SRT' ? productionProgress.subtitle_preview : '');
+                const isGallery = ['Scènes', 'Visuels'].includes(label);
+                return (
+                  <div className="space-y-5">
+                    <div className="rounded-xl border border-[#00c2ff]/20 bg-[#00c2ff]/[.06] p-4">
+                      <div className="flex items-center justify-between gap-3"><span className="text-xs font-extrabold text-white">{productionProgress.stage || 'En attente'}</span><span className="text-[10px] font-mono text-[#63dcff]">{productionProgress.percent || 0}%</span></div>
+                      <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-800"><div className="h-full rounded-full bg-gradient-to-r from-[#00b8f0] to-[#63dcff] transition-all duration-500" style={{ width: `${productionProgress.percent || 0}%` }} /></div>
+                      <div className="mt-2 flex items-center justify-between gap-3">
+                        <p className="text-[10px] text-slate-500">Actualisation automatique toutes les 3 secondes</p>
+                        {/* Available at any stage while the video is still queued/rendering
+                            — a creator watching this shouldn't be stuck riding a render out
+                            to a result they already know they don't want. */}
+                        {['queued', 'rendering'].includes(productionProgress.status) && (
+                          <button
+                            type="button"
+                            onClick={() => handleCancelProduction(productionInspector.video.id)}
+                            disabled={cancellingProduction}
+                            className="shrink-0 flex items-center gap-1 rounded-lg border border-rose-500/40 bg-rose-500/10 px-2.5 py-1 text-[10px] font-bold text-rose-300 transition hover:bg-rose-500/20 disabled:opacity-50"
+                          >
+                            <span className="material-symbols-outlined text-[13px]">{cancellingProduction ? 'progress_activity' : 'cancel'}</span>
+                            {cancellingProduction ? 'Annulation…' : 'Annuler la vidéo'}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {textContent ? (
+                      <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--bg-surface-alt)] p-4 sm:p-5">
+                        <div className="mb-3 flex items-center justify-between gap-3">
+                          <h3 className="text-xs font-extrabold text-white">{label === 'Sujet' ? 'Sujet retenu' : label === 'Script' ? 'Aperçu du script' : 'Transcription / sous-titres'}</h3>
+                          <div className="flex items-center gap-2 shrink-0">
+                            {label === 'Script' && <span className="text-[10px] text-slate-500">{productionProgress.script.trim().split(/\s+/).filter(Boolean).length} mots</span>}
+                            {/* Opportunistic, not a gate: only offered while the video is still
+                                queued (i.e. the worker hasn't claimed it yet) — no delay is
+                                introduced to guarantee this window exists. */}
+                            {label === 'Script' && productionProgress.status === 'queued' && !editingQueuedScript && (
+                              <button
+                                type="button"
+                                onClick={() => { setQueuedScriptDraft(productionProgress.script); setEditingQueuedScript(true); }}
+                                className="flex items-center gap-1 rounded-lg border border-[#00c2ff]/40 bg-[#00c2ff]/10 px-2 py-1 text-[10px] font-bold text-[#59d8ff] transition hover:bg-[#00c2ff]/20"
+                              >
+                                <span className="material-symbols-outlined text-[13px]">edit</span>
+                                Modifier
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                        {label === 'Script' && editingQueuedScript ? (
+                          <div className="space-y-2">
+                            <textarea
+                              value={queuedScriptDraft}
+                              onChange={e => setQueuedScriptDraft(e.target.value)}
+                              rows={14}
+                              className="w-full rounded-xl border border-[var(--border)] bg-[var(--bg-input)] p-3 text-sm leading-7 text-white focus:border-[#00c2ff] outline-none resize-y"
+                            />
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => handleSaveQueuedScript(productionInspector.video.id)}
+                                disabled={savingQueuedScript || queuedScriptDraft.trim().length < 40}
+                                className="flex items-center gap-1 rounded-lg bg-[#00c2ff] px-3 py-1.5 text-[11px] font-bold text-slate-950 transition hover:bg-[#38d0ff] disabled:opacity-50"
+                              >
+                                <span className="material-symbols-outlined text-[14px]">{savingQueuedScript ? 'progress_activity' : 'check'}</span>
+                                {savingQueuedScript ? 'Enregistrement…' : 'Enregistrer'}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setEditingQueuedScript(false)}
+                                disabled={savingQueuedScript}
+                                className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-[11px] font-bold text-slate-300 transition hover:text-white disabled:opacity-50"
+                              >
+                                Annuler
+                              </button>
+                              {queuedScriptDraft.trim().length < 40 && <span className="text-[10px] text-amber-400">40 caractères minimum</span>}
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="max-h-[48vh] overflow-y-auto whitespace-pre-wrap text-sm leading-7 text-slate-300">{textContent}</div>
+                        )}
+                      </div>
+                    ) : ['Sujet', 'Script', 'SRT'].includes(label) ? (
+                      <div className="rounded-xl border border-dashed border-slate-700 p-8 text-center"><span className="material-symbols-outlined text-3xl text-slate-600">hourglass_empty</span><p className="mt-2 text-xs font-bold text-slate-400">Le contenu apparaîtra ici dès qu’il sera disponible.</p></div>
+                    ) : null}
+
+                    {label === 'Audio' && (productionProgress.audio_ready ? (
+                      <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--bg-surface-alt)] p-5"><h3 className="mb-3 text-xs font-extrabold text-white">Voix générée</h3><audio controls preload="metadata" className="w-full" style={{ colorScheme: 'dark' }} src={`${API_BASE}${productionProgress.audio_url}`} /></div>
+                    ) : <div className="rounded-xl border border-dashed border-slate-700 p-8 text-center text-xs font-bold text-slate-400">La voix est en cours de préparation. Le lecteur apparaîtra automatiquement.</div>)}
+
+                    {isGallery && (productionProgress.scenes?.length ? (
+                      <div><div className="mb-3 flex items-center justify-between"><h3 className="text-xs font-extrabold text-white">{label === 'Scènes' ? 'Scènes préparées' : 'Visuels disponibles'}</h3><span className="text-[10px] text-slate-500">{productionProgress.scenes.length} élément(s)</span></div><div className="grid grid-cols-2 gap-3 sm:grid-cols-3">{productionProgress.scenes.map(scene => <div key={scene.index} className="overflow-hidden rounded-xl border border-[var(--border-soft)] bg-[var(--bg-surface-alt)]"><img src={`${API_BASE}${scene.image_url}`} alt={`Scène ${Number(scene.index) + 1}`} className="aspect-video w-full object-cover" /><div className="p-2"><div className="text-[10px] font-bold text-white">Scène {Number(scene.index) + 1}</div>{scene.text && <p className="mt-1 line-clamp-2 text-[9px] leading-relaxed text-slate-400">{scene.text}</p>}</div></div>)}</div></div>
+                    ) : <div className="rounded-xl border border-dashed border-slate-700 p-8 text-center text-xs font-bold text-slate-400">La galerie se remplira au fur et à mesure de la génération.</div>)}
+
+                    {label === 'Montage' && <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--bg-surface-alt)] p-5 text-sm text-slate-300"><div className="flex items-center gap-2 font-bold text-white"><span className="material-symbols-outlined text-[#55d8ff]">movie</span>Assemblage en cours</div><p className="mt-2 text-xs leading-relaxed text-slate-400">Les scènes, la voix, la musique et les sous-titres sont assemblés. L’aperçu vidéo sera disponible à la finalisation.</p></div>}
+
+                    {label === 'Finalisation' && (productionProgress.final_ready && productionInspector.video.output_path ? <video controls preload="metadata" className="max-h-[55vh] w-full rounded-xl bg-black" src={getVideoUrl(productionInspector.video.output_path)} /> : <div className="rounded-xl border border-dashed border-slate-700 p-8 text-center text-xs font-bold text-slate-400">La vidéo finale apparaîtra ici dès que l’assemblage sera terminé.</div>)}
+
+                    {productionProgress.error && <div role="alert" className="rounded-xl border border-rose-500/35 bg-rose-500/[.08] p-4 text-xs text-rose-200">{productionProgress.error}</div>}
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
+        </div>
+      )}
+
       {showSubmitModal && activeChannel && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-6">
           <div className={`bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-3xl w-full max-h-[90vh] shadow-2xl flex flex-col ${submitStep === 2 ? 'max-w-[980px]' : 'max-w-[620px]'}`}>
@@ -16295,6 +16974,20 @@ export default function App() {
                 className="flex-1 py-3 bg-[var(--bg-surface-alt)] text-white font-bold text-xs rounded-xl text-center hover:bg-[var(--border-soft)] transition-all flex items-center justify-center gap-2 border border-[var(--border)]"
               >
                 <span className="material-symbols-outlined text-[18px]">edit</span> Éditer
+              </button>
+              {/* For when the audio/narration is fine but the visuals as a whole
+                  aren't (an empty stock/library pool falling through to plain
+                  gradient art, for instance) — a full visual re-fetch/rebuild,
+                  distinct from "Éditer" (which targets one specific scene),
+                  without touching the already-good voiceover. */}
+              <button
+                onClick={() => handleRetryVideoVisuals(selectedVideo.id)}
+                disabled={retryingVideoVisualsId === selectedVideo.id}
+                title="Relancer le montage (garder la voix)"
+                className="flex-1 py-3 bg-[var(--bg-surface-alt)] text-white font-bold text-xs rounded-xl text-center hover:bg-[var(--border-soft)] transition-all flex items-center justify-center gap-2 border border-[var(--border)] disabled:opacity-50"
+              >
+                <span className="material-symbols-outlined text-[18px]">{retryingVideoVisualsId === selectedVideo.id ? 'progress_activity' : 'image_search'}</span>
+                {retryingVideoVisualsId === selectedVideo.id ? 'Relance…' : 'Relancer le montage'}
               </button>
               <button
                 onClick={() => setDownloadModalVideo(selectedVideo)}
@@ -17363,28 +18056,23 @@ export default function App() {
         // existing parts (matched by name) and we apply the resulting
         // guidance in one shot.
         const analyzePastedText = async () => {
-          if (!scriptStructurePasteText.trim() || parts.length === 0) return true;
+          const pastedText = structure.source_instructions || '';
+          if (!pastedText.trim() || parts.length === 0) return true;
           setScriptStructureAnalyzing(true);
           setScriptStructureAnalyzeError('');
           try {
             const res = await authFetch(`${API_BASE}/channels/analyze-script-structure`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ text: scriptStructurePasteText, parts }),
+              body: JSON.stringify({ text: pastedText, parts }),
             });
             const body = await res.json().catch(() => ({}));
             if (!res.ok) throw new Error(body.detail || "L'analyse a échoué.");
             updateStructure({ parts: body.parts });
-            // Consumed: once applied, this exact paste must never fire
-            // again. Left non-empty, every later "Terminé" click re-ran
-            // this same analysis and overwrote whatever the creator had
-            // just edited by hand (length, individual part word counts...)
-            // with a fresh AI split of the original paste, making manual
-            // adjustments after the first analysis silently revert.
-            setScriptStructurePasteText('');
+            setScriptStructureAnalyzedText(pastedText);
             return true;
           } catch (err) {
-            setScriptStructureAnalyzeError(err.message || "L'analyse a échoué, réessaie.");
+            setScriptStructureAnalyzeError(friendlyErrorMessage(err, "L’analyse a échoué. Réessaie dans quelques instants."));
             return false;
           } finally {
             setScriptStructureAnalyzing(false);
@@ -17410,49 +18098,48 @@ export default function App() {
 
               <div className="overflow-y-auto p-6 sm:p-8 grid grid-cols-1 lg:grid-cols-2 gap-10">
               <div className="flex flex-col space-y-4 min-h-[520px]">
-                <div className="flex items-center gap-2 text-[#59d8ff]">
-                  <span className="material-symbols-outlined text-[20px]">auto_awesome</span>
-                  <label className="text-[13px] font-bold text-white">Import automatique depuis un texte complet</label>
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <div className="flex items-center gap-2 text-[#59d8ff]">
+                    <span className="material-symbols-outlined text-[20px]">auto_awesome</span>
+                    <label className="text-[13px] font-bold text-white">Import automatique depuis un texte complet</label>
+                  </div>
+                  {/* Moved up top and made a real button — most creators
+                      never scrolled down far enough to notice the old
+                      bottom-of-textarea link existed at all. Analysis still
+                      also runs automatically on "Terminé" if this was never
+                      clicked, so nothing is lost either way. */}
+                  {parts.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={analyzePastedText}
+                      disabled={scriptStructureAnalyzing || !(structure.source_instructions || '').trim()}
+                      className="shrink-0 px-3 py-1.5 rounded-lg bg-[#00c2ff]/10 text-[#59d8ff] border border-[#00c2ff]/30 hover:bg-[#00c2ff]/20 text-[11px] font-bold transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5"
+                    >
+                      {scriptStructureAnalyzing ? (
+                        <>
+                          <span className="material-symbols-outlined text-[15px] animate-spin">progress_activity</span>
+                          Analyse en cours...
+                        </>
+                      ) : (
+                        <>
+                          <span className="material-symbols-outlined text-[15px]">auto_awesome</span>
+                          Analyser
+                        </>
+                      )}
+                    </button>
+                  )}
                 </div>
                 <p className="text-[11px] text-slate-500 leading-relaxed">
-                  Colle ici tes instructions ou ton script complet — l'IA l'analysera et répartira le contenu dans les parties à droite ({parts.length} partie{parts.length > 1 ? 's' : ''} : {parts.map(p => p.name).filter(Boolean).join(', ') || '—'}), pour t'éviter de tout recopier à la main.
+                  Colle ici tes instructions ou ton script complet — l'IA l'analysera et répartira le contenu dans les parties à droite ({parts.length} partie{parts.length > 1 ? 's' : ''} : {parts.map(p => p.name).filter(Boolean).join(', ') || '—'}), pour t'éviter de tout recopier à la main. Ce texte reste sauvegardé pour cette chaîne — tu peux toujours revenir dessus.
                 </p>
                 <textarea
-                  value={scriptStructurePasteText}
-                  onChange={e => setScriptStructurePasteText(e.target.value)}
+                  value={structure.source_instructions || ''}
+                  onChange={e => updateStructure({ source_instructions: e.target.value })}
                   placeholder="Colle ici le texte complet (script, notes, brief...)"
                   className="w-full flex-1 bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-4 py-3 text-sm text-white leading-relaxed focus:border-[#00c2ff] outline-none min-h-[420px] resize-none"
                 />
                 {scriptStructureAnalyzeError && (
                   <p className="text-[11px] text-red-400">{scriptStructureAnalyzeError}</p>
-                )}
-                {/* No explicit "Analyser" button here anymore — most creators never
-                    click it, they just paste and expect it to work. The analysis
-                    now runs automatically when they close this modal (see the
-                    "Terminé" handler below), using whatever's pasted here as the
-                    priority source even if the discrete part fields on the right
-                    were never touched. This link stays only as an optional
-                    early-preview for creators who want to see the split before
-                    closing. */}
-                {scriptStructurePasteText.trim() && parts.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={analyzePastedText}
-                    disabled={scriptStructureAnalyzing}
-                    className="text-[11px] font-bold text-[#59d8ff] hover:text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 flex-shrink-0 self-center"
-                  >
-                    {scriptStructureAnalyzing ? (
-                      <>
-                        <span className="material-symbols-outlined text-[15px] animate-spin">progress_activity</span>
-                        Analyse en cours...
-                      </>
-                    ) : (
-                      <>
-                        <span className="material-symbols-outlined text-[15px]">visibility</span>
-                        Prévisualiser l'analyse maintenant (optionnel — se fait automatiquement à la fermeture)
-                      </>
-                    )}
-                  </button>
                 )}
               </div>
 
@@ -17557,10 +18244,10 @@ export default function App() {
                   )}
                 </div>
 
-                <div className="space-y-4">
+                <div className="space-y-2">
                   <label className="block text-[11px] font-bold text-slate-300 px-1">Parties du script</label>
                   {parts.map((part, idx) => (
-                    <div key={idx} className="border border-[var(--border)] rounded-xl p-4 space-y-3 bg-[var(--bg-surface-alt)]">
+                    <div key={idx} className="border border-[var(--border)] rounded-xl p-3 space-y-2 bg-[var(--bg-surface-alt)]">
                       <div className="flex items-center justify-between gap-2">
                         <span className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-slate-500">
                           <span className="flex items-center justify-center w-5 h-5 rounded-full bg-[#00c2ff]/15 text-[#59d8ff] text-[10px]">{idx + 1}</span>
@@ -17570,36 +18257,31 @@ export default function App() {
                           <span className="material-symbols-outlined text-base">delete</span>
                         </button>
                       </div>
-                      <div className="flex items-end gap-2">
-                        <div className="flex-1 min-w-0">
-                          <label className="block text-[10px] font-bold text-slate-500 mb-1">Nom (interne, jamais montré au spectateur)</label>
-                          <input
-                            value={part.name || ''}
-                            onChange={e => updatePart(idx, { name: e.target.value })}
-                            className="w-full bg-[var(--bg-input-alt)] border border-[var(--border)] rounded-lg px-3 py-2 text-xs text-white focus:border-[#00c2ff] outline-none"
-                            placeholder="ex : introduction"
-                          />
-                        </div>
-                        <div className="w-24 shrink-0">
-                          <label className="block text-[10px] font-bold text-slate-500 mb-1">Mots</label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          value={part.name || ''}
+                          onChange={e => updatePart(idx, { name: e.target.value })}
+                          className="flex-1 min-w-0 bg-transparent border-none px-0 py-0.5 text-[11px] text-slate-400 focus:text-white outline-none"
+                          placeholder="Nom interne (ex : introduction)"
+                        />
+                        <div className="relative shrink-0">
                           <input
                             type="number"
                             min="20"
                             value={part.word_count ?? 300}
                             onChange={e => updatePart(idx, { word_count: parseInt(e.target.value) || 0 })}
-                            className="w-full bg-[var(--bg-input-alt)] border border-[var(--border)] rounded-lg px-3 py-2 text-xs text-white focus:border-[#00c2ff] outline-none"
+                            className="w-28 bg-[var(--bg-input-alt)] border border-[var(--border)] rounded-lg pl-2.5 pr-11 py-1.5 text-xs text-white focus:border-[#00c2ff] outline-none"
                           />
+                          <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-slate-500 font-bold pointer-events-none">mots</span>
                         </div>
                       </div>
-                      <div>
-                        <label className="block text-[10px] font-bold text-slate-500 mb-1">Ce que cette partie doit couvrir</label>
-                        <textarea
-                          value={part.guidance || ''}
-                          onChange={e => updatePart(idx, { guidance: e.target.value })}
-                          className="w-full bg-[var(--bg-input-alt)] border border-[var(--border)] rounded-lg px-3 py-2 text-xs text-white leading-relaxed focus:border-[#00c2ff] outline-none min-h-[70px]"
-                          placeholder="Ce que cette partie doit couvrir..."
-                        />
-                      </div>
+                      <textarea
+                        value={part.guidance || ''}
+                        onChange={e => updatePart(idx, { guidance: e.target.value })}
+                        rows={4}
+                        className="w-full bg-[var(--bg-input-alt)] border border-[var(--border)] rounded-lg px-3 py-2 text-xs text-white leading-relaxed focus:border-[#00c2ff] outline-none min-h-[100px] resize-y"
+                        placeholder="Ce que cette partie doit couvrir…"
+                      />
                     </div>
                   ))}
                   <button type="button" onClick={addPart} className="text-xs font-bold text-[#00c2ff] hover:underline">
@@ -17633,11 +18315,16 @@ export default function App() {
                   disabled={scriptStructureAnalyzing}
                   onClick={async () => {
                     // The pasted text is the priority source: if the creator
-                    // never bothered clicking the (now optional) preview link,
-                    // run the analysis right now, silently, before closing —
-                    // so leaving the discrete part fields untouched never
-                    // means their paste gets ignored.
-                    const ok = scriptStructurePasteText.trim() && parts.length > 0
+                    // never clicked "Analyser" up top, run the analysis right
+                    // now, silently, before closing — so leaving the discrete
+                    // part fields untouched never means their paste gets
+                    // ignored. But if that text was already analyzed (the
+                    // button up top was used and nothing changed since),
+                    // skip re-running it — same billed AI call, no reason to
+                    // pay for it twice on unchanged text.
+                    const pastedText = (structure.source_instructions || '').trim();
+                    const alreadyAnalyzed = pastedText && pastedText === (scriptStructureAnalyzedText || '').trim();
+                    const ok = pastedText && parts.length > 0 && !alreadyAnalyzed
                       ? await analyzePastedText()
                       : true;
                     if (ok) setShowScriptStructureModal(false);
@@ -17656,6 +18343,70 @@ export default function App() {
           </div>
         );
       })()}
+
+      {publicLibraryPreview && (
+        <div className="fixed inset-0 z-[130] flex items-center justify-center bg-slate-950/90 p-4 backdrop-blur-md sm:p-6" onClick={() => setPublicLibraryPreview(null)}>
+          <div className="max-h-[92vh] w-full max-w-5xl overflow-hidden rounded-3xl border border-[var(--border-soft)] bg-[var(--bg-surface)] shadow-2xl" onClick={event => event.stopPropagation()}>
+            <div className="flex items-center justify-between gap-4 border-b border-[var(--border-soft)] px-5 py-4">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 text-[10px] font-extrabold uppercase tracking-[.14em] text-[#65dcff]">
+                  <span className="material-symbols-outlined text-[16px]">{publicLibraryPreview.type === 'videos' ? 'movie' : 'image'}</span>
+                  {publicLibraryPreview.provider === 'community' ? 'Communauté KappGen' : publicLibraryPreview.provider === 'ai_generated' ? 'IA KappGen' : 'Pexels'}
+                </div>
+                <p className="mt-1 truncate text-sm font-bold text-white">{publicLibraryPreview.alt || 'Aperçu de la ressource'}</p>
+              </div>
+              <button type="button" onClick={() => setPublicLibraryPreview(null)} className="rounded-xl p-2 text-slate-400 transition hover:bg-[var(--bg-surface-alt)] hover:text-white" aria-label="Fermer l’aperçu">
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+            <div className="flex max-h-[calc(92vh-88px)] min-h-[260px] items-center justify-center bg-slate-950 p-3 sm:p-5">
+              {publicLibraryPreview.type === 'videos' && publicLibraryAssetUrl(publicLibraryPreview) ? (
+                <video controls autoPlay playsInline poster={publicLibraryThumbnailUrl(publicLibraryPreview)} className="max-h-[calc(92vh-130px)] max-w-full rounded-xl">
+                  <source src={publicLibraryAssetUrl(publicLibraryPreview)} />
+                  Votre navigateur ne peut pas lire cette vidéo.
+                </video>
+              ) : (
+                <img src={publicLibraryThumbnailUrl(publicLibraryPreview)} alt={publicLibraryPreview.alt || 'Aperçu de la ressource'} className="max-h-[calc(92vh-130px)] max-w-full rounded-xl object-contain" />
+              )}
+            </div>
+            {/* Browsing alone was a dead end — nothing here fed a render
+                until it left this modal. "Ajouter" copies the asset into one
+                of the creator's own channels (library or B-roll); the
+                download link is the plain fallback for someone who'd rather
+                keep it on their own machine first. */}
+            <div className="flex flex-col gap-2 border-t border-[var(--border-soft)] bg-[var(--bg-surface)] px-5 py-4 sm:flex-row sm:items-center">
+              {channels.length > 0 ? (
+                <>
+                  <SimpleSelect
+                    value={publicLibraryImportChannelId}
+                    onChange={setPublicLibraryImportChannelId}
+                    options={channels.map(c => ({ value: c.id, label: c.name }))}
+                  />
+                  <button
+                    type="button"
+                    disabled={!publicLibraryImportChannelId || publicLibraryImportBusy}
+                    onClick={() => importPublicLibraryAsset(publicLibraryPreview, publicLibraryImportChannelId)}
+                    className="flex items-center justify-center gap-1.5 rounded-xl bg-[#00c2ff] px-4 py-2.5 text-xs font-extrabold text-slate-950 transition hover:bg-[#45d4ff] disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <span className={`material-symbols-outlined text-[16px] ${publicLibraryImportBusy ? 'animate-spin' : ''}`}>{publicLibraryImportBusy ? 'progress_activity' : 'add_photo_alternate'}</span>
+                    {publicLibraryImportBusy ? 'Ajout…' : 'Ajouter à cette chaîne'}
+                  </button>
+                </>
+              ) : (
+                <p className="text-[11px] text-slate-400">Crée une chaîne pour pouvoir ajouter des ressources à sa bibliothèque.</p>
+              )}
+              <button
+                type="button"
+                onClick={() => downloadPublicLibraryAsset(publicLibraryPreview)}
+                className="flex items-center justify-center gap-1.5 rounded-xl border border-[var(--border-soft)] px-4 py-2.5 text-xs font-bold text-slate-300 transition hover:border-slate-500 hover:text-white sm:ml-auto"
+              >
+                <span className="material-symbols-outlined text-[16px]">download</span>
+                Télécharger
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* COST RECAP — shown right after a video finishes rendering, itemizing
           exactly what it cost in credits (transcription, images, base render
