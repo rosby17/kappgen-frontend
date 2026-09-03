@@ -17364,8 +17364,12 @@ export default function App() {
                     if (!submitVideoTitle.trim()) return showToast("Le titre de la vidéo est obligatoire.", "error");
                     if (submitMode === 'text' && !singleScriptText.trim()) return showToast("Veuillez saisir le texte de votre script.", "error");
                     if (submitMode === 'audio_upload' && audioFilesList.length === 0) return showToast("Veuillez ajouter au moins un fichier audio.", "error");
-                    if (submitMode === 'audio_upload' && !audioRightsConfirmed) return showToast("Confirmez que vous possédez les droits sur l’audio et la voix.", "error");
-                    if (submitMode === 'audio_upload' && !audioSourceType) return showToast("Indiquez la provenance de l’audio.", "error");
+                    // audioRightsConfirmed / audioSourceType are NOT checked here: their
+                    // only UI (the "Provenance de l'audio" card + rights checkbox) lives
+                    // on step 2, not step 1 — gating step 1 on them made it impossible to
+                    // ever reach the screen that sets them. Step 2's "Confirmer et Lancer"
+                    // button (and handleSubjectSubmit itself) already validates both before
+                    // actually submitting.
                     setSubmitStep(2);
                   }}
                   className="w-full py-3.5 bg-gradient-to-r from-[#00c2ff] to-[#0088ff] text-slate-950 font-bold text-sm rounded-xl hover:opacity-90 transition-all flex items-center justify-center gap-2 shadow-lg shadow-[#00c2ff]/25"
