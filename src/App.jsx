@@ -3919,6 +3919,14 @@ export default function App() {
   const [timezoneSearch, setTimezoneSearch] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [channelSortBy, setChannelSortBy] = useState('recent');
+  // Cross-account pipeline sharing — "Partager le pipeline" generates a
+  // code (shown here), "Importer un pipeline" redeems one from another
+  // creator into a brand new channel of your own. See handleSharePipeline /
+  // handleRedeemPipelineShare below.
+  const [pipelineShareInfo, setPipelineShareInfo] = useState(null); // { code, expiresAt, channelName }
+  const [pipelineRedeemOpen, setPipelineRedeemOpen] = useState(false);
+  const [pipelineRedeemCode, setPipelineRedeemCode] = useState('');
+  const [pipelineRedeemLoading, setPipelineRedeemLoading] = useState(false);
   const [videoFilterChannelId, setVideoFilterChannelId] = useState('all');
   const [libraryOverview, setLibraryOverview] = useState(null);
   const [libraryLoading, setLibraryLoading] = useState(false);
@@ -6364,6 +6372,159 @@ export default function App() {
       : (channel.youtube_channel_thumbnail_url || null));
     setWizardStep(startStep);
     setView('wizard');
+  };
+
+  // "Réutiliser le pipeline" — a creator whose channel already works well
+  // in a niche wants a second (or third) channel with the exact same
+  // montage/sous-titres/musique/effets/automatisation/publication settings,
+  // just under a different name (often the same niche, sometimes a new
+  // one). Shares openEditWizard's field-by-field copy above, but lands in
+  // 'create' mode (a real new channel, own id, own storage) instead of
+  // patching the source channel — and deliberately drops what can't be
+  // shared between two channels: name (left blank so nothing gets saved
+  // without the creator actually choosing one), the source's own YouTube
+  // description/logo/thumbnail-style/voice-clone id.
+  const openDuplicateWizard = (channel, e) => {
+    if (e) e.stopPropagation();
+    setOpenChannelMenuId(null);
+    setWizardMode('create');
+    setEditingChannelId(null);
+    setWizardContentType(channel.content_type === 'music' ? 'music' : 'narration');
+    setNewChannel({
+      ...defaultChannelForm,
+      name: '',
+      description: '',
+      niche: channel.niche || '',
+      subtitle_style: { ...defaultChannelForm.subtitle_style, ...(channel.subtitle_style || {}) },
+      branding: { ...defaultChannelForm.branding, ...(channel.branding || {}), logo_path: null },
+      music_preference: { ...defaultChannelForm.music_preference, ...(channel.music_preference || {}) },
+      image_style: { ...defaultChannelForm.image_style, ...(channel.image_style || {}) },
+      thumbnail_style: null,
+      effects_config: {
+        ...defaultChannelForm.effects_config,
+        ...(channel.effects_config || {}),
+        overlay_effects: channel.effects_config?.overlay_effects || ({
+          none: [], grain: ['grain'], white_noise: ['white_noise'],
+          vignette: ['vignette'], grain_vignette: ['grain', 'vignette'],
+        })[channel.effects_config?.overlay_effect || 'grain'] || ['grain'],
+      },
+      automation_mode: channel.automation_mode || 'manual',
+      automation_style_prompt: channel.automation_style_prompt || '',
+      topic_examples: channel.topic_examples || '',
+      use_web_trends: !!channel.use_web_trends,
+      youtube_topic_sources: channel.youtube_topic_sources || '',
+      videos_per_day: channel.videos_per_day ?? 1,
+      automation_window_start_hour: channel.automation_window_start_hour ?? 7,
+      automation_window_end_hour: channel.automation_window_end_hour ?? 11,
+      active_days: channel.active_days || null,
+      script_generation_hour: channel.script_generation_hour ?? -1,
+      script_generation_minute: channel.script_generation_minute ?? 0,
+      script_generation_second: channel.script_generation_second ?? 0,
+      script_generation_days: channel.script_generation_days || null,
+      timezone: channel.timezone || defaultChannelForm.timezone,
+      publish_mode: channel.publish_mode || 'manual',
+      youtube_made_for_kids: !!channel.youtube_made_for_kids,
+      youtube_default_description: channel.youtube_default_description || '',
+      youtube_default_tags: channel.youtube_default_tags || [],
+      youtube_category_id: channel.youtube_category_id || '22',
+      youtube_privacy_status: channel.youtube_privacy_status || 'public',
+      youtube_contains_synthetic_media: channel.youtube_contains_synthetic_media !== false,
+      youtube_license: channel.youtube_license || 'youtube',
+      youtube_notify_subscribers: channel.youtube_notify_subscribers !== false,
+      youtube_embeddable: channel.youtube_embeddable !== false,
+      youtube_public_stats_viewable: channel.youtube_public_stats_viewable !== false,
+      publish_time_mode: channel.publish_time_mode || 'range',
+      publish_schedule_hour: channel.publish_schedule_hour ?? 8,
+      publish_schedule_day_offset: channel.publish_schedule_day_offset ?? 1,
+      script_structure: channel.script_structure || defaultChannelForm.script_structure,
+      // A voice clone is tied to the source channel's own Izivoice voice id
+      // — never silently hand a brand new channel someone else's clone.
+      voice_id: '',
+      voice_name: '',
+      voice_settings: channel.voice_settings || defaultChannelForm.voice_settings,
+    });
+    setNicheMode(nicheOptions.includes(channel.niche) ? 'preset' : 'custom');
+    setLogoFile(null);
+    setMusicFiles([]);
+    setLocalImageFiles([]);
+    setSelectedFolderName('');
+    setLibraryUploadStatus(null);
+    setLibraryUploadProgress(0);
+    setLibraryUploadMessage('');
+    setBrollUploadMessage('');
+    setStagedLibraryToken(null);
+    setLogoPreviewUrl(null);
+    setWizardStep(1);
+    setView('wizard');
+    showToast(`Pipeline de « ${channel.name} » réutilisé — personnalise puis crée ta nouvelle chaîne.`, 'success');
+  };
+
+  // Cross-account counterpart to openDuplicateWizard above: hands the
+  // pipeline to a DIFFERENT creator's account via a short code instead of
+  // duplicating it into your own. A one-time snapshot, not a live link —
+  // redeeming it just pre-fills the recipient's own create-channel wizard
+  // once; their new channel is fully independent from that point on.
+  const handleSharePipeline = async (channel, e) => {
+    if (e) e.stopPropagation();
+    setOpenChannelMenuId(null);
+    try {
+      const res = await authFetch(`${API_BASE}/channels/${channel.id}/pipeline-share`, { method: 'POST' });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || "Partage impossible.");
+      setPipelineShareInfo({ code: data.code, expiresAt: data.expires_at, channelName: channel.name });
+    } catch (err) {
+      showToast(err.message || "Erreur lors du partage du pipeline.", "error");
+    }
+  };
+
+  // Same pre-fill logic as openDuplicateWizard, sourced from a redeemed
+  // share's frozen template (server-built by build_pipeline_share_template,
+  // same field names as newChannel) instead of a live Channel object.
+  const openSharedPipelineWizard = (template, sourceChannelName) => {
+    setWizardMode('create');
+    setEditingChannelId(null);
+    setWizardContentType(template.content_type === 'music' ? 'music' : 'narration');
+    setNewChannel({
+      ...defaultChannelForm,
+      ...template,
+      name: '',
+      description: '',
+      thumbnail_style: null,
+      voice_id: '',
+      voice_name: '',
+    });
+    setNicheMode(nicheOptions.includes(template.niche) ? 'preset' : 'custom');
+    setLogoFile(null);
+    setMusicFiles([]);
+    setLocalImageFiles([]);
+    setSelectedFolderName('');
+    setLibraryUploadStatus(null);
+    setLibraryUploadProgress(0);
+    setLibraryUploadMessage('');
+    setBrollUploadMessage('');
+    setStagedLibraryToken(null);
+    setLogoPreviewUrl(null);
+    setWizardStep(1);
+    setView('wizard');
+    showToast(`Pipeline de « ${sourceChannelName} » importé — personnalise puis crée ta nouvelle chaîne.`, 'success');
+  };
+
+  const handleRedeemPipelineShare = async () => {
+    const code = pipelineRedeemCode.trim();
+    if (!code) return;
+    setPipelineRedeemLoading(true);
+    try {
+      const res = await authFetch(`${API_BASE}/channels/pipeline-share/${encodeURIComponent(code)}`);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || "Code invalide.");
+      openSharedPipelineWizard(data.template, data.source_channel_name);
+      setPipelineRedeemOpen(false);
+      setPipelineRedeemCode('');
+    } catch (err) {
+      showToast(err.message || "Code invalide.", "error");
+    } finally {
+      setPipelineRedeemLoading(false);
+    }
   };
 
   const resizeImageFile = (file, maxDim = 512, quality = 0.9) => new Promise((resolve, reject) => {
@@ -9974,17 +10135,28 @@ export default function App() {
                     <h2 className="text-xl font-extrabold text-white">Mes Chaînes</h2>
                     <p className="text-xs text-slate-400 mt-1">Configurez l'identité, les sous-titres et les effets de vos chaînes automatiques.</p>
                   </div>
-                  {productChannels.length > 1 && (
-                    <select
-                      value={channelSortBy}
-                      onChange={e => setChannelSortBy(e.target.value)}
-                      className="bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-3 py-2 text-xs text-white focus:border-[#00c2ff] outline-none"
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => { setPipelineRedeemCode(''); setPipelineRedeemOpen(true); }}
+                      title="Importer le pipeline d'une chaîne qu'un autre créateur a partagé avec toi"
+                      className="bg-[var(--bg-surface-alt)] border border-[var(--border)] hover:border-slate-500 rounded-xl px-3 py-2 text-xs font-bold text-white transition-colors flex items-center gap-1.5"
                     >
-                      <option value="recent">Trier : récentes</option>
-                      <option value="most_used">Trier : plus utilisées</option>
-                      <option value="least_used">Trier : moins utilisées</option>
-                    </select>
-                  )}
+                      <span className="material-symbols-outlined text-[16px] text-[#00c2ff]">redeem</span>
+                      Importer un pipeline
+                    </button>
+                    {productChannels.length > 1 && (
+                      <select
+                        value={channelSortBy}
+                        onChange={e => setChannelSortBy(e.target.value)}
+                        className="bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-3 py-2 text-xs text-white focus:border-[#00c2ff] outline-none"
+                      >
+                        <option value="recent">Trier : récentes</option>
+                        <option value="most_used">Trier : plus utilisées</option>
+                        <option value="least_used">Trier : moins utilisées</option>
+                      </select>
+                    )}
+                  </div>
                 </div>
 
                 {!channelsLoaded ? (
@@ -10093,6 +10265,20 @@ export default function App() {
                                   >
                                     <span className="material-symbols-outlined text-[16px] text-[#00c2ff]">edit</span>
                                     Modifier la chaîne
+                                  </button>
+                                  <button
+                                    onClick={(e) => openDuplicateWizard(chan, e)}
+                                    className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium"
+                                  >
+                                    <span className="material-symbols-outlined text-[16px] text-[#00c2ff]">content_copy</span>
+                                    Réutiliser le pipeline
+                                  </button>
+                                  <button
+                                    onClick={(e) => handleSharePipeline(chan, e)}
+                                    className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium"
+                                  >
+                                    <span className="material-symbols-outlined text-[16px] text-[#00c2ff]">ios_share</span>
+                                    Partager le pipeline
                                   </button>
                                   <button
                                     onClick={(e) => handleToggleChannelActive(chan, e)}
@@ -18299,6 +18485,74 @@ export default function App() {
                 </div>
               ))}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* PIPELINE SHARE CODE — shown right after generating one, so the
+          creator can copy it and hand it to whoever they're sharing the
+          channel's template with. */}
+      {pipelineShareInfo && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-6" onClick={() => setPipelineShareInfo(null)}>
+          <div className="bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-3xl p-8 max-w-[440px] w-full shadow-2xl space-y-5" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-start gap-3">
+              <div>
+                <h3 className="text-base font-extrabold text-white">Pipeline prêt à partager</h3>
+                <p className="text-xs text-slate-400 mt-1">Les réglages de « {pipelineShareInfo.channelName} » (sous-titres, musique, effets, automatisation, publication) sont figés dans ce code — transmets-le à qui tu veux.</p>
+              </div>
+              <button onClick={() => setPipelineShareInfo(null)} className="text-slate-400 hover:text-white shrink-0">
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+            <div className="flex items-center gap-2 bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-4 py-3.5">
+              <span className="flex-1 text-lg font-extrabold tracking-[0.2em] text-[#00c2ff] text-center select-all">{pipelineShareInfo.code}</span>
+              <button
+                type="button"
+                onClick={() => { navigator.clipboard?.writeText(pipelineShareInfo.code); showToast('Code copié.', 'success'); }}
+                className="shrink-0 flex items-center gap-1.5 rounded-lg bg-[#00c2ff]/10 px-3 py-2 text-[11px] font-bold text-[#00c2ff] hover:bg-[#00c2ff]/20"
+              >
+                <span className="material-symbols-outlined text-[15px]">content_copy</span>
+                Copier
+              </button>
+            </div>
+            <p className="text-[11px] text-slate-500">
+              La personne qui reçoit ce code peut l'utiliser depuis « Mes Chaînes → Importer un pipeline » pour créer sa propre chaîne avec les mêmes réglages — son identité, son logo, sa voix et sa connexion YouTube restent les siens. Valable jusqu'au {pipelineShareInfo.expiresAt ? new Date(pipelineShareInfo.expiresAt).toLocaleDateString('fr-FR') : '—'}.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* PIPELINE REDEEM MODAL — the "Importer un pipeline" entry point from
+          Mes Chaînes; turns someone else's share code into a pre-filled
+          create-channel wizard. */}
+      {pipelineRedeemOpen && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-6" onClick={() => !pipelineRedeemLoading && setPipelineRedeemOpen(false)}>
+          <div className="bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-3xl p-8 max-w-[440px] w-full shadow-2xl space-y-5" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-start gap-3">
+              <div>
+                <h3 className="text-base font-extrabold text-white">Importer un pipeline partagé</h3>
+                <p className="text-xs text-slate-400 mt-1">Colle le code qu'un autre créateur t'a transmis — ça ouvrira l'assistant de création avec les mêmes réglages, prêts à personnaliser.</p>
+              </div>
+              <button onClick={() => setPipelineRedeemOpen(false)} className="text-slate-400 hover:text-white shrink-0">
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+            <input
+              autoFocus
+              value={pipelineRedeemCode}
+              onChange={e => setPipelineRedeemCode(e.target.value.toUpperCase())}
+              onKeyDown={e => { if (e.key === 'Enter') handleRedeemPipelineShare(); }}
+              placeholder="ex. 7K9QXM2P"
+              className="w-full bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-4 py-3 text-center text-base font-extrabold tracking-[0.2em] text-white placeholder:font-normal placeholder:tracking-normal placeholder:text-slate-600 focus:border-[#00c2ff] outline-none"
+            />
+            <button
+              type="button"
+              onClick={handleRedeemPipelineShare}
+              disabled={!pipelineRedeemCode.trim() || pipelineRedeemLoading}
+              className="w-full bg-[#00c2ff] hover:bg-[#38d0ff] disabled:opacity-40 disabled:pointer-events-none text-slate-950 font-bold text-sm rounded-xl py-3 transition-colors"
+            >
+              {pipelineRedeemLoading ? 'Vérification…' : 'Importer'}
+            </button>
           </div>
         </div>
       )}
