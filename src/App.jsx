@@ -4582,8 +4582,9 @@ export default function App() {
   // sits at 100MB regardless of the backend's own (much higher) limit — a
   // clip over that silently fails at the edge with no usable error, which
   // read as the upload just hanging forever with the spinner never
-  // resolving. Checked client-side, before ever attempting the upload, so
-  // the creator gets an immediate, actionable message instead of a stuck UI.
+  // resolving. Below this threshold we still use the normal API upload;
+  // at/over it we go straight to R2 (see uploadOneBrollDirect) instead of
+  // asking the creator to compress anything.
   const CLOUDFLARE_UPLOAD_LIMIT_BYTES = 95 * 1024 * 1024;
   const uploadLibraryImages = async (channelId, fileList) => {
     const files = Array.from(fileList || []);
@@ -4606,61 +4607,121 @@ export default function App() {
     }
   };
 
-  const uploadLibraryBroll = (channelId, fileList) => {
-    const allFiles = Array.from(fileList || []);
-    if (!allFiles.length) return;
+  // A clip over CLOUDFLARE_UPLOAD_LIMIT_BYTES skips our API entirely for the
+  // file bytes: the browser PUTs straight to R2 with a short-lived presigned
+  // URL, then we just tell the backend to pull it onto local disk (a
+  // server-to-R2 transfer, not routed through Cloudflare's inbound proxy).
+  // No compression, no size rejection — this is what actually fixes large
+  // B-roll uploads instead of asking the creator to shrink the file first.
+  const uploadOneBrollDirect = async (channelId, file, onProgress) => {
+    const startRes = await authFetch(`${API_BASE}/channels/${channelId}/broll/direct-upload/start`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ filename: file.name, content_type: file.type || 'video/mp4' }),
+    });
+    const startData = await startRes.json().catch(() => ({}));
+    if (!startRes.ok) throw new Error(startData.detail || "Impossible de préparer l'envoi direct.");
+    const { upload_url, object_key } = startData;
 
-    const oversized = allFiles.filter(f => f.size > CLOUDFLARE_UPLOAD_LIMIT_BYTES);
-    const files = allFiles.filter(f => f.size <= CLOUDFLARE_UPLOAD_LIMIT_BYTES);
-    if (oversized.length) {
-      showToast(
-        `${oversized.length} vidéo(s) trop volumineuse(s) (>95 Mo) — compresse-les d'abord (HandBrake, ou export à débit réduit). ` +
-        oversized.map(f => `${f.name} (${(f.size / 1024 / 1024).toFixed(0)} Mo)`).join(', '),
-        'error'
-      );
-    }
+    await new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('PUT', upload_url);
+      xhr.timeout = 30 * 60 * 1000; // 30min — this is the big raw-file leg
+      xhr.upload.onprogress = (event) => {
+        if (event.lengthComputable) onProgress(event.loaded / event.total);
+      };
+      xhr.onerror = () => reject(new Error('Erreur réseau pendant l’envoi direct vers le stockage.'));
+      xhr.ontimeout = () => reject(new Error('L’envoi direct a pris trop de temps — réessaie avec une connexion plus stable.'));
+      xhr.onload = () => {
+        if (xhr.status < 200 || xhr.status >= 300) reject(new Error(`Échec de l’envoi direct (HTTP ${xhr.status}).`));
+        else resolve();
+      };
+      xhr.setRequestHeader('Content-Type', file.type || 'video/mp4');
+      xhr.send(file);
+    });
+
+    const confirmRes = await authFetch(`${API_BASE}/channels/${channelId}/broll/direct-upload/confirm`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ object_key, filename: file.name }),
+    });
+    const confirmData = await confirmRes.json().catch(() => ({}));
+    if (!confirmRes.ok) throw new Error(confirmData.detail || "Échec de la finalisation de l'envoi.");
+  };
+
+  const uploadLibraryBroll = async (channelId, fileList) => {
+    const files = Array.from(fileList || []);
     if (!files.length) return;
 
+    const smallFiles = files.filter(f => f.size <= CLOUDFLARE_UPLOAD_LIMIT_BYTES);
+    const largeFiles = files.filter(f => f.size > CLOUDFLARE_UPLOAD_LIMIT_BYTES);
+
     setLibraryUploadingId(`${channelId}:broll`);
-    setBrollUploadProgress(2);
+    setBrollUploadProgress(1);
     const totalBytes = files.reduce((sum, f) => sum + f.size, 0) || 1;
+    let smallBytesDone = 0, largeBytesDone = 0;
+    const reportProgress = () => setBrollUploadProgress(Math.min(99, Math.round(((smallBytesDone + largeBytesDone) / totalBytes) * 100)));
 
-    const formData = new FormData();
-    files.forEach(f => formData.append('files', f));
+    let okCount = 0;
+    const errors = [];
 
-    return new Promise((resolve) => {
-      const xhr = new XMLHttpRequest();
-      const finish = async (errorMessage) => {
-        if (errorMessage) showToast(errorMessage, 'error');
-        else {
-          showToast(`${files.length} clip(s) B-roll ajouté(s).`, 'success');
-          await fetchChannelLibraryDetail(channelId);
-          fetchLibraryOverview();
-        }
-        setLibraryUploadingId(null);
-        setBrollUploadProgress(0);
-        resolve();
-      };
-      xhr.open('POST', `${API_BASE}/channels/${channelId}/broll`);
-      xhr.withCredentials = true;
-      xhr.timeout = 15 * 60 * 1000; // 15min — large video uploads on a slow connection, not a hung request
-      xhr.upload.onprogress = (event) => {
-        if (!event.lengthComputable) return;
-        setBrollUploadProgress(Math.min(99, Math.round((event.loaded / totalBytes) * 100)));
-      };
-      xhr.onerror = () => finish('Erreur réseau pendant l’envoi des vidéos B-roll — réessaie.');
-      xhr.ontimeout = () => finish('L’envoi des vidéos B-roll a pris trop de temps — réessaie avec une connexion plus stable ou des fichiers plus légers.');
-      xhr.onload = () => {
-        let data = {};
-        try { data = JSON.parse(xhr.responseText || '{}'); } catch {}
-        if (xhr.status < 200 || xhr.status >= 300) {
-          finish(data.detail || `Échec de l’ajout des B-roll (HTTP ${xhr.status}).`);
-          return;
-        }
-        finish(null);
-      };
-      xhr.send(formData);
-    });
+    if (smallFiles.length) {
+      const smallTotal = smallFiles.reduce((sum, f) => sum + f.size, 0) || 1;
+      const formData = new FormData();
+      smallFiles.forEach(f => formData.append('files', f));
+      try {
+        await new Promise((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          xhr.open('POST', `${API_BASE}/channels/${channelId}/broll`);
+          xhr.withCredentials = true;
+          xhr.timeout = 15 * 60 * 1000;
+          xhr.upload.onprogress = (event) => {
+            if (!event.lengthComputable) return;
+            smallBytesDone = event.loaded;
+            reportProgress();
+          };
+          xhr.onerror = () => reject(new Error('Erreur réseau pendant l’envoi des vidéos B-roll.'));
+          xhr.ontimeout = () => reject(new Error('L’envoi des vidéos B-roll a pris trop de temps.'));
+          xhr.onload = () => {
+            let data = {};
+            try { data = JSON.parse(xhr.responseText || '{}'); } catch {}
+            if (xhr.status < 200 || xhr.status >= 300) { reject(new Error(data.detail || `Échec de l’ajout des B-roll (HTTP ${xhr.status}).`)); return; }
+            smallBytesDone = smallTotal;
+            resolve();
+          };
+          xhr.send(formData);
+        });
+        okCount += smallFiles.length;
+      } catch (err) {
+        errors.push(err.message);
+      }
+    }
+
+    let largeBaseDone = 0;
+    for (const file of largeFiles) {
+      try {
+        await uploadOneBrollDirect(channelId, file, (frac) => {
+          largeBytesDone = largeBaseDone + frac * file.size;
+          reportProgress();
+        });
+        largeBaseDone += file.size;
+        largeBytesDone = largeBaseDone;
+        reportProgress();
+        okCount += 1;
+      } catch (err) {
+        errors.push(`${file.name}: ${err.message}`);
+      }
+    }
+
+    if (okCount) {
+      showToast(`${okCount} clip(s) B-roll ajouté(s).`, 'success');
+      await fetchChannelLibraryDetail(channelId);
+      fetchLibraryOverview();
+    }
+    if (errors.length) showToast(errors.join(' — '), 'error');
+
+    setLibraryUploadingId(null);
+    setBrollUploadProgress(0);
   };
 
   const deleteLibraryMusicTrack = async (channelId, trackPath) => {
