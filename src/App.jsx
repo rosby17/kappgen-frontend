@@ -11751,7 +11751,7 @@ export default function App() {
                           ) : (
                             <div className="space-y-2.5">
                               {(newChannel.branding.overlays || []).map(ov => {
-                                const ovSize = ov.size_percent ?? 12;
+                                const ovSize = ov.size_percent ?? 10;
                                 const xy = presetXY(ov.corner, ovSize);
                                 const xPercent = ov.x_percent ?? xy.x;
                                 const yPercent = ov.y_percent ?? xy.y;
@@ -11866,11 +11866,11 @@ export default function App() {
                               src={getVideoUrl(ov.image_path)}
                               alt=""
                               className="absolute object-contain drop-shadow-lg"
-                              style={{
-                                width: `${ov.size_percent || 12}%`,
+                                style={{
+                                  width: `${ov.size_percent || 10}%`,
                                 ...overlayPositionStyle(
-                                  ov.x_percent ?? presetXY(ov.corner, ov.size_percent ?? 12).x,
-                                  ov.y_percent ?? presetXY(ov.corner, ov.size_percent ?? 12).y
+                                  ov.x_percent ?? presetXY(ov.corner, ov.size_percent ?? 10).x,
+                                  ov.y_percent ?? presetXY(ov.corner, ov.size_percent ?? 10).y
                                 ),
                                 ...shapeClipStyle(ov.shape),
                               }}
@@ -14546,12 +14546,12 @@ export default function App() {
                               src={getVideoUrl(ov.image_path)}
                               alt=""
                               className="absolute object-contain drop-shadow-lg"
-                              style={{
-                                width: `${ov.size_percent || 12}%`,
+                                style={{
+                                  width: `${ov.size_percent || 10}%`,
                                 zIndex: zForLayer('logo'),
                                 ...overlayPositionStyle(
-                                  ov.x_percent ?? presetXY(ov.corner, ov.size_percent ?? 12).x,
-                                  ov.y_percent ?? presetXY(ov.corner, ov.size_percent ?? 12).y
+                                  ov.x_percent ?? presetXY(ov.corner, ov.size_percent ?? 10).x,
+                                  ov.y_percent ?? presetXY(ov.corner, ov.size_percent ?? 10).y
                                 ),
                                 ...shapeClipStyle(ov.shape),
                               }}
