@@ -10031,7 +10031,7 @@ export default function App() {
                     </button>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                  <div className={`grid ${VIDEO_GRID_DENSITIES[videoGridDensity]} gap-6`}>
                     {allVideos
                       .filter(v => productChannelIds.has(v.channel_id))
                       .filter(v => videoFilterChannelId === 'all' || v.channel_id === videoFilterChannelId)
@@ -10967,7 +10967,7 @@ export default function App() {
                         <p className="text-xs text-slate-400">Aucune vidéo de cette chaîne dans ce dossier.</p>
                       </div>
                     ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                    <div className={`grid ${VIDEO_GRID_DENSITIES[videoGridDensity]} gap-6`}>
                       {channelFolderVideos.map(vid => {
                         const isSelected = selectedVideoIds.has(vid.id);
                         return (
