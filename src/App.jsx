@@ -11642,35 +11642,33 @@ export default function App() {
                             )}
                           </div>
 
-                          {hasFixedHour && (
-                            <div className="flex min-w-0 flex-1 items-center gap-2">
-                              <span className="material-symbols-outlined shrink-0 text-[16px] text-slate-500">event_repeat</span>
-                              <div className="flex min-w-0 flex-1 gap-1">
-                                {[
-                                  { id: 0, label: 'L' }, { id: 1, label: 'M' }, { id: 2, label: 'M' },
-                                  { id: 3, label: 'J' }, { id: 4, label: 'V' }, { id: 5, label: 'S' }, { id: 6, label: 'D' },
-                                ].map(({ id, label }) => {
-                                  const isOn = !genDays || genDays.length === 0 || genDays.includes(id);
-                                  return (
-                                    <button
-                                      key={id}
-                                      type="button"
-                                      onClick={() => {
-                                        const current = (genDays && genDays.length > 0) ? genDays : [0, 1, 2, 3, 4, 5, 6];
-                                        const next = current.includes(id) ? current.filter(d => d !== id) : [...current, id].sort();
-                                        setNewChannel({ ...newChannel, script_generation_days: next.length === 7 ? null : next });
-                                      }}
-                                      className={`min-w-7 flex-1 rounded-lg border py-1.5 text-[10px] font-bold transition-colors ${
-                                        isOn ? 'bg-[#00c2ff] text-slate-950 border-[#00c2ff]' : 'bg-[var(--bg-surface-alt)] border-[var(--border)] text-slate-300 hover:border-slate-500'
-                                      }`}
-                                    >
-                                      {label}
-                                    </button>
-                                  );
-                                })}
-                              </div>
+                          <div className="flex min-w-0 flex-1 items-center gap-2">
+                            <span className="material-symbols-outlined shrink-0 text-[16px] text-slate-500">event_repeat</span>
+                            <div className="flex min-w-0 flex-1 gap-1">
+                              {[
+                                { id: 0, label: 'L' }, { id: 1, label: 'M' }, { id: 2, label: 'M' },
+                                { id: 3, label: 'J' }, { id: 4, label: 'V' }, { id: 5, label: 'S' }, { id: 6, label: 'D' },
+                              ].map(({ id, label }) => {
+                                const isOn = !genDays || genDays.length === 0 || genDays.includes(id);
+                                return (
+                                  <button
+                                    key={id}
+                                    type="button"
+                                    onClick={() => {
+                                      const current = (genDays && genDays.length > 0) ? genDays : [0, 1, 2, 3, 4, 5, 6];
+                                      const next = current.includes(id) ? current.filter(d => d !== id) : [...current, id].sort();
+                                      setNewChannel({ ...newChannel, script_generation_days: next.length === 7 ? null : next });
+                                    }}
+                                    className={`min-w-7 flex-1 rounded-lg border py-1.5 text-[10px] font-bold transition-colors ${
+                                      isOn ? 'bg-[#00c2ff] text-slate-950 border-[#00c2ff]' : 'bg-[var(--bg-surface-alt)] border-[var(--border)] text-slate-300 hover:border-slate-500'
+                                    }`}
+                                  >
+                                    {label}
+                                  </button>
+                                );
+                              })}
                             </div>
-                          )}
+                          </div>
                         </div>
                       );
                     })()}
