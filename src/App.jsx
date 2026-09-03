@@ -8531,10 +8531,9 @@ export default function App() {
     if (e) e.stopPropagation();
     setOpenVideoMenuId(null);
     if (!vid.output_path) return;
-    // The card/menu action is a direct download: no second confirmation or
-    // format picker between the click and the MP4. The HD/SD chooser remains
-    // available only from the dedicated export dialog.
-    runDownload(vid, 'hd');
+    // The general « Télécharger » action opens the export choices. Each
+    // format button in that dialog then starts its own direct download.
+    setDownloadModalVideo(vid);
   };
 
   const [approvingVideoId, setApprovingVideoId] = useState(null);
