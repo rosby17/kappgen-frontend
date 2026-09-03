@@ -12418,18 +12418,35 @@ export default function App() {
                                 )}
                               </div>
                             )}
+                            {/* A dropped/picked folder can also contain B-roll video clips
+                                (see uploadLocalVideoFiles) — that request has no fine-grained
+                                progress of its own, but this still gives a clear "it's
+                                working, not stuck" signal instead of nothing happening
+                                visibly while it uploads. */}
+                            {libraryUploadingId === `${wizardMode === 'edit' ? editingChannelId : null}:broll` && (
+                              <div className="mt-3 p-3 rounded-xl border text-left bg-[#081c2a] border-[#00c2ff]/40 flex items-center gap-1.5 text-[10px] font-bold text-[#00c2ff]">
+                                <span className="material-symbols-outlined text-[15px] animate-spin">progress_activity</span>
+                                Importation des vidéos B-roll en cours…
+                              </div>
+                            )}
                           </div>
-                          {isOptionAChecked && (
-                            <label className="flex cursor-pointer items-center gap-2 text-[10px] text-slate-400" onClick={(e) => e.stopPropagation()}>
-                              <input
-                                type="checkbox"
-                                checked={!!newChannel.image_style.share_with_community}
-                                onChange={() => setNewChannel({ ...newChannel, image_style: { ...newChannel.image_style, share_with_community: !newChannel.image_style.share_with_community } })}
-                                className="kappgen-checkbox shrink-0"
-                              />
-                              Partager avec la communauté
-                            </label>
-                          )}
+                          {/* Always mounted (not conditional on isOptionAChecked) so the
+                              card's height/dropzone position never shifts depending on
+                              whether Option A is currently selected — just dimmed and
+                              inert instead of appearing/disappearing. */}
+                          <label
+                            className={`flex items-center gap-2 text-[10px] text-slate-400 transition-opacity ${isOptionAChecked ? 'cursor-pointer' : 'opacity-40 pointer-events-none'}`}
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={!!newChannel.image_style.share_with_community}
+                              onChange={() => setNewChannel({ ...newChannel, image_style: { ...newChannel.image_style, share_with_community: !newChannel.image_style.share_with_community } })}
+                              disabled={!isOptionAChecked}
+                              className="kappgen-checkbox shrink-0"
+                            />
+                            Partager avec la communauté
+                          </label>
                         </div>
 
                         {/* OPTION B: GÉNÉRATION IA AUTOMATIQUE */}
@@ -12448,7 +12465,6 @@ export default function App() {
                               <div className="flex items-center gap-2.5">
                                 <span className="material-symbols-outlined text-[#00c2ff] text-[24px]">auto_awesome</span>
                                 <h4 className="font-bold text-white text-xs">Option B: Génération IA Automatique</h4>
-                                <span className="shrink-0 text-[9px] font-extrabold uppercase tracking-wide px-1.5 py-0.5 rounded bg-gradient-to-r from-[#00c2ff] to-[#0088ff] text-slate-950">Pro</span>
                               </div>
                               <input
                                 type="checkbox"

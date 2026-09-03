@@ -191,7 +191,7 @@ input[type='checkbox']:not(.sr-only) {
   flex: 0 0 18px;
   margin: 0;
   border: 1px solid #64748b;
-  border-radius: 5px;
+  border-radius: 50%;
   background: var(--bg-surface, #111827);
   cursor: pointer;
   transition: background .15s, border-color .15s, box-shadow .15s;
