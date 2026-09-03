@@ -8817,11 +8817,6 @@ export default function App() {
     setDownloadingQuality(quality);
     const base = `kappgen-${(vid.title || vid.script_text || 'video').slice(0, 40).replace(/[^a-z0-9]+/gi, '-')}`;
     triggerFileDownload(`${API_BASE}/videos/${vid.id}/download?quality=${quality}`, `${base}-${quality}.mp4`);
-    // The creator asked for the thumbnail to come down alongside the video
-    // itself every time, not just as a separate manual step — a short delay
-    // avoids the two downloads racing/being coalesced by some browsers when
-    // fired in the exact same tick from one click.
-    setTimeout(() => triggerFileDownload(`${API_BASE}/videos/${vid.id}/thumbnail/download`, `${base}-thumbnail.jpg`), 400);
     setTimeout(() => {
       setDownloadingQuality(null);
       setDownloadModalVideo(null);
@@ -18032,7 +18027,7 @@ export default function App() {
             <div className="space-y-3 p-5 sm:p-6">
               <div className="flex items-center justify-between px-0.5">
                 <p className="text-[11px] font-bold text-slate-300">Choisir le format vidéo</p>
-                <span className="text-[10px] text-slate-500">MP4 · miniature incluse</span>
+                <span className="text-[10px] text-slate-500">MP4 uniquement</span>
               </div>
               {[
                 { key: 'hd', label: 'Haute définition', format: 'HD · 1920×1080', detail: 'Qualité native du rendu', icon: 'high_quality', recommended: true },
@@ -18075,7 +18070,7 @@ export default function App() {
                 </div>
                 <span className="material-symbols-outlined text-[20px] text-[#63dcff] transition-transform group-hover:translate-y-0.5">download</span>
               </button>
-              <p className="pt-1 text-center text-[10px] leading-relaxed text-slate-500">La miniature JPG est ajoutée automatiquement à chaque export vidéo.</p>
+              <p className="pt-1 text-center text-[10px] leading-relaxed text-slate-500">La miniature JPG se télécharge séparément via le bouton dédié.</p>
             </div>
           </div>
         </div>
