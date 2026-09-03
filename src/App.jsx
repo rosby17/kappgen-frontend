@@ -16894,6 +16894,20 @@ export default function App() {
               >
                 <span className="material-symbols-outlined text-[18px]">edit</span> Éditer
               </button>
+              {/* For when the audio/narration is fine but the visuals as a whole
+                  aren't (an empty stock/library pool falling through to plain
+                  gradient art, for instance) — a full visual re-fetch/rebuild,
+                  distinct from "Éditer" (which targets one specific scene),
+                  without touching the already-good voiceover. */}
+              <button
+                onClick={() => handleRetryVideoVisuals(selectedVideo.id)}
+                disabled={retryingVideoVisualsId === selectedVideo.id}
+                title="Relancer le montage (garder la voix)"
+                className="flex-1 py-3 bg-[var(--bg-surface-alt)] text-white font-bold text-xs rounded-xl text-center hover:bg-[var(--border-soft)] transition-all flex items-center justify-center gap-2 border border-[var(--border)] disabled:opacity-50"
+              >
+                <span className="material-symbols-outlined text-[18px]">{retryingVideoVisualsId === selectedVideo.id ? 'progress_activity' : 'image_search'}</span>
+                {retryingVideoVisualsId === selectedVideo.id ? 'Relance…' : 'Relancer le montage'}
+              </button>
               <button
                 onClick={() => setDownloadModalVideo(selectedVideo)}
                 className="flex-1 py-3 bg-[#00c2ff] text-slate-950 font-bold text-xs rounded-xl text-center hover:bg-[#38d0ff] transition-all flex items-center justify-center gap-2"
@@ -16901,18 +16915,6 @@ export default function App() {
                 <span className="material-symbols-outlined text-[18px]">download</span> Télécharger MP4
               </button>
             </div>
-            {/* For when the audio/narration is fine but the visuals aren't (an
-                empty stock/library pool falling through to plain gradient art,
-                for instance) — re-fetches/rebuilds every scene's visual and
-                reassembles, without touching the already-good voiceover. */}
-            <button
-              onClick={() => handleRetryVideoVisuals(selectedVideo.id)}
-              disabled={retryingVideoVisualsId === selectedVideo.id}
-              className="w-full py-2 text-[11px] font-bold text-[#59d8ff] hover:text-white transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50"
-            >
-              <span className="material-symbols-outlined text-[15px]">{retryingVideoVisualsId === selectedVideo.id ? 'progress_activity' : 'image_search'}</span>
-              {retryingVideoVisualsId === selectedVideo.id ? 'Relance en cours…' : 'Pas de bonnes images ? Relancer le montage (garder la voix)'}
-            </button>
           </div>
         </div>
       )}
