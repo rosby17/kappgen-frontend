@@ -3871,6 +3871,7 @@ export default function App() {
   const [publicLibraryError, setPublicLibraryError] = useState('');
   const [publicLibraryPage, setPublicLibraryPage] = useState(1);
   const [publicLibraryHasNext, setPublicLibraryHasNext] = useState(false);
+  const [publicLibraryPreview, setPublicLibraryPreview] = useState(null);
   const [toast, setToast] = useState(null); // { message, type: 'success' | 'error' }
   const [librarySyncHasHandle, setLibrarySyncHasHandle] = useState(false);
   const [librarySyncing, setLibrarySyncing] = useState(false);
@@ -4333,6 +4334,15 @@ export default function App() {
     } finally {
       setPublicLibraryLoading(false);
     }
+  };
+
+  const publicLibraryAssetUrl = (item) => {
+    const url = item?.asset_url || item?.thumbnail_url || '';
+    return url.startsWith('/') ? `${API_BASE}${url}` : url;
+  };
+  const publicLibraryThumbnailUrl = (item) => {
+    const url = item?.thumbnail_url || item?.asset_url || '';
+    return url.startsWith('/') ? `${API_BASE}${url}` : url;
   };
 
   const fetchChannelLibraryDetail = async (channelId) => {
@@ -10382,8 +10392,8 @@ export default function App() {
               </section>
             )}
 
-            {/* VIEW 3.6: PUBLIC RESOURCES — a browsable Pexels catalogue,
-                intentionally separate from the creator's private library. */}
+            {/* VIEW 3.6: Public resources — Pexels plus creator-approved
+                community media, always separate from private libraries. */}
             {view === 'public_library' && (
               <section className="space-y-6">
                 <div className="relative overflow-hidden rounded-3xl border border-[#00c2ff]/20 bg-[var(--bg-surface)] p-6 sm:p-8 shadow-[0_24px_70px_rgba(0,0,0,.14)]">
@@ -10394,7 +10404,7 @@ export default function App() {
                       Ressources publiques
                     </div>
                     <h2 className="text-2xl font-extrabold tracking-[-.025em] text-white sm:text-3xl">Des visuels libres pour tes vidéos.</h2>
-                    <p className="mt-2 text-sm leading-relaxed text-slate-400">Explore les images et B-roll Pexels par thème. Ces ressources sont publiques ; tes propres médias restent dans Ma bibliothèque.</p>
+                    <p className="mt-2 text-sm leading-relaxed text-slate-400">Explore Pexels et les médias partagés par la communauté, classés par niche. Tes propres médias restent privés dans Ma bibliothèque.</p>
                   </div>
                 </div>
 
@@ -10422,7 +10432,7 @@ export default function App() {
                 </form>
 
                 <div className="flex flex-wrap gap-2">
-                  {['Nature', 'Santé', 'Spiritualité', 'Histoire', 'Business', 'Technologie', 'Voyage', 'Personnes'].map(category => (
+                  {['Nature', 'Santé', 'Spiritualité', 'Histoire', 'Astronomie & espace', 'Science', 'Psychologie', 'Finance', 'Business', 'Technologie', 'Éducation', 'Voyage', 'Animaux', 'Cuisine', 'Fitness', 'Musique', 'Gaming', 'Immobilier', 'Luxe'].map(category => (
                     <button key={category} type="button" onClick={() => { setPublicLibraryQuery(category); fetchPublicLibrary({ query: category, page: 1 }); }} className={`rounded-full border px-3 py-1.5 text-[10px] font-bold transition ${publicLibraryQuery.toLowerCase() === category.toLowerCase() ? 'border-[#00c2ff]/60 bg-[#00c2ff]/10 text-[#63dcff]' : 'border-[var(--border)] bg-[var(--bg-surface)] text-slate-400 hover:border-slate-500 hover:text-white'}`}>{category}</button>
                   ))}
                 </div>
@@ -10445,18 +10455,19 @@ export default function App() {
                   <>
                     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
                       {publicLibraryItems.map(item => (
-                        <a key={`${item.type}-${item.id}`} href={item.source_url || item.asset_url} target="_blank" rel="noopener noreferrer" className="group relative aspect-[16/10] overflow-hidden rounded-xl border border-[var(--border-soft)] bg-[var(--bg-surface-alt)]">
-                          <img src={item.thumbnail_url} alt={item.alt || 'Ressource Pexels'} loading="lazy" className="h-full w-full object-cover transition duration-300 group-hover:scale-105" />
+                        <button key={`${item.type}-${item.id}`} type="button" onClick={() => setPublicLibraryPreview(item)} className="group relative aspect-[16/10] overflow-hidden rounded-xl border border-[var(--border-soft)] bg-[var(--bg-surface-alt)] text-left focus:outline-none focus:ring-2 focus:ring-[#00c2ff]">
+                          <img src={publicLibraryThumbnailUrl(item)} alt={item.alt || 'Ressource publique'} loading="lazy" className="h-full w-full object-cover transition duration-300 group-hover:scale-105" />
                           <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-2 bg-gradient-to-t from-slate-950/90 via-slate-950/35 to-transparent px-2.5 pb-2 pt-8">
-                            <span className="truncate text-[10px] font-bold text-white">{item.author || 'Pexels'}</span>
+                            <span className="truncate text-[10px] font-bold text-white">{item.author || 'Communauté KappGen'}</span>
                             {item.type === 'videos' && <span className="shrink-0 rounded bg-slate-950/80 px-1.5 py-0.5 text-[9px] font-bold text-white">{item.duration ? `${item.duration}s` : 'B-roll'}</span>}
                           </div>
-                          <span className="absolute right-2 top-2 rounded-lg bg-slate-950/75 p-1.5 text-white opacity-0 transition group-hover:opacity-100"><span className="material-symbols-outlined block text-[15px]">open_in_new</span></span>
-                        </a>
+                          {item.type === 'videos' && <span className="absolute left-1/2 top-1/2 flex h-11 w-11 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-[#00c2ff]/95 text-slate-950 shadow-lg transition group-hover:scale-110"><span className="material-symbols-outlined text-[25px]">play_arrow</span></span>}
+                          <span className="absolute right-2 top-2 rounded-lg bg-slate-950/75 px-2 py-1 text-[9px] font-bold text-white opacity-0 transition group-hover:opacity-100">{item.provider === 'community' ? 'Communauté' : 'Pexels'}</span>
+                        </button>
                       ))}
                     </div>
                     {publicLibraryHasNext && <div className="flex justify-center"><button type="button" onClick={() => fetchPublicLibrary({ page: publicLibraryPage + 1 })} className="rounded-xl border border-[#00c2ff]/35 bg-[#00c2ff]/10 px-4 py-2.5 text-xs font-bold text-[#62dcff] transition hover:bg-[#00c2ff]/20">Voir plus</button></div>}
-                    <p className="text-center text-[10px] text-slate-500">Photos et vidéos fournies par Pexels. Ouvre une ressource pour voir sa page et sa licence.</p>
+                    <p className="text-center text-[10px] text-slate-500">Aperçu intégré dans KappGen. Sources : Pexels et médias approuvés de la communauté.</p>
                   </>
                 )}
               </section>
@@ -11528,48 +11539,78 @@ export default function App() {
                       const hasExamples = !!(newChannel.topic_examples || '').trim();
                       const webTrendsOn = !!newChannel.use_web_trends;
                       const hasYouTubeSources = !!(newChannel.youtube_topic_sources || '').trim();
+                      // All three are plain text-driven fields (no separate
+                      // enabled/disabled flag on the channel) — "unchecking"
+                      // a card is the same action as clearing its text, kept
+                      // to one source of truth instead of a second field that
+                      // could drift from what's actually in the box.
+                      const toggleExamples = () => setNewChannel({ ...newChannel, topic_examples: hasExamples ? '' : (newChannel.topic_examples || '') });
+                      const toggleYouTube = () => setNewChannel({ ...newChannel, youtube_topic_sources: hasYouTubeSources ? '' : (newChannel.youtube_topic_sources || '') });
+                      const cardClass = (active) => `p-4 rounded-2xl border-2 transition-all ${active ? 'bg-[var(--bg-surface-alt)] border-[#00c2ff] shadow-lg shadow-[#00c2ff]/10' : 'bg-[var(--bg-surface-soft)] border-[var(--border-soft)] hover:border-slate-500'}`;
                       return (
                         <div className="space-y-2">
                           <label className="block text-xs font-bold text-slate-300 px-1">Recherche de sujets</label>
-                          <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 items-start">
-                            {/* Primary method — always relevant, not a toggle: the
-                                "checked" badge just reflects whether the creator has
-                                pasted anything yet, matching the visual language of
-                                the toggleable card next to it. */}
-                            <div className={`p-4 rounded-2xl border-2 transition-all space-y-3 ${hasExamples ? 'bg-[var(--bg-surface-alt)] border-[#00c2ff] shadow-lg shadow-[#00c2ff]/10' : 'bg-[var(--bg-surface-soft)] border-[var(--border-soft)]'}`}>
-                              <div className="flex items-start justify-between gap-3">
+                          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 items-stretch">
+                            {/* 1. Exemples de sujets — the one that needs real
+                                writing room, so it gets the whole left column
+                                at full height instead of competing for space
+                                with the two lighter, secondary options. */}
+                            <div className={`${cardClass(hasExamples)} flex flex-col gap-2.5`}>
+                              <div className="flex items-center justify-between gap-3">
                                 <div className="flex items-center gap-2">
-                                  <span className="material-symbols-outlined text-[22px] text-[#00c2ff]">history_edu</span>
+                                  <span className="material-symbols-outlined text-[20px] text-[#00c2ff]">history_edu</span>
                                   <h4 className="text-xs font-bold text-white">Exemples de sujets / titres</h4>
                                 </div>
-                                <span className={`shrink-0 text-[9px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full ${hasExamples ? 'bg-emerald-950/60 text-emerald-400' : 'bg-[var(--bg-surface-alt)] text-slate-500'}`}>
-                                  {hasExamples ? 'Actif' : 'Recommandé'}
-                                </span>
+                                <input
+                                  type="checkbox"
+                                  checked={hasExamples}
+                                  onChange={toggleExamples}
+                                  className="kappgen-checkbox shrink-0"
+                                />
                               </div>
-                              <p className="text-[11px] text-slate-400">
-                                Sans ça, le choix des sujets reste générique. Colle tes données (vues, dates comprises) — l'IA repère elle-même les vidéos les plus virales pour s'en inspirer.
-                              </p>
+                              <p className="text-[10px] text-slate-500">Colle des vidéos qui marchent dans ta niche (vues, dates comprises) — l'IA en tire les sujets les plus viraux.</p>
                               <textarea
                                 value={newChannel.topic_examples || ''}
                                 onChange={e => setNewChannel({ ...newChannel, topic_examples: e.target.value })}
-                                placeholder={"Colle directement une liste de vidéos qui marchent dans ta niche — les tiennes, ou celles d'une chaîne concurrente (avec le nombre de vues et la date, aucun souci).\n\nEx :\nLe jour où tu arrêtes de demander la permission de vivre — 2,3 M de vues — il y a 4 mois\nPourquoi le silence de Dieu n'est pas un abandon"}
-                                rows={9}
-                                className="w-full bg-[var(--bg-input-alt)] border border-[var(--border)] rounded-xl px-3 py-2.5 text-xs text-white focus:border-[#00c2ff] outline-none resize-y"
+                                placeholder={"Ex :\nLe jour où tu arrêtes de demander la permission de vivre — 2,3 M de vues — il y a 4 mois\nPourquoi le silence de Dieu n'est pas un abandon"}
+                                className="w-full flex-1 min-h-[220px] bg-[var(--bg-input-alt)] border border-[var(--border)] rounded-xl px-3 py-2.5 text-xs text-white focus:border-[#00c2ff] outline-none resize-y"
                               />
                             </div>
 
-                            {/* Complementary/optional — real per-search cost (billed
-                                to the creator like any other paid call), so it stays
-                                an explicit opt-in rather than bundled silently into
-                                the base script cost. */}
-                            <div
-                              onClick={() => setNewChannel({ ...newChannel, use_web_trends: !webTrendsOn })}
-                              className={`p-4 rounded-2xl border-2 transition-all space-y-3 cursor-pointer flex flex-col justify-between ${webTrendsOn ? 'bg-[var(--bg-surface-alt)] border-[#00c2ff] shadow-lg shadow-[#00c2ff]/10' : 'bg-[var(--bg-surface-soft)] border-[var(--border-soft)] hover:border-slate-500'}`}
-                            >
-                              <div>
-                                <div className="flex items-start justify-between gap-3">
+                            <div className="flex flex-col gap-3">
+                              {/* 2. Recherche YouTube */}
+                              <div className={`${cardClass(hasYouTubeSources)} flex-1 flex flex-col gap-2`}>
+                                <div className="flex items-center justify-between gap-3">
                                   <div className="flex items-center gap-2">
-                                    <span className="material-symbols-outlined text-[22px] text-[#00c2ff]">travel_explore</span>
+                                    <span className="material-symbols-outlined text-[20px] text-[#00c2ff]">smart_display</span>
+                                    <h4 className="text-xs font-bold text-white">Recherche YouTube</h4>
+                                  </div>
+                                  <input
+                                    type="checkbox"
+                                    checked={hasYouTubeSources}
+                                    onChange={toggleYouTube}
+                                    className="kappgen-checkbox shrink-0"
+                                  />
+                                </div>
+                                <p className="text-[10px] text-slate-500">Colle des liens de chaînes/vidéos — l'IA étudie leurs angles pour proposer des sujets originaux.</p>
+                                <textarea
+                                  value={newChannel.youtube_topic_sources || ''}
+                                  onChange={e => setNewChannel({ ...newChannel, youtube_topic_sources: e.target.value })}
+                                  placeholder={'https://www.youtube.com/@une-chaine\nhttps://www.youtube.com/watch?v=...'}
+                                  className="w-full flex-1 min-h-[80px] bg-[var(--bg-input-alt)] border border-[var(--border)] rounded-xl px-3 py-2.5 text-xs text-white focus:border-[#00c2ff] outline-none resize-y"
+                                />
+                              </div>
+
+                              {/* 3. Recherche web — real per-search cost (billed to
+                                  the creator like any other paid call), so it stays
+                                  an explicit opt-in. */}
+                              <div
+                                onClick={() => setNewChannel({ ...newChannel, use_web_trends: !webTrendsOn })}
+                                className={`${cardClass(webTrendsOn)} flex-1 flex flex-col justify-center gap-2 cursor-pointer`}
+                              >
+                                <div className="flex items-center justify-between gap-3">
+                                  <div className="flex items-center gap-2">
+                                    <span className="material-symbols-outlined text-[20px] text-[#00c2ff]">travel_explore</span>
                                     <h4 className="text-xs font-bold text-white">Recherche web</h4>
                                   </div>
                                   <input
@@ -11580,28 +11621,8 @@ export default function App() {
                                     className="kappgen-checkbox shrink-0"
                                   />
                                 </div>
-                                <p className="mt-2 text-[11px] text-slate-400">
-                                  Complémentaire aux exemples ci-contre — l'IA cherche une actualité ou une tendance réelle du moment pour une chaîne d'actu/tendances (sport, news...). Optionnel.
-                                </p>
+                                <p className="text-[10px] text-slate-500">Actualité/tendance réelle du moment — pour une chaîne d'actu (sport, news...). Complémentaire.</p>
                               </div>
-                            </div>
-
-                            <div className={`p-4 rounded-2xl border-2 transition-all space-y-3 ${hasYouTubeSources ? 'bg-[var(--bg-surface-alt)] border-[#00c2ff] shadow-lg shadow-[#00c2ff]/10' : 'bg-[var(--bg-surface-soft)] border-[var(--border-soft)]'}`}>
-                              <div className="flex items-start justify-between gap-3">
-                                <div className="flex items-center gap-2">
-                                  <span className="material-symbols-outlined text-[22px] text-[#00c2ff]">smart_display</span>
-                                  <h4 className="text-xs font-bold text-white">Recherche YouTube</h4>
-                                </div>
-                                <span className={`shrink-0 text-[9px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full ${hasYouTubeSources ? 'bg-emerald-950/60 text-emerald-400' : 'bg-[var(--bg-surface-alt)] text-slate-500'}`}>{hasYouTubeSources ? 'Actif' : 'Optionnel'}</span>
-                              </div>
-                              <p className="text-[11px] text-slate-400">Colle les liens de chaînes ou de vidéos à analyser. L’IA étudie leurs angles et vidéos populaires pour proposer des sujets originaux.</p>
-                              <textarea
-                                value={newChannel.youtube_topic_sources || ''}
-                                onChange={e => setNewChannel({ ...newChannel, youtube_topic_sources: e.target.value })}
-                                placeholder={'https://www.youtube.com/@une-chaine\nhttps://www.youtube.com/watch?v=...'}
-                                rows={5}
-                                className="w-full bg-[var(--bg-input-alt)] border border-[var(--border)] rounded-xl px-3 py-2.5 text-xs text-white focus:border-[#00c2ff] outline-none resize-y"
-                              />
                             </div>
                           </div>
                         </div>
