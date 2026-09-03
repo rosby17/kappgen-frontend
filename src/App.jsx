@@ -10199,7 +10199,7 @@ export default function App() {
                                   <div className="mt-2.5 @lg:mt-4 h-1 @lg:h-1.5 rounded-full bg-slate-800/90 overflow-hidden">
                                     <div className="h-full bg-gradient-to-r from-[#20bff0] to-[#62dcff] transition-all duration-700 rounded-full" style={{ width: `${vid.progress_percent || 2}%` }} />
                                   </div>
-                                  <div className="mt-2 @lg:mt-3 flex items-center justify-between text-[9px] @lg:text-xs font-mono">
+                                  <div className="mt-2 @lg:mt-3 flex items-center justify-between gap-2 text-[9px] @lg:text-xs font-mono">
                                     <span className="text-[#5ddaff] font-bold">{vid.progress_percent || 2}%</span>
                                     {vid.started_at && <span className="text-slate-500">{formatElapsed(vid.started_at)}</span>}
                                   </div>
@@ -11168,7 +11168,7 @@ export default function App() {
                                 <div className="mt-2.5 @lg:mt-4 h-1 @lg:h-1.5 rounded-full bg-slate-800/90 overflow-hidden">
                                   <div className="h-full bg-gradient-to-r from-[#20bff0] to-[#62dcff] transition-all duration-700 rounded-full" style={{ width: `${vid.progress_percent || 2}%` }} />
                                 </div>
-                                <div className="mt-2 @lg:mt-3 flex items-center justify-between text-[9px] @lg:text-xs font-mono">
+                                <div className="mt-2 @lg:mt-3 flex items-center justify-between gap-2 text-[9px] @lg:text-xs font-mono">
                                   <span className="text-[#5ddaff] font-bold">{vid.progress_percent || 2}%</span>
                                   {vid.started_at && <span className="text-slate-500">{formatElapsed(vid.started_at)}</span>}
                                 </div>
