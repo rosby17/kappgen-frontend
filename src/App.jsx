@@ -4581,6 +4581,7 @@ export default function App() {
 
   const [libraryUploadingId, setLibraryUploadingId] = useState(null);
   const [brollUploadProgress, setBrollUploadProgress] = useState(0);
+  const [brollUploadMessage, setBrollUploadMessage] = useState('');
   // api.kappgen.com is proxied through Cloudflare, whose request-body cap
   // sits at 100MB regardless of the backend's own (much higher) limit — a
   // clip over that silently fails at the edge with no usable error, which
@@ -4718,6 +4719,11 @@ export default function App() {
 
     if (okCount) {
       showToast(`${okCount} clip(s) B-roll ajouté(s).`, 'success');
+      setBrollUploadMessage(`✓ ${okCount} clip(s) B-roll intégré(s) au site et prêt(s) pour le montage.`);
+      setNewChannel(prev => ({
+        ...prev,
+        image_style: { ...prev.image_style, broll_count: Math.max(0, Number(prev.image_style?.broll_count || 0)) + okCount, broll_path: prev.image_style?.broll_path || `channels/${channelId}/broll` },
+      }));
       await fetchChannelLibraryDetail(channelId);
       fetchLibraryOverview();
     }
@@ -6048,6 +6054,7 @@ export default function App() {
     setLibraryUploadStatus(null);
     setLibraryUploadProgress(0);
     setLibraryUploadMessage('');
+    setBrollUploadMessage('');
     setStagedLibraryToken(null);
     if (libraryUploadXhrRef.current) libraryUploadXhrRef.current.abort();
     setWizardStep(1);
@@ -6334,6 +6341,7 @@ export default function App() {
     setLibraryUploadStatus(null);
     setLibraryUploadProgress(0);
     setLibraryUploadMessage('');
+    setBrollUploadMessage('');
     setStagedLibraryToken(null);
     setLogoPreviewUrl(channel.branding?.logo_path
       ? `${STORAGE_BASE}/${channel.branding.logo_path}`
@@ -12563,6 +12571,11 @@ export default function App() {
                                 <div className="h-2.5 bg-slate-900 rounded-full overflow-hidden border border-slate-700/60">
                                   <div className="h-full rounded-full bg-[#00c2ff] transition-all duration-300" style={{ width: `${brollUploadProgress}%` }} />
                                 </div>
+                              </div>
+                            )}
+                            {!!brollUploadMessage && (
+                              <div className="mt-3 px-3 py-2 rounded-xl border border-emerald-700/60 bg-emerald-950/60 text-[10px] font-bold text-emerald-300">
+                                {brollUploadMessage}
                               </div>
                             )}
                           </div>
