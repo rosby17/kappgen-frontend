@@ -3872,6 +3872,8 @@ export default function App() {
   const [publicLibraryPage, setPublicLibraryPage] = useState(1);
   const [publicLibraryHasNext, setPublicLibraryHasNext] = useState(false);
   const [publicLibraryPreview, setPublicLibraryPreview] = useState(null);
+  const [publicLibraryImportChannelId, setPublicLibraryImportChannelId] = useState('');
+  const [publicLibraryImportBusy, setPublicLibraryImportBusy] = useState(false);
   const [toast, setToast] = useState(null); // { message, type: 'success' | 'error' }
   const [librarySyncHasHandle, setLibrarySyncHasHandle] = useState(false);
   const [librarySyncing, setLibrarySyncing] = useState(false);
@@ -4343,6 +4345,34 @@ export default function App() {
   const publicLibraryThumbnailUrl = (item) => {
     const url = item?.thumbnail_url || item?.asset_url || '';
     return url.startsWith('/') ? `${API_BASE}${url}` : url;
+  };
+
+  // A Pexels/community item was otherwise a dead end: browsable, but nothing
+  // fed it into an actual render. This copies it into one of the creator's
+  // OWN channels (library for photos, B-roll for videos) so it becomes
+  // usable, exactly like a manual upload.
+  const importPublicLibraryAsset = async (item, targetChannelId) => {
+    if (!item || !targetChannelId) return;
+    setPublicLibraryImportBusy(true);
+    try {
+      const body = item.provider === 'community'
+        ? { provider: 'community', media_type: item.type, source_channel_id: item.source_channel_id, source_filename: item.source_filename }
+        : { provider: 'pexels', media_type: item.type, asset_url: item.asset_url };
+      const res = await authFetch(`${API_BASE}/channels/${targetChannelId}/public-library/import`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || "Importation impossible.");
+      const targetChannel = channels.find(c => c.id === targetChannelId);
+      showToast(`Ajoutée à « ${targetChannel?.name || 'la chaîne'} ».`, 'success');
+      setChannels(prev => prev.map(c => (c.id === targetChannelId ? data : c)));
+    } catch (err) {
+      showToast(friendlyErrorMessage(err, "Importation impossible."), 'error');
+    } finally {
+      setPublicLibraryImportBusy(false);
+    }
   };
 
   const fetchChannelLibraryDetail = async (channelId) => {
@@ -12107,71 +12137,6 @@ export default function App() {
                             )}
                           </div>
 
-                          {isOptionBChecked && (
-                            <div onClick={(e) => e.stopPropagation()} className="p-3 rounded-xl bg-[var(--bg-input-alt)] border border-[var(--border)] space-y-3">
-                              <div className="grid grid-cols-2 gap-2">
-                                <button
-                                  type="button"
-                                  onClick={() => setNewChannel({ ...newChannel, image_style: { ...newChannel.image_style, image_count_mode: 'auto', max_unique_images: null } })}
-                                  className={`px-3 py-2 rounded-lg text-[10px] font-bold border transition-colors ${
-                                    imageCountMode === 'auto' ? 'bg-[#00c2ff]/15 border-[#00c2ff] text-white' : 'bg-transparent border-[var(--border)] text-slate-400 hover:text-white'
-                                  }`}
-                                >
-                                  Auto — KappGen décide
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => setNewChannel({ ...newChannel, image_style: { ...newChannel.image_style, image_count_mode: 'manual' } })}
-                                  className={`px-3 py-2 rounded-lg text-[10px] font-bold border transition-colors ${
-                                    imageCountMode === 'manual' ? 'bg-[#00c2ff]/15 border-[#00c2ff] text-white' : 'bg-transparent border-[var(--border)] text-slate-400 hover:text-white'
-                                  }`}
-                                >
-                                  Nombre précis
-                                </button>
-                              </div>
-
-                              {imageCountMode === 'auto' ? (
-                                <p className="text-[10px] text-slate-500">
-                                  Le nombre d’images est adapté automatiquement à la vidéo.
-                                </p>
-                              ) : (
-                                <>
-                                  <div className="flex items-center justify-between gap-3">
-                                    <label className="text-[10px] font-bold text-slate-300">Nombre d'images à générer par vidéo</label>
-                                    <input
-                                      type="number"
-                                      min={1}
-                                      value={maxUniqueImages}
-                                      onChange={e => {
-                                        const raw = e.target.value;
-                                        if (raw === '') return; // let them clear the field while typing a new value
-                                        const parsed = parseInt(raw, 10);
-                                        if (Number.isNaN(parsed)) return;
-                                        setNewChannel({ ...newChannel, image_style: { ...newChannel.image_style, max_unique_images: Math.max(1, parsed) } });
-                                      }}
-                                      onBlur={e => {
-                                        if (e.target.value !== '' && !Number.isNaN(parseInt(e.target.value, 10))) return;
-                                        setNewChannel({ ...newChannel, image_style: { ...newChannel.image_style, max_unique_images: 1 } });
-                                      }}
-                                      className="w-16 bg-[var(--bg-input)] border border-[var(--border)] rounded-lg px-2 py-1 text-xs text-white text-center focus:border-[#00c2ff] outline-none"
-                                    />
-                                  </div>
-                                  <p className="text-[10px] text-slate-500">
-                                    Le reste de la vidéo réutilise ces images au lieu d'en générer une nouvelle par scène — tu maîtrises le coût, pas la durée.
-                                  </p>
-                                  <p className="text-[11px] font-bold text-[#56d9ff]">
-                                    Coût estimé par vidéo générée : {maxUniqueImages} × {IMAGE_GENERATION_CREDITS_MIN.toLocaleString()}–{IMAGE_GENERATION_CREDITS_MAX.toLocaleString()} = {(maxUniqueImages * IMAGE_GENERATION_CREDITS_MIN).toLocaleString()}–{(maxUniqueImages * IMAGE_GENERATION_CREDITS_MAX).toLocaleString()} crédits
-                                  </p>
-                                  {creditBalance != null && !isSubscriptionExempt && maxUniqueImages * IMAGE_GENERATION_CREDITS_MAX > creditBalance && (
-                                    <p className="text-[10px] font-bold text-amber-400">
-                                      ⚠ Ton solde ({creditBalance.toLocaleString()} crédits) peut ne pas couvrir ce nombre d'images — les images manquantes utiliseront ta bibliothèque à la place.
-                                    </p>
-                                  )}
-                                </>
-                              )}
-                            </div>
-                          )}
-
                           <div className="space-y-2">
                             <label className="block text-[10px] font-bold text-slate-300">Références visuelles</label>
                             <input
@@ -12249,6 +12214,82 @@ export default function App() {
                       })()}
 
                         </div>
+                      </div>
+
+                      {/* Nombre de visuels — moved out of Option B (AI generation) to sit
+                          below all three sources: it's a source-agnostic promise ("use at
+                          most N distinct visuals, repeat them across the video") that
+                          applies no matter which of A/B/C is checked, not just AI. For
+                          library/community sources it can only ever LIMIT what's already
+                          uploaded, never conjure up images that don't exist — a small
+                          pool left on "Auto" already uses everything available. */}
+                      <div onClick={(e) => e.stopPropagation()} className="p-3.5 rounded-xl bg-[#171b23] border border-[var(--border)] space-y-3">
+                        <div className="flex items-center gap-2">
+                          <span className="material-symbols-outlined text-[#00c2ff] text-[18px]">filter_none</span>
+                          <h4 className="text-xs font-bold text-white">Nombre de visuels utilisés dans le montage</h4>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setNewChannel({ ...newChannel, image_style: { ...newChannel.image_style, image_count_mode: 'auto', max_unique_images: null } })}
+                            className={`px-3 py-2 rounded-lg text-[10px] font-bold border transition-colors ${
+                              imageCountMode === 'auto' ? 'bg-[#00c2ff]/15 border-[#00c2ff] text-white' : 'bg-transparent border-[var(--border)] text-slate-400 hover:text-white'
+                            }`}
+                          >
+                            Auto — KappGen décide
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setNewChannel({ ...newChannel, image_style: { ...newChannel.image_style, image_count_mode: 'manual' } })}
+                            className={`px-3 py-2 rounded-lg text-[10px] font-bold border transition-colors ${
+                              imageCountMode === 'manual' ? 'bg-[#00c2ff]/15 border-[#00c2ff] text-white' : 'bg-transparent border-[var(--border)] text-slate-400 hover:text-white'
+                            }`}
+                          >
+                            Nombre précis
+                          </button>
+                        </div>
+
+                        {imageCountMode === 'auto' ? (
+                          <p className="text-[10px] text-slate-500">
+                            Le nombre de visuels est adapté automatiquement à la vidéo, quelle que soit la source choisie ci-dessus.
+                          </p>
+                        ) : (
+                          <>
+                            <div className="flex items-center justify-between gap-3">
+                              <label className="text-[10px] font-bold text-slate-300">Nombre de visuels distincts par vidéo</label>
+                              <input
+                                type="number"
+                                min={1}
+                                value={maxUniqueImages}
+                                onChange={e => {
+                                  const raw = e.target.value;
+                                  if (raw === '') return; // let them clear the field while typing a new value
+                                  const parsed = parseInt(raw, 10);
+                                  if (Number.isNaN(parsed)) return;
+                                  setNewChannel({ ...newChannel, image_style: { ...newChannel.image_style, max_unique_images: Math.max(1, parsed) } });
+                                }}
+                                onBlur={e => {
+                                  if (e.target.value !== '' && !Number.isNaN(parseInt(e.target.value, 10))) return;
+                                  setNewChannel({ ...newChannel, image_style: { ...newChannel.image_style, max_unique_images: 1 } });
+                                }}
+                                className="w-16 bg-[var(--bg-input)] border border-[var(--border)] rounded-lg px-2 py-1 text-xs text-white text-center focus:border-[#00c2ff] outline-none"
+                              />
+                            </div>
+                            <p className="text-[10px] text-slate-500">
+                              Le reste de la vidéo réutilise ces visuels au lieu d'en chercher/générer un nouveau par scène — tu maîtrises le nombre, pas la durée. Pour une bibliothèque ou une communauté trop petite, ce réglage limite/répète ce qui existe déjà ; il ne peut pas créer de nouvelles images.
+                            </p>
+                            {isOptionBChecked && (
+                              <p className="text-[11px] font-bold text-[#56d9ff]">
+                                Coût estimé (Génération IA) par vidéo générée : {maxUniqueImages} × {IMAGE_GENERATION_CREDITS_MIN.toLocaleString()}–{IMAGE_GENERATION_CREDITS_MAX.toLocaleString()} = {(maxUniqueImages * IMAGE_GENERATION_CREDITS_MIN).toLocaleString()}–{(maxUniqueImages * IMAGE_GENERATION_CREDITS_MAX).toLocaleString()} crédits
+                              </p>
+                            )}
+                            {isOptionBChecked && creditBalance != null && !isSubscriptionExempt && maxUniqueImages * IMAGE_GENERATION_CREDITS_MAX > creditBalance && (
+                              <p className="text-[10px] font-bold text-amber-400">
+                                ⚠ Ton solde ({creditBalance.toLocaleString()} crédits) peut ne pas couvrir ce nombre d'images — les images manquantes utiliseront ta bibliothèque à la place.
+                              </p>
+                            )}
+                          </>
+                        )}
                       </div>
 
                       <div
@@ -17974,6 +18015,43 @@ export default function App() {
               ) : (
                 <img src={publicLibraryThumbnailUrl(publicLibraryPreview)} alt={publicLibraryPreview.alt || 'Aperçu de la ressource'} className="max-h-[calc(92vh-130px)] max-w-full rounded-xl object-contain" />
               )}
+            </div>
+            {/* Browsing alone was a dead end — nothing here fed a render
+                until it left this modal. "Ajouter" copies the asset into one
+                of the creator's own channels (library or B-roll); the
+                download link is the plain fallback for someone who'd rather
+                keep it on their own machine first. */}
+            <div className="flex flex-col gap-2 border-t border-[var(--border-soft)] bg-[var(--bg-surface)] px-5 py-4 sm:flex-row sm:items-center">
+              {channels.length > 0 ? (
+                <>
+                  <SimpleSelect
+                    value={publicLibraryImportChannelId}
+                    onChange={setPublicLibraryImportChannelId}
+                    options={channels.map(c => ({ value: c.id, label: c.name }))}
+                  />
+                  <button
+                    type="button"
+                    disabled={!publicLibraryImportChannelId || publicLibraryImportBusy}
+                    onClick={() => importPublicLibraryAsset(publicLibraryPreview, publicLibraryImportChannelId)}
+                    className="flex items-center justify-center gap-1.5 rounded-xl bg-[#00c2ff] px-4 py-2.5 text-xs font-extrabold text-slate-950 transition hover:bg-[#45d4ff] disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <span className={`material-symbols-outlined text-[16px] ${publicLibraryImportBusy ? 'animate-spin' : ''}`}>{publicLibraryImportBusy ? 'progress_activity' : 'add_photo_alternate'}</span>
+                    {publicLibraryImportBusy ? 'Ajout…' : 'Ajouter à cette chaîne'}
+                  </button>
+                </>
+              ) : (
+                <p className="text-[11px] text-slate-400">Crée une chaîne pour pouvoir ajouter des ressources à sa bibliothèque.</p>
+              )}
+              <a
+                href={publicLibraryAssetUrl(publicLibraryPreview)}
+                download
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center justify-center gap-1.5 rounded-xl border border-[var(--border-soft)] px-4 py-2.5 text-xs font-bold text-slate-300 transition hover:border-slate-500 hover:text-white sm:ml-auto"
+              >
+                <span className="material-symbols-outlined text-[16px]">download</span>
+                Télécharger
+              </a>
             </div>
           </div>
         </div>
