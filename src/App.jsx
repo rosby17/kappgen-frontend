@@ -4577,6 +4577,14 @@ export default function App() {
   };
 
   const [libraryUploadingId, setLibraryUploadingId] = useState(null);
+  const [brollUploadProgress, setBrollUploadProgress] = useState(0);
+  // api.kappgen.com is proxied through Cloudflare, whose request-body cap
+  // sits at 100MB regardless of the backend's own (much higher) limit — a
+  // clip over that silently fails at the edge with no usable error, which
+  // read as the upload just hanging forever with the spinner never
+  // resolving. Checked client-side, before ever attempting the upload, so
+  // the creator gets an immediate, actionable message instead of a stuck UI.
+  const CLOUDFLARE_UPLOAD_LIMIT_BYTES = 95 * 1024 * 1024;
   const uploadLibraryImages = async (channelId, fileList) => {
     const files = Array.from(fileList || []);
     if (!files.length) return;
@@ -4598,23 +4606,61 @@ export default function App() {
     }
   };
 
-  const uploadLibraryBroll = async (channelId, fileList) => {
-    const files = Array.from(fileList || []);
-    if (!files.length) return;
-    setLibraryUploadingId(`${channelId}:broll`);
-    try {
-      const formData = new FormData();
-      files.forEach(f => formData.append('files', f));
-      const res = await authFetch(`${API_BASE}/channels/${channelId}/broll`, { method: 'POST', body: formData });
-      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || 'Échec de l’ajout des B-roll.');
-      showToast(`${files.length} clip(s) B-roll ajouté(s).`, 'success');
-      await fetchChannelLibraryDetail(channelId);
-      fetchLibraryOverview();
-    } catch (err) {
-      showToast(err.message, 'error');
-    } finally {
-      setLibraryUploadingId(null);
+  const uploadLibraryBroll = (channelId, fileList) => {
+    const allFiles = Array.from(fileList || []);
+    if (!allFiles.length) return;
+
+    const oversized = allFiles.filter(f => f.size > CLOUDFLARE_UPLOAD_LIMIT_BYTES);
+    const files = allFiles.filter(f => f.size <= CLOUDFLARE_UPLOAD_LIMIT_BYTES);
+    if (oversized.length) {
+      showToast(
+        `${oversized.length} vidéo(s) trop volumineuse(s) (>95 Mo) — compresse-les d'abord (HandBrake, ou export à débit réduit). ` +
+        oversized.map(f => `${f.name} (${(f.size / 1024 / 1024).toFixed(0)} Mo)`).join(', '),
+        'error'
+      );
     }
+    if (!files.length) return;
+
+    setLibraryUploadingId(`${channelId}:broll`);
+    setBrollUploadProgress(2);
+    const totalBytes = files.reduce((sum, f) => sum + f.size, 0) || 1;
+
+    const formData = new FormData();
+    files.forEach(f => formData.append('files', f));
+
+    return new Promise((resolve) => {
+      const xhr = new XMLHttpRequest();
+      const finish = async (errorMessage) => {
+        if (errorMessage) showToast(errorMessage, 'error');
+        else {
+          showToast(`${files.length} clip(s) B-roll ajouté(s).`, 'success');
+          await fetchChannelLibraryDetail(channelId);
+          fetchLibraryOverview();
+        }
+        setLibraryUploadingId(null);
+        setBrollUploadProgress(0);
+        resolve();
+      };
+      xhr.open('POST', `${API_BASE}/channels/${channelId}/broll`);
+      xhr.withCredentials = true;
+      xhr.timeout = 15 * 60 * 1000; // 15min — large video uploads on a slow connection, not a hung request
+      xhr.upload.onprogress = (event) => {
+        if (!event.lengthComputable) return;
+        setBrollUploadProgress(Math.min(99, Math.round((event.loaded / totalBytes) * 100)));
+      };
+      xhr.onerror = () => finish('Erreur réseau pendant l’envoi des vidéos B-roll — réessaie.');
+      xhr.ontimeout = () => finish('L’envoi des vidéos B-roll a pris trop de temps — réessaie avec une connexion plus stable ou des fichiers plus légers.');
+      xhr.onload = () => {
+        let data = {};
+        try { data = JSON.parse(xhr.responseText || '{}'); } catch {}
+        if (xhr.status < 200 || xhr.status >= 300) {
+          finish(data.detail || `Échec de l’ajout des B-roll (HTTP ${xhr.status}).`);
+          return;
+        }
+        finish(null);
+      };
+      xhr.send(formData);
+    });
   };
 
   const deleteLibraryMusicTrack = async (channelId, trackPath) => {
@@ -12302,6 +12348,22 @@ export default function App() {
                         {newChannel.image_style.media_mode === 'videos' && (
                           <p className="mt-2 text-[10px] text-violet-200">Tes B-roll sont utilisés lorsqu’ils existent. Sans vidéo importée, toutes les scènes sont recherchées automatiquement sur Pexels.</p>
                         )}
+                        {(newChannel.image_style.media_mode === 'videos' || newChannel.image_style.media_mode === 'mixed') && (
+                          <label className="mt-3 flex cursor-pointer items-start gap-2.5 rounded-xl border border-white/10 bg-black/10 px-3 py-2.5">
+                            <input
+                              type="checkbox"
+                              checked={!!newChannel.image_style.broll_shuffle}
+                              onChange={() => setNewChannel({ ...newChannel, image_style: { ...newChannel.image_style, broll_shuffle: !newChannel.image_style.broll_shuffle } })}
+                              className="kappgen-checkbox shrink-0 mt-0.5"
+                            />
+                            <span>
+                              <span className="block text-[10px] font-bold text-white">Remixer mes B-roll (déjà publiés ailleurs)</span>
+                              <span className="block text-[10px] text-slate-400 mt-0.5">
+                                Chaque scène pioche un extrait à un point aléatoire de la vidéo au lieu de la rejouer du début à la fin — ordre différent à chaque rendu, plus un léger zoom pour ne pas ressembler à une simple reprise.
+                              </span>
+                            </span>
+                          </label>
+                        )}
                       </div>
 
                       {/* 2 CARDS SELECTION GRID WITH CHECKBOXES */}
@@ -12419,14 +12481,21 @@ export default function App() {
                               </div>
                             )}
                             {/* A dropped/picked folder can also contain B-roll video clips
-                                (see uploadLocalVideoFiles) — that request has no fine-grained
-                                progress of its own, but this still gives a clear "it's
-                                working, not stuck" signal instead of nothing happening
-                                visibly while it uploads. */}
+                                (see uploadLocalVideoFiles) — real upload-progress bar (not
+                                just a spinner) so a large video visibly advances instead of
+                                reading as stuck. */}
                             {libraryUploadingId === `${wizardMode === 'edit' ? editingChannelId : null}:broll` && (
-                              <div className="mt-3 p-3 rounded-xl border text-left bg-[#081c2a] border-[#00c2ff]/40 flex items-center gap-1.5 text-[10px] font-bold text-[#00c2ff]">
-                                <span className="material-symbols-outlined text-[15px] animate-spin">progress_activity</span>
-                                Importation des vidéos B-roll en cours…
+                              <div className="mt-3 p-3 rounded-xl border text-left bg-[#081c2a] border-[#00c2ff]/40 space-y-2">
+                                <div className="flex items-center justify-between gap-3">
+                                  <div className="flex items-center gap-1.5 text-[10px] font-bold text-[#00c2ff]">
+                                    <span className="material-symbols-outlined text-[15px] animate-spin">progress_activity</span>
+                                    Envoi des vidéos B-roll…
+                                  </div>
+                                  <span className="text-xs font-mono font-black text-white">{brollUploadProgress}%</span>
+                                </div>
+                                <div className="h-2.5 bg-slate-900 rounded-full overflow-hidden border border-slate-700/60">
+                                  <div className="h-full rounded-full bg-[#00c2ff] transition-all duration-300" style={{ width: `${brollUploadProgress}%` }} />
+                                </div>
                               </div>
                             )}
                           </div>
