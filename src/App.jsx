@@ -7119,7 +7119,7 @@ export default function App() {
   // mechanism (rotate through multiple keys, skip exhausted ones) is the
   // same for all three, just scoped by this tab.
   const [hfAccountsProvider, setHfAccountsProvider] = useState('huggingface');
-  const IMAGE_KEY_PROVIDER_LABELS = { huggingface: 'Hugging Face', fal: 'fal.ai', izivoice: 'Izivoice' };
+  const IMAGE_KEY_PROVIDER_LABELS = { huggingface: 'Hugging Face', fal: 'fal.ai', izivoice: 'Izivoice', gemini: 'Google Gemini (gratuit)' };
   const [hfAccountBusy, setHfAccountBusy] = useState(false);
   const [hfAccountChecking, setHfAccountChecking] = useState(null);
   const [editingHfLabelId, setEditingHfLabelId] = useState(null);
@@ -7798,7 +7798,7 @@ export default function App() {
       if (!res.ok) throw new Error();
       const data = await res.json();
       setThumbnailProviderModeState(prev => ({ ...prev, order: data.order }));
-      const labels = { huggingface: 'Hugging Face', fal: 'fal.ai', izivoice: 'Izivoice' };
+      const labels = { huggingface: 'Hugging Face', fal: 'fal.ai', izivoice: 'Izivoice', gemini: 'Google Gemini' };
       showToast(nextOrder.includes(id) ? `${labels[id] || id} ajouté à la priorité.` : `${labels[id] || id} retiré de la priorité.`, 'success');
     } catch {
       showToast('Échec de la mise à jour.', 'error');
@@ -16218,7 +16218,7 @@ export default function App() {
                       const selected = rank !== -1;
                       const health = (adminProviders || []).find(p => p.id === id);
                       const dotColor = health?.status === 'ok' ? 'bg-emerald-500' : health?.status === 'quota_exhausted' ? 'bg-rose-500' : id === 'huggingface' ? 'bg-emerald-500' : 'bg-slate-600';
-                      const label = { huggingface: 'Hugging Face (gratuit)', fal: 'fal.ai', izivoice: 'Izivoice' }[id] || id;
+                      const label = { huggingface: 'Hugging Face (gratuit)', fal: 'fal.ai', izivoice: 'Izivoice', gemini: 'Google Gemini (gratuit)' }[id] || id;
                       return (
                         <button
                           key={id}
