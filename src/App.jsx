@@ -10699,6 +10699,11 @@ export default function App() {
                                     <span className={`material-symbols-outlined text-[16px] text-[#00c2ff] ${regeneratingCardThumbnailIds.has(vid.id) ? 'animate-spin' : ''}`}>{regeneratingCardThumbnailIds.has(vid.id) ? 'progress_activity' : 'photo_camera'}</span> {regeneratingCardThumbnailIds.has(vid.id) ? 'Régénération…' : 'Régénérer la miniature'}
                                   </button>
                                 )}
+                                {vid.status === 'done' && (
+                                  <button onClick={(e) => { e.stopPropagation(); setOpenVideoMenuId(null); openThumbnailModal(vid, e); }} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium">
+                                    <span className="material-symbols-outlined text-[16px] text-[#00c2ff]">photo_library</span> Historique des miniatures
+                                  </button>
+                                )}
                                 {vid.status === 'done' && vid.editable && (
                                   <button onClick={(e) => { e.stopPropagation(); setOpenVideoMenuId(null); openStudio(vid); }} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium">
                                     <span className="material-symbols-outlined text-[16px] text-[#00c2ff]">movie_edit</span> Éditer la vidéo
