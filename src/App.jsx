@@ -8722,8 +8722,14 @@ export default function App() {
   // instead of only a blind one-click "Régénérer" in the kebab menu.
   const [thumbnailModalVideo, setThumbnailModalVideo] = useState(null);
   const [thumbnailHistory, setThumbnailHistory] = useState([]);
+  // The history slide currently shown large — just a local preview until
+  // "Restaurer cette version" is clicked, so browsing the strip doesn't
+  // repeatedly call the restore endpoint. Reset whenever the modal opens on
+  // a (possibly different) video.
+  const [previewedThumbnailItem, setPreviewedThumbnailItem] = useState(null);
   useEffect(() => {
     if (!thumbnailModalVideo) return;
+    setPreviewedThumbnailItem(null);
     authFetch(`${API_BASE}/videos/${thumbnailModalVideo.id}/thumbnail/history`).then(r => r.ok ? r.json() : null).then(d => setThumbnailHistory(d?.history || [])).catch(() => setThumbnailHistory([]));
   }, [thumbnailModalVideo]);
   const restoreThumbnailVersion = async (item) => {
@@ -8731,6 +8737,7 @@ export default function App() {
     if (!res.ok) return;
     setThumbnailBust(prev => ({ ...prev, [thumbnailModalVideo.id]: Date.now() }));
     setThumbnailModalVideo(prev => ({ ...prev }));
+    setPreviewedThumbnailItem(null);
     showToast('Version restaurée comme miniature active.', 'success');
   };
   const openThumbnailModal = (vid, e) => {
@@ -16810,14 +16817,41 @@ export default function App() {
                 <span className="material-symbols-outlined">close</span>
               </button>
             </div>
-            <div className="rounded-2xl overflow-hidden border border-[var(--border)] bg-[var(--bg-input)]">
+            <div className="rounded-2xl overflow-hidden border border-[var(--border)] bg-[var(--bg-input)] relative">
               <img
-                src={getVideoThumbnailUrl(thumbnailModalVideo, thumbnailBust[thumbnailModalVideo.id])}
+                src={previewedThumbnailItem ? `${API_BASE.replace(/\/api$/, '')}${previewedThumbnailItem.url}` : getVideoThumbnailUrl(thumbnailModalVideo, thumbnailBust[thumbnailModalVideo.id])}
                 alt="Miniature"
                 className="w-full aspect-video object-cover"
               />
+              {previewedThumbnailItem && (
+                <span className="absolute top-2 left-2 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wide bg-amber-950/90 text-amber-300 border border-amber-700/80">Aperçu — pas encore appliqué</span>
+              )}
             </div>
-            {thumbnailHistory.length > 0 && <div><p className="text-[11px] font-bold text-slate-300 mb-2">Historique des versions</p><div className="grid grid-cols-4 gap-2">{thumbnailHistory.map(item => <button key={item.filename} onClick={() => restoreThumbnailVersion(item)} className="rounded-lg overflow-hidden border border-[var(--border)] hover:border-[#00c2ff]"><img src={`${API_BASE.replace(/\/api$/, '')}${item.url}`} className="aspect-video w-full object-cover" /><span className="block text-[9px] text-slate-400 py-1">Restaurer</span></button>)}</div></div>}
+            {previewedThumbnailItem && (
+              <button
+                onClick={() => restoreThumbnailVersion(previewedThumbnailItem)}
+                className="w-full flex items-center justify-center gap-2 py-2.5 bg-emerald-500 text-slate-950 rounded-xl font-bold text-xs hover:brightness-110 transition-all"
+              >
+                <span className="material-symbols-outlined text-[16px]">check_circle</span>
+                Restaurer cette version
+              </button>
+            )}
+            {thumbnailHistory.length > 0 && (
+              <div>
+                <p className="text-[11px] font-bold text-slate-300 mb-2">Historique des versions — clique pour prévisualiser en grand</p>
+                <div className="grid grid-cols-4 gap-2">
+                  {thumbnailHistory.map(item => (
+                    <button
+                      key={item.filename}
+                      onClick={() => setPreviewedThumbnailItem(item)}
+                      className={`rounded-lg overflow-hidden border-2 transition-colors ${previewedThumbnailItem?.filename === item.filename ? 'border-[#00c2ff] ring-2 ring-[#00c2ff]/30' : 'border-[var(--border)] hover:border-slate-400'}`}
+                    >
+                      <img src={`${API_BASE.replace(/\/api$/, '')}${item.url}`} className="aspect-video w-full object-cover" />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-3">
             <button
               onClick={(e) => handleRegenerateCardThumbnail(thumbnailModalVideo, e)}
