@@ -3275,30 +3275,35 @@ function pipelinePathLabel(source) {
 function PipelineStepper({ stage, percent, failed = false, source = 'automatic', onStepClick = null }) {
   const steps = PIPELINE_PATHS[source] || PIPELINE_PATHS.automatic;
   const activeIndex = getActivePipelineStepIndex(steps, stage, percent);
+  // Sized in @container units (a card-per-row density slider lets a video
+  // card grow much wider than it used to — see videoGridDensity/@container
+  // on the card wrapper), not fixed px, so a large card actually shows a
+  // legibly bigger stepper instead of the same tiny icons/text stretched
+  // across more empty space.
   return (
     <div className="w-full">
-      <div className="mb-2 text-[8px] font-semibold text-slate-500">{pipelinePathLabel(source)}</div>
+      <div className="mb-2 text-[8px] @sm:text-[10px] @lg:text-xs font-semibold text-slate-500">{pipelinePathLabel(source)}</div>
       <div className="grid items-start w-full" style={{ gridTemplateColumns: `repeat(${steps.length}, minmax(0, 1fr))` }}>
         {steps.map((step, i) => {
         const state = failed && i === activeIndex ? 'failed' : i < activeIndex ? 'done' : i === activeIndex ? 'active' : 'pending';
         return (
-          <button type="button" key={step.label} onClick={(event) => { event.stopPropagation(); onStepClick?.(step, i, state); }} className={`relative flex min-w-0 w-full flex-col items-center gap-1 rounded-md py-0.5 ${onStepClick ? 'cursor-pointer hover:bg-white/[.05] focus:outline-none focus:ring-1 focus:ring-[#00c2ff]/50' : ''}`} title={`${step.label} — ouvrir le suivi`}>
-            {i > 0 && <div className={`absolute right-1/2 top-2.5 h-px w-full ${i <= activeIndex ? 'bg-[#00c2ff]/45' : 'bg-slate-800'}`} />}
-            <div className={`relative z-10 w-5 h-5 rounded-full flex items-center justify-center shrink-0 transition-all border ${
+          <button type="button" key={step.label} onClick={(event) => { event.stopPropagation(); onStepClick?.(step, i, state); }} className={`relative flex min-w-0 w-full flex-col items-center gap-1 @lg:gap-1.5 rounded-md py-0.5 ${onStepClick ? 'cursor-pointer hover:bg-white/[.05] focus:outline-none focus:ring-1 focus:ring-[#00c2ff]/50' : ''}`} title={`${step.label} — ouvrir le suivi`}>
+            {i > 0 && <div className={`absolute right-1/2 top-2.5 @sm:top-3.5 @lg:top-5 h-px w-full ${i <= activeIndex ? 'bg-[#00c2ff]/45' : 'bg-slate-800'}`} />}
+            <div className={`relative z-10 w-5 h-5 @sm:w-7 @sm:h-7 @lg:w-10 @lg:h-10 rounded-full flex items-center justify-center shrink-0 transition-all border ${
               state === 'done' ? 'bg-[#0b2b2b] text-emerald-400 border-emerald-500/25' :
               state === 'active' ? 'bg-[#062d40] text-[#4ed9ff] border-[#00c2ff]/70 shadow-[0_0_14px_rgba(0,194,255,.25)]' :
               state === 'failed' ? 'bg-rose-500/20 text-rose-400' :
               'bg-[#111a27] text-slate-600 border-slate-800'
             }`}>
               {state === 'done' ? (
-                <span className="material-symbols-outlined text-[11px]">check</span>
+                <span className="material-symbols-outlined text-[11px] @sm:text-[16px] @lg:text-[22px]">check</span>
               ) : step.icon === 'youtube' ? (
-                <YouTubeIcon className="w-2 h-1.5" />
+                <YouTubeIcon className="w-2 h-1.5 @lg:w-3.5 @lg:h-2.5" />
               ) : (
-                <span className={`material-symbols-outlined text-[11px] ${state === 'active' ? 'animate-pulse' : ''}`}>{step.icon}</span>
+                <span className={`material-symbols-outlined text-[11px] @sm:text-[16px] @lg:text-[22px] ${state === 'active' ? 'animate-pulse' : ''}`}>{step.icon}</span>
               )}
             </div>
-            <span className={`w-full text-center text-[6.5px] leading-tight font-bold truncate px-px ${state === 'active' ? 'text-[#62dcff]' : state === 'done' ? 'text-slate-400' : 'text-slate-600'}`}>{step.label}</span>
+            <span className={`w-full text-center text-[6.5px] @sm:text-[9px] @lg:text-[13px] leading-tight font-bold truncate px-px ${state === 'active' ? 'text-[#62dcff]' : state === 'done' ? 'text-slate-400' : 'text-slate-600'}`}>{step.label}</span>
           </button>
         );
         })}
@@ -10086,7 +10091,7 @@ export default function App() {
                             draggable={!videoSelectionMode}
                             onDragStart={(e) => { setDraggedVideoId(vid.id); e.dataTransfer.setData('text/plain', vid.id); e.dataTransfer.effectAllowed = 'move'; }}
                             onDragEnd={() => { setDraggedVideoId(null); setDragOverFolderId(null); }}
-                            className={`bg-[var(--bg-surface)] hover:bg-[var(--bg-hover)] border rounded-2xl p-4 transition-all group flex flex-col justify-between shadow-lg relative card-warm-hover video-menu-container ${
+                            className={`@container bg-[var(--bg-surface)] hover:bg-[var(--bg-hover)] border rounded-2xl p-4 transition-all group flex flex-col justify-between shadow-lg relative card-warm-hover video-menu-container ${
                               videoSelectionMode ? 'cursor-pointer ' + (isSelected ? 'border-[#00c2ff]' : 'border-[var(--border-soft)]') : 'border-[var(--border-soft)] hover:border-[#00c2ff]/40 cursor-grab active:cursor-grabbing'
                             } ${draggedVideoId === vid.id ? 'opacity-40' : ''}`}
                           >
@@ -10652,7 +10657,7 @@ export default function App() {
                             </div>
                           )}
                           {item.type === 'videos' && <span className="absolute left-1/2 top-1/2 flex h-11 w-11 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-[#00c2ff]/95 text-slate-950 shadow-lg transition group-hover:scale-110"><span className="material-symbols-outlined text-[25px]">play_arrow</span></span>}
-                          <span className="absolute right-2 top-2 rounded-lg bg-slate-950/75 px-2 py-1 text-[9px] font-bold text-white opacity-0 transition group-hover:opacity-100">{item.provider === 'community' ? 'Communauté' : item.provider === 'ai_generated' ? 'IA KappGen' : 'Pexels'}</span>
+                          <span className="absolute left-2 top-2 rounded-lg bg-slate-950/75 px-2 py-1 text-[9px] font-bold text-white opacity-0 transition group-hover:opacity-100">{item.provider === 'community' ? 'Communauté' : item.provider === 'ai_generated' ? 'IA KappGen' : 'Pexels'}</span>
                           {/* Quick download without opening the full preview. */}
                           <span
                             role="button"
@@ -10660,7 +10665,7 @@ export default function App() {
                             onClick={event => downloadPublicLibraryAsset(item, event)}
                             onKeyDown={event => { if (event.key === 'Enter') downloadPublicLibraryAsset(item, event); }}
                             title="Télécharger"
-                            className="absolute left-2 top-2 flex h-7 w-7 items-center justify-center rounded-lg bg-slate-950/75 text-white opacity-0 transition hover:bg-slate-950 group-hover:opacity-100"
+                            className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-lg bg-slate-950/75 text-white opacity-0 transition hover:bg-slate-950 group-hover:opacity-100"
                           >
                             <span className="material-symbols-outlined text-[15px]">download</span>
                           </span>
@@ -11016,7 +11021,7 @@ export default function App() {
                           draggable={!videoSelectionMode}
                           onDragStart={(e) => { setDraggedVideoId(vid.id); e.dataTransfer.setData('text/plain', vid.id); e.dataTransfer.effectAllowed = 'move'; }}
                           onDragEnd={() => { setDraggedVideoId(null); setDragOverFolderId(null); }}
-                          className={`bg-[var(--bg-surface)] hover:bg-[var(--bg-hover)] border rounded-2xl p-4 transition-all group flex flex-col justify-between shadow-lg relative card-warm-hover video-menu-container ${
+                          className={`@container bg-[var(--bg-surface)] hover:bg-[var(--bg-hover)] border rounded-2xl p-4 transition-all group flex flex-col justify-between shadow-lg relative card-warm-hover video-menu-container ${
                             videoSelectionMode ? 'cursor-pointer ' + (isSelected ? 'border-[#00c2ff]' : 'border-[var(--border-soft)]') : 'border-[var(--border-soft)] hover:border-[#00c2ff]/40 cursor-grab active:cursor-grabbing'
                           } ${draggedVideoId === vid.id ? 'opacity-40' : ''}`}
                         >
