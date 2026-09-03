@@ -1928,12 +1928,26 @@ function MusicChannelWizard({ authFetch, showToast, onCreated, onBack }) {
     try {
       const body = new FormData();
       body.append('style_prompt', form.style_prompt.trim());
-      const res = await authFetch(`${API_BASE}/channels/music-video/preview`, { method: 'POST', body, timeoutMs: 60000 });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.detail || "Aperçu impossible.");
+      const res = await authFetch(`${API_BASE}/channels/music-video/preview`, { method: 'POST', body });
+      const started = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(started.detail || "Aperçu impossible.");
+
+      // Same async-job pattern as the AI music wizard preview — the
+      // generation call commonly runs past Cloudflare's ~100s proxy
+      // timeout, so the backend returns a job_id right away and we poll
+      // for the real result instead of expecting it in this response.
+      for (let attempt = 0; ; attempt++) {
+        if (attempt > 0) await new Promise(r => setTimeout(r, 3000));
+        const statusRes = await authFetch(`${API_BASE}/channels/preview-ai-music/status/${started.job_id}`);
+        const statusBody = await statusRes.json().catch(() => ({}));
+        if (!statusRes.ok) throw new Error(statusBody.detail || "Aperçu impossible.");
+        if (statusBody.status === 'done') break;
+        if (statusBody.status === 'error') throw new Error(statusBody.detail || "Génération musicale impossible.");
+        if (attempt > 100) throw new Error("La génération prend trop de temps, réessaie plus tard.");
       }
-      const blob = await res.blob();
+      const fileRes = await authFetch(`${API_BASE}/channels/preview-ai-music/file/${started.job_id}`);
+      if (!fileRes.ok) throw new Error("Impossible de récupérer l'aperçu musical généré.");
+      const blob = await fileRes.blob();
       setPreviewUrl(URL.createObjectURL(blob));
     } catch (err) {
       showToast(err.message, 'error');
@@ -4371,11 +4385,26 @@ export default function App() {
       if (newChannel.music_preference.ai_prompt) formData.append('ai_prompt', newChannel.music_preference.ai_prompt);
       formData.append('duration', '20');
       const res = await authFetch(`${API_BASE}/channels/preview-ai-music`, { method: 'POST', body: formData });
-      if (!res.ok) {
-        const detail = await res.json().catch(() => ({}));
-        throw new Error(detail.detail || "Génération impossible.");
+      const started = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(started.detail || "Génération impossible.");
+
+      // Izivoice's music generation is a genuinely async task on their end
+      // that commonly runs well past Cloudflare's ~100s proxy timeout — the
+      // backend kicks it off in the background and returns a job_id right
+      // away instead of holding the request open, so poll for the real
+      // result here instead of expecting it in this response.
+      for (let attempt = 0; ; attempt++) {
+        if (attempt > 0) await new Promise(r => setTimeout(r, 3000));
+        const statusRes = await authFetch(`${API_BASE}/channels/preview-ai-music/status/${started.job_id}`);
+        const statusBody = await statusRes.json().catch(() => ({}));
+        if (!statusRes.ok) throw new Error(statusBody.detail || "Génération impossible.");
+        if (statusBody.status === 'done') break;
+        if (statusBody.status === 'error') throw new Error(statusBody.detail || "Génération musicale impossible.");
+        if (attempt > 100) throw new Error("La génération prend trop de temps, réessaie plus tard.");
       }
-      const blob = await res.blob();
+      const fileRes = await authFetch(`${API_BASE}/channels/preview-ai-music/file/${started.job_id}`);
+      if (!fileRes.ok) throw new Error("Impossible de récupérer l'aperçu musical généré.");
+      const blob = await fileRes.blob();
       setAiMusicPreviewUrl(URL.createObjectURL(blob));
       // A real music choice was made — same rule as picking a file in "Mes propres musiques".
       setNewChannel(prev => ({ ...prev, music_preference: { ...prev.music_preference, enabled: true } }));
