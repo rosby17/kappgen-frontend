@@ -8433,8 +8433,28 @@ export default function App() {
     if (e) e.stopPropagation();
     setOpenVideoMenuId(null);
     if (vid.youtube_video_id) {
-      window.open(`https://youtu.be/${vid.youtube_video_id}`, '_blank', 'noopener,noreferrer');
-      return;
+      // Confirm it's still actually live before just opening the link — a
+      // creator who deleted it on YouTube (or had it taken down) needs a way
+      // back to republishing, not a dead link. The review modal below (same
+      // one used for a first publish) is what offers that: POST
+      // .../youtube/publish re-checks authoritatively and republishes with
+      // the same title/description/thumbnail if it's really gone.
+      try {
+        const statusRes = await authFetch(`${API_BASE}/videos/${vid.id}/youtube/status`);
+        const statusData = await statusRes.json();
+        if (statusRes.ok && statusData.exists) {
+          window.open(`https://youtu.be/${vid.youtube_video_id}`, '_blank', 'noopener,noreferrer');
+          return;
+        }
+        if (statusRes.ok && !statusData.exists) {
+          showToast("Cette vidéo n'existe plus sur YouTube — vous pouvez la republier.", 'info');
+        }
+      } catch {
+        // Status check failed (network hiccup) — fall back to the direct
+        // link rather than risk offering a republish of a video that's fine.
+        window.open(`https://youtu.be/${vid.youtube_video_id}`, '_blank', 'noopener,noreferrer');
+        return;
+      }
     }
     // Review step: the AI already proposed a ready-to-publish title (100
     // chars max, YouTube's limit) and description right after the render
