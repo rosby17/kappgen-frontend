@@ -12200,14 +12200,14 @@ export default function App() {
                               <div className="min-w-0">
                                 <div className="flex items-center gap-2">
                                   <span className="material-symbols-outlined text-[24px] text-[#00c2ff]">diversity_3</span>
-                                  <h4 className="text-xs font-bold text-white">Option C : Bibliothèque Communautaire + banque de stock</h4>
+                                  <h4 className="text-xs font-bold text-white">Option C : Ressources publiques</h4>
                                 </div>
                                 <p className="mt-1 text-[11px] text-slate-400">
                                   {!nicheSet
                                     ? "Choisis d'abord une niche (étape 1)."
                                     : available
-                                      ? "Images partagées de ta niche + vraies séquences vidéo et photos de stock cherchées automatiquement pour chaque scène. Gratuit, aucun crédit consommé."
-                                      : `Pas encore de bibliothèque partagée pour « ${nicheSet} », mais les séquences vidéo et photos de stock sont cherchées automatiquement pour chaque scène. Gratuit, aucun crédit consommé.`}
+                                      ? "Images partagées de ta niche (gratuites) + vraies séquences vidéo et photos de stock cherchées automatiquement pour chaque scène (100 crédits par séquence/photo utilisée)."
+                                      : `Pas encore de bibliothèque partagée pour « ${nicheSet} », mais les séquences vidéo et photos de stock sont cherchées automatiquement pour chaque scène (100 crédits par séquence/photo utilisée).`}
                                 </p>
                                 {/* Pexels' API guidelines ask for a visible link
                                     to Pexels wherever their media is used. */}
