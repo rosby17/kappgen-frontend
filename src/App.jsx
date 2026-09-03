@@ -3260,7 +3260,7 @@ function pipelinePathLabel(source) {
   return 'Sujet pris en charge par KappGen';
 }
 
-function PipelineStepper({ stage, percent, failed = false, source = 'automatic' }) {
+function PipelineStepper({ stage, percent, failed = false, source = 'automatic', onStepClick = null }) {
   const steps = PIPELINE_PATHS[source] || PIPELINE_PATHS.automatic;
   const activeIndex = getActivePipelineStepIndex(steps, stage, percent);
   return (
@@ -3270,7 +3270,7 @@ function PipelineStepper({ stage, percent, failed = false, source = 'automatic' 
         {steps.map((step, i) => {
         const state = failed && i === activeIndex ? 'failed' : i < activeIndex ? 'done' : i === activeIndex ? 'active' : 'pending';
         return (
-          <div key={step.label} className="relative flex min-w-0 w-full flex-col items-center gap-1" title={step.label}>
+          <button type="button" key={step.label} onClick={(event) => { event.stopPropagation(); onStepClick?.(step, i, state); }} className={`relative flex min-w-0 w-full flex-col items-center gap-1 rounded-md py-0.5 ${onStepClick ? 'cursor-pointer hover:bg-white/[.05] focus:outline-none focus:ring-1 focus:ring-[#00c2ff]/50' : ''}`} title={`${step.label} — ouvrir le suivi`}>
             {i > 0 && <div className={`absolute right-1/2 top-2.5 h-px w-full ${i <= activeIndex ? 'bg-[#00c2ff]/45' : 'bg-slate-800'}`} />}
             <div className={`relative z-10 w-5 h-5 rounded-full flex items-center justify-center shrink-0 transition-all border ${
               state === 'done' ? 'bg-[#0b2b2b] text-emerald-400 border-emerald-500/25' :
@@ -3287,7 +3287,7 @@ function PipelineStepper({ stage, percent, failed = false, source = 'automatic' 
               )}
             </div>
             <span className={`w-full text-center text-[6.5px] leading-tight font-bold truncate px-px ${state === 'active' ? 'text-[#62dcff]' : state === 'done' ? 'text-slate-400' : 'text-slate-600'}`}>{step.label}</span>
-          </div>
+          </button>
         );
         })}
       </div>
@@ -3653,6 +3653,10 @@ export default function App() {
   const [channelsLoadError, setChannelsLoadError] = useState('');
   const [videosLoadError, setVideosLoadError] = useState('');
   const [selectedVideo, setSelectedVideo] = useState(null);
+  const [productionInspector, setProductionInspector] = useState(null); // { video, step }
+  const [productionProgress, setProductionProgress] = useState(null);
+  const [productionProgressLoading, setProductionProgressLoading] = useState(false);
+  const [productionProgressError, setProductionProgressError] = useState('');
   
   // Modals & Menu Popups
   const [showSubmitModal, setShowSubmitModal] = useState(false);
@@ -3898,6 +3902,37 @@ export default function App() {
   const showToast = (message, type = 'success') => {
     setToast({ message, type });
   };
+
+  const loadProductionProgress = async (videoId, { quiet = false } = {}) => {
+    if (!videoId || String(videoId).startsWith('pending-')) return;
+    if (!quiet) setProductionProgressLoading(true);
+    try {
+      const res = await authFetch(`${API_BASE}/videos/${videoId}/production-progress`);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || 'Impossible de charger le suivi de production.');
+      setProductionProgress(data);
+      setProductionProgressError('');
+    } catch (error) {
+      setProductionProgressError(error.message || 'Impossible de charger le suivi de production.');
+    } finally {
+      if (!quiet) setProductionProgressLoading(false);
+    }
+  };
+
+  const openProductionInspector = (video, step) => {
+    if (!video || video._pending) return;
+    setProductionInspector({ video, step });
+    setProductionProgress(null);
+    setProductionProgressError('');
+    loadProductionProgress(video.id);
+  };
+
+  useEffect(() => {
+    if (!productionInspector?.video?.id) return;
+    const videoId = productionInspector.video.id;
+    const timer = setInterval(() => loadProductionProgress(videoId, { quiet: true }), 3000);
+    return () => clearInterval(timer);
+  }, [productionInspector?.video?.id]);
 
   const askConfirm = (message, { title = "Confirmer l'action", danger = false } = {}) => {
     return new Promise((resolve) => {
@@ -9887,7 +9922,7 @@ export default function App() {
                                 </>
                               ) : vid.status === 'rendering' ? (
                                 <div className="px-4 py-5 text-center w-full max-w-[245px]">
-                                  <PipelineStepper stage={vid.progress_stage} percent={vid.progress_percent} source={vid.creation_source || (vid.input_type === 'audio' ? 'audio' : 'script')} />
+                                  <PipelineStepper stage={vid.progress_stage} percent={vid.progress_percent} source={vid.creation_source || (vid.input_type === 'audio' ? 'audio' : 'script')} onStepClick={(step) => openProductionInspector(vid, step)} />
                                   <div className="mt-4 text-[11px] font-bold text-slate-100 truncate">{vid.progress_stage || 'Rendu en cours…'}</div>
                                   <div className="mt-2.5 h-1 rounded-full bg-slate-800/90 overflow-hidden">
                                     <div className="h-full bg-gradient-to-r from-[#20bff0] to-[#62dcff] transition-all duration-700 rounded-full" style={{ width: `${vid.progress_percent || 2}%` }} />
@@ -10800,7 +10835,7 @@ export default function App() {
                               </>
                             ) : vid.status === 'rendering' ? (
                               <div className="px-4 py-5 text-center w-full max-w-[245px]">
-                                <PipelineStepper stage={vid.progress_stage} percent={vid.progress_percent} source={vid.creation_source || (vid.input_type === 'audio' ? 'audio' : 'script')} />
+                                <PipelineStepper stage={vid.progress_stage} percent={vid.progress_percent} source={vid.creation_source || (vid.input_type === 'audio' ? 'audio' : 'script')} onStepClick={(step) => openProductionInspector(vid, step)} />
                                 <div className="mt-4 text-[11px] font-bold text-slate-100 truncate">{vid.progress_stage || 'Rendu en cours…'}</div>
                                 <div className="mt-2.5 h-1 rounded-full bg-slate-800/90 overflow-hidden">
                                   <div className="h-full bg-gradient-to-r from-[#20bff0] to-[#62dcff] transition-all duration-700 rounded-full" style={{ width: `${vid.progress_percent || 2}%` }} />
@@ -16090,6 +16125,71 @@ export default function App() {
       </main>
 
       {/* NOUVELLE VIDÉO MAIN ACTION MODAL */}
+      {productionInspector && (
+        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-slate-950/80 p-3 backdrop-blur-sm" onClick={() => setProductionInspector(null)}>
+          <div className="flex max-h-[88vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--bg-surface)] shadow-2xl" onClick={event => event.stopPropagation()}>
+            <div className="flex items-start justify-between gap-4 border-b border-[var(--border-soft)] px-5 py-4 sm:px-6">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 text-[#54d8ff]">
+                  <span className="material-symbols-outlined text-[20px]">{productionInspector.step.icon}</span>
+                  <h2 className="text-base font-extrabold text-white">Suivi · {productionInspector.step.label}</h2>
+                  {productionProgress && <span className="rounded-full border border-[#00c2ff]/25 bg-[#00c2ff]/10 px-2 py-0.5 text-[9px] font-bold">{productionProgress.percent || 0}%</span>}
+                </div>
+                <p className="mt-1 truncate text-xs text-slate-400">{productionProgress?.title || productionInspector.video.title || 'Production en cours'}</p>
+              </div>
+              <button type="button" onClick={() => setProductionInspector(null)} className="rounded-lg p-1.5 text-slate-400 transition hover:bg-white/[.05] hover:text-white"><span className="material-symbols-outlined">close</span></button>
+            </div>
+
+            <div className="overflow-y-auto p-5 sm:p-6">
+              {productionProgressError ? (
+                <div role="alert" className="rounded-xl border border-rose-500/35 bg-rose-500/[.08] p-4 text-xs text-rose-200">
+                  <div className="font-bold">Suivi momentanément indisponible</div><p className="mt-1">{productionProgressError}</p>
+                  <button type="button" onClick={() => loadProductionProgress(productionInspector.video.id)} className="mt-3 rounded-lg border border-rose-300/30 px-3 py-1.5 font-bold">Réessayer</button>
+                </div>
+              ) : productionProgressLoading && !productionProgress ? (
+                <div className="flex min-h-48 items-center justify-center text-slate-400"><span className="material-symbols-outlined mr-2 animate-spin text-[#00c2ff]">progress_activity</span>Chargement du suivi…</div>
+              ) : productionProgress && (() => {
+                const label = productionInspector.step.label;
+                const textContent = label === 'Sujet' ? productionProgress.title : label === 'Script' ? productionProgress.script : (label === 'SRT' ? productionProgress.subtitle_preview : '');
+                const isGallery = ['Scènes', 'Visuels'].includes(label);
+                return (
+                  <div className="space-y-5">
+                    <div className="rounded-xl border border-[#00c2ff]/20 bg-[#00c2ff]/[.06] p-4">
+                      <div className="flex items-center justify-between gap-3"><span className="text-xs font-extrabold text-white">{productionProgress.stage || 'En attente'}</span><span className="text-[10px] font-mono text-[#63dcff]">{productionProgress.percent || 0}%</span></div>
+                      <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-800"><div className="h-full rounded-full bg-gradient-to-r from-[#00b8f0] to-[#63dcff] transition-all duration-500" style={{ width: `${productionProgress.percent || 0}%` }} /></div>
+                      <p className="mt-2 text-[10px] text-slate-500">Actualisation automatique toutes les 3 secondes</p>
+                    </div>
+
+                    {textContent ? (
+                      <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--bg-surface-alt)] p-4 sm:p-5">
+                        <div className="mb-3 flex items-center justify-between"><h3 className="text-xs font-extrabold text-white">{label === 'Sujet' ? 'Sujet retenu' : label === 'Script' ? 'Aperçu du script' : 'Transcription / sous-titres'}</h3>{label === 'Script' && <span className="text-[10px] text-slate-500">{productionProgress.script.trim().split(/\s+/).filter(Boolean).length} mots</span>}</div>
+                        <div className="max-h-[48vh] overflow-y-auto whitespace-pre-wrap text-sm leading-7 text-slate-300">{textContent}</div>
+                      </div>
+                    ) : ['Sujet', 'Script', 'SRT'].includes(label) ? (
+                      <div className="rounded-xl border border-dashed border-slate-700 p-8 text-center"><span className="material-symbols-outlined text-3xl text-slate-600">hourglass_empty</span><p className="mt-2 text-xs font-bold text-slate-400">Le contenu apparaîtra ici dès qu’il sera disponible.</p></div>
+                    ) : null}
+
+                    {label === 'Audio' && (productionProgress.audio_ready ? (
+                      <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--bg-surface-alt)] p-5"><h3 className="mb-3 text-xs font-extrabold text-white">Voix générée</h3><audio controls preload="metadata" className="w-full" src={`${API_BASE}${productionProgress.audio_url}`} /></div>
+                    ) : <div className="rounded-xl border border-dashed border-slate-700 p-8 text-center text-xs font-bold text-slate-400">La voix est en cours de préparation. Le lecteur apparaîtra automatiquement.</div>)}
+
+                    {isGallery && (productionProgress.scenes?.length ? (
+                      <div><div className="mb-3 flex items-center justify-between"><h3 className="text-xs font-extrabold text-white">{label === 'Scènes' ? 'Scènes préparées' : 'Visuels disponibles'}</h3><span className="text-[10px] text-slate-500">{productionProgress.scenes.length} élément(s)</span></div><div className="grid grid-cols-2 gap-3 sm:grid-cols-3">{productionProgress.scenes.map(scene => <div key={scene.index} className="overflow-hidden rounded-xl border border-[var(--border-soft)] bg-[var(--bg-surface-alt)]"><img src={`${API_BASE}${scene.image_url}`} alt={`Scène ${Number(scene.index) + 1}`} className="aspect-video w-full object-cover" /><div className="p-2"><div className="text-[10px] font-bold text-white">Scène {Number(scene.index) + 1}</div>{scene.text && <p className="mt-1 line-clamp-2 text-[9px] leading-relaxed text-slate-400">{scene.text}</p>}</div></div>)}</div></div>
+                    ) : <div className="rounded-xl border border-dashed border-slate-700 p-8 text-center text-xs font-bold text-slate-400">La galerie se remplira au fur et à mesure de la génération.</div>)}
+
+                    {label === 'Montage' && <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--bg-surface-alt)] p-5 text-sm text-slate-300"><div className="flex items-center gap-2 font-bold text-white"><span className="material-symbols-outlined text-[#55d8ff]">movie</span>Assemblage en cours</div><p className="mt-2 text-xs leading-relaxed text-slate-400">Les scènes, la voix, la musique et les sous-titres sont assemblés. L’aperçu vidéo sera disponible à la finalisation.</p></div>}
+
+                    {label === 'Finalisation' && (productionProgress.final_ready && productionInspector.video.output_path ? <video controls preload="metadata" className="max-h-[55vh] w-full rounded-xl bg-black" src={getVideoUrl(productionInspector.video.output_path)} /> : <div className="rounded-xl border border-dashed border-slate-700 p-8 text-center text-xs font-bold text-slate-400">La vidéo finale apparaîtra ici dès que l’assemblage sera terminé.</div>)}
+
+                    {productionProgress.error && <div role="alert" className="rounded-xl border border-rose-500/35 bg-rose-500/[.08] p-4 text-xs text-rose-200">{productionProgress.error}</div>}
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
+        </div>
+      )}
+
       {showSubmitModal && activeChannel && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-6">
           <div className={`bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-3xl w-full max-h-[90vh] shadow-2xl flex flex-col ${submitStep === 2 ? 'max-w-[980px]' : 'max-w-[620px]'}`}>
