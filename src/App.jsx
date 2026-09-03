@@ -11475,32 +11475,71 @@ export default function App() {
                       );
                     })()}
 
-                    {newChannel.automation_mode === 'auto' && (
-                      <div>
-                        <label className="block text-xs font-bold text-slate-300 mb-1.5">Exemples de sujets / titres</label>
-                        <textarea
-                          value={newChannel.topic_examples || ''}
-                          onChange={e => setNewChannel({ ...newChannel, topic_examples: e.target.value })}
-                          placeholder={"Colle directement une liste de vidéos qui marchent dans ta niche — les tiennes, ou celles d'une chaîne concurrente (avec le nombre de vues et la date, aucun souci). L'IA s'occupe de repérer les plus virales et d'en tirer le style pour écrire tes prochains scripts.\n\nEx :\nLe jour où tu arrêtes de demander la permission de vivre — 2,3 M de vues — il y a 4 mois\nPourquoi le silence de Dieu n'est pas un abandon"}
-                          rows={12}
-                          className="w-full bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-3 py-2.5 text-xs text-white focus:border-[#00c2ff] outline-none resize-y"
-                        />
-                        <p className="text-[10px] text-slate-500 mt-1.5 px-1">Sans ça, le choix des sujets reste générique. Colle tes données (vues, dates comprises) — l'IA repère elle-même les vidéos les plus virales pour s'en inspirer.</p>
-                      </div>
-                    )}
+                    {newChannel.automation_mode === 'auto' && (() => {
+                      const hasExamples = !!(newChannel.topic_examples || '').trim();
+                      const webTrendsOn = !!newChannel.use_web_trends;
+                      return (
+                        <div className="space-y-2">
+                          <label className="block text-xs font-bold text-slate-300 px-1">Recherche de sujets</label>
+                          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 items-start">
+                            {/* Primary method — always relevant, not a toggle: the
+                                "checked" badge just reflects whether the creator has
+                                pasted anything yet, matching the visual language of
+                                the toggleable card next to it. */}
+                            <div className={`p-4 rounded-2xl border-2 transition-all space-y-3 ${hasExamples ? 'bg-[var(--bg-surface-alt)] border-[#00c2ff] shadow-lg shadow-[#00c2ff]/10' : 'bg-[var(--bg-surface-soft)] border-[var(--border-soft)]'}`}>
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="flex items-center gap-2">
+                                  <span className="material-symbols-outlined text-[22px] text-[#00c2ff]">history_edu</span>
+                                  <h4 className="text-xs font-bold text-white">Exemples de sujets / titres</h4>
+                                </div>
+                                <span className={`shrink-0 text-[9px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full ${hasExamples ? 'bg-emerald-950/60 text-emerald-400' : 'bg-[var(--bg-surface-alt)] text-slate-500'}`}>
+                                  {hasExamples ? 'Actif' : 'Recommandé'}
+                                </span>
+                              </div>
+                              <p className="text-[11px] text-slate-400">
+                                Sans ça, le choix des sujets reste générique. Colle tes données (vues, dates comprises) — l'IA repère elle-même les vidéos les plus virales pour s'en inspirer.
+                              </p>
+                              <textarea
+                                value={newChannel.topic_examples || ''}
+                                onChange={e => setNewChannel({ ...newChannel, topic_examples: e.target.value })}
+                                placeholder={"Colle directement une liste de vidéos qui marchent dans ta niche — les tiennes, ou celles d'une chaîne concurrente (avec le nombre de vues et la date, aucun souci).\n\nEx :\nLe jour où tu arrêtes de demander la permission de vivre — 2,3 M de vues — il y a 4 mois\nPourquoi le silence de Dieu n'est pas un abandon"}
+                                rows={9}
+                                className="w-full bg-[var(--bg-input-alt)] border border-[var(--border)] rounded-xl px-3 py-2.5 text-xs text-white focus:border-[#00c2ff] outline-none resize-y"
+                              />
+                            </div>
 
-                    {newChannel.automation_mode === 'auto' && (
-                      <label className="flex items-center gap-2.5 bg-[var(--bg-input)] border border-[var(--border-subtle)] rounded-xl px-3 py-2.5 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={!!newChannel.use_web_trends}
-                          onChange={e => setNewChannel({ ...newChannel, use_web_trends: e.target.checked })}
-                          className="w-4 h-4 accent-[#00c2ff]"
-                        />
-                        <span className="material-symbols-outlined text-[16px] text-slate-500 shrink-0">travel_explore</span>
-                        <span className="text-[11px] text-slate-300">Puiser dans l'actualité récente (recherche web) — pour une chaîne d'actu/tendances</span>
-                      </label>
-                    )}
+                            {/* Complementary/optional — real per-search cost (billed
+                                to the creator like any other paid call), so it stays
+                                an explicit opt-in rather than bundled silently into
+                                the base script cost. */}
+                            <div
+                              onClick={() => setNewChannel({ ...newChannel, use_web_trends: !webTrendsOn })}
+                              className={`p-4 rounded-2xl border-2 transition-all space-y-3 cursor-pointer flex flex-col justify-between ${webTrendsOn ? 'bg-[var(--bg-surface-alt)] border-[#00c2ff] shadow-lg shadow-[#00c2ff]/10' : 'bg-[var(--bg-surface-soft)] border-[var(--border-soft)] hover:border-slate-500'}`}
+                            >
+                              <div>
+                                <div className="flex items-start justify-between gap-3">
+                                  <div className="flex items-center gap-2">
+                                    <span className="material-symbols-outlined text-[22px] text-[#00c2ff]">travel_explore</span>
+                                    <h4 className="text-xs font-bold text-white">Recherche web</h4>
+                                  </div>
+                                  <input
+                                    type="checkbox"
+                                    checked={webTrendsOn}
+                                    onChange={() => setNewChannel({ ...newChannel, use_web_trends: !webTrendsOn })}
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="kappgen-checkbox shrink-0"
+                                  />
+                                </div>
+                                <p className="mt-2 text-[11px] text-slate-400">
+                                  Complémentaire aux exemples ci-contre — l'IA cherche une actualité ou une tendance réelle du moment pour une chaîne d'actu/tendances (sport, news...). Optionnel.
+                                </p>
+                              </div>
+                              <p className="text-[10px] text-slate-500">Facturé au coût réel de la recherche, comme tout appel payant.</p>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })()}
 
                     {newChannel.automation_mode === 'auto' && (
                       <div>
