@@ -18035,6 +18035,7 @@ export default function App() {
               {[
                 { key: 'hd', label: 'Haute définition', format: 'HD · 1920×1080', detail: 'Qualité native du rendu', icon: 'high_quality', recommended: true },
                 { key: 'sd', label: 'Version légère', format: 'SD · 854×480', detail: 'Plus rapide à partager et à envoyer', icon: 'bolt', recommended: false },
+                { key: '4k', label: 'Ultra haute définition', format: '4K · 3840×2160', detail: 'Upscale premium · 5 000 crédits', icon: '4k', recommended: false },
               ].map(opt => (
                 <button
                   key={opt.key}
