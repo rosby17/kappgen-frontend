@@ -3995,7 +3995,7 @@ export default function App() {
 
   const handleCancelProduction = async (videoId) => {
     if (!videoId || cancellingProduction) return;
-    if (!window.confirm("Annuler cette vidéo ? Le rendu s'arrêtera à l'étape en cours et les crédits déjà dépensés seront remboursés.")) return;
+    if (!await askConfirm("Le rendu s'arrêtera à l'étape en cours et les crédits déjà dépensés seront remboursés.", { title: "Annuler cette vidéo ?", danger: true, confirmLabel: "Annuler le rendu" })) return;
     setCancellingProduction(true);
     try {
       const res = await authFetch(`${API_BASE}/videos/${videoId}/cancel`, { method: 'POST' });
@@ -4564,7 +4564,7 @@ export default function App() {
   };
 
   const deleteAllLibraryImages = async (channelId) => {
-    if (!window.confirm('Supprimer toutes les images uploadées pour cette chaîne ? Cette action est irréversible.')) return;
+    if (!await askConfirm('Cette action est irréversible.', { title: 'Supprimer toutes les images uploadées ?', danger: true, confirmLabel: 'Supprimer' })) return;
     setLibraryBusyKey(`${channelId}:__all__`);
     try {
       const res = await authFetch(`${API_BASE}/channels/${channelId}/library/images`, { method: 'DELETE' });
@@ -7504,7 +7504,7 @@ export default function App() {
   // deletes the channel (and its videos), not just its library-sharing
   // status. Confirmed inline since it's irreversible.
   const deleteAdminLibraryChannel = async (channelId, channelName) => {
-    if (!window.confirm(`Supprimer définitivement la chaîne « ${channelName || channelId} » et toutes ses vidéos ? Cette action est irréversible.`)) return;
+    if (!await askConfirm(`Cette action est irréversible.`, { title: `Supprimer définitivement la chaîne « ${channelName || channelId} » ?`, danger: true, confirmLabel: 'Supprimer' })) return;
     try {
       const res = await authFetch(`${API_BASE}/admin/channels/${channelId}`, { method: 'DELETE' });
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || "Suppression impossible.");
@@ -7564,7 +7564,7 @@ export default function App() {
 
   const deleteSelectedAdminLibraryImages = async (channelId, filenames) => {
     if (!filenames.length) return;
-    if (!window.confirm(`Supprimer définitivement ${filenames.length} image${filenames.length > 1 ? 's' : ''} ?`)) return;
+    if (!await askConfirm(`Cette action est irréversible.`, { title: `Supprimer définitivement ${filenames.length} image${filenames.length > 1 ? 's' : ''} ?`, danger: true, confirmLabel: 'Supprimer' })) return;
     try {
       const results = await Promise.all(filenames.map(filename =>
         authFetch(`${API_BASE}/admin/channel-library/${channelId}/images/${encodeURIComponent(filename)}`, { method: 'DELETE' })
@@ -7585,7 +7585,7 @@ export default function App() {
   // uploads (off-topic photos, low quality) polluted the niche's shared pool.
   const deleteUploadedAdminLibraryImages = async (folder, nicheName) => {
     const channelId = folder.channel_id;
-    if (!window.confirm(`Supprimer toutes les images UPLOADÉES de « ${folder.channel_name} » (les images générées par l'IA sont conservées) ?`)) return;
+    if (!await askConfirm(`Les images générées par l'IA sont conservées.`, { title: `Supprimer toutes les images uploadées de « ${folder.channel_name} » ?`, danger: true, confirmLabel: 'Supprimer' })) return;
     try {
       const res = await authFetch(`${API_BASE}/admin/channel-library/${channelId}/uploaded-images`, { method: 'DELETE' });
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || "Suppression impossible.");
@@ -7648,7 +7648,7 @@ export default function App() {
   };
 
   const deleteAdminVideo = async (videoId) => {
-    if (!window.confirm("Supprimer définitivement cette vidéo ?")) return;
+    if (!await askConfirm("Cette action est irréversible.", { title: "Supprimer définitivement cette vidéo ?", danger: true, confirmLabel: 'Supprimer' })) return;
     try {
       const res = await authFetch(`${API_BASE}/admin/videos/${videoId}`, { method: 'DELETE' });
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || 'Échec de la suppression');
@@ -7949,7 +7949,7 @@ export default function App() {
   };
 
   const deleteHfAccount = async (id) => {
-    if (!window.confirm('Retirer ce compte Hugging Face ?')) return;
+    if (!await askConfirm('Le compte ne sera plus utilisé pour les générations.', { title: 'Retirer ce compte Hugging Face ?', danger: true, confirmLabel: 'Retirer' })) return;
     try {
       const res = await authFetch(`${API_BASE}/admin/hf-accounts/${id}`, { method: 'DELETE' });
       if (!res.ok) throw new Error();
@@ -8346,7 +8346,7 @@ export default function App() {
   };
 
   const handleDeleteClonedVoice = async (voiceId) => {
-    if (!window.confirm('Supprimer définitivement cette voix clonée ? Cette action est irréversible.')) return;
+    if (!await askConfirm('Cette action est irréversible.', { title: 'Supprimer définitivement cette voix clonée ?', danger: true, confirmLabel: 'Supprimer' })) return;
     try {
       const res = await authFetch(`${API_BASE}/channels/my-cloned-voices/${voiceId}`, { method: 'DELETE' });
       const body = await res.json().catch(() => ({}));
