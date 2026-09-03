@@ -10136,7 +10136,7 @@ export default function App() {
                                   )}
                                 </>
                               ) : vid.status === 'rendering' ? (
-                                <div className="px-4 py-5 @lg:py-8 text-center w-full">
+                                <div className="absolute inset-0 flex flex-col items-center justify-center px-4 py-5 @lg:py-8 text-center">
                                   <PipelineStepper stage={vid.progress_stage} percent={vid.progress_percent} source={vid.creation_source || (vid.input_type === 'audio' ? 'audio' : 'script')} onStepClick={(step) => openProductionInspector(vid, step)} />
                                   <div className="mt-4 @lg:mt-6 text-[11px] @lg:text-base font-bold text-slate-100 truncate">{vid.progress_stage || 'Rendu en cours…'}</div>
                                   <div className="mt-2.5 @lg:mt-4 h-1 @lg:h-1.5 rounded-full bg-slate-800/90 overflow-hidden">
@@ -10148,7 +10148,7 @@ export default function App() {
                                   </div>
                                 </div>
                               ) : vid.status === 'failed' ? (
-                                <div className="w-full h-full px-4 py-3 text-center flex flex-col items-center justify-center gap-1.5 @lg:gap-3">
+                                <div className="absolute inset-0 flex flex-col items-center justify-center px-4 py-3 text-center gap-1.5 @lg:gap-3">
                                   {(() => {
                                     const mustForce = vid.youtube_compliance_report?.phase?.endsWith('_preflight') && vid.youtube_compliance_report?.can_render === false && !vid.script_compliance_overridden;
                                     return (
@@ -10167,13 +10167,13 @@ export default function App() {
                                   </div>
                                 </div>
                               ) : vid.status === 'done' ? (
-                                <div className="p-4 text-center space-y-2 @lg:space-y-3">
+                                <div className="absolute inset-0 flex flex-col items-center justify-center text-center space-y-2 @lg:space-y-3">
                                   <span className="material-symbols-outlined text-[36px] @lg:text-[56px] text-slate-500">inventory_2</span>
                                   <div className="text-[11px] @lg:text-base font-bold font-mono text-slate-400">Fichier expiré</div>
                                   <div className="text-[9px] @lg:text-xs text-slate-500">Rendu terminé, fichier purgé après la période de rétention.</div>
                                 </div>
                               ) : (
-                                <div className="p-4 text-center space-y-2 @lg:space-y-3">
+                                <div className="absolute inset-0 flex flex-col items-center justify-center text-center space-y-2 @lg:space-y-3">
                                   <HourglassSandIcon className="w-9 h-9 @lg:w-16 @lg:h-16 mx-auto text-[#00c2ff]" />
                                   <div className="text-[11px] @lg:text-base font-bold font-mono text-[#00c2ff]">En file d'attente</div>
                                 </div>
@@ -11066,7 +11066,7 @@ export default function App() {
                                 )}
                               </>
                             ) : vid.status === 'rendering' ? (
-                              <div className="px-4 py-5 @lg:py-8 text-center w-full">
+                              <div className="absolute inset-0 flex flex-col items-center justify-center px-4 py-5 @lg:py-8 text-center">
                                 <PipelineStepper stage={vid.progress_stage} percent={vid.progress_percent} source={vid.creation_source || (vid.input_type === 'audio' ? 'audio' : 'script')} onStepClick={(step) => openProductionInspector(vid, step)} />
                                 <div className="mt-4 @lg:mt-6 text-[11px] @lg:text-base font-bold text-slate-100 truncate">{vid.progress_stage || 'Rendu en cours…'}</div>
                                 <div className="mt-2.5 @lg:mt-4 h-1 @lg:h-1.5 rounded-full bg-slate-800/90 overflow-hidden">
@@ -11078,7 +11078,7 @@ export default function App() {
                                 </div>
                               </div>
                             ) : vid.status === 'failed' ? (
-                              <div className="w-full h-full px-4 py-3 text-center flex flex-col items-center justify-center gap-1.5 @lg:gap-3">
+                              <div className="absolute inset-0 flex flex-col items-center justify-center px-4 py-3 text-center gap-1.5 @lg:gap-3">
                                 {(() => {
                                   const mustForce = vid.youtube_compliance_report?.phase?.endsWith('_preflight') && vid.youtube_compliance_report?.can_render === false && !vid.script_compliance_overridden;
                                   return (
@@ -11097,12 +11097,12 @@ export default function App() {
                                 </div>
                               </div>
                             ) : vid.status === 'done' ? (
-                              <div className="p-4 text-center space-y-2 @lg:space-y-3">
+                              <div className="absolute inset-0 flex flex-col items-center justify-center text-center space-y-2 @lg:space-y-3">
                                 <span className="material-symbols-outlined text-[36px] @lg:text-[56px] text-slate-500">inventory_2</span>
                                 <div className="text-[11px] @lg:text-base font-bold font-mono text-slate-400">Fichier expiré</div>
                               </div>
                             ) : (
-                              <div className="p-4 text-center space-y-2 @lg:space-y-3">
+                              <div className="absolute inset-0 flex flex-col items-center justify-center text-center space-y-2 @lg:space-y-3">
                                 <HourglassSandIcon className="w-9 h-9 @lg:w-16 @lg:h-16 mx-auto text-[#00c2ff]" />
                                 <div className="text-[11px] @lg:text-base font-bold font-mono text-[#00c2ff]">En file</div>
                               </div>
