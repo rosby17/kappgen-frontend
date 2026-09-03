@@ -8268,6 +8268,25 @@ export default function App() {
     }
   };
 
+  // On-demand version of the auto-popup at freshly-done detection (below) —
+  // a creator can otherwise only ever see a video's cost once, right as it
+  // finishes; this lets them check it again anytime from the video's menu.
+  const handleShowCostRecap = async (vid, e) => {
+    if (e) e.stopPropagation();
+    setOpenVideoMenuId(null);
+    try {
+      const res = await authFetch(`${API_BASE}/videos/${vid.id}/cost-recap`);
+      const recap = res.ok ? await res.json() : null;
+      if (!recap || !recap.items?.length) {
+        showToast("Aucun coût enregistré pour cette vidéo.", 'error');
+        return;
+      }
+      setCostRecap({ videoTitle: vid.title || 'Vidéo', ...recap });
+    } catch {
+      showToast("Impossible de charger le détail des coûts.", 'error');
+    }
+  };
+
   const [retryingVideoVisualsId, setRetryingVideoVisualsId] = useState(null);
   const handleRetryVideoVisuals = async (videoId) => {
     if (!videoId || retryingVideoVisualsId) return;
@@ -10279,6 +10298,11 @@ export default function App() {
                                     </button>
                                   )}
                                   {vid.status === 'done' && (
+                                    <button onClick={(e) => handleShowCostRecap(vid, e)} className="w-full text-left px-3 py-1.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium">
+                                      <span className="material-symbols-outlined text-[14px] text-[#00c2ff]">toll</span> Détail du coût
+                                    </button>
+                                  )}
+                                  {vid.status === 'done' && (
                                     <button disabled={togglingRetentionId === vid.id} onClick={(e) => openRetentionModal(vid, e)} title="48 heures incluses, puis 1 000 crédits par jour." className="w-full text-left px-3 py-1.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium disabled:opacity-50">
                                       <span className="material-symbols-outlined text-[14px] text-[#00c2ff]">schedule</span>
                                       Conserver plus longtemps
@@ -11235,6 +11259,11 @@ export default function App() {
                                 {vid.status === 'done' && (
                                   <button onClick={(e) => handleDownloadVideo(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium">
                                     <span className="material-symbols-outlined text-[16px] text-[#00c2ff]">download</span> Télécharger
+                                  </button>
+                                )}
+                                {vid.status === 'done' && (
+                                  <button onClick={(e) => handleShowCostRecap(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium">
+                                    <span className="material-symbols-outlined text-[16px] text-[#00c2ff]">toll</span> Détail du coût
                                   </button>
                                 )}
                                 {vid.status === 'done' && (
