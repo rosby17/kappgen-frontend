@@ -10920,17 +10920,37 @@ export default function App() {
                 <section className="space-y-4">
                   <div className="flex items-center justify-between gap-3">
                     <h3 className="text-lg font-bold text-white">Vidéos de la Chaîne ({channelVideos.length})</h3>
-                    {channelVideos.length > 0 && (
-                      <button
-                        onClick={() => videoSelectionMode ? exitVideoSelectionMode() : setVideoSelectionMode(true)}
-                        className={`px-3.5 py-1.5 font-bold text-xs rounded-xl transition-all flex items-center gap-1.5 flex-shrink-0 border ${
-                          videoSelectionMode ? 'bg-[#00c2ff]/10 text-[#00c2ff] border-[#00c2ff]' : 'bg-[var(--bg-surface-alt)] text-slate-300 hover:text-white border-[var(--border)]'
-                        }`}
-                      >
-                        <span className="material-symbols-outlined text-[16px]">{videoSelectionMode ? 'close' : 'checklist'}</span>
-                        {videoSelectionMode ? 'Annuler' : 'Sélectionner'}
-                      </button>
-                    )}
+                    <div className="flex items-center gap-3 flex-shrink-0">
+                      {/* Same cards-per-row slider as Mes Vidéos — shares the
+                          same persisted preference, so the choice sticks
+                          across both screens without a second setting. */}
+                      <div className="flex items-center gap-2 bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-3 py-2" title="Taille des cartes">
+                        <span className="material-symbols-outlined text-[16px] text-slate-400 shrink-0">crop_square</span>
+                        <input
+                          type="range"
+                          min="1"
+                          max="6"
+                          step="1"
+                          value={videoGridDensity}
+                          onChange={e => updateVideoGridDensity(Number(e.target.value))}
+                          className="w-20 accent-[#00c2ff]"
+                          title={`${videoGridDensity} par ligne`}
+                        />
+                        <span className="material-symbols-outlined text-[12px] text-slate-400 shrink-0">grid_view</span>
+                        <span className="text-[11px] font-bold text-white w-3 text-center shrink-0">{videoGridDensity}</span>
+                      </div>
+                      {channelVideos.length > 0 && (
+                        <button
+                          onClick={() => videoSelectionMode ? exitVideoSelectionMode() : setVideoSelectionMode(true)}
+                          className={`px-3.5 py-1.5 font-bold text-xs rounded-xl transition-all flex items-center gap-1.5 flex-shrink-0 border ${
+                            videoSelectionMode ? 'bg-[#00c2ff]/10 text-[#00c2ff] border-[#00c2ff]' : 'bg-[var(--bg-surface-alt)] text-slate-300 hover:text-white border-[var(--border)]'
+                          }`}
+                        >
+                          <span className="material-symbols-outlined text-[16px]">{videoSelectionMode ? 'close' : 'checklist'}</span>
+                          {videoSelectionMode ? 'Annuler' : 'Sélectionner'}
+                        </button>
+                      )}
+                    </div>
                   </div>
                   {videoSelectionMode && (
                     <div className="sticky top-0 z-10 bg-[#0f1621] border border-[#00c2ff]/30 rounded-xl px-4 py-2.5 flex items-center justify-between gap-3 shadow-lg">
