@@ -3669,7 +3669,8 @@ export default function App() {
   const [productionProgress, setProductionProgress] = useState(null);
   const [productionProgressLoading, setProductionProgressLoading] = useState(false);
   const [productionProgressError, setProductionProgressError] = useState('');
-  
+  const [cancellingProduction, setCancellingProduction] = useState(false);
+
   // Modals & Menu Popups
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [generatingAutoVideo, setGeneratingAutoVideo] = useState(false);
@@ -3864,7 +3865,7 @@ export default function App() {
   const [librarySearch, setLibrarySearch] = useState('');
   const [libraryContentFilter, setLibraryContentFilter] = useState('all');
   const [libraryBusyKey, setLibraryBusyKey] = useState(null);
-  const [publicLibraryQuery, setPublicLibraryQuery] = useState('nature');
+  const [publicLibraryQuery, setPublicLibraryQuery] = useState('');
   const [publicLibraryMediaType, setPublicLibraryMediaType] = useState('photos');
   const [publicLibraryItems, setPublicLibraryItems] = useState([]);
   const [publicLibraryLoading, setPublicLibraryLoading] = useState(false);
@@ -3931,6 +3932,26 @@ export default function App() {
       setProductionProgressError(friendlyErrorMessage(error, 'Impossible de charger le suivi de production.'));
     } finally {
       if (!quiet) setProductionProgressLoading(false);
+    }
+  };
+
+  const handleCancelProduction = async (videoId) => {
+    if (!videoId || cancellingProduction) return;
+    if (!window.confirm("Annuler cette vidéo ? Le rendu s'arrêtera à l'étape en cours et les crédits déjà dépensés seront remboursés.")) return;
+    setCancellingProduction(true);
+    try {
+      const res = await authFetch(`${API_BASE}/videos/${videoId}/cancel`, { method: 'POST' });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || "Impossible d'annuler cette vidéo.");
+      setProductionProgress(prev => (prev ? { ...prev, status: data.status } : prev));
+      setAllVideos(prev => prev.map(v => v.id === videoId ? { ...v, ...data } : v));
+      setChannelVideos(prev => prev.map(v => v.id === videoId ? { ...v, ...data } : v));
+      showToast('Vidéo annulée — crédits remboursés.', 'success');
+      setProductionInspector(null);
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setCancellingProduction(false);
     }
   };
 
@@ -4319,7 +4340,12 @@ export default function App() {
   };
 
   const fetchPublicLibrary = async ({ query = publicLibraryQuery, mediaType = publicLibraryMediaType, page = 1 } = {}) => {
-    const cleaned = query.trim() || 'nature';
+    const cleaned = query.trim();
+    if (!cleaned) {
+      setPublicLibraryItems([]);
+      setPublicLibraryHasNext(false);
+      return;
+    }
     setPublicLibraryLoading(true);
     setPublicLibraryError('');
     try {
@@ -5380,7 +5406,11 @@ export default function App() {
   }, [view, currentUser]);
 
   useEffect(() => {
-    if (view === 'public_library' && currentUser) fetchPublicLibrary();
+    // No auto-search on arrival — an empty search box with an unrequested
+    // "nature" catalogue already loaded made every first visit look like the
+    // creator had typed something they hadn't. The page now waits for an
+    // actual search or category pick.
+    if (view === 'public_library' && currentUser && publicLibraryQuery.trim()) fetchPublicLibrary();
   }, [view, currentUser, publicLibraryMediaType]);
 
   useEffect(() => {
@@ -16201,7 +16231,23 @@ export default function App() {
                     <div className="rounded-xl border border-[#00c2ff]/20 bg-[#00c2ff]/[.06] p-4">
                       <div className="flex items-center justify-between gap-3"><span className="text-xs font-extrabold text-white">{productionProgress.stage || 'En attente'}</span><span className="text-[10px] font-mono text-[#63dcff]">{productionProgress.percent || 0}%</span></div>
                       <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-800"><div className="h-full rounded-full bg-gradient-to-r from-[#00b8f0] to-[#63dcff] transition-all duration-500" style={{ width: `${productionProgress.percent || 0}%` }} /></div>
-                      <p className="mt-2 text-[10px] text-slate-500">Actualisation automatique toutes les 3 secondes</p>
+                      <div className="mt-2 flex items-center justify-between gap-3">
+                        <p className="text-[10px] text-slate-500">Actualisation automatique toutes les 3 secondes</p>
+                        {/* Available at any stage while the video is still queued/rendering
+                            — a creator watching this shouldn't be stuck riding a render out
+                            to a result they already know they don't want. */}
+                        {['queued', 'rendering'].includes(productionProgress.status) && (
+                          <button
+                            type="button"
+                            onClick={() => handleCancelProduction(productionInspector.video.id)}
+                            disabled={cancellingProduction}
+                            className="shrink-0 flex items-center gap-1 rounded-lg border border-rose-500/40 bg-rose-500/10 px-2.5 py-1 text-[10px] font-bold text-rose-300 transition hover:bg-rose-500/20 disabled:opacity-50"
+                          >
+                            <span className="material-symbols-outlined text-[13px]">{cancellingProduction ? 'progress_activity' : 'cancel'}</span>
+                            {cancellingProduction ? 'Annulation…' : 'Annuler la vidéo'}
+                          </button>
+                        )}
+                      </div>
                     </div>
 
                     {textContent ? (
