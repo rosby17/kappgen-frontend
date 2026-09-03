@@ -11569,7 +11569,6 @@ export default function App() {
                                   Complémentaire aux exemples ci-contre — l'IA cherche une actualité ou une tendance réelle du moment pour une chaîne d'actu/tendances (sport, news...). Optionnel.
                                 </p>
                               </div>
-                              <p className="text-[10px] text-slate-500">Facturé au coût réel de la recherche, comme tout appel payant.</p>
                             </div>
                           </div>
                         </div>
