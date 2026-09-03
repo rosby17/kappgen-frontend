@@ -7678,7 +7678,7 @@ export default function App() {
       )}
       <button onClick={(e) => handleDownloadVideo(vid, e)} disabled={!vid.output_path} className="w-full px-3 py-2 text-left text-xs font-medium text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 disabled:opacity-40"><span className="material-symbols-outlined text-[15px] text-[#00c2ff]">download</span>Télécharger</button>
       <button onClick={(e) => openRetentionModal(vid, e)} className="w-full px-3 py-2 text-left text-xs font-medium text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2"><span className="material-symbols-outlined text-[15px] text-[#00c2ff]">schedule</span>Conserver plus longtemps</button>
-      <button onClick={(e) => handlePublishYouTube(vid, e)} disabled={vid.status !== 'done'} className="w-full px-3 py-2 text-left text-xs font-medium text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 disabled:opacity-40"><span className="material-symbols-outlined text-[15px] text-[#00c2ff]">smart_display</span>{vid.youtube_video_id ? 'Voir sur YouTube' : 'Publier sur YouTube'}</button>
+      <button onClick={(e) => handlePublishYouTube(vid, e)} disabled={vid.status !== 'done'} className="w-full px-3 py-2 text-left text-xs font-medium text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 disabled:opacity-40"><span className="material-symbols-outlined text-[15px] text-[#00c2ff]">smart_display</span>{vid.youtube_video_id ? 'Republier sur YouTube' : 'Publier sur YouTube'}</button>
       <button onClick={(e) => { e.stopPropagation(); setAdminVideoMenuId(null); setMovingVideoId(vid.id); }} className="w-full px-3 py-2 text-left text-xs font-medium text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2"><span className="material-symbols-outlined text-[15px] text-[#00c2ff]">drive_file_move</span>Déplacer vers…</button>
       <div className="my-1 h-px bg-[var(--border-dropdown)]" />
       <button onClick={(e) => { e.stopPropagation(); setAdminVideoMenuId(null); deleteAdminVideo(vid.id); }} className="w-full px-3 py-2 text-left text-xs font-medium text-rose-400 hover:bg-rose-950/50 flex items-center gap-2"><span className="material-symbols-outlined text-[15px]">delete</span>Supprimer</button>
@@ -8593,30 +8593,8 @@ export default function App() {
   const handlePublishYouTube = async (vid, e) => {
     if (e) e.stopPropagation();
     setOpenVideoMenuId(null);
-    if (vid.youtube_video_id) {
-      // Confirm it's still actually live before just opening the link — a
-      // creator who deleted it on YouTube (or had it taken down) needs a way
-      // back to republishing, not a dead link. The review modal below (same
-      // one used for a first publish) is what offers that: POST
-      // .../youtube/publish re-checks authoritatively and republishes with
-      // the same title/description/thumbnail if it's really gone.
-      try {
-        const statusRes = await authFetch(`${API_BASE}/videos/${vid.id}/youtube/status`);
-        const statusData = await statusRes.json();
-        if (statusRes.ok && statusData.exists) {
-          window.open(`https://youtu.be/${vid.youtube_video_id}`, '_blank', 'noopener,noreferrer');
-          return;
-        }
-        if (statusRes.ok && !statusData.exists) {
-          showToast("Cette vidéo n'existe plus sur YouTube — vous pouvez la republier.", 'info');
-        }
-      } catch {
-        // Status check failed (network hiccup) — fall back to the direct
-        // link rather than risk offering a republish of a video that's fine.
-        window.open(`https://youtu.be/${vid.youtube_video_id}`, '_blank', 'noopener,noreferrer');
-        return;
-      }
-    }
+    // A published video can intentionally be sent again; always open the
+    // title/description review instead of redirecting to the old YouTube URL.
     setPublishTitleDraft((vid.title || '').slice(0, 100));
     setPublishDescriptionDraft(vid.youtube_description || '');
     setPublishReviewMode('publish');
@@ -8746,6 +8724,7 @@ export default function App() {
           // explicite sur « Publier » constitue l'autorisation de l'envoyer.
           confirm_human_review: true,
           force_publish: true,
+          republish: !!vid.youtube_video_id,
         }),
       });
       const body = await res.json().catch(() => ({}));
@@ -10485,7 +10464,7 @@ export default function App() {
                                   {vid.status === 'done' && (
                                     <button disabled={publishingVideoId === vid.id} onClick={(e) => handlePublishYouTube(vid, e)} className="w-full text-left px-3 py-1.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium disabled:opacity-50">
                                       <span className="material-symbols-outlined text-[14px] text-[#00c2ff]">{vid.youtube_video_id ? 'open_in_new' : 'smart_display'}</span>
-                                      {vid.youtube_video_id ? 'Voir sur YouTube' : publishingVideoId === vid.id ? 'Publication…' : 'Publier sur YouTube'}
+                                      {vid.youtube_video_id ? 'Republier sur YouTube' : publishingVideoId === vid.id ? 'Publication…' : 'Publier sur YouTube'}
                                     </button>
                                   )}
                                   {vid.status === 'done' && vid.youtube_video_id && (
@@ -11450,7 +11429,7 @@ export default function App() {
                                 {vid.status === 'done' && (
                                   <button disabled={publishingVideoId === vid.id} onClick={(e) => handlePublishYouTube(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium disabled:opacity-50">
                                     <span className="material-symbols-outlined text-[16px] text-[#00c2ff]">{vid.youtube_video_id ? 'open_in_new' : 'smart_display'}</span>
-                                    {vid.youtube_video_id ? 'Voir sur YouTube' : publishingVideoId === vid.id ? 'Publication…' : 'Publier sur YouTube'}
+                                    {vid.youtube_video_id ? 'Republier sur YouTube' : publishingVideoId === vid.id ? 'Publication…' : 'Publier sur YouTube'}
                                   </button>
                                 )}
                                 {vid.status === 'done' && vid.youtube_video_id && (
