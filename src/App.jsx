@@ -21,6 +21,18 @@ const SERVICE_UNAVAILABLE_MESSAGE = "Les serveurs de KappGen sont temporairement
 // keep the two in sync so the "recharger" CTA below only shows for this exact message.
 const CREDIT_INSUFFICIENT_MESSAGE = "La génération automatique est en pause : ton solde de crédits KappGen est épuisé. Recharge des crédits pour que cette chaîne continue à écrire et publier ses vidéos automatiquement.";
 
+// Browser/network diagnostics such as "Failed to fetch (api.kappgen.com)"
+// are useful to developers, not creators. Keep them out of every UI surface
+// and give the creator an actionable, reassuring status instead.
+const friendlyErrorMessage = (error, fallback = "Une erreur est survenue. Réessaie dans quelques instants.") => {
+  const message = String(error?.message || error || '').trim();
+  if (!message) return fallback;
+  if (/(failed to fetch|networkerror|load failed|api\.kappgen\.com|err_network|network request failed)/i.test(message)) {
+    return "Les serveurs KappGen sont momentanément indisponibles. Réessaie dans quelques instants.";
+  }
+  return message;
+};
+
 // Mirrors src/utils/billing.py's IZIVOICE_*/THUMBNAIL_CREDITS constants —
 // used here only to show the creator a cost estimate and to gate paid
 // options behind an actual balance; the real charge always happens
@@ -1079,7 +1091,7 @@ function VoiceLibraryModal({
       setAddByIdValue('');
       setAddByIdOpen(false);
     } catch (e) {
-      setAddByIdError(e.message);
+      setAddByIdError(friendlyErrorMessage(e, "Impossible d’ajouter cette voix pour le moment."));
     } finally {
       setAddByIdLoading(false);
     }
@@ -3900,7 +3912,7 @@ export default function App() {
   };
 
   const showToast = (message, type = 'success') => {
-    setToast({ message, type });
+    setToast({ message: type === 'error' ? friendlyErrorMessage(message) : message, type });
   };
 
   const loadProductionProgress = async (videoId, { quiet = false } = {}) => {
@@ -3913,7 +3925,7 @@ export default function App() {
       setProductionProgress(data);
       setProductionProgressError('');
     } catch (error) {
-      setProductionProgressError(error.message || 'Impossible de charger le suivi de production.');
+      setProductionProgressError(friendlyErrorMessage(error, 'Impossible de charger le suivi de production.'));
     } finally {
       if (!quiet) setProductionProgressLoading(false);
     }
@@ -4317,7 +4329,7 @@ export default function App() {
       setPublicLibraryHasNext(!!data.has_next);
     } catch (err) {
       setPublicLibraryItems([]);
-      setPublicLibraryError(err.message || 'Impossible de charger les ressources publiques.');
+      setPublicLibraryError(friendlyErrorMessage(err, 'Impossible de charger les ressources publiques.'));
     } finally {
       setPublicLibraryLoading(false);
     }
@@ -5111,7 +5123,7 @@ export default function App() {
       fetchFolders();
     } catch (e) {
       console.error("Erreur création dossier:", e);
-      alert("Impossible de créer le dossier : " + e.message);
+      alert(friendlyErrorMessage(e, "Impossible de créer le dossier pour le moment."));
     } finally {
       setCreatingFolder(false);
     }
@@ -5128,7 +5140,7 @@ export default function App() {
       fetchFolders();
     } catch (e) {
       console.error("Erreur déplacement dossier:", e);
-      alert("Impossible de déplacer le dossier : " + e.message);
+      alert(friendlyErrorMessage(e, "Impossible de déplacer le dossier pour le moment."));
     }
   };
 
@@ -5186,7 +5198,7 @@ export default function App() {
       fetchFolders();
     } catch (e) {
       console.error("Erreur déplacement vidéo:", e);
-      alert("Impossible de déplacer la vidéo : " + e.message);
+      alert(friendlyErrorMessage(e, "Impossible de déplacer la vidéo pour le moment."));
     }
   };
 
@@ -6208,7 +6220,7 @@ export default function App() {
     }).catch(error => {
       if (error.message === 'Importation annulée.') return;
       setLibraryUploadStatus('error');
-      setLibraryUploadMessage(error.message);
+      setLibraryUploadMessage(friendlyErrorMessage(error, "Impossible d’importer les médias pour le moment."));
       showToast(error.message, 'error');
       throw error;
     });
@@ -8683,7 +8695,7 @@ export default function App() {
       pollReassembly(updatedVideo.id);
     } catch (err) {
       console.error("Erreur remplacement image:", err);
-      alert("Le remplacement de l'image a échoué : " + err.message);
+      alert(friendlyErrorMessage(err, "Le remplacement de l’image a échoué. Réessaie dans quelques instants."));
     } finally {
       setStudioReplacingIndex(null);
     }
@@ -8705,7 +8717,7 @@ export default function App() {
       pollReassembly(updatedVideo.id);
     } catch (err) {
       console.error("Erreur édition sous-titre:", err);
-      alert("La correction du sous-titre a échoué : " + err.message);
+      alert(friendlyErrorMessage(err, "La correction du sous-titre a échoué. Réessaie dans quelques instants."));
     } finally {
       setStudioSavingSubtitle(false);
     }
@@ -8727,7 +8739,7 @@ export default function App() {
       pollReassembly(updatedVideo.id);
     } catch (err) {
       console.error("Erreur régénération audio:", err);
-      alert("La régénération de la voix a échoué : " + err.message);
+      alert(friendlyErrorMessage(err, "La régénération de la voix a échoué. Réessaie dans quelques instants."));
     } finally {
       setStudioRegeneratingAudio(false);
     }
@@ -17655,7 +17667,7 @@ export default function App() {
             setScriptStructureAnalyzedText(pastedText);
             return true;
           } catch (err) {
-            setScriptStructureAnalyzeError(err.message || "L'analyse a échoué, réessaie.");
+            setScriptStructureAnalyzeError(friendlyErrorMessage(err, "L’analyse a échoué. Réessaie dans quelques instants."));
             return false;
           } finally {
             setScriptStructureAnalyzing(false);
