@@ -18041,7 +18041,7 @@ export default function App() {
                   key={opt.key}
                   disabled={!!downloadingQuality}
                   onClick={() => runDownload(downloadModalVideo, opt.key)}
-                  className={`group relative w-full overflow-hidden rounded-2xl border p-4 text-left transition-all disabled:opacity-50 ${opt.recommended ? 'border-[#00c2ff]/45 bg-[#00c2ff]/[.08] hover:border-[#00c2ff] hover:bg-[#00c2ff]/[.13]' : 'border-[var(--border)] bg-[var(--bg-surface-alt)] hover:border-slate-500 hover:bg-[var(--border-soft)]'}`}
+                  className={`group relative flex w-full items-center justify-between overflow-hidden rounded-2xl border p-4 text-left transition-all disabled:opacity-50 ${opt.recommended ? 'border-[#00c2ff]/45 bg-[#00c2ff]/[.08] hover:border-[#00c2ff] hover:bg-[#00c2ff]/[.13]' : 'border-[var(--border)] bg-[var(--bg-surface-alt)] hover:border-slate-500 hover:bg-[var(--border-soft)]'}`}
                 >
                   <div className="flex items-center gap-3">
                     <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${opt.recommended ? 'bg-[#00c2ff] text-slate-950' : 'bg-slate-800 text-slate-300'}`}>
