@@ -3670,6 +3670,9 @@ export default function App() {
   const [productionProgressLoading, setProductionProgressLoading] = useState(false);
   const [productionProgressError, setProductionProgressError] = useState('');
   const [cancellingProduction, setCancellingProduction] = useState(false);
+  const [editingQueuedScript, setEditingQueuedScript] = useState(false);
+  const [queuedScriptDraft, setQueuedScriptDraft] = useState('');
+  const [savingQueuedScript, setSavingQueuedScript] = useState(false);
 
   // Modals & Menu Popups
   const [showSubmitModal, setShowSubmitModal] = useState(false);
@@ -3750,7 +3753,13 @@ export default function App() {
   // present in the DOM at runtime, so picking a class string from this fixed
   // lookup (never string-interpolating a column count into a class name)
   // both works with it and stays namable/predictable.
-  const VIDEO_GRID_DENSITIES = { 2: 'grid-cols-1 sm:grid-cols-2', 3: 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3', 4: 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4', 6: 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6' };
+  const VIDEO_GRID_DENSITIES = {
+    2: 'grid-cols-1 sm:grid-cols-2',
+    3: 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3',
+    4: 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4',
+    5: 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5',
+    6: 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6',
+  };
   const [videoGridDensity, setVideoGridDensity] = useState(() => {
     try { return VIDEO_GRID_DENSITIES[Number(localStorage.getItem('kappgen_video_grid_density'))] ? Number(localStorage.getItem('kappgen_video_grid_density')) : 4; } catch { return 4; }
   });
@@ -3977,11 +3986,37 @@ export default function App() {
     }
   };
 
+  const handleSaveQueuedScript = async (videoId) => {
+    if (!videoId || savingQueuedScript) return;
+    setSavingQueuedScript(true);
+    try {
+      const res = await authFetch(`${API_BASE}/videos/${videoId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ script_text: queuedScriptDraft }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || "Impossible d'enregistrer le script.");
+      // Opportunistic edit: the worker can claim the video between opening
+      // this editor and clicking Enregistrer. A 409 above already surfaces
+      // that as an error; on success, reflect the new script immediately
+      // instead of waiting for the next 3s poll.
+      setProductionProgress(prev => (prev ? { ...prev, script: data.script_text } : prev));
+      setEditingQueuedScript(false);
+      showToast('Script mis à jour.', 'success');
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setSavingQueuedScript(false);
+    }
+  };
+
   const openProductionInspector = (video, step) => {
     if (!video || video._pending) return;
     setProductionInspector({ video, step });
     setProductionProgress(null);
     setProductionProgressError('');
+    setEditingQueuedScript(false);
     loadProductionProgress(video.id);
   };
 
@@ -9934,20 +9969,24 @@ export default function App() {
 
                     {/* Cards-per-row density — not everyone reads a tiny
                         thumbnail comfortably, so the grid size is a personal
-                        preference, not fixed at 4/row for everyone. */}
-                    <div className="flex items-center gap-0.5 bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl p-1 flex-shrink-0" title="Taille des cartes">
-                      {[2, 3, 4, 6].map(n => (
-                        <button
-                          key={n}
-                          onClick={() => updateVideoGridDensity(n)}
-                          title={`${n} par ligne`}
-                          className={`w-7 h-7 flex items-center justify-center rounded-lg text-[11px] font-bold transition-colors ${
-                            videoGridDensity === n ? 'bg-[#00c2ff] text-slate-950' : 'text-slate-400 hover:text-white hover:bg-[var(--bg-hover)]'
-                          }`}
-                        >
-                          {n}
-                        </button>
-                      ))}
+                        preference, not fixed at 4/row for everyone. A real
+                        slider (not discrete buttons) so it reads as "drag to
+                        resize the cards" — small cards/many per row on the
+                        right, large cards/few per row on the left. */}
+                    <div className="flex items-center gap-2 bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-3 py-2 flex-shrink-0" title="Taille des cartes">
+                      <span className="material-symbols-outlined text-[16px] text-slate-400 shrink-0">crop_square</span>
+                      <input
+                        type="range"
+                        min="2"
+                        max="6"
+                        step="1"
+                        value={videoGridDensity}
+                        onChange={e => updateVideoGridDensity(Number(e.target.value))}
+                        className="w-20 accent-[#00c2ff]"
+                        title={`${videoGridDensity} par ligne`}
+                      />
+                      <span className="material-symbols-outlined text-[12px] text-slate-400 shrink-0">grid_view</span>
+                      <span className="text-[11px] font-bold text-white w-3 text-center shrink-0">{videoGridDensity}</span>
                     </div>
                     <button
                       onClick={() => setShowTrash(v => !v)}
@@ -16350,8 +16389,57 @@ export default function App() {
 
                     {textContent ? (
                       <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--bg-surface-alt)] p-4 sm:p-5">
-                        <div className="mb-3 flex items-center justify-between"><h3 className="text-xs font-extrabold text-white">{label === 'Sujet' ? 'Sujet retenu' : label === 'Script' ? 'Aperçu du script' : 'Transcription / sous-titres'}</h3>{label === 'Script' && <span className="text-[10px] text-slate-500">{productionProgress.script.trim().split(/\s+/).filter(Boolean).length} mots</span>}</div>
-                        <div className="max-h-[48vh] overflow-y-auto whitespace-pre-wrap text-sm leading-7 text-slate-300">{textContent}</div>
+                        <div className="mb-3 flex items-center justify-between gap-3">
+                          <h3 className="text-xs font-extrabold text-white">{label === 'Sujet' ? 'Sujet retenu' : label === 'Script' ? 'Aperçu du script' : 'Transcription / sous-titres'}</h3>
+                          <div className="flex items-center gap-2 shrink-0">
+                            {label === 'Script' && <span className="text-[10px] text-slate-500">{productionProgress.script.trim().split(/\s+/).filter(Boolean).length} mots</span>}
+                            {/* Opportunistic, not a gate: only offered while the video is still
+                                queued (i.e. the worker hasn't claimed it yet) — no delay is
+                                introduced to guarantee this window exists. */}
+                            {label === 'Script' && productionProgress.status === 'queued' && !editingQueuedScript && (
+                              <button
+                                type="button"
+                                onClick={() => { setQueuedScriptDraft(productionProgress.script); setEditingQueuedScript(true); }}
+                                className="flex items-center gap-1 rounded-lg border border-[#00c2ff]/40 bg-[#00c2ff]/10 px-2 py-1 text-[10px] font-bold text-[#59d8ff] transition hover:bg-[#00c2ff]/20"
+                              >
+                                <span className="material-symbols-outlined text-[13px]">edit</span>
+                                Modifier
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                        {label === 'Script' && editingQueuedScript ? (
+                          <div className="space-y-2">
+                            <textarea
+                              value={queuedScriptDraft}
+                              onChange={e => setQueuedScriptDraft(e.target.value)}
+                              rows={14}
+                              className="w-full rounded-xl border border-[var(--border)] bg-[var(--bg-input)] p-3 text-sm leading-7 text-white focus:border-[#00c2ff] outline-none resize-y"
+                            />
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => handleSaveQueuedScript(productionInspector.video.id)}
+                                disabled={savingQueuedScript || queuedScriptDraft.trim().length < 40}
+                                className="flex items-center gap-1 rounded-lg bg-[#00c2ff] px-3 py-1.5 text-[11px] font-bold text-slate-950 transition hover:bg-[#38d0ff] disabled:opacity-50"
+                              >
+                                <span className="material-symbols-outlined text-[14px]">{savingQueuedScript ? 'progress_activity' : 'check'}</span>
+                                {savingQueuedScript ? 'Enregistrement…' : 'Enregistrer'}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setEditingQueuedScript(false)}
+                                disabled={savingQueuedScript}
+                                className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-[11px] font-bold text-slate-300 transition hover:text-white disabled:opacity-50"
+                              >
+                                Annuler
+                              </button>
+                              {queuedScriptDraft.trim().length < 40 && <span className="text-[10px] text-amber-400">40 caractères minimum</span>}
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="max-h-[48vh] overflow-y-auto whitespace-pre-wrap text-sm leading-7 text-slate-300">{textContent}</div>
+                        )}
                       </div>
                     ) : ['Sujet', 'Script', 'SRT'].includes(label) ? (
                       <div className="rounded-xl border border-dashed border-slate-700 p-8 text-center"><span className="material-symbols-outlined text-3xl text-slate-600">hourglass_empty</span><p className="mt-2 text-xs font-bold text-slate-400">Le contenu apparaîtra ici dès qu’il sera disponible.</p></div>
