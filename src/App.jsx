@@ -17563,36 +17563,35 @@ export default function App() {
                           <span className="material-symbols-outlined text-base">delete</span>
                         </button>
                       </div>
-                      <div className="flex items-end gap-2">
-                        <div className="flex-1 min-w-0">
-                          <label className="block text-[10px] font-bold text-slate-500 mb-1">Nom (interne, jamais montré au spectateur)</label>
-                          <input
-                            value={part.name || ''}
-                            onChange={e => updatePart(idx, { name: e.target.value })}
-                            className="w-full bg-[var(--bg-input-alt)] border border-[var(--border)] rounded-lg px-3 py-2 text-xs text-white focus:border-[#00c2ff] outline-none"
-                            placeholder="ex : introduction"
-                          />
-                        </div>
-                        <div className="w-24 shrink-0">
-                          <label className="block text-[10px] font-bold text-slate-500 mb-1">Mots</label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          value={part.name || ''}
+                          onChange={e => updatePart(idx, { name: e.target.value })}
+                          className="flex-1 min-w-0 bg-transparent border-none px-0 py-0.5 text-[11px] text-slate-400 focus:text-white outline-none"
+                          placeholder="Nom interne (ex : introduction)"
+                        />
+                        <div className="relative shrink-0">
                           <input
                             type="number"
                             min="20"
                             value={part.word_count ?? 300}
                             onChange={e => updatePart(idx, { word_count: parseInt(e.target.value) || 0 })}
-                            className="w-full bg-[var(--bg-input-alt)] border border-[var(--border)] rounded-lg px-3 py-2 text-xs text-white focus:border-[#00c2ff] outline-none"
+                            className="w-20 bg-[var(--bg-input-alt)] border border-[var(--border)] rounded-lg pl-2.5 pr-11 py-1.5 text-xs text-white focus:border-[#00c2ff] outline-none"
                           />
+                          <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-slate-500 font-bold pointer-events-none">mots</span>
                         </div>
                       </div>
-                      <div>
-                        <label className="block text-[10px] font-bold text-slate-500 mb-1">Ce que cette partie doit couvrir</label>
-                        <textarea
-                          value={part.guidance || ''}
-                          onChange={e => updatePart(idx, { guidance: e.target.value })}
-                          className="w-full bg-[var(--bg-input-alt)] border border-[var(--border)] rounded-lg px-3 py-2 text-xs text-white leading-relaxed focus:border-[#00c2ff] outline-none min-h-[70px]"
-                          placeholder="Ce que cette partie doit couvrir..."
-                        />
-                      </div>
+                      {/* This is the field that actually matters — give it the
+                          room the metadata above deliberately doesn't take,
+                          so the guidance text is readable without scrolling
+                          a cramped box. */}
+                      <textarea
+                        value={part.guidance || ''}
+                        onChange={e => updatePart(idx, { guidance: e.target.value })}
+                        rows={8}
+                        className="w-full bg-[var(--bg-input-alt)] border border-[var(--border)] rounded-lg px-3 py-2.5 text-xs text-white leading-relaxed focus:border-[#00c2ff] outline-none min-h-[200px] resize-y"
+                        placeholder="Ce que cette partie doit couvrir…"
+                      />
                     </div>
                   ))}
                   <button type="button" onClick={addPart} className="text-xs font-bold text-[#00c2ff] hover:underline">
