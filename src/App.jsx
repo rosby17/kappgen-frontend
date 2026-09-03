@@ -8590,54 +8590,6 @@ export default function App() {
     }
   };
 
-  // Publication volontaire depuis la carte : elle doit partir immédiatement.
-  // Le rapport de conformité reste consultable via « Score de confiance »,
-  // mais ne bloque plus le geste de publication ni n'ouvre de panneau.
-  const publishYouTubeDirect = async (vid) => {
-    if (!vid || publishingVideoId) return;
-    const title = (vid.title || '').trim().slice(0, 100);
-    if (!title) return showToast('Le titre ne peut pas être vide.', 'error');
-    setPublishingVideoId(vid.id);
-    try {
-      const metaRes = await authFetch(`${API_BASE}/videos/${vid.id}/youtube-metadata`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, description: vid.youtube_description || '' }),
-      });
-      if (!metaRes.ok) throw new Error("Impossible d'enregistrer le titre/la description.");
-      const res = await authFetch(`${API_BASE}/videos/${vid.id}/youtube/publish`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        // L'action explicite « Publier » vaut autorisation de publication.
-        // Le détail du contrôle reste enregistré côté serveur et disponible
-        // dans la zone réservée, sans imposer une seconde confirmation ici.
-        body: JSON.stringify({ confirm_human_review: true, force_publish: true }),
-      });
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        const detail = body.detail;
-        if (detail?.code === 'youtube_auth_required') {
-          showToast('Authentification YouTube requise. Connecte la chaîne pour continuer.', 'error');
-          if (detail.auth_url) window.location.assign(detail.auth_url);
-          return;
-        }
-        throw new Error(typeof detail === 'string' ? detail : detail?.message || 'Publication impossible.');
-      }
-      if (body.status === 'already_published') {
-        showToast('Cette vidéo est déjà publiée sur YouTube.', 'success');
-        if (body.youtube_url) window.open(body.youtube_url, '_blank', 'noopener,noreferrer');
-      } else {
-        showToast('Publication lancée — la vidéo continue de se publier en arrière-plan.', 'success');
-      }
-      fetchAllVideos();
-      if (activeChannel) fetchChannelVideos(activeChannel.id);
-    } catch (err) {
-      showToast(err.message, 'error');
-    } finally {
-      setPublishingVideoId(null);
-    }
-  };
-
   const handlePublishYouTube = async (vid, e) => {
     if (e) e.stopPropagation();
     setOpenVideoMenuId(null);
@@ -8665,7 +8617,14 @@ export default function App() {
         return;
       }
     }
-    await publishYouTubeDirect(vid);
+    setPublishTitleDraft((vid.title || '').slice(0, 100));
+    setPublishDescriptionDraft(vid.youtube_description || '');
+    setPublishReviewMode('publish');
+    setPublishReviewVideo(vid);
+    setYoutubeComplianceReport(null);
+    setYoutubeComplianceConfirmed(false);
+    setYoutubeComplianceDossier(null);
+    setYoutubeComplianceLoading(false);
   };
 
   const handleViewTrustScore = async (vid, e) => {
@@ -8783,8 +8742,10 @@ export default function App() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          confirm_human_review: youtubeComplianceConfirmed,
-          force_publish: youtubeComplianceReport?.status === 'red' && youtubeComplianceConfirmed,
+          // L'écran de publication ne montre plus le contrôle : le clic
+          // explicite sur « Publier » constitue l'autorisation de l'envoyer.
+          confirm_human_review: true,
+          force_publish: true,
         }),
       });
       const body = await res.json().catch(() => ({}));
@@ -17862,7 +17823,7 @@ export default function App() {
                 : 'Retrouvez le score de confiance et le détail des contrôles de cette vidéo, même après sa publication.'}
             </p>
 
-            <div className={`rounded-2xl border p-4 ${youtubeComplianceReport?.score >= 80 ? 'border-emerald-500/40 bg-emerald-500/5' : youtubeComplianceReport?.score >= 60 ? 'border-amber-500/40 bg-amber-500/5' : youtubeComplianceReport ? 'border-rose-500/40 bg-rose-500/5' : 'border-slate-700 bg-slate-900/30'}`}>
+            {publishReviewMode !== 'publish' && <div className={`rounded-2xl border p-4 ${youtubeComplianceReport?.score >= 80 ? 'border-emerald-500/40 bg-emerald-500/5' : youtubeComplianceReport?.score >= 60 ? 'border-amber-500/40 bg-amber-500/5' : youtubeComplianceReport ? 'border-rose-500/40 bg-rose-500/5' : 'border-slate-700 bg-slate-900/30'}`}>
               {youtubeComplianceLoading ? (
                 <div className="flex items-center gap-2 text-xs text-slate-300"><span className="material-symbols-outlined animate-spin text-[17px]">progress_activity</span>Contrôle YouTube en cours…</div>
               ) : youtubeComplianceReport ? (
@@ -17951,7 +17912,7 @@ export default function App() {
                   )}
                 </div>
               ) : <p className="text-[10px] text-slate-500">Le rapport n’a pas pu être chargé.</p>}
-            </div>
+            </div>}
 
             {publishReviewMode !== 'trust' && <div>
               <div className="flex items-center justify-between mb-1.5">
@@ -17987,13 +17948,13 @@ export default function App() {
               </button>
               <button
                 onClick={confirmPublishYouTube}
-                disabled={!!publishingVideoId || !publishTitleDraft.trim() || youtubeComplianceLoading || !youtubeComplianceReport || (youtubeComplianceReport.status === 'red' && !youtubeComplianceConfirmed)}
+                disabled={!!publishingVideoId || !publishTitleDraft.trim()}
                 className="flex-1 py-2.5 bg-[#00c2ff] text-slate-950 rounded-xl font-bold text-xs hover:bg-[#38d0ff] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
               >
                 {publishingVideoId ? (
                   <><span className="material-symbols-outlined text-[16px] animate-spin">progress_activity</span> Publication…</>
                 ) : (
-                  <><YouTubeIcon className="w-4 h-3" /> {youtubeComplianceReport?.status === 'red' ? 'Forcer la publication' : 'Publier'}</>
+                  <><YouTubeIcon className="w-4 h-3" /> Publier</>
                 )}
               </button>
             </div> : publishReviewMode === 'edit' ? <div className="flex gap-3"><button onClick={() => setPublishReviewMode('trust')} className="flex-1 rounded-xl border border-[var(--border)] bg-[var(--bg-surface-alt)] py-2.5 text-xs font-bold text-slate-300">Retour</button><button disabled={metadataImproving || !publishTitleDraft.trim()} onClick={saveTrustMetadata} className="flex-1 rounded-xl bg-[#00c2ff] py-2.5 text-xs font-extrabold text-slate-950 disabled:opacity-50">{metadataImproving ? 'Enregistrement…' : 'Enregistrer et vérifier'}</button><button disabled={metadataImproving} onClick={regenerateTrustMetadata} title="Régénérer avec KappGen" className="rounded-xl border border-[#00c2ff]/40 px-3 text-[#00c2ff] disabled:opacity-50"><span className={`material-symbols-outlined text-[18px] ${metadataImproving ? 'animate-spin' : ''}`}>{metadataImproving ? 'progress_activity' : 'auto_awesome'}</span></button></div> : <button onClick={() => setPublishReviewVideo(null)} className="w-full rounded-xl border border-[var(--border)] bg-[var(--bg-surface-alt)] py-2.5 text-xs font-bold text-slate-300 transition-colors hover:bg-[var(--border-soft)]">Fermer</button>}
