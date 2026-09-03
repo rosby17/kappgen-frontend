@@ -17551,39 +17551,48 @@ export default function App() {
                 </div>
 
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between px-1">
-                    <div className="flex items-center gap-2">
-                      <label className="text-[11px] font-bold text-slate-300">Parties du script</label>
-                    </div>
-                    <span className="text-[10px] text-slate-500 font-bold pr-11">Mots</span>
-                  </div>
+                  <label className="block text-[11px] font-bold text-slate-300 px-1">Parties du script</label>
                   {parts.map((part, idx) => (
                     <div key={idx} className="border border-[var(--border)] rounded-xl p-4 space-y-3 bg-[var(--bg-surface-alt)]">
-                      <div className="flex items-center gap-2">
-                        <input
-                          value={part.name || ''}
-                          onChange={e => updatePart(idx, { name: e.target.value })}
-                          className="flex-1 bg-[var(--bg-input-alt)] border border-[var(--border)] rounded-lg px-3 py-2 text-xs text-white focus:border-[#00c2ff] outline-none"
-                          placeholder="Nom de la partie (interne)"
-                        />
-                        <input
-                          type="number"
-                          min="20"
-                          value={part.word_count ?? 300}
-                          onChange={e => updatePart(idx, { word_count: parseInt(e.target.value) || 0 })}
-                          className="w-24 bg-[var(--bg-input-alt)] border border-[var(--border)] rounded-lg px-3 py-2 text-xs text-white focus:border-[#00c2ff] outline-none"
-                          placeholder="Mots"
-                        />
-                        <button type="button" onClick={() => removePart(idx)} className="shrink-0 w-9 h-9 flex items-center justify-center rounded-lg text-red-400 hover:bg-red-500/10">
-                          <span className="material-symbols-outlined text-lg">delete</span>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                          <span className="flex items-center justify-center w-5 h-5 rounded-full bg-[#00c2ff]/15 text-[#59d8ff] text-[10px]">{idx + 1}</span>
+                          Partie {idx + 1}
+                        </span>
+                        <button type="button" onClick={() => removePart(idx)} className="shrink-0 w-7 h-7 flex items-center justify-center rounded-lg text-red-400 hover:bg-red-500/10">
+                          <span className="material-symbols-outlined text-base">delete</span>
                         </button>
                       </div>
-                      <textarea
-                        value={part.guidance || ''}
-                        onChange={e => updatePart(idx, { guidance: e.target.value })}
-                        className="w-full bg-[var(--bg-input-alt)] border border-[var(--border)] rounded-lg px-3 py-2 text-xs text-white leading-relaxed focus:border-[#00c2ff] outline-none min-h-[70px]"
-                        placeholder="Ce que cette partie doit couvrir..."
-                      />
+                      <div className="flex items-end gap-2">
+                        <div className="flex-1 min-w-0">
+                          <label className="block text-[10px] font-bold text-slate-500 mb-1">Nom (interne, jamais montré au spectateur)</label>
+                          <input
+                            value={part.name || ''}
+                            onChange={e => updatePart(idx, { name: e.target.value })}
+                            className="w-full bg-[var(--bg-input-alt)] border border-[var(--border)] rounded-lg px-3 py-2 text-xs text-white focus:border-[#00c2ff] outline-none"
+                            placeholder="ex : introduction"
+                          />
+                        </div>
+                        <div className="w-24 shrink-0">
+                          <label className="block text-[10px] font-bold text-slate-500 mb-1">Mots</label>
+                          <input
+                            type="number"
+                            min="20"
+                            value={part.word_count ?? 300}
+                            onChange={e => updatePart(idx, { word_count: parseInt(e.target.value) || 0 })}
+                            className="w-full bg-[var(--bg-input-alt)] border border-[var(--border)] rounded-lg px-3 py-2 text-xs text-white focus:border-[#00c2ff] outline-none"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-500 mb-1">Ce que cette partie doit couvrir</label>
+                        <textarea
+                          value={part.guidance || ''}
+                          onChange={e => updatePart(idx, { guidance: e.target.value })}
+                          className="w-full bg-[var(--bg-input-alt)] border border-[var(--border)] rounded-lg px-3 py-2 text-xs text-white leading-relaxed focus:border-[#00c2ff] outline-none min-h-[70px]"
+                          placeholder="Ce que cette partie doit couvrir..."
+                        />
+                      </div>
                     </div>
                   ))}
                   <button type="button" onClick={addPart} className="text-xs font-bold text-[#00c2ff] hover:underline">
