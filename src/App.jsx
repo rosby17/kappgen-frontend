@@ -12387,8 +12387,11 @@ export default function App() {
                   // manually, so keep treating those as "manual".
                   const imageCountMode = newChannel.image_style.image_count_mode ?? (newChannel.image_style.max_unique_images ? 'manual' : 'auto');
 
-                  const hasStoredLibrary = Number(newChannel.image_style.library_image_count || 0) > 0
-                    && String(newChannel.image_style.library_path || '').startsWith('channels/');
+                  // The staging upload returns its image count before the
+                  // channel is saved and may not have a library_path yet.
+                  // The count is still authoritative: keep the confirmation
+                  // visible instead of reverting to an empty dropzone.
+                  const hasStoredLibrary = Number(newChannel.image_style.library_image_count || 0) > 0;
 
                   return (
                     <div className="flex flex-col space-y-6">
@@ -12506,7 +12509,7 @@ export default function App() {
                             )}
                             {localImageFiles.length === 0 && !libraryUploadStatus && hasStoredLibrary && (
                               <div className="mt-3 px-3 py-2 bg-emerald-950/60 border border-emerald-700/60 text-emerald-300 rounded-lg text-[10px] font-bold">
-                                ✓ {newChannel.image_style.library_image_count} images déjà enregistrées sur le serveur — pas besoin de réimporter, choisis un dossier seulement pour remplacer.
+                                ✓ {newChannel.image_style.library_image_count} images déjà enregistrées sur le serveur — dossier présent et prêt. Choisis un autre dossier seulement pour remplacer.
                               </div>
                             )}
                             {libraryUploadStatus && (
