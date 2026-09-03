@@ -3535,6 +3535,7 @@ function viewFromPath(path) {
   if (path === '/channels') return 'channels';
   if (path === '/videos') return 'videos';
   if (path === '/library') return 'library';
+  if (path === '/public-library') return 'public_library';
   if (path === '/channels/new') return 'wizard';
   if (/^\/channels\/[^/]+\/edit$/.test(path)) return 'wizard';
   if (/^\/channels\/[^/]+$/.test(path)) return 'channel_detail';
@@ -3656,6 +3657,11 @@ export default function App() {
   // Modals & Menu Popups
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [generatingAutoVideo, setGeneratingAutoVideo] = useState(false);
+  // Launch errors are part of the channel workflow, not transient toast
+  // noise. They stay visible on that channel until the creator retries.
+  const [channelLaunchErrors, setChannelLaunchErrors] = useState(() => {
+    try { return JSON.parse(sessionStorage.getItem('kappgen_channel_launch_errors') || '{}'); } catch { return {}; }
+  });
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showChannelPickerModal, setShowChannelPickerModal] = useState(false);
   const [showPricingModal, setShowPricingModal] = useState(false);
@@ -3664,6 +3670,10 @@ export default function App() {
   const [showScriptStructureModal, setShowScriptStructureModal] = useState(false);
   const [scriptStructureAnalyzing, setScriptStructureAnalyzing] = useState(false);
   const [scriptStructureAnalyzeError, setScriptStructureAnalyzeError] = useState('');
+  // Tracks exactly which pasted text was last successfully analyzed, so
+  // clicking "Analyser" and then "Terminé" doesn't run the (real, billed)
+  // AI analysis twice on the same unchanged text.
+  const [scriptStructureAnalyzedText, setScriptStructureAnalyzedText] = useState(null);
   const [languageSearch, setLanguageSearch] = useState('');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
@@ -3838,6 +3848,13 @@ export default function App() {
   const [librarySearch, setLibrarySearch] = useState('');
   const [libraryContentFilter, setLibraryContentFilter] = useState('all');
   const [libraryBusyKey, setLibraryBusyKey] = useState(null);
+  const [publicLibraryQuery, setPublicLibraryQuery] = useState('nature');
+  const [publicLibraryMediaType, setPublicLibraryMediaType] = useState('photos');
+  const [publicLibraryItems, setPublicLibraryItems] = useState([]);
+  const [publicLibraryLoading, setPublicLibraryLoading] = useState(false);
+  const [publicLibraryError, setPublicLibraryError] = useState('');
+  const [publicLibraryPage, setPublicLibraryPage] = useState(1);
+  const [publicLibraryHasNext, setPublicLibraryHasNext] = useState(false);
   const [toast, setToast] = useState(null); // { message, type: 'success' | 'error' }
   const [librarySyncHasHandle, setLibrarySyncHasHandle] = useState(false);
   const [librarySyncing, setLibrarySyncing] = useState(false);
@@ -3898,6 +3915,10 @@ export default function App() {
     const timer = setTimeout(() => setToast(null), 4000);
     return () => clearTimeout(timer);
   }, [toast]);
+
+  useEffect(() => {
+    try { sessionStorage.setItem('kappgen_channel_launch_errors', JSON.stringify(channelLaunchErrors)); } catch {}
+  }, [channelLaunchErrors]);
 
   // Google redirects back here after a YouTube connection attempt (?youtube=connected|error&youtube_channel_id=...).
   useEffect(() => {
@@ -4244,6 +4265,26 @@ export default function App() {
       console.error("Erreur chargement de la bibliothèque:", err);
     } finally {
       setLibraryLoading(false);
+    }
+  };
+
+  const fetchPublicLibrary = async ({ query = publicLibraryQuery, mediaType = publicLibraryMediaType, page = 1 } = {}) => {
+    const cleaned = query.trim() || 'nature';
+    setPublicLibraryLoading(true);
+    setPublicLibraryError('');
+    try {
+      const params = new URLSearchParams({ query: cleaned, media_type: mediaType, page: String(page), per_page: '24' });
+      const res = await authFetch(`${API_BASE}/channels/public-library/search?${params.toString()}`);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || 'Impossible de charger les ressources publiques.');
+      setPublicLibraryItems(data.items || []);
+      setPublicLibraryPage(data.page || page);
+      setPublicLibraryHasNext(!!data.has_next);
+    } catch (err) {
+      setPublicLibraryItems([]);
+      setPublicLibraryError(err.message || 'Impossible de charger les ressources publiques.');
+    } finally {
+      setPublicLibraryLoading(false);
     }
   };
 
@@ -5138,6 +5179,7 @@ export default function App() {
       case 'channels': return '/channels';
       case 'videos': return '/videos';
       case 'library': return '/library';
+      case 'public_library': return '/public-library';
       case 'channel_detail': return activeChannel ? `/channels/${slugifyChannelName(activeChannel.name)}` : '/channels';
       case 'wizard': return wizardMode === 'edit' && editingChannel ? `/channels/${slugifyChannelName(editingChannel.name)}/edit` : '/channels/new';
       case 'settings': return '/settings';
@@ -5175,6 +5217,7 @@ export default function App() {
     if (path === '/channels') { setView('channels'); return; }
     if (path === '/videos') { setView('videos'); return; }
     if (path === '/library') { setView('library'); return; }
+    if (path === '/public-library') { setView('public_library'); return; }
     if (path === '/settings') { setView('settings'); return; }
     if (path === '/admin' || path.startsWith('/admin/')) { setView('admin'); setAdminTab(adminTabFromPath(path)); return; }
     if (path === '/billing/success') {
@@ -5247,6 +5290,10 @@ export default function App() {
   useEffect(() => {
     if (view === 'library' && currentUser) fetchLibraryOverview();
   }, [view, currentUser]);
+
+  useEffect(() => {
+    if (view === 'public_library' && currentUser) fetchPublicLibrary();
+  }, [view, currentUser, publicLibraryMediaType]);
 
   useEffect(() => {
     if (activeChannel) {
@@ -5722,6 +5769,13 @@ export default function App() {
       return;
     }
     setActiveChannel(channel);
+    // A retry is the explicit acknowledgement of a persistent launch error.
+    setChannelLaunchErrors(prev => {
+      if (!prev[channel.id]) return prev;
+      const next = { ...prev };
+      delete next[channel.id];
+      return next;
+    });
     setGeneratingAutoVideo(true);
 
     // generate-now returns instantly (the actual generation runs in a
@@ -5758,7 +5812,9 @@ export default function App() {
       const res = await authFetch(`${API_BASE}/channels/${channel.id}/generate-now`, { method: 'POST' });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        showToast(err.detail || "Erreur lors du lancement.", "error");
+        const message = err.detail || "Erreur lors du lancement.";
+        setChannelLaunchErrors(prev => ({ ...prev, [channel.id]: message }));
+        showToast("Le lancement est bloqué : le détail reste affiché sur cette chaîne.", "error");
         stopPending();
         return;
       }
@@ -5815,7 +5871,9 @@ export default function App() {
       };
       setTimeout(poll, 5000);
     } catch (e) {
-      showToast("Erreur réseau: " + e.message, "error");
+      const message = "Erreur réseau : " + e.message;
+      setChannelLaunchErrors(prev => ({ ...prev, [channel.id]: message }));
+      showToast("Le lancement est bloqué : le détail reste affiché sur cette chaîne.", "error");
       stopPending();
     }
   };
@@ -8989,7 +9047,8 @@ export default function App() {
                   { id: 'home', label: 'Home', icon: 'home', active: view === 'home' || view === 'dashboard' },
                   { id: 'channels', label: 'Mes Chaînes', icon: 'subscriptions', active: view === 'channels' || view === 'channel_detail' },
                   { id: 'videos', label: 'Mes Vidéos', icon: 'movie', active: view === 'videos' },
-                  { id: 'library', label: 'Bibliothèque', icon: 'perm_media', active: view === 'library' },
+                  { id: 'library', label: 'Ma bibliothèque', icon: 'perm_media', active: view === 'library' },
+                  { id: 'public_library', label: 'Ressources publiques', icon: 'public', active: view === 'public_library' },
                 ].map(({ id, label, icon, active }) => (
                   <button
                     key={id}
@@ -9173,7 +9232,8 @@ export default function App() {
                 { id: 'home', label: 'Home', icon: 'home', active: view === 'home' || view === 'dashboard', onClick: () => setView('home') },
                 { id: 'channels', label: 'Mes Chaînes', icon: 'subscriptions', active: view === 'channels' || view === 'channel_detail', onClick: () => setView('channels') },
                 { id: 'videos', label: 'Mes Vidéos', icon: 'movie', active: view === 'videos', onClick: () => setView('videos') },
-                { id: 'library', label: 'Bibliothèque', icon: 'perm_media', active: view === 'library', onClick: () => setView('library') },
+                { id: 'library', label: 'Ma bibliothèque', icon: 'perm_media', active: view === 'library', onClick: () => setView('library') },
+                { id: 'public_library', label: 'Ressources publiques', icon: 'public', active: view === 'public_library', onClick: () => setView('public_library') },
               ].map(t => (
                 <button
                   key={t.id}
@@ -17375,6 +17435,7 @@ export default function App() {
             const body = await res.json().catch(() => ({}));
             if (!res.ok) throw new Error(body.detail || "L'analyse a échoué.");
             updateStructure({ parts: body.parts });
+            setScriptStructureAnalyzedText(pastedText);
             return true;
           } catch (err) {
             setScriptStructureAnalyzeError(err.message || "L'analyse a échoué, réessaie.");
@@ -17620,11 +17681,16 @@ export default function App() {
                   disabled={scriptStructureAnalyzing}
                   onClick={async () => {
                     // The pasted text is the priority source: if the creator
-                    // never bothered clicking the (now optional) preview link,
-                    // run the analysis right now, silently, before closing —
-                    // so leaving the discrete part fields untouched never
-                    // means their paste gets ignored.
-                    const ok = (structure.source_instructions || '').trim() && parts.length > 0
+                    // never clicked "Analyser" up top, run the analysis right
+                    // now, silently, before closing — so leaving the discrete
+                    // part fields untouched never means their paste gets
+                    // ignored. But if that text was already analyzed (the
+                    // button up top was used and nothing changed since),
+                    // skip re-running it — same billed AI call, no reason to
+                    // pay for it twice on unchanged text.
+                    const pastedText = (structure.source_instructions || '').trim();
+                    const alreadyAnalyzed = pastedText && pastedText === (scriptStructureAnalyzedText || '').trim();
+                    const ok = pastedText && parts.length > 0 && !alreadyAnalyzed
                       ? await analyzePastedText()
                       : true;
                     if (ok) setShowScriptStructureModal(false);
