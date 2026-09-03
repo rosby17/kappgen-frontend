@@ -4828,6 +4828,7 @@ export default function App() {
     automation_style_prompt: '',
     topic_examples: '',
     use_web_trends: false,
+    youtube_topic_sources: '',
     // Auto-detected from the browser — the daily generation window and the
     // scheduled publish hour are both read in this timezone, never a single
     // region imposed on every creator.
@@ -5966,6 +5967,7 @@ export default function App() {
       automation_style_prompt: channel.automation_style_prompt || '',
       topic_examples: channel.topic_examples || '',
       use_web_trends: !!channel.use_web_trends,
+      youtube_topic_sources: channel.youtube_topic_sources || '',
       videos_per_day: channel.videos_per_day ?? 1,
       automation_window_start_hour: channel.automation_window_start_hour ?? 7,
       automation_window_end_hour: channel.automation_window_end_hour ?? 11,
@@ -11513,10 +11515,11 @@ export default function App() {
                     {newChannel.automation_mode === 'auto' && (() => {
                       const hasExamples = !!(newChannel.topic_examples || '').trim();
                       const webTrendsOn = !!newChannel.use_web_trends;
+                      const hasYouTubeSources = !!(newChannel.youtube_topic_sources || '').trim();
                       return (
                         <div className="space-y-2">
                           <label className="block text-xs font-bold text-slate-300 px-1">Recherche de sujets</label>
-                          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 items-start">
+                          <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 items-start">
                             {/* Primary method — always relevant, not a toggle: the
                                 "checked" badge just reflects whether the creator has
                                 pasted anything yet, matching the visual language of
@@ -11569,6 +11572,24 @@ export default function App() {
                                   Complémentaire aux exemples ci-contre — l'IA cherche une actualité ou une tendance réelle du moment pour une chaîne d'actu/tendances (sport, news...). Optionnel.
                                 </p>
                               </div>
+                            </div>
+
+                            <div className={`p-4 rounded-2xl border-2 transition-all space-y-3 ${hasYouTubeSources ? 'bg-[var(--bg-surface-alt)] border-[#00c2ff] shadow-lg shadow-[#00c2ff]/10' : 'bg-[var(--bg-surface-soft)] border-[var(--border-soft)]'}`}>
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="flex items-center gap-2">
+                                  <span className="material-symbols-outlined text-[22px] text-[#00c2ff]">smart_display</span>
+                                  <h4 className="text-xs font-bold text-white">Recherche YouTube</h4>
+                                </div>
+                                <span className={`shrink-0 text-[9px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full ${hasYouTubeSources ? 'bg-emerald-950/60 text-emerald-400' : 'bg-[var(--bg-surface-alt)] text-slate-500'}`}>{hasYouTubeSources ? 'Actif' : 'Optionnel'}</span>
+                              </div>
+                              <p className="text-[11px] text-slate-400">Colle les liens de chaînes ou de vidéos à analyser. L’IA étudie leurs angles et vidéos populaires pour proposer des sujets originaux.</p>
+                              <textarea
+                                value={newChannel.youtube_topic_sources || ''}
+                                onChange={e => setNewChannel({ ...newChannel, youtube_topic_sources: e.target.value })}
+                                placeholder={'https://www.youtube.com/@une-chaine\nhttps://www.youtube.com/watch?v=...'}
+                                rows={5}
+                                className="w-full bg-[var(--bg-input-alt)] border border-[var(--border)] rounded-xl px-3 py-2.5 text-xs text-white focus:border-[#00c2ff] outline-none resize-y"
+                              />
                             </div>
                           </div>
                         </div>
