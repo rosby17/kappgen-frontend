@@ -3759,6 +3759,7 @@ export default function App() {
   // lookup (never string-interpolating a column count into a class name)
   // both works with it and stays namable/predictable.
   const VIDEO_GRID_DENSITIES = {
+    1: 'grid-cols-1',
     2: 'grid-cols-1 sm:grid-cols-2',
     3: 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3',
     4: 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4',
@@ -9982,7 +9983,7 @@ export default function App() {
                       <span className="material-symbols-outlined text-[16px] text-slate-400 shrink-0">crop_square</span>
                       <input
                         type="range"
-                        min="2"
+                        min="1"
                         max="6"
                         step="1"
                         value={videoGridDensity}
@@ -10135,46 +10136,46 @@ export default function App() {
                                   )}
                                 </>
                               ) : vid.status === 'rendering' ? (
-                                <div className="px-4 py-5 text-center w-full max-w-[245px]">
+                                <div className="px-4 py-5 @lg:py-8 text-center w-full">
                                   <PipelineStepper stage={vid.progress_stage} percent={vid.progress_percent} source={vid.creation_source || (vid.input_type === 'audio' ? 'audio' : 'script')} onStepClick={(step) => openProductionInspector(vid, step)} />
-                                  <div className="mt-4 text-[11px] font-bold text-slate-100 truncate">{vid.progress_stage || 'Rendu en cours…'}</div>
-                                  <div className="mt-2.5 h-1 rounded-full bg-slate-800/90 overflow-hidden">
+                                  <div className="mt-4 @lg:mt-6 text-[11px] @lg:text-base font-bold text-slate-100 truncate">{vid.progress_stage || 'Rendu en cours…'}</div>
+                                  <div className="mt-2.5 @lg:mt-4 h-1 @lg:h-1.5 rounded-full bg-slate-800/90 overflow-hidden">
                                     <div className="h-full bg-gradient-to-r from-[#20bff0] to-[#62dcff] transition-all duration-700 rounded-full" style={{ width: `${vid.progress_percent || 2}%` }} />
                                   </div>
-                                  <div className="mt-2 flex items-center justify-between text-[9px] font-mono">
+                                  <div className="mt-2 @lg:mt-3 flex items-center justify-between text-[9px] @lg:text-xs font-mono">
                                     <span className="text-[#5ddaff] font-bold">{vid.progress_percent || 2}%</span>
                                     {vid.started_at && <span className="text-slate-500">{formatElapsed(vid.started_at)}</span>}
                                   </div>
                                 </div>
                               ) : vid.status === 'failed' ? (
-                                <div className="w-full h-full px-4 py-3 text-center flex flex-col items-center justify-center gap-1.5">
+                                <div className="w-full h-full px-4 py-3 text-center flex flex-col items-center justify-center gap-1.5 @lg:gap-3">
                                   {(() => {
                                     const mustForce = vid.youtube_compliance_report?.phase?.endsWith('_preflight') && vid.youtube_compliance_report?.can_render === false && !vid.script_compliance_overridden;
                                     return (
                                       <button
                                         onClick={(e) => mustForce ? handleForceScriptRender(vid, e) : (e.stopPropagation(), handleRetryVideo(vid.id))}
                                         title={mustForce ? 'Forcer le montage à vos risques' : 'Relancer la génération'}
-                                        className="group/retry flex flex-col items-center gap-1.5"
+                                        className="group/retry flex flex-col items-center gap-1.5 @lg:gap-2.5"
                                       >
-                                        <span className="material-symbols-outlined text-[38px] leading-none text-rose-400 group-hover/retry:text-[#00c2ff] group-hover/retry:rotate-[-25deg] transition-all">{mustForce ? 'warning' : 'replay'}</span>
-                                        <div className="text-[11px] font-extrabold text-rose-300 group-hover/retry:text-[#00c2ff] transition-colors">{mustForce ? 'Forcer le montage' : 'Échec — relancer'}</div>
+                                        <span className="material-symbols-outlined text-[38px] @lg:text-[64px] leading-none text-rose-400 group-hover/retry:text-[#00c2ff] group-hover/retry:rotate-[-25deg] transition-all">{mustForce ? 'warning' : 'replay'}</span>
+                                        <div className="text-[11px] @lg:text-base font-extrabold text-rose-300 group-hover/retry:text-[#00c2ff] transition-colors">{mustForce ? 'Forcer le montage' : 'Échec — relancer'}</div>
                                       </button>
                                     );
                                   })()}
-                                  <div className="max-w-full text-[9px] leading-relaxed text-rose-300/80 line-clamp-2" title={vid.error_message || ''}>
+                                  <div className="max-w-full text-[9px] @lg:text-xs leading-relaxed text-rose-300/80 line-clamp-2" title={vid.error_message || ''}>
                                     {(vid.error_message || 'Erreur inconnue').split('\n')[0]}
                                   </div>
                                 </div>
                               ) : vid.status === 'done' ? (
-                                <div className="p-4 text-center space-y-2">
-                                  <span className="material-symbols-outlined text-[36px] text-slate-500">inventory_2</span>
-                                  <div className="text-[11px] font-bold font-mono text-slate-400">Fichier expiré</div>
-                                  <div className="text-[9px] text-slate-500">Rendu terminé, fichier purgé après la période de rétention.</div>
+                                <div className="p-4 text-center space-y-2 @lg:space-y-3">
+                                  <span className="material-symbols-outlined text-[36px] @lg:text-[56px] text-slate-500">inventory_2</span>
+                                  <div className="text-[11px] @lg:text-base font-bold font-mono text-slate-400">Fichier expiré</div>
+                                  <div className="text-[9px] @lg:text-xs text-slate-500">Rendu terminé, fichier purgé après la période de rétention.</div>
                                 </div>
                               ) : (
-                                <div className="p-4 text-center space-y-2">
-                                  <HourglassSandIcon className="w-9 h-9 mx-auto text-[#00c2ff]" />
-                                  <div className="text-[11px] font-bold font-mono text-[#00c2ff]">En file d'attente</div>
+                                <div className="p-4 text-center space-y-2 @lg:space-y-3">
+                                  <HourglassSandIcon className="w-9 h-9 @lg:w-16 @lg:h-16 mx-auto text-[#00c2ff]" />
+                                  <div className="text-[11px] @lg:text-base font-bold font-mono text-[#00c2ff]">En file d'attente</div>
                                 </div>
                               )}
 
@@ -11065,45 +11066,45 @@ export default function App() {
                                 )}
                               </>
                             ) : vid.status === 'rendering' ? (
-                              <div className="px-4 py-5 text-center w-full max-w-[245px]">
+                              <div className="px-4 py-5 @lg:py-8 text-center w-full">
                                 <PipelineStepper stage={vid.progress_stage} percent={vid.progress_percent} source={vid.creation_source || (vid.input_type === 'audio' ? 'audio' : 'script')} onStepClick={(step) => openProductionInspector(vid, step)} />
-                                <div className="mt-4 text-[11px] font-bold text-slate-100 truncate">{vid.progress_stage || 'Rendu en cours…'}</div>
-                                <div className="mt-2.5 h-1 rounded-full bg-slate-800/90 overflow-hidden">
+                                <div className="mt-4 @lg:mt-6 text-[11px] @lg:text-base font-bold text-slate-100 truncate">{vid.progress_stage || 'Rendu en cours…'}</div>
+                                <div className="mt-2.5 @lg:mt-4 h-1 @lg:h-1.5 rounded-full bg-slate-800/90 overflow-hidden">
                                   <div className="h-full bg-gradient-to-r from-[#20bff0] to-[#62dcff] transition-all duration-700 rounded-full" style={{ width: `${vid.progress_percent || 2}%` }} />
                                 </div>
-                                <div className="mt-2 flex items-center justify-between text-[9px] font-mono">
+                                <div className="mt-2 @lg:mt-3 flex items-center justify-between text-[9px] @lg:text-xs font-mono">
                                   <span className="text-[#5ddaff] font-bold">{vid.progress_percent || 2}%</span>
                                   {vid.started_at && <span className="text-slate-500">{formatElapsed(vid.started_at)}</span>}
                                 </div>
                               </div>
                             ) : vid.status === 'failed' ? (
-                              <div className="w-full h-full px-4 py-3 text-center flex flex-col items-center justify-center gap-1.5">
+                              <div className="w-full h-full px-4 py-3 text-center flex flex-col items-center justify-center gap-1.5 @lg:gap-3">
                                 {(() => {
                                   const mustForce = vid.youtube_compliance_report?.phase?.endsWith('_preflight') && vid.youtube_compliance_report?.can_render === false && !vid.script_compliance_overridden;
                                   return (
                                     <button
                                       onClick={(e) => mustForce ? handleForceScriptRender(vid, e) : (e.stopPropagation(), handleRetryVideo(vid.id))}
                                       title={mustForce ? 'Forcer le montage à vos risques' : 'Relancer la génération'}
-                                      className="group/retry flex flex-col items-center gap-1.5"
+                                      className="group/retry flex flex-col items-center gap-1.5 @lg:gap-2.5"
                                     >
-                                      <span className="material-symbols-outlined text-[38px] leading-none text-rose-400 group-hover/retry:text-[#00c2ff] group-hover/retry:rotate-[-25deg] transition-all">{mustForce ? 'warning' : 'replay'}</span>
-                                      <div className="text-[11px] font-extrabold text-rose-300 group-hover/retry:text-[#00c2ff] transition-colors">{mustForce ? 'Forcer le montage' : 'Échec — relancer'}</div>
+                                      <span className="material-symbols-outlined text-[38px] @lg:text-[64px] leading-none text-rose-400 group-hover/retry:text-[#00c2ff] group-hover/retry:rotate-[-25deg] transition-all">{mustForce ? 'warning' : 'replay'}</span>
+                                      <div className="text-[11px] @lg:text-base font-extrabold text-rose-300 group-hover/retry:text-[#00c2ff] transition-colors">{mustForce ? 'Forcer le montage' : 'Échec — relancer'}</div>
                                     </button>
                                   );
                                 })()}
-                                <div className="max-w-full text-[9px] leading-relaxed text-rose-300/80 line-clamp-2" title={vid.error_message || ''}>
+                                <div className="max-w-full text-[9px] @lg:text-xs leading-relaxed text-rose-300/80 line-clamp-2" title={vid.error_message || ''}>
                                   {(vid.error_message || 'Erreur inconnue').split('\n')[0]}
                                 </div>
                               </div>
                             ) : vid.status === 'done' ? (
-                              <div className="p-4 text-center space-y-2">
-                                <span className="material-symbols-outlined text-[36px] text-slate-500">inventory_2</span>
-                                <div className="text-[11px] font-bold font-mono text-slate-400">Fichier expiré</div>
+                              <div className="p-4 text-center space-y-2 @lg:space-y-3">
+                                <span className="material-symbols-outlined text-[36px] @lg:text-[56px] text-slate-500">inventory_2</span>
+                                <div className="text-[11px] @lg:text-base font-bold font-mono text-slate-400">Fichier expiré</div>
                               </div>
                             ) : (
-                              <div className="p-4 text-center space-y-2">
-                                <HourglassSandIcon className="w-9 h-9 mx-auto text-[#00c2ff]" />
-                                <div className="text-[11px] font-bold font-mono text-[#00c2ff]">En file</div>
+                              <div className="p-4 text-center space-y-2 @lg:space-y-3">
+                                <HourglassSandIcon className="w-9 h-9 @lg:w-16 @lg:h-16 mx-auto text-[#00c2ff]" />
+                                <div className="text-[11px] @lg:text-base font-bold font-mono text-[#00c2ff]">En file</div>
                               </div>
                             )}
 
