@@ -17375,6 +17375,13 @@ export default function App() {
             const body = await res.json().catch(() => ({}));
             if (!res.ok) throw new Error(body.detail || "L'analyse a échoué.");
             updateStructure({ parts: body.parts });
+            // Consumed: once applied, this exact paste must never fire
+            // again. Left non-empty, every later "Terminé" click re-ran
+            // this same analysis and overwrote whatever the creator had
+            // just edited by hand (length, individual part word counts...)
+            // with a fresh AI split of the original paste, making manual
+            // adjustments after the first analysis silently revert.
+            setScriptStructurePasteText('');
             return true;
           } catch (err) {
             setScriptStructureAnalyzeError(err.message || "L'analyse a échoué, réessaie.");
