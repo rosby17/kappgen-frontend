@@ -7661,6 +7661,23 @@ export default function App() {
     }
   };
 
+  // Lets an admin open any creator's channel pipeline directly from one of
+  // its videos in the admin list — the exact same wizard the owner sees,
+  // fully editable (pause automation, change niche, anything) without
+  // needing their permission. Backend ownership checks across channels.py
+  // all allow this for current_user.is_admin.
+  const openAdminChannelPipeline = async (channelId) => {
+    if (!channelId) return;
+    try {
+      const res = await authFetch(`${API_BASE}/channels/${channelId}`);
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || 'Chaîne introuvable.');
+      const channel = await res.json();
+      openEditWizard(channel);
+    } catch (err) {
+      showToast(err.message || "Impossible d'ouvrir le pipeline de cette chaîne.", 'error');
+    }
+  };
+
   // Keep the admin list actions identical to the creator video menu. Actions
   // that need the full editor/modal open the same existing UI, while the
   // admin-specific detail/retry/delete handlers remain available here too.
@@ -7670,6 +7687,7 @@ export default function App() {
       <button onClick={(e) => { e.stopPropagation(); setAdminVideoMenuId(null); handleRegenerateCardThumbnail(vid, e); }} disabled={regeneratingCardThumbnailIds.has(vid.id)} className="w-full px-3 py-2 text-left text-xs font-medium text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 disabled:opacity-50"><span className="material-symbols-outlined text-[15px] text-[#00c2ff]">autorenew</span>{regeneratingCardThumbnailIds.has(vid.id) ? 'Régénération…' : 'Régénérer la miniature'}</button>
       <button onClick={(e) => { e.stopPropagation(); setAdminVideoMenuId(null); openThumbnailModal(vid, e); }} className="w-full px-3 py-2 text-left text-xs font-medium text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2"><span className="material-symbols-outlined text-[15px] text-[#00c2ff]">photo_library</span>Historique des miniatures</button>
       <button onClick={(e) => { e.stopPropagation(); setAdminVideoMenuId(null); openAdminVideoDetail(vid.id); }} className="w-full px-3 py-2 text-left text-xs font-medium text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2"><span className="material-symbols-outlined text-[15px] text-[#00c2ff]">movie_edit</span>Éditer la vidéo</button>
+      <button onClick={(e) => { e.stopPropagation(); setAdminVideoMenuId(null); openAdminChannelPipeline(vid.channel_id); }} className="w-full px-3 py-2 text-left text-xs font-medium text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2"><span className="material-symbols-outlined text-[15px] text-amber-400">settings_suggest</span>Gérer le pipeline de la chaîne</button>
       {vid.status === 'queued' && (
         <button onClick={(e) => { e.stopPropagation(); setAdminVideoMenuId(null); setAdminVideoPriority(vid.id, !vid.admin_priority); }} className="w-full px-3 py-2 text-left text-xs font-medium text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2">
           <span className={`material-symbols-outlined text-[15px] ${vid.admin_priority ? 'text-amber-400' : 'text-[#00c2ff]'}`}>bolt</span>
