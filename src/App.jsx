@@ -11567,33 +11567,35 @@ export default function App() {
                           <p className="text-[11px] font-bold text-slate-200">Aperçu des réglages</p>
                           <p className="text-[10px] text-slate-500">Écoute un court extrait avant de lancer ta vidéo.</p>
                         </div>
-                        <button
-                          type="button"
-                          onClick={previewVoiceSettings}
-                          disabled={voiceSettingsPreviewLoading}
-                          className="shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-[#00c2ff] px-3 py-2 text-[11px] font-extrabold text-slate-950 transition-opacity disabled:cursor-wait disabled:opacity-60"
-                        >
-                          <span className={`material-symbols-outlined text-[16px] ${voiceSettingsPreviewLoading ? 'animate-spin' : ''}`}>{voiceSettingsPreviewLoading ? 'progress_activity' : voiceSettingsPreviewUrl ? 'refresh' : 'play_arrow'}</span>
-                          {voiceSettingsPreviewLoading ? 'Génération…' : voiceSettingsPreviewUrl ? 'Regénérer' : 'Écouter l’aperçu'}
-                        </button>
-                        {voiceSettingsPreviewUrl && (
+                        <div className="flex w-full items-center justify-center gap-2 sm:w-auto sm:justify-end">
                           <button
                             type="button"
-                            onClick={() => {
-                              if (voiceSettingsPreviewPlaying) {
-                                stopVoicePreview();
-                                setVoiceSettingsPreviewPlaying(false);
-                              } else {
-                                setVoiceSettingsPreviewPlaying(true);
-                                playVoicePreviewExclusive(voiceSettingsPreviewUrl, () => setVoiceSettingsPreviewPlaying(false));
-                              }
-                            }}
-                            className="shrink-0 inline-flex items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--bg-input)] px-3 py-2 text-[11px] font-bold text-slate-200 hover:border-[#00c2ff]/60"
+                            onClick={previewVoiceSettings}
+                            disabled={voiceSettingsPreviewLoading}
+                            className="shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-[#00c2ff] px-3 py-2 text-[11px] font-extrabold text-slate-950 transition-opacity disabled:cursor-wait disabled:opacity-60"
                           >
-                            <span className="material-symbols-outlined text-[15px]">{voiceSettingsPreviewPlaying ? 'pause' : 'play_arrow'}</span>
-                            {voiceSettingsPreviewPlaying ? 'Pause' : 'Réécouter'}
+                            <span className={`material-symbols-outlined text-[16px] ${voiceSettingsPreviewLoading ? 'animate-spin' : ''}`}>{voiceSettingsPreviewLoading ? 'progress_activity' : voiceSettingsPreviewUrl ? 'refresh' : 'play_arrow'}</span>
+                            {voiceSettingsPreviewLoading ? 'Génération…' : voiceSettingsPreviewUrl ? 'Regénérer' : 'Écouter l’aperçu'}
                           </button>
-                        )}
+                          {voiceSettingsPreviewUrl && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (voiceSettingsPreviewPlaying) {
+                                  stopVoicePreview();
+                                  setVoiceSettingsPreviewPlaying(false);
+                                } else {
+                                  setVoiceSettingsPreviewPlaying(true);
+                                  playVoicePreviewExclusive(voiceSettingsPreviewUrl, () => setVoiceSettingsPreviewPlaying(false));
+                                }
+                              }}
+                              className="shrink-0 inline-flex items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--bg-input)] px-3 py-2 text-[11px] font-bold text-slate-200 hover:border-[#00c2ff]/60"
+                            >
+                              <span className="material-symbols-outlined text-[15px]">{voiceSettingsPreviewPlaying ? 'pause' : 'play_arrow'}</span>
+                              {voiceSettingsPreviewPlaying ? 'Pause' : 'Réécouter'}
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
