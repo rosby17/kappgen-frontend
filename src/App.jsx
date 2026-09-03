@@ -11939,13 +11939,13 @@ export default function App() {
 
                     <div>
                       <label className="block text-xs font-bold text-slate-300 mb-2">Niche de contenu</label>
-                      <div className="flex flex-wrap gap-2">
+                      <div className="flex flex-wrap gap-x-2 gap-y-3">
                         {nicheOptions.map(n => (
                           <button
                             key={n}
                             type="button"
                             onClick={() => setNewChannel({ ...newChannel, niche: n })}
-                            className={`px-3.5 py-2 rounded-xl text-xs font-bold border transition-colors ${
+                            className={`shrink-0 px-3.5 py-2 rounded-xl text-xs font-bold border transition-colors ${
                               newChannel.niche === n
                                 ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]'
                                 : 'bg-[var(--bg-surface-alt)] border-[var(--border)] text-slate-300 hover:border-slate-500'
@@ -11958,7 +11958,7 @@ export default function App() {
                       <input
                         value={newChannel.niche}
                         onChange={e => setNewChannel({ ...newChannel, niche: e.target.value })}
-                        className="w-full mt-2 bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-3 py-2 text-xs text-white focus:border-[#00c2ff] outline-none"
+                        className="w-full mt-4 bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-3 py-2 text-xs text-white focus:border-[#00c2ff] outline-none"
                         placeholder="Écris ta propre niche..."
                       />
                     </div>
