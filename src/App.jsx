@@ -11575,51 +11575,22 @@ export default function App() {
                       );
                     })()}
 
-                    {newChannel.automation_mode === 'auto' && (
-                      <div>
-                        <div className="flex items-center gap-2 bg-[var(--bg-input)] border border-[var(--border-subtle)] rounded-xl px-3 py-2.5">
-                          <span className="material-symbols-outlined text-[16px] text-slate-500 shrink-0">calendar_today</span>
-                          <span className="text-[11px] text-slate-400 shrink-0">Scripts (vidéos) par jour :</span>
-                          <div className="flex-1 flex items-center justify-end gap-2">
-                            <button
-                              type="button"
-                              onClick={() => setNewChannel({ ...newChannel, videos_per_day: Math.max(1, (newChannel.videos_per_day || 1) - 1) })}
-                              className="w-7 h-7 rounded-lg bg-[var(--bg-surface-alt)] border border-[var(--border)] text-white hover:border-slate-500 flex items-center justify-center"
-                            >
-                              <span className="material-symbols-outlined text-[16px]">remove</span>
-                            </button>
-                            <input
-                              type="number"
-                              min={1}
-                              max={100}
-                              value={newChannel.videos_per_day || 1}
-                              onChange={e => {
-                                const n = parseInt(e.target.value);
-                                setNewChannel({ ...newChannel, videos_per_day: Number.isFinite(n) ? Math.min(100, Math.max(1, n)) : 1 });
-                              }}
-                              className="w-14 text-center bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-lg py-1 text-xs font-bold text-white focus:border-[#00c2ff] outline-none"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => setNewChannel({ ...newChannel, videos_per_day: Math.min(100, (newChannel.videos_per_day || 1) + 1) })}
-                              className="w-7 h-7 rounded-lg bg-[var(--bg-surface-alt)] border border-[var(--border)] text-white hover:border-slate-500 flex items-center justify-center"
-                            >
-                              <span className="material-symbols-outlined text-[16px]">add</span>
-                            </button>
-                          </div>
-                        </div>
-                        <p className="text-[10px] text-slate-500 mt-1.5 px-1">La plage horaire, les jours et le fuseau de publication de la vidéo finie se règlent à l'étape « Publication ».</p>
-                      </div>
-                    )}
-
                     {newChannel.automation_mode === 'auto' && (() => {
                       const hasFixedHour = (newChannel.script_generation_hour ?? -1) >= 0;
                       const genDays = newChannel.script_generation_days;
                       return (
-                        <div className="space-y-2">
-                          <div className="flex items-center gap-2 bg-[var(--bg-input)] border border-[var(--border-subtle)] rounded-xl px-3 py-2.5 flex-wrap">
-                            <span className="material-symbols-outlined text-[16px] text-slate-500 shrink-0">schedule</span>
-                            <span className="text-[11px] text-slate-400 shrink-0">Écriture du script :</span>
+                        <div className="flex flex-col gap-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-input)] p-3 xl:flex-row xl:items-center">
+                          <div className="flex items-center gap-2 xl:border-r xl:border-[var(--border)] xl:pr-4">
+                            <span className="material-symbols-outlined text-[16px] text-slate-500">calendar_today</span>
+                            <span className="whitespace-nowrap text-[11px] text-slate-400">Par jour</span>
+                            <button type="button" onClick={() => setNewChannel({ ...newChannel, videos_per_day: Math.max(1, (newChannel.videos_per_day || 1) - 1) })} className="flex h-7 w-7 items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--bg-surface-alt)] text-white hover:border-slate-500"><span className="material-symbols-outlined text-[16px]">remove</span></button>
+                            <input type="number" min={1} max={100} value={newChannel.videos_per_day || 1} onChange={e => { const n = parseInt(e.target.value); setNewChannel({ ...newChannel, videos_per_day: Number.isFinite(n) ? Math.min(100, Math.max(1, n)) : 1 }); }} className="w-12 rounded-lg border border-[var(--border)] bg-[var(--bg-surface-alt)] py-1 text-center text-xs font-bold text-white outline-none focus:border-[#00c2ff]" />
+                            <button type="button" onClick={() => setNewChannel({ ...newChannel, videos_per_day: Math.min(100, (newChannel.videos_per_day || 1) + 1) })} className="flex h-7 w-7 items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--bg-surface-alt)] text-white hover:border-slate-500"><span className="material-symbols-outlined text-[16px]">add</span></button>
+                          </div>
+
+                          <div className="flex items-center gap-2 xl:border-r xl:border-[var(--border)] xl:pr-4">
+                            <span className="material-symbols-outlined text-[16px] text-slate-500">schedule</span>
+                            <span className="whitespace-nowrap text-[11px] text-slate-400">Écriture</span>
                             <div className="flex items-center gap-1 bg-[var(--bg-input-alt)] border border-[var(--border)] rounded-lg p-0.5 shrink-0">
                               <button
                                 type="button"
@@ -11651,12 +11622,9 @@ export default function App() {
                           </div>
 
                           {hasFixedHour && (
-                            <div className="bg-[var(--bg-input)] border border-[var(--border-subtle)] rounded-xl px-3 py-2.5">
-                              <div className="flex items-center gap-2 mb-2">
-                                <span className="material-symbols-outlined text-[16px] text-slate-500 shrink-0">event_repeat</span>
-                                <span className="text-[11px] text-slate-400">Jours de génération</span>
-                              </div>
-                              <div className="flex gap-1.5">
+                            <div className="flex min-w-0 flex-1 items-center gap-2">
+                              <span className="material-symbols-outlined shrink-0 text-[16px] text-slate-500">event_repeat</span>
+                              <div className="flex min-w-0 flex-1 gap-1">
                                 {[
                                   { id: 0, label: 'L' }, { id: 1, label: 'M' }, { id: 2, label: 'M' },
                                   { id: 3, label: 'J' }, { id: 4, label: 'V' }, { id: 5, label: 'S' }, { id: 6, label: 'D' },
@@ -11671,7 +11639,7 @@ export default function App() {
                                         const next = current.includes(id) ? current.filter(d => d !== id) : [...current, id].sort();
                                         setNewChannel({ ...newChannel, script_generation_days: next.length === 7 ? null : next });
                                       }}
-                                      className={`flex-1 py-2 rounded-lg text-[11px] font-bold border transition-colors ${
+                                      className={`min-w-7 flex-1 rounded-lg border py-1.5 text-[10px] font-bold transition-colors ${
                                         isOn ? 'bg-[#00c2ff] text-slate-950 border-[#00c2ff]' : 'bg-[var(--bg-surface-alt)] border-[var(--border)] text-slate-300 hover:border-slate-500'
                                       }`}
                                     >
@@ -11682,12 +11650,6 @@ export default function App() {
                               </div>
                             </div>
                           )}
-
-                          <p className="text-[10px] text-slate-500 px-1">
-                            {hasFixedHour
-                              ? `KappGen AI commence à écrire le script à partir de ${String(newChannel.script_generation_hour).padStart(2, '0')}:${String(newChannel.script_generation_minute ?? 0).padStart(2, '0')}:${String(newChannel.script_generation_second ?? 0).padStart(2, '0')} (fuseau de la chaîne, vérifié toutes les ~10 min — les secondes sont enregistrées mais pas garanties à l'exécution) — pratique pour vérifier que l'automatisation se déclenche bien.`
-                              : "Le script est écrit dès qu'un créneau du jour est libre, sans heure fixe."} Dès que le script est prêt, la vidéo part automatiquement en rendu.
-                          </p>
                         </div>
                       );
                     })()}
