@@ -5259,23 +5259,11 @@ export default function App() {
       const data = await res.json();
       if (!Array.isArray(data)) throw new Error('Réponse API invalide');
 
-      // Detect a video that just flipped to 'done' since the last poll, and
-      // pull its cost recap — this is the "juste après la génération" trigger,
-      // since render completion is only ever observed here (polling), not as
-      // a direct response to a submit call.
-      const previousStatuses = allVideosStatusRef.current;
-      const freshlyDone = data.filter(v => v.status === 'done' && previousStatuses[v.id] && previousStatuses[v.id] !== 'done');
       allVideosStatusRef.current = Object.fromEntries(data.map(v => [v.id, v.status]));
 
       setAllVideos(data);
       setVideosLoadError('');
 
-      if (freshlyDone.length > 0) {
-        const video = freshlyDone[0];
-        authFetch(`${API_BASE}/videos/${video.id}/cost-recap`).then(r => r.ok ? r.json() : null).then(recap => {
-          if (recap && recap.total_credits > 0) setCostRecap({ videoTitle: video.title || 'Vidéo', ...recap });
-        }).catch(() => {});
-      }
     } catch (e) {
       console.error("API error loading videos:", e);
       setVideosLoadError("Impossible de charger vos vidéos. Vérifiez que l’API KappGen est accessible.");
