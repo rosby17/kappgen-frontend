@@ -10432,7 +10432,11 @@ export default function App() {
                 </form>
 
                 <div className="flex flex-wrap gap-2">
-                  {['Nature', 'Santé', 'Spiritualité', 'Histoire', 'Astronomie & espace', 'Science', 'Psychologie', 'Finance', 'Business', 'Technologie', 'Éducation', 'Voyage', 'Animaux', 'Cuisine', 'Fitness', 'Musique', 'Gaming', 'Immobilier', 'Luxe'].map(category => (
+                  {/* Same canonical niche list used everywhere else in the app
+                      (channel creation, admin library) — a category here has
+                      to mean the same thing it means when picking a channel's
+                      own niche, not a separate, looser vocabulary. */}
+                  {NICHE_OPTIONS.map(category => (
                     <button key={category} type="button" onClick={() => { setPublicLibraryQuery(category); fetchPublicLibrary({ query: category, page: 1 }); }} className={`rounded-full border px-3 py-1.5 text-[10px] font-bold transition ${publicLibraryQuery.toLowerCase() === category.toLowerCase() ? 'border-[#00c2ff]/60 bg-[#00c2ff]/10 text-[#63dcff]' : 'border-[var(--border)] bg-[var(--bg-surface)] text-slate-400 hover:border-slate-500 hover:text-white'}`}>{category}</button>
                   ))}
                 </div>
@@ -12229,20 +12233,6 @@ export default function App() {
                                     : available
                                       ? "Images partagées de ta niche (gratuites) + vraies séquences vidéo et photos de stock cherchées automatiquement pour chaque scène (100 crédits par séquence/photo utilisée)."
                                       : `Pas encore de bibliothèque partagée pour « ${nicheSet} », mais les séquences vidéo et photos de stock sont cherchées automatiquement pour chaque scène (100 crédits par séquence/photo utilisée).`}
-                                </p>
-                                {/* Pexels' API guidelines ask for a visible link
-                                    to Pexels wherever their media is used. */}
-                                <p className="mt-1.5 text-[10px] text-slate-500">
-                                  Séquences et photos fournies par{' '}
-                                  <a
-                                    href="https://www.pexels.com"
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    onClick={(e) => e.stopPropagation()}
-                                    className="text-[#56d9ff] hover:underline"
-                                  >
-                                    Pexels
-                                  </a>
                                 </p>
                               </div>
                               <input
@@ -17959,6 +17949,35 @@ export default function App() {
           </div>
         );
       })()}
+
+      {publicLibraryPreview && (
+        <div className="fixed inset-0 z-[130] flex items-center justify-center bg-slate-950/90 p-4 backdrop-blur-md sm:p-6" onClick={() => setPublicLibraryPreview(null)}>
+          <div className="max-h-[92vh] w-full max-w-5xl overflow-hidden rounded-3xl border border-[var(--border-soft)] bg-[var(--bg-surface)] shadow-2xl" onClick={event => event.stopPropagation()}>
+            <div className="flex items-center justify-between gap-4 border-b border-[var(--border-soft)] px-5 py-4">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 text-[10px] font-extrabold uppercase tracking-[.14em] text-[#65dcff]">
+                  <span className="material-symbols-outlined text-[16px]">{publicLibraryPreview.type === 'videos' ? 'movie' : 'image'}</span>
+                  {publicLibraryPreview.provider === 'community' ? 'Communauté KappGen' : 'Pexels'}
+                </div>
+                <p className="mt-1 truncate text-sm font-bold text-white">{publicLibraryPreview.alt || publicLibraryPreview.author || 'Aperçu de la ressource'}</p>
+              </div>
+              <button type="button" onClick={() => setPublicLibraryPreview(null)} className="rounded-xl p-2 text-slate-400 transition hover:bg-[var(--bg-surface-alt)] hover:text-white" aria-label="Fermer l’aperçu">
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+            <div className="flex max-h-[calc(92vh-88px)] min-h-[260px] items-center justify-center bg-slate-950 p-3 sm:p-5">
+              {publicLibraryPreview.type === 'videos' && publicLibraryAssetUrl(publicLibraryPreview) ? (
+                <video controls autoPlay playsInline poster={publicLibraryThumbnailUrl(publicLibraryPreview)} className="max-h-[calc(92vh-130px)] max-w-full rounded-xl">
+                  <source src={publicLibraryAssetUrl(publicLibraryPreview)} />
+                  Votre navigateur ne peut pas lire cette vidéo.
+                </video>
+              ) : (
+                <img src={publicLibraryThumbnailUrl(publicLibraryPreview)} alt={publicLibraryPreview.alt || 'Aperçu de la ressource'} className="max-h-[calc(92vh-130px)] max-w-full rounded-xl object-contain" />
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* COST RECAP — shown right after a video finishes rendering, itemizing
           exactly what it cost in credits (transcription, images, base render
