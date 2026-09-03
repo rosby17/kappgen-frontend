@@ -13806,7 +13806,7 @@ export default function App() {
                                 }}>
                                   Dans ce mode, un paragraphe complet reste affiché suffisamment longtemps pour être lu confortablement. Il est ensuite remplacé par le paragraphe suivant, sans animation mot par mot.
                                 </p>
-                              ) : sampleWords.map((wordObj, i) => {
+                              ) : sampleWords.slice(0, Math.max(1, newChannel.subtitle_style.words_per_line || 6)).map((wordObj, i) => {
                                 const highlightMode = newChannel.subtitle_style.highlight_mode || (newChannel.subtitle_style.karaoke === false ? 'line' : 'word');
                                 const isColored = highlightMode === 'line' || (highlightMode === 'word' && wordObj.highlight);
                                 const displayText = applySubtitleCase(wordObj.text, newChannel.subtitle_style.text_case);
