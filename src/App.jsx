@@ -16214,7 +16214,7 @@ export default function App() {
                     ) : null}
 
                     {label === 'Audio' && (productionProgress.audio_ready ? (
-                      <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--bg-surface-alt)] p-5"><h3 className="mb-3 text-xs font-extrabold text-white">Voix générée</h3><audio controls preload="metadata" className="w-full" src={`${API_BASE}${productionProgress.audio_url}`} /></div>
+                      <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--bg-surface-alt)] p-5"><h3 className="mb-3 text-xs font-extrabold text-white">Voix générée</h3><audio controls preload="metadata" className="w-full" style={{ colorScheme: 'dark' }} src={`${API_BASE}${productionProgress.audio_url}`} /></div>
                     ) : <div className="rounded-xl border border-dashed border-slate-700 p-8 text-center text-xs font-bold text-slate-400">La voix est en cours de préparation. Le lecteur apparaîtra automatiquement.</div>)}
 
                     {isGallery && (productionProgress.scenes?.length ? (
