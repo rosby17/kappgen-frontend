@@ -10333,6 +10333,86 @@ export default function App() {
               </section>
             )}
 
+            {/* VIEW 3.6: PUBLIC RESOURCES — a browsable Pexels catalogue,
+                intentionally separate from the creator's private library. */}
+            {view === 'public_library' && (
+              <section className="space-y-6">
+                <div className="relative overflow-hidden rounded-3xl border border-[#00c2ff]/20 bg-[var(--bg-surface)] p-6 sm:p-8 shadow-[0_24px_70px_rgba(0,0,0,.14)]">
+                  <div className="pointer-events-none absolute -right-16 -top-20 h-64 w-64 rounded-full bg-[#00c2ff]/10 blur-3xl" />
+                  <div className="relative max-w-2xl">
+                    <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-[#00c2ff]/25 bg-[#00c2ff]/10 px-3 py-1 text-[10px] font-extrabold uppercase tracking-[.16em] text-[#65dcff]">
+                      <span className="material-symbols-outlined text-[15px]">public</span>
+                      Ressources publiques
+                    </div>
+                    <h2 className="text-2xl font-extrabold tracking-[-.025em] text-white sm:text-3xl">Des visuels libres pour tes vidéos.</h2>
+                    <p className="mt-2 text-sm leading-relaxed text-slate-400">Explore les images et B-roll Pexels par thème. Ces ressources sont publiques ; tes propres médias restent dans Ma bibliothèque.</p>
+                  </div>
+                </div>
+
+                <form
+                  onSubmit={event => { event.preventDefault(); fetchPublicLibrary({ page: 1 }); }}
+                  className="flex flex-col gap-3 rounded-2xl border border-[var(--border-soft)] bg-[var(--bg-surface)] p-3 sm:flex-row"
+                >
+                  <label className="relative block min-w-0 flex-1">
+                    <span className="material-symbols-outlined pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[18px] text-slate-500">search</span>
+                    <input
+                      value={publicLibraryQuery}
+                      onChange={event => setPublicLibraryQuery(event.target.value)}
+                      placeholder="Chercher un thème ou une niche…"
+                      className="w-full rounded-xl border border-[var(--border-soft)] bg-[var(--bg-surface-alt)] py-2.5 pl-10 pr-4 text-xs font-medium text-white outline-none transition focus:border-[#00c2ff]/60 focus:ring-2 focus:ring-[#00c2ff]/10"
+                    />
+                  </label>
+                  <div className="flex rounded-xl bg-[var(--bg-surface-alt)] p-1">
+                    {[{ id: 'photos', label: 'Images', icon: 'image' }, { id: 'videos', label: 'B-roll', icon: 'movie' }].map(option => (
+                      <button key={option.id} type="button" onClick={() => setPublicLibraryMediaType(option.id)} className={`flex items-center gap-1.5 rounded-lg px-3 py-2 text-[10px] font-bold transition-colors ${publicLibraryMediaType === option.id ? 'bg-[#00c2ff] text-slate-950 shadow-sm' : 'text-slate-400 hover:text-white'}`}>
+                        <span className="material-symbols-outlined text-[15px]">{option.icon}</span>{option.label}
+                      </button>
+                    ))}
+                  </div>
+                  <button type="submit" className="rounded-xl bg-[#00c2ff] px-4 py-2.5 text-xs font-extrabold text-slate-950 transition hover:bg-[#45d4ff]">Rechercher</button>
+                </form>
+
+                <div className="flex flex-wrap gap-2">
+                  {['Nature', 'Santé', 'Spiritualité', 'Histoire', 'Business', 'Technologie', 'Voyage', 'Personnes'].map(category => (
+                    <button key={category} type="button" onClick={() => { setPublicLibraryQuery(category); fetchPublicLibrary({ query: category, page: 1 }); }} className={`rounded-full border px-3 py-1.5 text-[10px] font-bold transition ${publicLibraryQuery.toLowerCase() === category.toLowerCase() ? 'border-[#00c2ff]/60 bg-[#00c2ff]/10 text-[#63dcff]' : 'border-[var(--border)] bg-[var(--bg-surface)] text-slate-400 hover:border-slate-500 hover:text-white'}`}>{category}</button>
+                  ))}
+                </div>
+
+                {publicLibraryError ? (
+                  <div role="alert" className="rounded-2xl border border-rose-500/35 bg-rose-500/[.08] p-5 text-sm text-rose-200">
+                    <div className="flex items-center gap-2 font-bold"><span className="material-symbols-outlined">error</span> Impossible de charger les ressources publiques</div>
+                    <p className="mt-1.5 text-xs leading-relaxed text-rose-200/80">{publicLibraryError}</p>
+                    <button type="button" onClick={() => fetchPublicLibrary()} className="mt-4 rounded-lg border border-rose-400/35 px-3 py-2 text-xs font-bold transition hover:bg-rose-400/10">Réessayer</button>
+                  </div>
+                ) : publicLibraryLoading ? (
+                  <SkeletonGrid count={8} cardClassName="aspect-[16/10]" />
+                ) : publicLibraryItems.length === 0 ? (
+                  <div className="rounded-2xl border border-[var(--border-soft)] bg-[var(--bg-surface)] p-10 text-center">
+                    <span className="material-symbols-outlined text-[38px] text-slate-500">image_search</span>
+                    <p className="mt-3 text-sm font-bold text-white">Aucune ressource trouvée</p>
+                    <p className="mt-1 text-xs text-slate-400">Essaie un autre mot-clé ou une autre catégorie.</p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
+                      {publicLibraryItems.map(item => (
+                        <a key={`${item.type}-${item.id}`} href={item.source_url || item.asset_url} target="_blank" rel="noopener noreferrer" className="group relative aspect-[16/10] overflow-hidden rounded-xl border border-[var(--border-soft)] bg-[var(--bg-surface-alt)]">
+                          <img src={item.thumbnail_url} alt={item.alt || 'Ressource Pexels'} loading="lazy" className="h-full w-full object-cover transition duration-300 group-hover:scale-105" />
+                          <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-2 bg-gradient-to-t from-slate-950/90 via-slate-950/35 to-transparent px-2.5 pb-2 pt-8">
+                            <span className="truncate text-[10px] font-bold text-white">{item.author || 'Pexels'}</span>
+                            {item.type === 'videos' && <span className="shrink-0 rounded bg-slate-950/80 px-1.5 py-0.5 text-[9px] font-bold text-white">{item.duration ? `${item.duration}s` : 'B-roll'}</span>}
+                          </div>
+                          <span className="absolute right-2 top-2 rounded-lg bg-slate-950/75 p-1.5 text-white opacity-0 transition group-hover:opacity-100"><span className="material-symbols-outlined block text-[15px]">open_in_new</span></span>
+                        </a>
+                      ))}
+                    </div>
+                    {publicLibraryHasNext && <div className="flex justify-center"><button type="button" onClick={() => fetchPublicLibrary({ page: publicLibraryPage + 1 })} className="rounded-xl border border-[#00c2ff]/35 bg-[#00c2ff]/10 px-4 py-2.5 text-xs font-bold text-[#62dcff] transition hover:bg-[#00c2ff]/20">Voir plus</button></div>}
+                    <p className="text-center text-[10px] text-slate-500">Photos et vidéos fournies par Pexels. Ouvre une ressource pour voir sa page et sa licence.</p>
+                  </>
+                )}
+              </section>
+            )}
+
             {/* VIEW 4: CHANNEL DETAIL VIEW */}
             {view === 'channel_detail' && activeChannel && (
               <div className="space-y-8">
@@ -10521,6 +10601,24 @@ export default function App() {
                   </div>
                   </div>
                 </section>
+
+                {channelLaunchErrors[activeChannel.id] && (
+                  <section role="alert" className="rounded-2xl border border-rose-500/40 bg-rose-500/[.08] p-4 sm:p-5 shadow-[0_10px_32px_rgba(244,63,94,.08)]">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="flex gap-3">
+                        <span className="material-symbols-outlined mt-0.5 text-[22px] text-rose-300">error</span>
+                        <div>
+                          <h3 className="text-sm font-extrabold text-rose-100">Le lancement de la vidéo est bloqué</h3>
+                          <p className="mt-1 text-xs leading-relaxed text-rose-100/80">{channelLaunchErrors[activeChannel.id]}</p>
+                          <p className="mt-2 text-[10px] text-rose-200/60">Ce message reste affiché jusqu’à une nouvelle tentative.</p>
+                        </div>
+                      </div>
+                      <button onClick={() => startNewVideoFor(activeChannel)} disabled={generatingAutoVideo} className="shrink-0 rounded-xl border border-rose-300/35 bg-rose-300/10 px-4 py-2.5 text-xs font-extrabold text-rose-100 transition hover:bg-rose-300/20 disabled:opacity-50">
+                        {generatingAutoVideo ? 'Relance…' : 'Réessayer'}
+                      </button>
+                    </div>
+                  </section>
+                )}
 
                 {(() => {
                   // Same folders as "Mes Vidéos", scoped to this channel — moving
@@ -11383,11 +11481,11 @@ export default function App() {
                         <textarea
                           value={newChannel.topic_examples || ''}
                           onChange={e => setNewChannel({ ...newChannel, topic_examples: e.target.value })}
-                          placeholder={"Colle directement une liste de vidéos qui marchent dans ta niche — les tiennes, ou celles d'une chaîne concurrente copiées en vrac (avec le nombre de vues et la date, aucun souci). L'IA s'occupe de repérer les plus virales et d'en tirer le style pour écrire tes prochains scripts.\n\nEx :\nLe jour où tu arrêtes de demander la permission de vivre — 2,3 M de vues — il y a 4 mois\nPourquoi le silence de Dieu n'est pas un abandon"}
+                          placeholder={"Colle directement une liste de vidéos qui marchent dans ta niche — les tiennes, ou celles d'une chaîne concurrente (avec le nombre de vues et la date, aucun souci). L'IA s'occupe de repérer les plus virales et d'en tirer le style pour écrire tes prochains scripts.\n\nEx :\nLe jour où tu arrêtes de demander la permission de vivre — 2,3 M de vues — il y a 4 mois\nPourquoi le silence de Dieu n'est pas un abandon"}
                           rows={12}
                           className="w-full bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-3 py-2.5 text-xs text-white focus:border-[#00c2ff] outline-none resize-y"
                         />
-                        <p className="text-[10px] text-slate-500 mt-1.5 px-1">Sans ça, le choix des sujets reste générique. Colle en vrac (vues, dates compris) — l'IA analyse elle-même pour repérer les vidéos les plus virales et s'en inspirer.</p>
+                        <p className="text-[10px] text-slate-500 mt-1.5 px-1">Sans ça, le choix des sujets reste générique. Colle tes données (vues, dates comprises) — l'IA repère elle-même les vidéos les plus virales pour s'en inspirer.</p>
                       </div>
                     )}
 
