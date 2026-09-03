@@ -3662,7 +3662,6 @@ export default function App() {
   const [paymentPlan, setPaymentPlan] = useState(null);
   const [showLanguageModal, setShowLanguageModal] = useState(false);
   const [showScriptStructureModal, setShowScriptStructureModal] = useState(false);
-  const [scriptStructurePasteText, setScriptStructurePasteText] = useState('');
   const [scriptStructureAnalyzing, setScriptStructureAnalyzing] = useState(false);
   const [scriptStructureAnalyzeError, setScriptStructureAnalyzeError] = useState('');
   const [languageSearch, setLanguageSearch] = useState('');
@@ -17363,14 +17362,15 @@ export default function App() {
         // existing parts (matched by name) and we apply the resulting
         // guidance in one shot.
         const analyzePastedText = async () => {
-          if (!scriptStructurePasteText.trim() || parts.length === 0) return true;
+          const pastedText = structure.source_instructions || '';
+          if (!pastedText.trim() || parts.length === 0) return true;
           setScriptStructureAnalyzing(true);
           setScriptStructureAnalyzeError('');
           try {
             const res = await authFetch(`${API_BASE}/channels/analyze-script-structure`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ text: scriptStructurePasteText, parts }),
+              body: JSON.stringify({ text: pastedText, parts }),
             });
             const body = await res.json().catch(() => ({}));
             if (!res.ok) throw new Error(body.detail || "L'analyse a échoué.");
@@ -17403,49 +17403,48 @@ export default function App() {
 
               <div className="overflow-y-auto p-6 sm:p-8 grid grid-cols-1 lg:grid-cols-2 gap-10">
               <div className="flex flex-col space-y-4 min-h-[520px]">
-                <div className="flex items-center gap-2 text-[#59d8ff]">
-                  <span className="material-symbols-outlined text-[20px]">auto_awesome</span>
-                  <label className="text-[13px] font-bold text-white">Import automatique depuis un texte complet</label>
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <div className="flex items-center gap-2 text-[#59d8ff]">
+                    <span className="material-symbols-outlined text-[20px]">auto_awesome</span>
+                    <label className="text-[13px] font-bold text-white">Import automatique depuis un texte complet</label>
+                  </div>
+                  {/* Moved up top and made a real button — most creators
+                      never scrolled down far enough to notice the old
+                      bottom-of-textarea link existed at all. Analysis still
+                      also runs automatically on "Terminé" if this was never
+                      clicked, so nothing is lost either way. */}
+                  {parts.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={analyzePastedText}
+                      disabled={scriptStructureAnalyzing || !(structure.source_instructions || '').trim()}
+                      className="shrink-0 px-3 py-1.5 rounded-lg bg-[#00c2ff]/10 text-[#59d8ff] border border-[#00c2ff]/30 hover:bg-[#00c2ff]/20 text-[11px] font-bold transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5"
+                    >
+                      {scriptStructureAnalyzing ? (
+                        <>
+                          <span className="material-symbols-outlined text-[15px] animate-spin">progress_activity</span>
+                          Analyse en cours...
+                        </>
+                      ) : (
+                        <>
+                          <span className="material-symbols-outlined text-[15px]">auto_awesome</span>
+                          Analyser
+                        </>
+                      )}
+                    </button>
+                  )}
                 </div>
                 <p className="text-[11px] text-slate-500 leading-relaxed">
-                  Colle ici tes instructions ou ton script complet — l'IA l'analysera et répartira le contenu dans les parties à droite ({parts.length} partie{parts.length > 1 ? 's' : ''} : {parts.map(p => p.name).filter(Boolean).join(', ') || '—'}), pour t'éviter de tout recopier à la main.
+                  Colle ici tes instructions ou ton script complet — l'IA l'analysera et répartira le contenu dans les parties à droite ({parts.length} partie{parts.length > 1 ? 's' : ''} : {parts.map(p => p.name).filter(Boolean).join(', ') || '—'}), pour t'éviter de tout recopier à la main. Ce texte reste sauvegardé pour cette chaîne — tu peux toujours revenir dessus.
                 </p>
                 <textarea
-                  value={scriptStructurePasteText}
-                  onChange={e => setScriptStructurePasteText(e.target.value)}
+                  value={structure.source_instructions || ''}
+                  onChange={e => updateStructure({ source_instructions: e.target.value })}
                   placeholder="Colle ici le texte complet (script, notes, brief...)"
                   className="w-full flex-1 bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-4 py-3 text-sm text-white leading-relaxed focus:border-[#00c2ff] outline-none min-h-[420px] resize-none"
                 />
                 {scriptStructureAnalyzeError && (
                   <p className="text-[11px] text-red-400">{scriptStructureAnalyzeError}</p>
-                )}
-                {/* No explicit "Analyser" button here anymore — most creators never
-                    click it, they just paste and expect it to work. The analysis
-                    now runs automatically when they close this modal (see the
-                    "Terminé" handler below), using whatever's pasted here as the
-                    priority source even if the discrete part fields on the right
-                    were never touched. This link stays only as an optional
-                    early-preview for creators who want to see the split before
-                    closing. */}
-                {scriptStructurePasteText.trim() && parts.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={analyzePastedText}
-                    disabled={scriptStructureAnalyzing}
-                    className="text-[11px] font-bold text-[#59d8ff] hover:text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 flex-shrink-0 self-center"
-                  >
-                    {scriptStructureAnalyzing ? (
-                      <>
-                        <span className="material-symbols-outlined text-[15px] animate-spin">progress_activity</span>
-                        Analyse en cours...
-                      </>
-                    ) : (
-                      <>
-                        <span className="material-symbols-outlined text-[15px]">visibility</span>
-                        Prévisualiser l'analyse maintenant (optionnel — se fait automatiquement à la fermeture)
-                      </>
-                    )}
-                  </button>
                 )}
               </div>
 
@@ -17550,10 +17549,10 @@ export default function App() {
                   )}
                 </div>
 
-                <div className="space-y-4">
+                <div className="space-y-2">
                   <label className="block text-[11px] font-bold text-slate-300 px-1">Parties du script</label>
                   {parts.map((part, idx) => (
-                    <div key={idx} className="border border-[var(--border)] rounded-xl p-4 space-y-3 bg-[var(--bg-surface-alt)]">
+                    <div key={idx} className="border border-[var(--border)] rounded-xl p-3 space-y-2 bg-[var(--bg-surface-alt)]">
                       <div className="flex items-center justify-between gap-2">
                         <span className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-slate-500">
                           <span className="flex items-center justify-center w-5 h-5 rounded-full bg-[#00c2ff]/15 text-[#59d8ff] text-[10px]">{idx + 1}</span>
@@ -17576,20 +17575,16 @@ export default function App() {
                             min="20"
                             value={part.word_count ?? 300}
                             onChange={e => updatePart(idx, { word_count: parseInt(e.target.value) || 0 })}
-                            className="w-20 bg-[var(--bg-input-alt)] border border-[var(--border)] rounded-lg pl-2.5 pr-11 py-1.5 text-xs text-white focus:border-[#00c2ff] outline-none"
+                            className="w-28 bg-[var(--bg-input-alt)] border border-[var(--border)] rounded-lg pl-2.5 pr-11 py-1.5 text-xs text-white focus:border-[#00c2ff] outline-none"
                           />
                           <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-slate-500 font-bold pointer-events-none">mots</span>
                         </div>
                       </div>
-                      {/* This is the field that actually matters — give it the
-                          room the metadata above deliberately doesn't take,
-                          so the guidance text is readable without scrolling
-                          a cramped box. */}
                       <textarea
                         value={part.guidance || ''}
                         onChange={e => updatePart(idx, { guidance: e.target.value })}
-                        rows={8}
-                        className="w-full bg-[var(--bg-input-alt)] border border-[var(--border)] rounded-lg px-3 py-2.5 text-xs text-white leading-relaxed focus:border-[#00c2ff] outline-none min-h-[200px] resize-y"
+                        rows={4}
+                        className="w-full bg-[var(--bg-input-alt)] border border-[var(--border)] rounded-lg px-3 py-2 text-xs text-white leading-relaxed focus:border-[#00c2ff] outline-none min-h-[100px] resize-y"
                         placeholder="Ce que cette partie doit couvrir…"
                       />
                     </div>
@@ -17629,7 +17624,7 @@ export default function App() {
                     // run the analysis right now, silently, before closing —
                     // so leaving the discrete part fields untouched never
                     // means their paste gets ignored.
-                    const ok = scriptStructurePasteText.trim() && parts.length > 0
+                    const ok = (structure.source_instructions || '').trim() && parts.length > 0
                       ? await analyzePastedText()
                       : true;
                     if (ok) setShowScriptStructureModal(false);
