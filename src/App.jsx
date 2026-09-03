@@ -10149,20 +10149,24 @@ export default function App() {
 
             {/* VIEW 3: MES VIDÉOS (Videos Library View) */}
             {view === 'videos' && (
-              <div className="-ml-4 md:-ml-6">
+              <>
                 {/* Folder rail removed entirely per explicit request — no more
                     nested "sidebar within the sidebar". Videos are no longer
                     filterable by folder on this page; folder_id still exists
                     on Video (moveVideoToFolder / "Déplacer vers…" in the
-                    kebab menu is untouched) in case it's wanted back later. */}
-                <section className="flex-1 min-w-0 space-y-6">
+                    kebab menu is untouched) in case it's wanted back later.
+                    The negative margin this view used to carry (to butt up
+                    against the removed rail) is gone too — it had nothing
+                    left to compensate for and was shoving the whole page off
+                    its normal alignment on mobile, unlike every other tab. */}
+                <section className="space-y-6">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                   <div>
                     <h2 className="text-xl font-extrabold text-white">Mes Vidéos</h2>
                     <p className="text-xs text-slate-400 mt-1">Historique de tous les sujets de vidéos rendus ou en cours de traitement.</p>
                   </div>
 
-                  <div className="flex items-center gap-3">
+                  <div className="flex flex-wrap items-center gap-3">
                     {/* Channel Filter Selector — custom dropdown (not a native
                         <select>) so the checkmark on the active item sits
                         inside our own styled panel instead of wherever the
@@ -10603,7 +10607,7 @@ export default function App() {
                 )}
 
               </section>
-              </div>
+              </>
             )}
 
             {/* VIEW 3.5: BIBLIOTHÈQUE (uploaded images + music per channel, with delete) */}
