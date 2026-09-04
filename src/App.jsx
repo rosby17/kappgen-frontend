@@ -1794,7 +1794,7 @@ function MusicChannelWizard({ authFetch, showToast, onCreated, onBack }) {
     logo_enabled: true,
     logo_corner: 'top-right',
     logo_shape: 'rectangle',
-    logo_size_percent: 14,
+    logo_size_percent: 10,
   });
   const [previewing, setPreviewing] = useState(false);
   const [previewUrl, setPreviewUrl] = useState(null);
@@ -5406,7 +5406,7 @@ export default function App() {
       logo_path: '',
       logo_enabled: true,
       logo_corner: 'top-right',
-      logo_size_percent: 14,
+      logo_size_percent: 10,
       overlays: [],
     },
     music_preference: {
@@ -12272,7 +12272,7 @@ export default function App() {
                           </div>
 
                           {resolvedLogoUrl && (newChannel.branding.logo_enabled ?? true) && (() => {
-                            const logoSize = newChannel.branding.logo_size_percent ?? 14;
+                            const logoSize = newChannel.branding.logo_size_percent ?? 10;
                             const logoX = newChannel.branding.logo_x_percent ?? presetXY(newChannel.branding.logo_corner, logoSize).x;
                             const logoY = newChannel.branding.logo_y_percent ?? presetXY(newChannel.branding.logo_corner, logoSize).y;
                             return (
@@ -12442,10 +12442,10 @@ export default function App() {
                               alt=""
                               className="absolute object-contain drop-shadow-lg"
                               style={{
-                                width: `${newChannel.branding.logo_size_percent || 14}%`,
+                                width: `${newChannel.branding.logo_size_percent || 10}%`,
                                 ...overlayPositionStyle(
-                                  newChannel.branding.logo_x_percent ?? presetXY(newChannel.branding.logo_corner, newChannel.branding.logo_size_percent ?? 14).x,
-                                  newChannel.branding.logo_y_percent ?? presetXY(newChannel.branding.logo_corner, newChannel.branding.logo_size_percent ?? 14).y
+                                  newChannel.branding.logo_x_percent ?? presetXY(newChannel.branding.logo_corner, newChannel.branding.logo_size_percent ?? 10).x,
+                                  newChannel.branding.logo_y_percent ?? presetXY(newChannel.branding.logo_corner, newChannel.branding.logo_size_percent ?? 10).y
                                 ),
                                 ...shapeClipStyle(newChannel.branding.logo_shape),
                               }}
@@ -15211,7 +15211,7 @@ export default function App() {
                                   // to logo_size_percent% of the 1920px-wide output frame — this
                                   // used to be a disconnected hardcoded 160px, which is why the
                                   // preview looked smaller than what actually gets burned in.
-                                  const sizePx = 1920 * ((newChannel.branding.logo_size_percent ?? 14) / 100) * mockupSubtitlePreviewScale;
+                                  const sizePx = 1920 * ((newChannel.branding.logo_size_percent ?? 10) / 100) * mockupSubtitlePreviewScale;
                                   return { width: `${sizePx}px`, height: `${sizePx}px`, ...shapeClipStyle(newChannel.branding.logo_shape) };
                                 })()}
                                 className="object-cover shadow-lg"
@@ -17714,7 +17714,7 @@ export default function App() {
                             src={getChannelLogoUrl(activeChannel)}
                             alt="Logo"
                             style={(() => {
-                              const sizePx = 1920 * ((activeChannel.branding?.logo_size_percent ?? 14) / 100) * submitSubtitlePreviewScale;
+                              const sizePx = 1920 * ((activeChannel.branding?.logo_size_percent ?? 10) / 100) * submitSubtitlePreviewScale;
                               return { width: `${sizePx}px`, height: `${sizePx}px`, ...shapeClipStyle(activeChannel.branding?.logo_shape) };
                             })()}
                             className="object-cover shadow-lg"
@@ -18008,7 +18008,7 @@ export default function App() {
                         {studioLogoOpen && (() => {
                           const branding = studioLogoChannel.branding || {};
                           const logoEnabled = branding.logo_enabled ?? true;
-                          const logoSize = branding.logo_size_percent ?? 14;
+                          const logoSize = branding.logo_size_percent ?? 10;
                           const logoX = branding.logo_x_percent ?? presetXY(branding.logo_corner, logoSize).x;
                           const logoY = branding.logo_y_percent ?? presetXY(branding.logo_corner, logoSize).y;
                           if (!branding.logo_path) return <p className="text-[10px] text-slate-500">Aucun logo configuré pour cette chaîne.</p>;
