@@ -2763,14 +2763,15 @@ function ColorPickerButton({ value, onChange, label, allowNone = false }) {
           <input type="range" min="0" max="359" value={hsv.h} onChange={e => updateHsv('h', Number(e.target.value))} className="color-hue-slider w-full" />
 
           <div className="flex items-center gap-1.5">
-            <span className="w-7 h-7 rounded-md border border-white/20 flex-shrink-0" style={{ backgroundColor: /^#[0-9a-fA-F]{6}$/.test(hexDraft) ? hexDraft : 'transparent' }} />
+            <span className="w-7 h-7 rounded-md border border-white/20 flex-shrink-0" style={{ backgroundColor: /^#[0-9a-fA-F]{6}$/.test(hexDraft) ? hexDraft : (isNone ? '#3a3f4b' : '#FFFFFF') }} />
+            <span className="text-[9px] font-bold text-slate-500 shrink-0">Hex</span>
             <input
               value={hexDraft}
               onChange={e => commitHex(e.target.value)}
               placeholder="#RRGGBB"
-              className="flex-1 min-w-0 h-7 bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-md px-2 text-[11px] font-mono text-white focus:border-[#00c2ff] outline-none"
+              className="w-[86px] shrink-0 h-7 bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-md px-2 text-[11px] font-mono text-white focus:border-[#00c2ff] outline-none"
             />
-            {typeof window !== 'undefined' && 'EyeDropper' in window && <button type="button" title="Prélever une couleur précise" onClick={pickScreenColor} className="w-7 h-7 shrink-0 rounded-md border border-[var(--border)] text-[#65d7ff] hover:bg-[#00c2ff]/10 flex items-center justify-center"><span className="material-symbols-outlined text-[14px]">colorize</span></button>}
+            {typeof window !== 'undefined' && 'EyeDropper' in window && <button type="button" title="Prélever une couleur précise" onClick={pickScreenColor} className="w-7 h-7 shrink-0 ml-auto rounded-md border border-[var(--border)] text-[#65d7ff] hover:bg-[#00c2ff]/10 flex items-center justify-center"><span className="material-symbols-outlined text-[14px]">colorize</span></button>}
           </div>
 
           {allowNone && (
@@ -14087,15 +14088,42 @@ export default function App() {
                             />
                           </div>
 
-                          <div>
-                            <label className="block text-xs font-bold text-slate-300 mb-2">Épaisseur de la bulle ({newChannel.subtitle_style.box_padding ?? 10}px)</label>
-                            <input
-                              type="range" min="0" max="40"
-                              value={newChannel.subtitle_style.box_padding ?? 10}
-                              onChange={e => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, box_padding: parseInt(e.target.value) || 0 } })}
-                              className="w-full accent-[#00c2ff] mt-3"
-                            />
-                          </div>
+                          {!!newChannel.subtitle_style.box_color && newChannel.subtitle_style.box_color !== 'transparent' && (
+                            <div className="space-y-4 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-input)] p-3">
+                              <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                  <label className="block text-xs font-bold text-slate-300 mb-2">Largeur de la bulle ({newChannel.subtitle_style.box_padding_x ?? newChannel.subtitle_style.box_padding ?? 10}px)</label>
+                                  <input
+                                    type="range" min="0" max="60"
+                                    value={newChannel.subtitle_style.box_padding_x ?? newChannel.subtitle_style.box_padding ?? 10}
+                                    onChange={e => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, box_padding_x: parseInt(e.target.value) || 0 } })}
+                                    className="w-full accent-[#00c2ff] mt-3"
+                                  />
+                                  <p className="text-[10px] text-slate-500 mt-1">Espace ajouté à gauche/droite du texte.</p>
+                                </div>
+                                <div>
+                                  <label className="block text-xs font-bold text-slate-300 mb-2">Hauteur de la bulle ({newChannel.subtitle_style.box_padding_y ?? newChannel.subtitle_style.box_padding ?? 10}px)</label>
+                                  <input
+                                    type="range" min="0" max="60"
+                                    value={newChannel.subtitle_style.box_padding_y ?? newChannel.subtitle_style.box_padding ?? 10}
+                                    onChange={e => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, box_padding_y: parseInt(e.target.value) || 0 } })}
+                                    className="w-full accent-[#00c2ff] mt-3"
+                                  />
+                                  <p className="text-[10px] text-slate-500 mt-1">Espace ajouté au-dessus/en-dessous du texte.</p>
+                                </div>
+                              </div>
+                              <div>
+                                <label className="block text-xs font-bold text-slate-300 mb-2">Arrondi des coins ({newChannel.subtitle_style.box_radius ?? 0}px)</label>
+                                <input
+                                  type="range" min="0" max="50"
+                                  value={newChannel.subtitle_style.box_radius ?? 0}
+                                  onChange={e => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, box_radius: parseInt(e.target.value) || 0 } })}
+                                  className="w-full accent-[#00c2ff] mt-3"
+                                />
+                                <p className="text-[10px] text-slate-500 mt-1">0 = coins carrés. Monte le curseur pour des coins arrondis.</p>
+                              </div>
+                            </div>
+                          )}
 
                           <div>
                             <label className="block text-xs font-bold text-slate-300 mb-2">Longueur des sous-titres ({newChannel.subtitle_style.words_per_line || 6} mots)</label>
@@ -14326,8 +14354,8 @@ export default function App() {
                               title="Glissez pour déplacer les sous-titres"
                               style={{
                                 backgroundColor: newChannel.subtitle_style.box_color && newChannel.subtitle_style.box_color !== 'transparent' ? newChannel.subtitle_style.box_color : 'transparent',
-                                padding: `${Math.max(2, (newChannel.subtitle_style.box_padding ?? 10) * 0.6)}px ${Math.max(4, (newChannel.subtitle_style.box_padding ?? 10) * 0.9)}px`,
-                                borderRadius: '10px',
+                                padding: `${(newChannel.subtitle_style.box_padding_y ?? newChannel.subtitle_style.box_padding ?? 10) * wizardSubtitlePreviewScale}px ${(newChannel.subtitle_style.box_padding_x ?? newChannel.subtitle_style.box_padding ?? 10) * wizardSubtitlePreviewScale}px`,
+                                borderRadius: `${(newChannel.subtitle_style.box_radius ?? 0) * wizardSubtitlePreviewScale}px`,
                                 opacity: (newChannel.subtitle_style.opacity ?? 100) / 100,
                                 transform: `translateX(${(newChannel.subtitle_style.x_offset || 0) * wizardSubtitlePreviewScale}px) translateY(${(newChannel.subtitle_style.y_offset || 0) * wizardSubtitlePreviewScale}px) rotate(${newChannel.subtitle_style.rotation || 0}deg)`
                               }}
@@ -14352,8 +14380,11 @@ export default function App() {
                                 const highlightMode = newChannel.subtitle_style.highlight_mode || (newChannel.subtitle_style.karaoke === false ? 'line' : 'word');
                                 const isColored = highlightMode === 'line' || (highlightMode === 'word' && wordObj.highlight);
                                 const displayText = applySubtitleCase(wordObj.text, newChannel.subtitle_style.text_case);
-                                const hasBox = newChannel.subtitle_style.box_color && newChannel.subtitle_style.box_color !== 'transparent';
-                                const outlinePx = hasBox ? 0 : (newChannel.subtitle_style.outline_width ?? 3) * wizardSubtitlePreviewScale;
+                                // The background box is now drawn as its own independent shape
+                                // (see subtitles.py) rather than replacing the text outline the
+                                // way the old BorderStyle-3 rendering did — outline and box always
+                                // coexist, so the preview must too.
+                                const outlinePx = (newChannel.subtitle_style.outline_width ?? 3) * wizardSubtitlePreviewScale;
                                 return (
                                   <span
                                     key={i}
@@ -15256,8 +15287,8 @@ export default function App() {
                             <div
                               style={{
                                 backgroundColor: newChannel.subtitle_style.box_color || 'transparent',
-                                padding: '8px 12px',
-                                borderRadius: '10px'
+                                padding: `${newChannel.subtitle_style.box_padding_y ?? newChannel.subtitle_style.box_padding ?? 10}px ${newChannel.subtitle_style.box_padding_x ?? newChannel.subtitle_style.box_padding ?? 10}px`,
+                                borderRadius: `${newChannel.subtitle_style.box_radius ?? 0}px`
                               }}
                               className="flex flex-wrap justify-center items-center gap-1.5 text-center"
                             >
@@ -17732,9 +17763,9 @@ export default function App() {
                                 fontSize: `${(activeChannel.subtitle_style?.size || 44) * submitSubtitlePreviewScale}px`,
                                 fontWeight: '900',
                                 color: (activeChannel.subtitle_style?.karaoke === false || wordObj.highlight) ? (activeChannel.subtitle_style?.color || '#FFD700') : (activeChannel.subtitle_style?.base_color || '#FFFFFF'),
-                                WebkitTextStroke: (activeChannel.subtitle_style?.box_color && activeChannel.subtitle_style.box_color !== 'transparent')
-                                  ? 'none'
-                                  : `${(activeChannel.subtitle_style?.outline_width ?? 3) * submitSubtitlePreviewScale}px ${activeChannel.subtitle_style?.outline_color || '#000000'}`,
+                                WebkitTextStroke: (activeChannel.subtitle_style?.outline_width ?? 3) > 0
+                                  ? `${(activeChannel.subtitle_style?.outline_width ?? 3) * submitSubtitlePreviewScale}px ${activeChannel.subtitle_style?.outline_color || '#000000'}`
+                                  : 'none',
                                 paintOrder: 'stroke fill',
                                 textShadow: '0 2px 8px rgba(0,0,0,0.6)'
                               }}
