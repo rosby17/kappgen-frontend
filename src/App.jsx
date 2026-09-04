@@ -14254,7 +14254,13 @@ export default function App() {
                                   </div>
                                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                                     {group.effects.map(({ id, label, icon }) => (
-                                      <button key={id} type="button" onClick={() => toggleOverlayEffect(id)} aria-pressed={overlayEffects.includes(id)}
+                                      <button key={id} type="button" onClick={() => {
+                                        // An enabled card is an inspector entry point, not a
+                                        // destructive toggle. This makes its controls reliably
+                                        // appear on the first click.
+                                        setSelectedVisualEffect(id);
+                                        if (!overlayEffects.includes(id)) toggleOverlayEffect(id);
+                                      }} aria-pressed={overlayEffects.includes(id)}
                                         className={`min-h-16 rounded-xl border px-2.5 py-2 text-left transition-all ${overlayEffects.includes(id) ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff] shadow-[0_0_18px_rgba(0,194,255,0.08)]' : 'bg-[var(--bg-surface-alt)] border-[var(--border)] text-slate-300 hover:border-slate-500'}`}>
                                         <span className="flex items-center gap-2">
                                           <span className="material-symbols-outlined text-[19px]">{overlayEffects.includes(id) ? 'check_circle' : icon}</span>
@@ -14267,59 +14273,6 @@ export default function App() {
                               ))}
                             </div>
                           </div>
-
-                          {selectedEffect && overlayEffects.includes(selectedEffect.id) && (
-                            <div className="rounded-2xl border border-[#00c2ff]/30 bg-[#00c2ff]/5 p-4">
-                              <div className="mb-3 flex items-center gap-2">
-                                <span className="material-symbols-outlined text-[18px] text-[#00c2ff]">tune</span>
-                                <div>
-                                  <p className="text-xs font-bold text-white">Réglages — {selectedEffect.label}</p>
-                                  <p className="text-[10px] text-slate-400">Ces valeurs s’appliquent uniquement à cet effet.</p>
-                                </div>
-                              </div>
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3">
-                                {effectControls.map(control => {
-                                  const value = selectedEffectSettings[control.key] ?? 50;
-                                  return (
-                                    <div key={control.key}>
-                                      <label className="flex items-baseline justify-between gap-2 text-[11px] font-bold text-slate-200 mb-1">
-                                        <span>{control.label}</span><span className="text-[#00c2ff]">{value}%</span>
-                                      </label>
-                                      <p className="mb-1 text-[9px] text-slate-500">{control.hint}</p>
-                                      <input type="range" min="0" max="100" value={value}
-                                        onChange={e => setSelectedEffectSetting(control.key, parseInt(e.target.value))}
-                                        className="w-full accent-[#00c2ff]" />
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                              {particleEffectIds.includes(selectedEffect.id) && (
-                                <div className="mt-4 border-t border-[#00c2ff]/15 pt-3">
-                                  <p className="mb-2 text-[11px] font-bold text-slate-200">Sens du mouvement</p>
-                                  <div className="grid grid-cols-5 gap-1.5 rounded-xl border border-[var(--border)] bg-[var(--bg-input)] p-1.5">
-                                    {[
-                                      { id: 'auto', icon: 'auto_awesome', label: 'Auto' },
-                                      { id: 'up', icon: 'north', label: 'Haut' },
-                                      { id: 'down', icon: 'south', label: 'Bas' },
-                                      { id: 'left', icon: 'west', label: 'Gauche' },
-                                      { id: 'right', icon: 'east', label: 'Droite' },
-                                    ].map(direction => {
-                                      const isActive = (selectedEffectSettings.direction || 'auto') === direction.id;
-                                      return (
-                                        <button key={direction.id} type="button" title={direction.label}
-                                          onClick={() => setSelectedEffectSetting('direction', direction.id)}
-                                          className={`flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-lg border text-[9px] font-bold transition-all ${isActive ? 'border-[#00c2ff] bg-[#00c2ff]/15 text-[#65d7ff] shadow-[0_0_14px_rgba(0,194,255,0.14)]' : 'border-transparent text-slate-400 hover:border-slate-600 hover:text-slate-200'}`}>
-                                          <span className="material-symbols-outlined text-[16px]">{direction.icon}</span>
-                                          {direction.label}
-                                        </button>
-                                      );
-                                    })}
-                                  </div>
-                                  <p className="mt-1.5 text-[9px] text-slate-500">Auto respecte le mouvement naturel de l’effet.</p>
-                                </div>
-                              )}
-                            </div>
-                          )}
 
                         </div>
 
@@ -14405,6 +14358,58 @@ export default function App() {
                             )}
                           </div>
                           <p className="text-[10px] text-slate-500 mt-2">Aperçu approximatif — le rendu final vidéo peut légèrement varier.</p>
+                          {selectedEffect && overlayEffects.includes(selectedEffect.id) && (
+                            <div className="mt-3 rounded-2xl border border-[#00c2ff]/30 bg-[#00c2ff]/5 p-4">
+                              <div className="mb-3 flex items-center gap-2">
+                                <span className="material-symbols-outlined text-[18px] text-[#00c2ff]">tune</span>
+                                <div>
+                                  <p className="text-xs font-bold text-white">Réglages — {selectedEffect.label}</p>
+                                  <p className="text-[10px] text-slate-400">Ces valeurs s’appliquent uniquement à cet effet.</p>
+                                </div>
+                              </div>
+                              <div className="grid grid-cols-1 gap-x-4 gap-y-3">
+                                {effectControls.map(control => {
+                                  const value = selectedEffectSettings[control.key] ?? 50;
+                                  return (
+                                    <div key={control.key}>
+                                      <label className="flex items-baseline justify-between gap-2 text-[11px] font-bold text-slate-200 mb-1">
+                                        <span>{control.label}</span><span className="text-[#00c2ff]">{value}%</span>
+                                      </label>
+                                      <p className="mb-1 text-[9px] text-slate-500">{control.hint}</p>
+                                      <input type="range" min="0" max="100" value={value}
+                                        onChange={e => setSelectedEffectSetting(control.key, parseInt(e.target.value))}
+                                        className="w-full accent-[#00c2ff]" />
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                              {particleEffectIds.includes(selectedEffect.id) && (
+                                <div className="mt-4 border-t border-[#00c2ff]/15 pt-3">
+                                  <p className="mb-2 text-[11px] font-bold text-slate-200">Sens du mouvement</p>
+                                  <div className="grid grid-cols-5 gap-1.5 rounded-xl border border-[var(--border)] bg-[var(--bg-input)] p-1.5">
+                                    {[
+                                      { id: 'auto', icon: 'auto_awesome', label: 'Auto' },
+                                      { id: 'up', icon: 'north', label: 'Haut' },
+                                      { id: 'down', icon: 'south', label: 'Bas' },
+                                      { id: 'left', icon: 'west', label: 'Gauche' },
+                                      { id: 'right', icon: 'east', label: 'Droite' },
+                                    ].map(direction => {
+                                      const isActive = (selectedEffectSettings.direction || 'auto') === direction.id;
+                                      return (
+                                        <button key={direction.id} type="button" title={direction.label}
+                                          onClick={() => setSelectedEffectSetting('direction', direction.id)}
+                                          className={`flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-lg border text-[9px] font-bold transition-all ${isActive ? 'border-[#00c2ff] bg-[#00c2ff]/15 text-[#65d7ff] shadow-[0_0_14px_rgba(0,194,255,0.14)]' : 'border-transparent text-slate-400 hover:border-slate-600 hover:text-slate-200'}`}>
+                                          <span className="material-symbols-outlined text-[16px]">{direction.icon}</span>
+                                          {direction.label}
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                  <p className="mt-1.5 text-[9px] text-slate-500">Auto respecte le mouvement naturel de l’effet.</p>
+                                </div>
+                              )}
+                            </div>
+                          )}
 
                         </div>
                       </div>
