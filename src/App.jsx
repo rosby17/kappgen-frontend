@@ -3698,14 +3698,40 @@ function LiveParticlePreview({ effects, settings, playing }) {
         let x = (particle.x + organicDrift) * rect.width;
         let y = particle.y * rect.height;
         const motion = t * particle.speed * speedControl;
-        if (particle.id === 'snow' || particle.id === 'rain') y = ((particle.y + motion * 0.12) % 1) * rect.height;
+        if (particle.id === 'snow') {
+          y = ((particle.y + motion * (0.035 + particle.depth * 0.055)) % 1) * rect.height;
+          x += Math.sin(motion * 1.4 + particle.phase) * (4 + particle.depth * 12);
+        }
+        if (particle.id === 'rain') {
+          y = ((particle.y + motion * (0.16 + particle.depth * 0.13)) % 1) * rect.height;
+          x += motion * (3 + turbulence * 9);
+        }
         if (particle.id === 'sparks') y = ((particle.y - motion * 0.09 + 2) % 1) * rect.height;
         const radius = particle.size * sizeControl * particle.depth;
         ctx.globalAlpha = alpha;
         ctx.filter = particle.id === 'dust' || particle.id === 'snow' ? `blur(${Math.max(0, (1 - particle.depth) * softness * 3)}px)` : 'none';
         if (particle.id === 'rain') {
           ctx.strokeStyle = '#c8eaff'; ctx.lineWidth = Math.max(.45, radius * .55);
+          ctx.lineCap = 'round';
           ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - radius * 2.1, y - radius * 5.5); ctx.stroke();
+        } else if (particle.id === 'stars') {
+          const twinkle = 0.4 + 0.6 * Math.sin(motion * 2.4 + particle.phase) ** 2;
+          ctx.globalAlpha *= twinkle;
+          ctx.strokeStyle = '#f7fbff'; ctx.lineWidth = Math.max(.35, radius * .24);
+          ctx.beginPath();
+          ctx.moveTo(x - radius * 2.5, y); ctx.lineTo(x + radius * 2.5, y);
+          ctx.moveTo(x, y - radius * 2.5); ctx.lineTo(x, y + radius * 2.5);
+          ctx.stroke();
+          ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.arc(x, y, Math.max(.45, radius * .6), 0, Math.PI * 2); ctx.fill();
+        } else if (particle.id === 'sparks') {
+          ctx.strokeStyle = '#ff8c2a'; ctx.lineWidth = Math.max(.35, radius * .45); ctx.lineCap = 'round';
+          ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - Math.sin(particle.phase) * radius * 2, y + radius * 4.5); ctx.stroke();
+          const glow = ctx.createRadialGradient(x, y, 0, x, y, Math.max(1, radius * 3));
+          glow.addColorStop(0, 'rgba(255,246,190,1)'); glow.addColorStop(.28, 'rgba(255,150,45,.8)'); glow.addColorStop(1, 'rgba(255,80,0,0)');
+          ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(x, y, Math.max(.5, radius * 1.5), 0, Math.PI * 2); ctx.fill();
+        } else if (particle.id === 'snow') {
+          ctx.fillStyle = 'rgba(250,253,255,.96)';
+          ctx.beginPath(); ctx.ellipse(x, y, Math.max(.45, radius * .8), Math.max(.6, radius * 1.15), particle.phase, 0, Math.PI * 2); ctx.fill();
         } else {
           const color = particle.id === 'sparks' ? '255,164,54' : particle.id === 'dust' ? '255,224,177' : '235,246,255';
           const glow = ctx.createRadialGradient(x, y, 0, x, y, Math.max(1, radius * (particle.id === 'dust' ? 3.4 : 1.8)));
@@ -14199,6 +14225,7 @@ export default function App() {
                     ((effectSettings[id]?.intensity ?? legacy) / 100) * ((effectSettings[id]?.opacity ?? 100) / 100)
                   );
                   const grainIntensity = effectIntensity('grain', newChannel.effects_config.grain_intensity ?? 50);
+                  const whiteNoiseIntensity = effectIntensity('white_noise', newChannel.effects_config.grain_intensity ?? 50);
                   const vignetteIntensity = effectIntensity('vignette', newChannel.effects_config.vignette_intensity ?? 50);
                   const particlePreview = (id) => {
                     const settings = effectSettings[id] || {};
@@ -14410,15 +14437,15 @@ export default function App() {
                             )}
                             {(hasGrain || hasOldFilm) && (
                               <div
-                                className="absolute inset-0 mix-blend-overlay"
+                                className="effect-preview-grain absolute inset-0 mix-blend-overlay"
                                 style={{
-                                  opacity: hasOldFilm ? 0.4 : (overlayEffects.includes('white_noise') && !overlayEffects.includes('grain') ? 0.6 : 0.3) * grainIntensity,
+                                  opacity: hasOldFilm ? 0.4 : (overlayEffects.includes('white_noise') && !overlayEffects.includes('grain') ? 0.72 * whiteNoiseIntensity : 0.42 * grainIntensity),
                                   backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")"
                                 }}
                               />
                             )}
                             {(hasVignette || hasOldFilm) && (
-                              <div className="absolute inset-0" style={{ boxShadow: hasOldFilm ? 'inset 0 0 50px 15px rgba(0,0,0,0.75)' : `inset 0 0 ${60 * vignetteIntensity}px ${20 * vignetteIntensity}px rgba(0,0,0,0.8)` }} />
+                              <div className="absolute inset-0" style={{ opacity: hasOldFilm ? 1 : vignetteIntensity, boxShadow: hasOldFilm ? 'inset 0 0 50px 15px rgba(0,0,0,0.75)' : `inset 0 0 ${45 + 75 * vignetteIntensity}px ${12 + 42 * vignetteIntensity}px rgba(0,0,0,0.9)` }} />
                             )}
                             {hasOldFilm && (
                               <div className="absolute inset-0" style={{ backgroundColor: 'rgba(120,90,40,0.15)', mixBlendMode: 'multiply' }} />

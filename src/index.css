@@ -206,6 +206,15 @@ body:not(.icon-font-ready) .material-symbols-outlined {
 .effect-preview-sparks { animation: effectSparksRise 2.7s ease-out infinite; }
 .effect-preview-light-leak { animation: effectLightLeakMove 6s ease-in-out infinite; }
 
+@keyframes effectGrainDance {
+  0% { background-position: 0 0; }
+  25% { background-position: 31px -19px; }
+  50% { background-position: -17px 37px; }
+  75% { background-position: 43px 14px; }
+  100% { background-position: -29px -31px; }
+}
+.effect-preview-grain { animation: effectGrainDance .16s steps(2) infinite; }
+
 /* The wizard preview is a live, animated simulation. Pausing it freezes the
    exact frame so a creator can compare a subtle opacity/intensity adjustment. */
 .effect-preview-paused,
