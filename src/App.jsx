@@ -2694,7 +2694,6 @@ function ColorPickerButton({ value, onChange, label, allowNone = false }) {
     if (!rect) return;
     const s = Math.round(Math.max(0, Math.min(1, (clientX - rect.left) / rect.width)) * 100);
     const v = Math.round((1 - Math.max(0, Math.min(1, (clientY - rect.top) / rect.height))) * 100);
-    updateHsv('s', s);
     commitHex(hsvToHex(hsv.h, s, v));
   };
   const onSquarePointerDown = (e) => {
