@@ -14096,14 +14096,20 @@ export default function App() {
                     setSelectedVisualEffect(next.includes(id) ? id : (selectedVisualEffect === id ? '' : selectedVisualEffect));
                   };
                   const effectSettings = newChannel.effects_config.effect_settings || {};
-                  const selectedEffectSettings = effectSettings[selectedVisualEffect] || {};
+                  // Existing channels often arrive with effects already enabled
+                  // but no transient UI selection. Focus the first active one so
+                  // the inspector below the preview is never blank on open.
+                  const focusedEffectId = overlayEffects.includes(selectedVisualEffect)
+                    ? selectedVisualEffect
+                    : (overlayEffects[0] || '');
+                  const selectedEffectSettings = effectSettings[focusedEffectId] || {};
                   const setSelectedEffectSetting = (key, value) => setNewChannel({
                     ...newChannel,
                     effects_config: {
                       ...newChannel.effects_config,
                       effect_settings: {
                         ...effectSettings,
-                        [selectedVisualEffect]: { ...selectedEffectSettings, [key]: value },
+                        [focusedEffectId]: { ...selectedEffectSettings, [key]: value },
                       },
                     },
                   });
@@ -14154,7 +14160,7 @@ export default function App() {
                       { id: 'vhs_glitch', label: 'VHS / Glitch', icon: 'broken_image' },
                     ]},
                   ];
-                  const selectedEffect = effectGroups.flatMap(group => group.effects).find(effect => effect.id === selectedVisualEffect);
+                  const selectedEffect = effectGroups.flatMap(group => group.effects).find(effect => effect.id === focusedEffectId);
                   const particleEffectIds = ['stars', 'dust', 'snow', 'rain', 'sparks'];
                   const effectControls = selectedEffect ? (
                     particleEffectIds.includes(selectedEffect.id)
