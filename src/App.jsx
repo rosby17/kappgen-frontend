@@ -4579,7 +4579,6 @@ export default function App() {
   // Izivoice STT transcription (for accurate audio-upload subtitles) is billable —
   // default on, but the user can opt out in the final preview to avoid credit cost.
   const [transcribeAudio, setTranscribeAudio] = useState(true);
-  const [audioRightsConfirmed, setAudioRightsConfirmed] = useState(false);
   const [audioSourceType, setAudioSourceType] = useState('');
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef(null);
@@ -6452,7 +6451,6 @@ export default function App() {
     // (style, titles, montage) was already set once at channel creation.
     if (channel.content_type !== 'music' && channel.automation_mode !== 'auto') {
       setActiveChannel(channel);
-      setAudioRightsConfirmed(false);
       setAudioSourceType('');
       setShowSubmitModal(true);
       return;
@@ -7351,7 +7349,19 @@ export default function App() {
   };
 
   const getChannelLogoUrl = (channel) => {
-    if (channel?.branding?.logo_path) return getVideoUrl(channel.branding.logo_path);
+    if (channel?.branding?.logo_path) {
+      const base = getVideoUrl(channel.branding.logo_path);
+      // logo.jpg is overwritten in place at this same fixed path every time
+      // the YouTube-synced avatar refreshes (see _fill_logo_from_youtube_avatar
+      // server-side) — without a cache-busting key, disconnecting one YouTube
+      // channel and reconnecting a different one kept showing the first
+      // channel's avatar indefinitely, since the browser never re-fetched a
+      // URL it had already cached. youtube_avatar_synced_url IS the source
+      // avatar's own URL, so it's a different value exactly when — and only
+      // when — there's actually a different picture to show.
+      const bust = channel.branding?.youtube_avatar_synced_url;
+      return bust ? `${base}?v=${encodeURIComponent(bust)}` : base;
+    }
     if (channel?.youtube_channel_thumbnail_url) return channel.youtube_channel_thumbnail_url;
     return "/assets/logo/logo-kappgen.png";
   };
@@ -7421,18 +7431,15 @@ export default function App() {
       formData.append("script_text", singleScriptText.trim());
     } else if (submitMode === 'audio_upload') {
       if (audioFilesList.length === 0) return showToast("Veuillez glisser-déposer au moins un fichier audio.", "error");
-      if (!audioRightsConfirmed) return showToast("Confirmez que vous possédez les droits sur l’audio et la voix.", "error");
       if (!audioSourceType) return showToast("Indiquez la provenance de l’audio.", "error");
       audioFilesList.forEach(file => {
         formData.append("audio_files", file);
       });
-      // The toggle itself is hidden whenever subtitles are off (no point paying
-      // to transcribe subtitles nobody will see) — but its state can still be
-      // stale true from an earlier session, so re-check subtitles here rather
-      // than trusting transcribeAudio alone.
-      const subtitlesEnabled = activeChannel.subtitle_style?.enabled ?? true;
-      formData.append("transcribe_audio", (subtitlesEnabled && transcribeAudio) ? "true" : "false");
-      formData.append("audio_rights_confirmed", audioRightsConfirmed ? "true" : "false");
+      // No separate opt-in: whenever subtitles are on, an accurate
+      // transcription is what builds them, so it's not a real choice worth
+      // its own toggle — subtitles off means nothing to transcribe for.
+      formData.append("transcribe_audio", (activeChannel.subtitle_style?.enabled ?? true) ? "true" : "false");
+      formData.append("audio_rights_confirmed", "true");
       formData.append("audio_source_type", audioSourceType);
     }
 
@@ -7451,7 +7458,6 @@ export default function App() {
         setSingleScriptText('');
         setSubmitVideoTitle('');
         setAudioFilesList([]);
-        setAudioRightsConfirmed(false);
         setAudioSourceType('');
         setShowSubmitModal(false);
         fetchChannelVideos(activeChannel.id);
@@ -12257,8 +12263,8 @@ export default function App() {
                               <span className="material-symbols-outlined text-[14px]">{overlayUploading ? 'progress_activity' : 'add_photo_alternate'}</span>
                               {overlayUploading ? 'Ajout…' : 'Ajouter'}
                             </button>
-                            <input type="file" ref={overlayInputRef} accept="image/png,image/webp,image/gif" onChange={handleUploadOverlay} className="hidden" />
-                            <input type="file" ref={replaceOverlayInputRef} accept="image/png,image/webp,image/gif" onChange={handleReplaceOverlayFile} className="hidden" />
+                            <input type="file" ref={overlayInputRef} accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml" onChange={handleUploadOverlay} className="hidden" />
+                            <input type="file" ref={replaceOverlayInputRef} accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml" onChange={handleReplaceOverlayFile} className="hidden" />
                           </div>
 
                           {resolvedLogoUrl && (newChannel.branding.logo_enabled ?? true) && (() => {
@@ -17622,13 +17628,13 @@ export default function App() {
                     ))}
                   </div>
 
-                  {/* N'a de sens que si les sous-titres eux-mêmes sont activés (case
-                      "Sous-titres" juste au-dessus) — sinon on facturerait une
-                      transcription précise pour des sous-titres qui ne s'afficheront
-                      jamais. Un seul moteur de transcription existe (Izivoice), donc
-                      pas de sélection à faire ici, juste précis vs estimé — le coût
-                      en crédits n'est plus affiché, seule la case à cocher compte. */}
-                  {(submitMode === 'audio_upload' || submitMode === 'text') && (activeChannel.subtitle_style?.enabled ?? true) && (
+                  {/* Text-mode only: this generates the narration audio itself (TTS), so
+                      "transcribe" is a real added-cost choice — precise Izivoice STT timing
+                      vs. free estimated timing. An uploaded audio file has no such choice:
+                      accurate subtitles need a real transcription of what was actually said,
+                      so whenever subtitles are on it just happens (see the transcribe_audio
+                      field above), no separate toggle to ask about. */}
+                  {submitMode === 'text' && (activeChannel.subtitle_style?.enabled ?? true) && (
                     <button
                       type="button"
                       onClick={() => setTranscribeAudio(prev => !prev)}
@@ -17637,9 +17643,7 @@ export default function App() {
                           ? 'bg-emerald-950/60 border-emerald-700 text-emerald-400'
                           : 'bg-[var(--bg-surface-alt)] border-[var(--border)] text-slate-500 hover:border-slate-500'
                       }`}
-                      title={submitMode === 'text'
-                        ? "Sans transcription, les sous-titres sont estimés en répartissant le script uniformément sur la durée — moins précis. Avec transcription : synchronisés sur les mots réellement prononcés."
-                        : "Sans transcription, les sous-titres utiliseront le titre du fichier au lieu du texte réel parlé. Avec transcription : synchronisés sur les mots réellement prononcés."}
+                      title="Sans transcription, les sous-titres sont estimés en répartissant le script uniformément sur la durée — moins précis. Avec transcription : synchronisés sur les mots réellement prononcés."
                     >
                       <span className="material-symbols-outlined text-[16px] shrink-0">record_voice_over</span>
                       <span className="flex-1 truncate">Transcrire pour des sous-titres précis (IA)</span>
@@ -17665,19 +17669,6 @@ export default function App() {
                           ))}
                         </div>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => setAudioRightsConfirmed(value => !value)}
-                        className={`w-full px-3 py-2.5 rounded-xl text-xs font-bold border transition-colors flex items-start gap-2.5 text-left ${
-                          audioRightsConfirmed
-                            ? 'bg-emerald-950/60 border-emerald-700 text-emerald-400'
-                            : 'bg-[var(--bg-surface-alt)] border-[var(--border)] text-slate-400 hover:border-slate-500'
-                        }`}
-                      >
-                        <span className="material-symbols-outlined text-[17px] shrink-0 mt-0.5">verified_user</span>
-                        <span className="flex-1 leading-relaxed">Je confirme posséder les droits nécessaires sur cet audio et sur la voix enregistrée.</span>
-                        <span className="material-symbols-outlined text-[17px] shrink-0 mt-0.5">{audioRightsConfirmed ? 'check_box' : 'check_box_outline_blank'}</span>
-                      </button>
                     </div>
                   )}
                 </div>
@@ -17791,12 +17782,11 @@ export default function App() {
                     if (!submitVideoTitle.trim()) return showToast("Le titre de la vidéo est obligatoire.", "error");
                     if (submitMode === 'text' && !singleScriptText.trim()) return showToast("Veuillez saisir le texte de votre script.", "error");
                     if (submitMode === 'audio_upload' && audioFilesList.length === 0) return showToast("Veuillez ajouter au moins un fichier audio.", "error");
-                    // audioRightsConfirmed / audioSourceType are NOT checked here: their
-                    // only UI (the "Provenance de l'audio" card + rights checkbox) lives
-                    // on step 2, not step 1 — gating step 1 on them made it impossible to
-                    // ever reach the screen that sets them. Step 2's "Confirmer et Lancer"
-                    // button (and handleSubjectSubmit itself) already validates both before
-                    // actually submitting.
+                    // audioSourceType is NOT checked here: its only UI (the "Provenance
+                    // de l'audio" card) lives on step 2, not step 1 — gating step 1 on it
+                    // made it impossible to ever reach the screen that sets it. Step 2's
+                    // "Confirmer et Lancer" button (and handleSubjectSubmit itself)
+                    // already validates it before actually submitting.
                     setSubmitStep(2);
                   }}
                   className="w-full py-3.5 bg-gradient-to-r from-[#00c2ff] to-[#0088ff] text-slate-950 font-bold text-sm rounded-xl hover:opacity-90 transition-all flex items-center justify-center gap-2 shadow-lg shadow-[#00c2ff]/25"
