@@ -4252,7 +4252,6 @@ export default function App() {
   // Izivoice STT transcription (for accurate audio-upload subtitles) is billable —
   // default on, but the user can opt out in the final preview to avoid credit cost.
   const [transcribeAudio, setTranscribeAudio] = useState(true);
-  const [audioRightsConfirmed, setAudioRightsConfirmed] = useState(false);
   const [audioSourceType, setAudioSourceType] = useState('');
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef(null);
@@ -5991,7 +5990,6 @@ export default function App() {
     // (style, titles, montage) was already set once at channel creation.
     if (channel.content_type !== 'music' && channel.automation_mode !== 'auto') {
       setActiveChannel(channel);
-      setAudioRightsConfirmed(false);
       setAudioSourceType('');
       setShowSubmitModal(true);
       return;
@@ -6787,13 +6785,12 @@ export default function App() {
       formData.append("script_text", singleScriptText.trim());
     } else if (submitMode === 'audio_upload') {
       if (audioFilesList.length === 0) return showToast("Veuillez glisser-déposer au moins un fichier audio.", "error");
-      if (!audioRightsConfirmed) return showToast("Confirmez que vous possédez les droits sur l’audio et la voix.", "error");
       if (!audioSourceType) return showToast("Indiquez la provenance de l’audio.", "error");
       audioFilesList.forEach(file => {
         formData.append("audio_files", file);
       });
       formData.append("transcribe_audio", transcribeAudio ? "true" : "false");
-      formData.append("audio_rights_confirmed", audioRightsConfirmed ? "true" : "false");
+      formData.append("audio_rights_confirmed", "true");
       formData.append("audio_source_type", audioSourceType);
     }
 
@@ -6812,7 +6809,6 @@ export default function App() {
         setSingleScriptText('');
         setSubmitVideoTitle('');
         setAudioFilesList([]);
-        setAudioRightsConfirmed(false);
         setAudioSourceType('');
         setShowSubmitModal(false);
         fetchChannelVideos(activeChannel.id);
@@ -16791,19 +16787,6 @@ export default function App() {
                           ))}
                         </div>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => setAudioRightsConfirmed(value => !value)}
-                        className={`w-full px-3 py-2.5 rounded-xl text-xs font-bold border transition-colors flex items-start gap-2.5 text-left ${
-                          audioRightsConfirmed
-                            ? 'bg-emerald-950/60 border-emerald-700 text-emerald-400'
-                            : 'bg-[var(--bg-surface-alt)] border-[var(--border)] text-slate-400 hover:border-slate-500'
-                        }`}
-                      >
-                        <span className="material-symbols-outlined text-[17px] shrink-0 mt-0.5">verified_user</span>
-                        <span className="flex-1 leading-relaxed">Je confirme posséder les droits nécessaires sur cet audio et sur la voix enregistrée.</span>
-                        <span className="material-symbols-outlined text-[17px] shrink-0 mt-0.5">{audioRightsConfirmed ? 'check_box' : 'check_box_outline_blank'}</span>
-                      </button>
                     </div>
                   )}
                 </div>
@@ -16917,7 +16900,6 @@ export default function App() {
                     if (!submitVideoTitle.trim()) return showToast("Le titre de la vidéo est obligatoire.", "error");
                     if (submitMode === 'text' && !singleScriptText.trim()) return showToast("Veuillez saisir le texte de votre script.", "error");
                     if (submitMode === 'audio_upload' && audioFilesList.length === 0) return showToast("Veuillez ajouter au moins un fichier audio.", "error");
-                    if (submitMode === 'audio_upload' && !audioRightsConfirmed) return showToast("Confirmez que vous possédez les droits sur l’audio et la voix.", "error");
                     if (submitMode === 'audio_upload' && !audioSourceType) return showToast("Indiquez la provenance de l’audio.", "error");
                     setSubmitStep(2);
                   }}
