@@ -17862,11 +17862,14 @@ export default function App() {
                       </div>
                     )}
                   </div>
-                  <div className="bg-[#00c2ff]/10 border border-[#00c2ff]/30 rounded-xl p-3 flex items-start gap-2">
-                    <span className="material-symbols-outlined text-[#00c2ff] text-[18px]">info</span>
-                    <p className="text-[11px] text-slate-300">Le montage utilisera les réglages déjà configurés pour <strong className="text-white">{activeChannel.name}</strong> (sous-titres, musique, visuels). Vous pourrez suivre l'avancement dans "Mes Vidéos".</p>
-                  </div>
                 </div>
+                </div>
+                {/* Full-width, below both columns — confined to the right
+                    column before, this wrapped to three lines despite the
+                    modal having plenty of room either side. */}
+                <div className="bg-[#00c2ff]/10 border border-[#00c2ff]/30 rounded-xl p-3 flex items-center gap-2">
+                  <span className="material-symbols-outlined text-[#00c2ff] text-[18px] shrink-0">info</span>
+                  <p className="text-[11px] text-slate-300 whitespace-nowrap overflow-hidden text-ellipsis">Le montage utilisera les réglages déjà configurés pour <strong className="text-white">{activeChannel.name}</strong> (sous-titres, musique, visuels). Vous pourrez suivre l'avancement dans "Mes Vidéos".</p>
                 </div>
               </>
             )}
