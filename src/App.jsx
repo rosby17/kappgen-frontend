@@ -3647,6 +3647,75 @@ function AdminActivityChart({ series }) {
   );
 }
 
+// A small canvas particle engine for the live effects preview. It deliberately
+// uses a seeded distribution (not repeating CSS backgrounds), so particles
+// have varied size, depth, drift and starting positions while remaining stable
+// when a creator adjusts a slider.
+function LiveParticlePreview({ effects, settings, playing }) {
+  const canvasRef = useRef(null);
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return undefined;
+    const ctx = canvas.getContext('2d');
+    let frameId;
+    let start = performance.now();
+    const seed = (value) => {
+      let state = value;
+      return () => { state = (state * 1664525 + 1013904223) >>> 0; return state / 4294967296; };
+    };
+    const random = seed(20260904);
+    const enabled = effects.filter(id => ['stars', 'dust', 'snow', 'rain', 'sparks'].includes(id));
+    const particles = enabled.flatMap(id => {
+      const config = settings[id] || {};
+      const density = config.density ?? 50;
+      const count = Math.round(8 + density * 0.55);
+      return Array.from({ length: count }, () => ({
+        id, x: random(), y: random(), depth: 0.35 + random() * 0.85,
+        size: 0.35 + random() * 1.8, drift: (random() - 0.5) * 0.18,
+        phase: random() * Math.PI * 2, speed: 0.35 + random() * 1.25,
+      }));
+    });
+    const draw = (now) => {
+      const rect = canvas.getBoundingClientRect();
+      const ratio = window.devicePixelRatio || 1;
+      if (canvas.width !== Math.round(rect.width * ratio) || canvas.height !== Math.round(rect.height * ratio)) {
+        canvas.width = Math.round(rect.width * ratio); canvas.height = Math.round(rect.height * ratio);
+      }
+      ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+      ctx.clearRect(0, 0, rect.width, rect.height);
+      const t = (now - start) / 1000;
+      particles.forEach(particle => {
+        const config = settings[particle.id] || {};
+        const intensity = (config.intensity ?? 50) / 100;
+        const opacity = (config.opacity ?? 100) / 100;
+        const sizeControl = 0.45 + (config.size ?? 50) / 100 * 1.5;
+        const speedControl = 0.35 + (config.speed ?? 50) / 100 * 1.8;
+        const alpha = intensity * opacity * (0.18 + particle.depth * 0.42);
+        let x = (particle.x + Math.sin(t * particle.speed * speedControl + particle.phase) * particle.drift) * rect.width;
+        let y = particle.y * rect.height;
+        const motion = t * particle.speed * speedControl;
+        if (particle.id === 'snow' || particle.id === 'rain') y = ((particle.y + motion * 0.12) % 1) * rect.height;
+        if (particle.id === 'sparks') y = ((particle.y - motion * 0.09 + 2) % 1) * rect.height;
+        const radius = particle.size * sizeControl * particle.depth;
+        ctx.globalAlpha = alpha;
+        if (particle.id === 'rain') {
+          ctx.strokeStyle = '#c8eaff'; ctx.lineWidth = Math.max(.45, radius * .55);
+          ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - radius * 2.1, y - radius * 5.5); ctx.stroke();
+        } else {
+          const color = particle.id === 'sparks' ? '255,164,54' : particle.id === 'dust' ? '255,224,177' : '235,246,255';
+          ctx.fillStyle = `rgb(${color})`;
+          ctx.beginPath(); ctx.arc(x, y, Math.max(.35, radius), 0, Math.PI * 2); ctx.fill();
+        }
+      });
+      ctx.globalAlpha = 1;
+      if (playing) frameId = requestAnimationFrame(draw);
+    };
+    frameId = requestAnimationFrame(draw);
+    return () => cancelAnimationFrame(frameId);
+  }, [effects, settings, playing]);
+  return <canvas ref={canvasRef} aria-hidden className="absolute inset-0 h-full w-full pointer-events-none mix-blend-screen" />;
+}
+
 export default function App() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -14320,6 +14389,7 @@ export default function App() {
                             {isStablePreview && (
                               <span className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-black/50 text-[9px] font-bold text-slate-300 backdrop-blur-sm">Image de démonstration</span>
                             )}
+                            <LiveParticlePreview effects={overlayEffects} settings={effectSettings} playing={effectsPreviewPlaying} />
                             {hasChromaticAberration && (
                               <>
                                 <img src={previewImgSrc} alt="" aria-hidden className="absolute inset-0 w-full h-full object-cover mix-blend-screen opacity-60" style={{ filter: 'brightness(0.6) sepia(1) saturate(6) hue-rotate(-50deg)', transform: 'translateX(-2px)' }} onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = STABLE_EFFECT_PREVIEW_IMAGES[0]; }} />
@@ -14344,25 +14414,25 @@ export default function App() {
                             {hasFlicker && (
                               <div className="absolute inset-0 bg-white animate-pulse" style={{ opacity: 0.06 }} />
                             )}
-                            {overlayEffects.includes('stars') && (
+                            {false && overlayEffects.includes('stars') && (
                               <div className="effect-preview-stars absolute inset-[-10%] mix-blend-screen" style={{ opacity: 0.05 + starsPreview.intensity * (0.2 + starsPreview.density / 120), animationDuration: starsPreview.duration, backgroundImage: 'radial-gradient(circle at 12% 18%, white 0 1px, transparent 2px), radial-gradient(circle at 72% 24%, #dff6ff 0 1.5px, transparent 2.5px), radial-gradient(circle at 42% 68%, white 0 1px, transparent 2px), radial-gradient(circle at 88% 76%, #fff6cc 0 1.5px, transparent 2.5px)', backgroundSize: `${90 * starsPreview.scale}px ${75 * starsPreview.scale}px, ${130 * starsPreview.scale}px ${105 * starsPreview.scale}px, ${70 * starsPreview.scale}px ${95 * starsPreview.scale}px, ${160 * starsPreview.scale}px ${125 * starsPreview.scale}px`, backgroundPosition: `${starsPreview.offset} 0, 0 ${starsPreview.offset}, ${starsPreview.offset} ${starsPreview.offset}, 0 0` }} />
                             )}
-                            {overlayEffects.includes('dust') && (
+                            {false && overlayEffects.includes('dust') && (
                               <>
-                                <div className="effect-preview-dust-near absolute inset-[-20%] mix-blend-screen" style={{ opacity: 0.03 + dustPreview.intensity * (0.12 + dustPreview.density / 220), animationDuration: dustPreview.duration, backgroundImage: 'radial-gradient(circle, rgba(255,225,170,.9) 0 1px, transparent 3px)', backgroundSize: `${47 * dustPreview.scale}px ${63 * dustPreview.scale}px`, backgroundPosition: `${dustPreview.offset} 0`, filter: 'blur(.7px)' }} />
-                                <div className="effect-preview-dust-far absolute inset-[-20%] mix-blend-screen" style={{ opacity: 0.02 + dustPreview.intensity * (0.06 + dustPreview.density / 320), animationDuration: `${parseFloat(dustPreview.duration) * 1.55}s`, backgroundImage: 'radial-gradient(circle, rgba(255,240,205,.75) 0 .6px, transparent 2px)', backgroundSize: `${29 * dustPreview.scale}px ${37 * dustPreview.scale}px`, backgroundPosition: `0 ${dustPreview.offset}`, filter: 'blur(.2px)' }} />
+                                <div className="effect-preview-dust-near absolute inset-[-20%] mix-blend-screen" style={{ opacity: 0.03 + dustPreview.intensity * (0.12 + dustPreview.density / 220), animationDuration: dustPreview.duration, backgroundImage: 'radial-gradient(circle at 7% 18%, rgba(255,225,170,.9) 0 2.4px, transparent 3.4px), radial-gradient(circle at 19% 71%, rgba(255,225,170,.75) 0 1.1px, transparent 2.2px), radial-gradient(circle at 28% 33%, rgba(255,225,170,.9) 0 1.8px, transparent 3px), radial-gradient(circle at 43% 81%, rgba(255,225,170,.7) 0 2.8px, transparent 4px), radial-gradient(circle at 54% 12%, rgba(255,225,170,.85) 0 1.4px, transparent 2.6px), radial-gradient(circle at 68% 48%, rgba(255,225,170,.8) 0 2.1px, transparent 3.3px), radial-gradient(circle at 77% 23%, rgba(255,225,170,.65) 0 1px, transparent 2px), radial-gradient(circle at 91% 76%, rgba(255,225,170,.85) 0 2.6px, transparent 3.8px)', backgroundPosition: `${dustPreview.offset} 0`, filter: 'blur(.7px)' }} />
+                                <div className="effect-preview-dust-far absolute inset-[-20%] mix-blend-screen" style={{ opacity: 0.02 + dustPreview.intensity * (0.06 + dustPreview.density / 320), animationDuration: `${parseFloat(dustPreview.duration) * 1.55}s`, backgroundImage: 'radial-gradient(circle at 4% 61%, rgba(255,240,205,.75) 0 .55px, transparent 1.5px), radial-gradient(circle at 14% 38%, rgba(255,240,205,.6) 0 .8px, transparent 1.7px), radial-gradient(circle at 25% 9%, rgba(255,240,205,.75) 0 .45px, transparent 1.4px), radial-gradient(circle at 36% 56%, rgba(255,240,205,.7) 0 .75px, transparent 1.6px), radial-gradient(circle at 49% 26%, rgba(255,240,205,.65) 0 .5px, transparent 1.4px), radial-gradient(circle at 58% 89%, rgba(255,240,205,.75) 0 .85px, transparent 1.8px), radial-gradient(circle at 73% 63%, rgba(255,240,205,.65) 0 .55px, transparent 1.5px), radial-gradient(circle at 84% 42%, rgba(255,240,205,.75) 0 .8px, transparent 1.7px), radial-gradient(circle at 96% 15%, rgba(255,240,205,.6) 0 .45px, transparent 1.3px)', backgroundPosition: `0 ${dustPreview.offset}`, filter: 'blur(.2px)' }} />
                               </>
                             )}
-                            {overlayEffects.includes('snow') && (
+                            {false && overlayEffects.includes('snow') && (
                               <div className="effect-preview-snow absolute inset-[-30%] mix-blend-screen" style={{ opacity: 0.04 + snowPreview.intensity * (0.2 + snowPreview.density / 180), animationDuration: snowPreview.duration, backgroundImage: 'radial-gradient(circle, white 0 2px, transparent 3px), radial-gradient(circle, white 0 1px, transparent 2px)', backgroundSize: `${48 * snowPreview.scale}px ${55 * snowPreview.scale}px, ${29 * snowPreview.scale}px ${37 * snowPreview.scale}px`, backgroundPosition: `${snowPreview.offset} 0, 13px ${17 + parseInt(snowPreview.offset)}px` }} />
                             )}
-                            {overlayEffects.includes('rain') && (
+                            {false && overlayEffects.includes('rain') && (
                               <div className="effect-preview-rain absolute inset-[-40%] mix-blend-screen" style={{ opacity: 0.03 + rainPreview.intensity * (0.12 + rainPreview.density / 230), animationDuration: `${Math.max(.35, parseFloat(rainPreview.duration) / 10)}s`, backgroundImage: 'repeating-linear-gradient(105deg, transparent 0 18px, rgba(190,225,255,.75) 19px, transparent 21px)', backgroundSize: `${Math.round(100 * rainPreview.scale)}% ${Math.round(100 * rainPreview.scale)}%`, backgroundPosition: `${rainPreview.offset} 0` }} />
                             )}
                             {overlayEffects.includes('fog') && (
                               <div className="effect-preview-fog absolute inset-[-25%]" style={{ opacity: 0.03 + effectIntensity('fog') * 0.7, background: 'linear-gradient(165deg, transparent 5%, rgba(225,235,240,.75) 48%, transparent 88%)', filter: `blur(${3 + effectIntensity('fog') * 16}px)` }} />
                             )}
-                            {overlayEffects.includes('sparks') && (
+                            {false && overlayEffects.includes('sparks') && (
                               <div className="effect-preview-sparks absolute inset-[-30%] mix-blend-screen" style={{ opacity: 0.03 + sparksPreview.intensity * (0.15 + sparksPreview.density / 170), animationDuration: `${Math.max(.7, parseFloat(sparksPreview.duration) / 3)}s`, backgroundImage: 'radial-gradient(circle, #fff 0 1px, #ff9d00 2px, transparent 4px)', backgroundSize: `${67 * sparksPreview.scale}px ${83 * sparksPreview.scale}px`, backgroundPosition: `${sparksPreview.offset} 0`, filter: 'blur(.3px)' }} />
                             )}
                             {overlayEffects.includes('light_leak') && (
