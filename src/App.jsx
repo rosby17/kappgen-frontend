@@ -4311,6 +4311,7 @@ export default function App() {
   // The effects step has a focused inspector: controls belong to the selected
   // effect rather than being a generic panel detached from its toggle.
   const [selectedVisualEffect, setSelectedVisualEffect] = useState('');
+  const [effectsPreviewPlaying, setEffectsPreviewPlaying] = useState(true);
   // Aperçu Final (step 6) recap checklist — purely local to the preview, lets the
   // user toggle each configured element on/off to see the mockup with/without it.
   // Only "visual" has no real per-channel setting (a video always needs a
@@ -14296,8 +14297,15 @@ export default function App() {
                         </div>
 
                         <div className="lg:sticky lg:top-4">
-                          <label className="block text-xs font-bold text-slate-300 mb-2">Aperçu des effets</label>
-                          <div className="relative aspect-video rounded-2xl overflow-hidden border-2 border-[var(--border)] bg-[var(--bg-input-alt)]">
+                          <div className="mb-2 flex items-center justify-between gap-2">
+                            <label className="block text-xs font-bold text-slate-300">Aperçu des effets</label>
+                            <button type="button" onClick={() => setEffectsPreviewPlaying(value => !value)}
+                              className="inline-flex items-center gap-1 rounded-md border border-[#00c2ff]/35 bg-[#00c2ff]/10 px-2 py-1 text-[9px] font-bold text-[#65d7ff] hover:bg-[#00c2ff]/20">
+                              <span className="material-symbols-outlined text-[13px]">{effectsPreviewPlaying ? 'pause' : 'play_arrow'}</span>
+                              {effectsPreviewPlaying ? 'En direct' : 'Aperçu figé'}
+                            </button>
+                          </div>
+                          <div className={`relative aspect-video rounded-2xl overflow-hidden border-2 border-[var(--border)] bg-[var(--bg-input-alt)] ${effectsPreviewPlaying ? '' : 'effect-preview-paused'}`}>
                             {previewImgSrc ? (
                               // A real project image (library-preview) can 404 when the channel
                               // has no uploaded library yet (e.g. AI-generated-only channels) —

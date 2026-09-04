@@ -206,6 +206,11 @@ body:not(.icon-font-ready) .material-symbols-outlined {
 .effect-preview-sparks { animation: effectSparksRise 2.7s ease-out infinite; }
 .effect-preview-light-leak { animation: effectLightLeakMove 6s ease-in-out infinite; }
 
+/* The wizard preview is a live, animated simulation. Pausing it freezes the
+   exact frame so a creator can compare a subtle opacity/intensity adjustment. */
+.effect-preview-paused,
+.effect-preview-paused * { animation-play-state: paused !important; }
+
 /* "En file d'attente" hourglass (HourglassSandIcon in App.jsx) — real sand
    drains from the top bulb into the bottom one; once it's fully settled the
    WHOLE icon physically flips 180° (like turning a real hourglass over),
