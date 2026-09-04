@@ -2733,14 +2733,14 @@ function ColorPickerButton({ value, onChange, label, allowNone = false }) {
         className="flex items-center gap-2 bg-[var(--bg-surface-alt)] border border-[var(--border)] hover:border-[#00c2ff] rounded-xl px-2.5 py-2 transition-colors"
       >
         <span
-          className="w-6 h-6 rounded-lg border border-white/20 flex-shrink-0"
-          style={isNone ? { backgroundImage: 'linear-gradient(45deg, #ef4444 45%, transparent 45%, transparent 55%, #ef4444 55%)' } : { backgroundColor: value || '#FFFFFF' }}
+          className="w-5 h-5 rounded-md border border-white/20 flex-shrink-0"
+          style={isNone ? { backgroundColor: '#3a3f4b' } : { backgroundColor: value || '#FFFFFF' }}
         />
         <span className="text-xs font-mono text-slate-300">{isNone ? 'Aucune' : (value || '#FFFFFF').toUpperCase()}</span>
       </button>
 
       {open && (
-        <div className="absolute z-30 top-full left-0 mt-2 w-72 bg-[var(--bg-dropdown)] border border-[var(--border-dropdown)] rounded-2xl shadow-2xl p-3 space-y-3">
+        <div className="absolute z-30 top-full left-0 mt-2 w-56 bg-[var(--bg-dropdown)] border border-[var(--border-dropdown)] rounded-xl shadow-2xl p-2.5 space-y-2">
           {label && <div className="text-[11px] font-bold text-slate-300">{label}</div>}
 
           <div
@@ -2749,51 +2749,51 @@ function ColorPickerButton({ value, onChange, label, allowNone = false }) {
             onPointerMove={onSquarePointerMove}
             onPointerUp={endSquareDrag}
             onPointerLeave={endSquareDrag}
-            className="relative w-full aspect-[4/3] rounded-xl border border-white/10 cursor-crosshair select-none touch-none"
+            className="relative w-full h-24 rounded-lg border border-white/10 cursor-crosshair select-none touch-none"
             style={{
               background: `linear-gradient(to top, #000, transparent), linear-gradient(to right, #fff, hsl(${hsv.h} 100% 50%))`,
             }}
           >
             <div
-              className="absolute w-4 h-4 -ml-2 -mt-2 rounded-full border-2 border-white shadow-[0_0_0_1px_rgba(0,0,0,0.5)] pointer-events-none"
+              className="absolute w-3.5 h-3.5 -ml-[7px] -mt-[7px] rounded-full border-2 border-white shadow-[0_0_0_1px_rgba(0,0,0,0.5)] pointer-events-none"
               style={{ left: `${hsv.s}%`, top: `${100 - hsv.v}%`, backgroundColor: isNone ? 'transparent' : (value || '#FFFFFF') }}
             />
           </div>
 
           <input type="range" min="0" max="359" value={hsv.h} onChange={e => updateHsv('h', Number(e.target.value))} className="color-hue-slider w-full" />
 
-          <div className="flex items-center gap-2">
-            <span className="w-6 h-6 rounded-lg border border-white/20 flex-shrink-0" style={{ backgroundColor: /^#[0-9a-fA-F]{6}$/.test(hexDraft) ? hexDraft : 'transparent' }} />
-            <div className="flex-1 min-w-0 flex items-center gap-1 bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-lg px-2 py-1.5 focus-within:border-[#00c2ff]">
-              <span className="text-[10px] font-bold text-slate-500 shrink-0">Hex</span>
+          <div className="flex items-center gap-1.5">
+            <span className="w-5 h-5 rounded-md border border-white/20 flex-shrink-0" style={{ backgroundColor: /^#[0-9a-fA-F]{6}$/.test(hexDraft) ? hexDraft : 'transparent' }} />
+            <div className="flex-1 min-w-0 flex items-center gap-1 bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-lg px-1.5 py-1 focus-within:border-[#00c2ff]">
+              <span className="text-[9px] font-bold text-slate-500 shrink-0">Hex</span>
               <input
                 value={hexDraft}
                 onChange={e => commitHex(e.target.value)}
                 placeholder="#RRGGBB"
-                className="flex-1 min-w-0 bg-transparent text-xs font-mono text-white outline-none"
+                className="flex-1 min-w-0 bg-transparent text-[11px] font-mono text-white outline-none"
               />
             </div>
-            {typeof window !== 'undefined' && 'EyeDropper' in window && <button type="button" title="Prélever une couleur précise" onClick={pickScreenColor} className="w-8 h-8 shrink-0 rounded-lg border border-[var(--border)] text-[#65d7ff] hover:bg-[#00c2ff]/10"><span className="material-symbols-outlined text-[16px]">colorize</span></button>}
+            {typeof window !== 'undefined' && 'EyeDropper' in window && <button type="button" title="Prélever une couleur précise" onClick={pickScreenColor} className="w-6 h-6 shrink-0 rounded-md border border-[var(--border)] text-[#65d7ff] hover:bg-[#00c2ff]/10"><span className="material-symbols-outlined text-[14px]">colorize</span></button>}
           </div>
 
           <div>
             <button
               type="button"
               onClick={() => setShowCustomColors(s => !s)}
-              className="w-full flex items-center justify-between text-[11px] font-bold text-slate-300 hover:text-white py-1"
+              className="w-full flex items-center justify-between text-[10px] font-bold text-slate-300 hover:text-white py-0.5"
             >
               Mes couleurs
-              <span className="material-symbols-outlined text-[16px]">{showCustomColors ? 'expand_less' : 'expand_more'}</span>
+              <span className="material-symbols-outlined text-[14px]">{showCustomColors ? 'expand_less' : 'expand_more'}</span>
             </button>
             {showCustomColors && (
-              <div className="grid grid-cols-6 gap-2 mt-1.5">
+              <div className="grid grid-cols-7 gap-1 mt-1">
                 <button
                   type="button"
                   onClick={saveCustomColor}
                   title="Enregistrer la couleur actuelle"
-                  className="w-full aspect-square rounded-lg border-2 border-dashed border-white/25 text-slate-400 hover:text-white hover:border-white/50 flex items-center justify-center"
+                  className="w-full aspect-square rounded-md border-2 border-dashed border-white/25 text-slate-400 hover:text-white hover:border-white/50 flex items-center justify-center"
                 >
-                  <span className="material-symbols-outlined text-[16px]">add</span>
+                  <span className="material-symbols-outlined text-[13px]">add</span>
                 </button>
                 {customColors.map(c => (
                   <button
@@ -2802,7 +2802,7 @@ function ColorPickerButton({ value, onChange, label, allowNone = false }) {
                     onClick={() => commitHex(c)}
                     onDoubleClick={e => removeCustomColor(e, c)}
                     title={`${c} (double-clic pour retirer)`}
-                    className={`w-full aspect-square rounded-lg border-2 transition-transform hover:scale-110 ${!isNone && value?.toUpperCase() === c ? 'border-[#00c2ff]' : 'border-white/15'}`}
+                    className={`w-full aspect-square rounded-md border-2 transition-transform hover:scale-110 ${!isNone && value?.toUpperCase() === c ? 'border-[#00c2ff]' : 'border-white/15'}`}
                     style={{ backgroundColor: c }}
                   />
                 ))}
@@ -2810,13 +2810,13 @@ function ColorPickerButton({ value, onChange, label, allowNone = false }) {
             )}
           </div>
 
-          <div className="grid grid-cols-6 gap-2">
+          <div className="grid grid-cols-7 gap-1">
             {COLOR_PICKER_PRESETS.map(c => (
               <button
                 key={c}
                 type="button"
                 onClick={() => { commitHex(c); onChange(c); }}
-                className={`w-full aspect-square rounded-lg border-2 transition-transform hover:scale-110 ${!isNone && value?.toUpperCase() === c ? 'border-[#00c2ff]' : 'border-white/15'}`}
+                className={`w-full aspect-square rounded-md border-2 transition-transform hover:scale-110 ${!isNone && value?.toUpperCase() === c ? 'border-[#00c2ff]' : 'border-white/15'}`}
                 style={{ backgroundColor: c }}
                 title={c}
               />
@@ -2827,7 +2827,7 @@ function ColorPickerButton({ value, onChange, label, allowNone = false }) {
             <button
               type="button"
               onClick={() => { onChange('transparent'); setOpen(false); }}
-              className={`w-full text-center text-[11px] font-bold py-1.5 rounded-lg transition-colors ${isNone ? 'bg-[#00c2ff]/10 text-[#00c2ff]' : 'text-slate-400 hover:text-white'}`}
+              className={`w-full text-center text-[10px] font-bold py-1 rounded-md transition-colors ${isNone ? 'bg-[#00c2ff]/10 text-[#00c2ff]' : 'text-slate-400 hover:text-white'}`}
             >
               Aucune couleur
             </button>
