@@ -4435,6 +4435,12 @@ export default function App() {
   // 9-step script/voiceover flow) or 'music' (MusicChannelWizard). Same
   // view/sidebar/header shell either way; only the step content differs.
   const [wizardContentType, setWizardContentType] = useState('narration');
+  // Set when an admin opens a creator's pipeline from the admin panel
+  // ("Gérer le pipeline de la chaîne") — closing or saving the wizard must
+  // land back on the admin panel, not on that channel's own (creator-facing)
+  // 'channels'/'channel_detail' view, which used to strand the admin inside
+  // a stranger's account view until they manually navigated back out.
+  const [wizardOpenedFromAdmin, setWizardOpenedFromAdmin] = useState(false);
   const [fontPickerOpen, setFontPickerOpen] = useState(false);
   const [fontSearchQuery, setFontSearchQuery] = useState('');
   const [subtitleTab, setSubtitleTab] = useState('customize');
@@ -6189,6 +6195,7 @@ export default function App() {
     setNicheMode('preset');
     setWizardMode('create');
     setEditingChannelId(null);
+    setWizardOpenedFromAdmin(false);
     setLogoFile(null);
     setLogoPreviewUrl(null);
     setLocalImageFiles([]);
@@ -6407,6 +6414,7 @@ export default function App() {
   const openEditWizard = (channel, e, startStep = 1) => {
     if (e) e.stopPropagation();
     setOpenChannelMenuId(null);
+    setWizardOpenedFromAdmin(false);
     setWizardMode('edit');
     setEditingChannelId(channel.id);
     // Without this, wizardContentType kept whatever it was last set to (e.g.
@@ -7091,8 +7099,12 @@ export default function App() {
       await fetchChannels();
       fetchNicheOptions();
       setActiveChannel(saved);
-      setView('channel_detail');
-      fetchChannelVideos(saved.id);
+      if (wizardOpenedFromAdmin) {
+        setView('admin');
+      } else {
+        setView('channel_detail');
+        fetchChannelVideos(saved.id);
+      }
       clearDraft(wizardMode === 'edit' ? editingChannelId : null);
       resetWizardState();
       if (savingIncomplete || !saved.is_render_ready) {
@@ -7985,6 +7997,7 @@ export default function App() {
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || 'Chaîne introuvable.');
       const channel = await res.json();
       openEditWizard(channel);
+      setWizardOpenedFromAdmin(true);
     } catch (err) {
       showToast(err.message || "Impossible d'ouvrir le pipeline de cette chaîne.", 'error');
     }
@@ -11929,10 +11942,10 @@ export default function App() {
               <MusicChannelWizard
                 authFetch={authFetch}
                 showToast={showToast}
-                onBack={() => setView('channels')}
+                onBack={() => setView(wizardOpenedFromAdmin ? 'admin' : 'channels')}
                 onCreated={(channel) => {
                   setChannels(prev => [channel, ...prev]);
-                  setView('channels');
+                  setView(wizardOpenedFromAdmin ? 'admin' : 'channels');
                 }}
               />
             )}
@@ -11951,7 +11964,7 @@ export default function App() {
                     <p className="text-xs text-slate-400 mt-1">Étape {wizardStep} sur 9</p>
                   </div>
                   <button
-                    onClick={() => setView(wizardMode === 'edit' && editingChannelId ? 'channel_detail' : 'channels')}
+                    onClick={() => setView(wizardOpenedFromAdmin ? 'admin' : (wizardMode === 'edit' && editingChannelId ? 'channel_detail' : 'channels'))}
                     className="text-slate-400 hover:text-white p-2 shrink-0"
                   >
                     <span className="material-symbols-outlined">close</span>
