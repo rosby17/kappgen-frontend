@@ -4577,7 +4577,6 @@ export default function App() {
   // Izivoice STT transcription (for accurate audio-upload subtitles) is billable —
   // default on, but the user can opt out in the final preview to avoid credit cost.
   const [transcribeAudio, setTranscribeAudio] = useState(true);
-  const [audioSourceType, setAudioSourceType] = useState('');
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef(null);
 
@@ -6449,7 +6448,6 @@ export default function App() {
     // (style, titles, montage) was already set once at channel creation.
     if (channel.content_type !== 'music' && channel.automation_mode !== 'auto') {
       setActiveChannel(channel);
-      setAudioSourceType('');
       setShowSubmitModal(true);
       return;
     }
@@ -7434,7 +7432,6 @@ export default function App() {
       formData.append("script_text", singleScriptText.trim());
     } else if (submitMode === 'audio_upload') {
       if (audioFilesList.length === 0) return showToast("Veuillez glisser-déposer au moins un fichier audio.", "error");
-      if (!audioSourceType) return showToast("Indiquez la provenance de l’audio.", "error");
       audioFilesList.forEach(file => {
         formData.append("audio_files", file);
       });
@@ -7443,7 +7440,9 @@ export default function App() {
       // its own toggle — subtitles off means nothing to transcribe for.
       formData.append("transcribe_audio", (activeChannel.subtitle_style?.enabled ?? true) ? "true" : "false");
       formData.append("audio_rights_confirmed", "true");
-      formData.append("audio_source_type", audioSourceType);
+      // Where the audio came from isn't something the product needs to
+      // track — the field stays server-side only for older rows.
+      formData.append("audio_source_type", "personal");
     }
 
     try {
@@ -7461,7 +7460,6 @@ export default function App() {
         setSingleScriptText('');
         setSubmitVideoTitle('');
         setAudioFilesList([]);
-        setAudioSourceType('');
         setShowSubmitModal(false);
         fetchChannelVideos(activeChannel.id);
         fetchChannels();
@@ -17692,21 +17690,36 @@ export default function App() {
                       <span className="text-xs font-bold text-white">{availableVoices.find(v => v.id === selectedVoice)?.name || selectedVoice}</span>
                     </div>
                   )}
-                  {/* Same recap/toggle principle as the pipeline's Aperçu Final — these
-                      toggle the channel's real, saved settings immediately, not just this
-                      one video, so the state matches whichever screen the client checks. */}
+                  {/* Same recap principle, same item set, and the same stacking order as
+                      step 9's "Aperçu Final du Layout & Design" (channel edit wizard) — a
+                      creator checking this before launch should see the exact layer list
+                      they already configured, not a different/shorter one. Logo/sous-titres/
+                      effets/musique toggle the channel's real, saved settings immediately;
+                      visuel, voix off and filigrane have no per-video switch here (visuel and
+                      voix off always exist, filigrane is a plan-level setting) so they're
+                      shown read-only, same as their read-only state in step 9. */}
                   <div className="space-y-1.5">
-                    {[
-                      { id: 'logo', label: 'Logo de la chaîne', icon: 'workspace_premium', group: 'branding', field: 'logo_enabled', checked: activeChannel.branding?.logo_enabled ?? true },
-                      { id: 'subtitles', label: 'Sous-titres', icon: 'subtitles', group: 'subtitle_style', field: 'enabled', checked: activeChannel.subtitle_style?.enabled ?? true },
-                      { id: 'effects', label: 'Effets visuels', icon: 'auto_awesome', group: 'effects_config', field: 'enabled', checked: activeChannel.effects_config?.enabled ?? true },
-                      // No real "disabled" setting exists for the background visual — a
-                      // video always has one (library or AI-generated) — so it's shown
-                      // as permanently on, same as voiceover, rather than an orphaned
-                      // local toggle with nothing real to reflect.
-                      { id: 'visual', label: 'Visuel de fond', icon: 'image', checked: true, readOnly: true },
-                      { id: 'music', label: 'Musique de fond', icon: 'music_note', group: 'music_preference', field: 'enabled', checked: activeChannel.music_preference?.enabled ?? true },
-                    ].map(({ id, label, icon, group, field, checked, readOnly }) => (
+                    {(() => {
+                      const DEFAULT_LAYER_ORDER = ['logo', 'voiceover', 'visual', 'music', 'subtitles', 'effects', 'watermark'];
+                      const savedOrder = activeChannel.effects_config?.layer_order;
+                      const layerOrder = Array.isArray(savedOrder) && savedOrder.length === DEFAULT_LAYER_ORDER.length && DEFAULT_LAYER_ORDER.every(id => savedOrder.includes(id))
+                        ? savedOrder
+                        : DEFAULT_LAYER_ORDER;
+                      const itemsById = {
+                        logo: { id: 'logo', label: 'Logo de la chaîne', icon: 'workspace_premium', group: 'branding', field: 'logo_enabled', checked: activeChannel.branding?.logo_enabled ?? true },
+                        voiceover: { id: 'voiceover', label: 'Voix Off', icon: 'mic', checked: true, readOnly: true },
+                        // No real "disabled" setting exists for the background visual — a
+                        // video always has one (library or AI-generated) — so it's shown
+                        // as permanently on, same as voiceover, rather than an orphaned
+                        // local toggle with nothing real to reflect.
+                        visual: { id: 'visual', label: 'Visuel de fond', icon: 'image', checked: true, readOnly: true },
+                        music: { id: 'music', label: 'Musique de fond', icon: 'music_note', group: 'music_preference', field: 'enabled', checked: activeChannel.music_preference?.enabled ?? true },
+                        subtitles: { id: 'subtitles', label: 'Sous-titres', icon: 'subtitles', group: 'subtitle_style', field: 'enabled', checked: activeChannel.subtitle_style?.enabled ?? true },
+                        effects: { id: 'effects', label: 'Effets visuels', icon: 'auto_awesome', group: 'effects_config', field: 'enabled', checked: activeChannel.effects_config?.enabled ?? true },
+                        watermark: { id: 'watermark', label: 'Filigrane KappGen', icon: 'branding_watermark', checked: activeChannel.effects_config?.watermark_enabled ?? true, readOnly: true },
+                      };
+                      return [...layerOrder].reverse().map(id => itemsById[id]);
+                    })().map(({ id, label, icon, group, field, checked, readOnly }) => (
                       <button
                         key={id}
                         type="button"
@@ -17746,27 +17759,6 @@ export default function App() {
                       <span className="flex-1 truncate">Transcrire pour des sous-titres précis (IA)</span>
                       <span className="material-symbols-outlined text-[16px] shrink-0">{transcribeAudio ? 'check_box' : 'check_box_outline_blank'}</span>
                     </button>
-                  )}
-                  {submitMode === 'audio_upload' && (
-                    <div className="space-y-2">
-                      <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-input)] p-3">
-                        <p className="mb-2 text-[11px] font-bold text-slate-300">Provenance de l’audio</p>
-                        <div className="grid grid-cols-2 gap-1.5">
-                          {[
-                            ['personal', 'Voix personnelle'],
-                            ['cloned', 'Voix clonée'],
-                            ['licensed', 'Audio sous licence'],
-                            ['third_party', 'Podcast / contenu tiers'],
-                            ['music', 'Musique / extrait'],
-                          ].map(([value, label]) => (
-                            <button key={value} type="button" onClick={() => setAudioSourceType(value)} className={`flex items-center gap-2 rounded-lg border px-2.5 py-2 text-left text-[10px] font-bold transition-colors ${audioSourceType === value ? 'border-[#00c2ff] bg-[#00c2ff]/10 text-[#00c2ff]' : 'border-[var(--border)] text-slate-400 hover:border-slate-500'}`}>
-                              <span className="material-symbols-outlined text-[14px]">{audioSourceType === value ? 'radio_button_checked' : 'radio_button_unchecked'}</span>
-                              {label}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
                   )}
                 </div>
 
@@ -17882,11 +17874,6 @@ export default function App() {
                     if (!submitVideoTitle.trim()) return showToast("Le titre de la vidéo est obligatoire.", "error");
                     if (submitMode === 'text' && !singleScriptText.trim()) return showToast("Veuillez saisir le texte de votre script.", "error");
                     if (submitMode === 'audio_upload' && audioFilesList.length === 0) return showToast("Veuillez ajouter au moins un fichier audio.", "error");
-                    // audioSourceType is NOT checked here: its only UI (the "Provenance
-                    // de l'audio" card) lives on step 2, not step 1 — gating step 1 on it
-                    // made it impossible to ever reach the screen that sets it. Step 2's
-                    // "Confirmer et Lancer" button (and handleSubjectSubmit itself)
-                    // already validates it before actually submitting.
                     setSubmitStep(2);
                   }}
                   className="w-full py-3.5 bg-gradient-to-r from-[#00c2ff] to-[#0088ff] text-slate-950 font-bold text-sm rounded-xl hover:opacity-90 transition-all flex items-center justify-center gap-2 shadow-lg shadow-[#00c2ff]/25"
