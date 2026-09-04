@@ -3690,24 +3690,34 @@ function LiveParticlePreview({ effects, settings, playing }) {
         const opacity = (config.opacity ?? 100) / 100;
         const sizeControl = 0.45 + (config.size ?? 50) / 100 * 1.5;
         const speedControl = 0.35 + (config.speed ?? 50) / 100 * 1.8;
-        const alpha = intensity * opacity * (0.18 + particle.depth * 0.42);
-        let x = (particle.x + Math.sin(t * particle.speed * speedControl + particle.phase) * particle.drift) * rect.width;
+        const turbulence = (config.turbulence ?? 50) / 100;
+        const softness = (config.softness ?? 50) / 100;
+        const life = 0.2 + 0.8 * Math.sin((t * particle.speed * speedControl + particle.phase) * 0.75) ** 2;
+        const alpha = intensity * opacity * life * (0.08 + particle.depth * 0.5);
+        const organicDrift = Math.sin(t * particle.speed * (0.4 + turbulence * 2.8) + particle.phase) * particle.drift * (0.3 + turbulence * 1.7);
+        let x = (particle.x + organicDrift) * rect.width;
         let y = particle.y * rect.height;
         const motion = t * particle.speed * speedControl;
         if (particle.id === 'snow' || particle.id === 'rain') y = ((particle.y + motion * 0.12) % 1) * rect.height;
         if (particle.id === 'sparks') y = ((particle.y - motion * 0.09 + 2) % 1) * rect.height;
         const radius = particle.size * sizeControl * particle.depth;
         ctx.globalAlpha = alpha;
+        ctx.filter = particle.id === 'dust' || particle.id === 'snow' ? `blur(${Math.max(0, (1 - particle.depth) * softness * 3)}px)` : 'none';
         if (particle.id === 'rain') {
           ctx.strokeStyle = '#c8eaff'; ctx.lineWidth = Math.max(.45, radius * .55);
           ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - radius * 2.1, y - radius * 5.5); ctx.stroke();
         } else {
           const color = particle.id === 'sparks' ? '255,164,54' : particle.id === 'dust' ? '255,224,177' : '235,246,255';
-          ctx.fillStyle = `rgb(${color})`;
+          const glow = ctx.createRadialGradient(x, y, 0, x, y, Math.max(1, radius * (particle.id === 'dust' ? 3.4 : 1.8)));
+          glow.addColorStop(0, `rgba(${color},1)`);
+          glow.addColorStop(particle.id === 'dust' ? 0.24 : 0.5, `rgba(${color},.35)`);
+          glow.addColorStop(1, `rgba(${color},0)`);
+          ctx.fillStyle = glow;
           ctx.beginPath(); ctx.arc(x, y, Math.max(.35, radius), 0, Math.PI * 2); ctx.fill();
         }
       });
       ctx.globalAlpha = 1;
+      ctx.filter = 'none';
       if (playing) frameId = requestAnimationFrame(draw);
     };
     frameId = requestAnimationFrame(draw);
@@ -14253,6 +14263,8 @@ export default function App() {
                         { key: 'size', label: 'Taille', hint: 'Lointaines ou proches' },
                         { key: 'speed', label: 'Vitesse', hint: 'Mouvement subtil ou soutenu' },
                         { key: 'dispersion', label: 'Dispersion', hint: 'Répartition dans le cadre' },
+                        { key: 'turbulence', label: 'Turbulence', hint: 'Dérive organique et vent' },
+                        { key: 'softness', label: 'Profondeur de champ', hint: 'Particules nettes ou bokeh' },
                       ]
                       : selectedEffect.id === 'fog'
                         ? [{ key: 'intensity', label: 'Densité du brouillard', hint: 'Voile atmosphérique' }]
