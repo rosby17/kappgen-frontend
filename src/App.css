@@ -206,3 +206,50 @@ input[type='checkbox']:not(.sr-only):checked {
   background-position: center;
   background-repeat: no-repeat;
 }
+
+/* Color picker sliders (ColorPickerButton) — a plain <input type="range">
+   renders as a flat grey OS-default track with no visual tie to what it
+   controls; the hue slider especially needs its own rainbow gradient track
+   so it reads as a real color tool, not a generic form control. */
+.color-hue-slider,
+.color-picker-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 10px;
+  border-radius: 999px;
+  outline: none;
+  cursor: pointer;
+}
+.color-hue-slider {
+  background: linear-gradient(
+    to right,
+    #ff0000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff, #ff0000
+  );
+}
+.color-hue-slider::-webkit-slider-thumb,
+.color-picker-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid rgba(0, 0, 0, 0.35);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  cursor: pointer;
+}
+.color-hue-slider::-moz-range-thumb,
+.color-picker-slider::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid rgba(0, 0, 0, 0.35);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  cursor: pointer;
+}
+.color-hue-slider::-moz-range-track,
+.color-picker-slider::-moz-range-track {
+  height: 10px;
+  border-radius: 999px;
+  background: transparent;
+}

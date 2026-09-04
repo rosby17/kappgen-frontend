@@ -2597,11 +2597,70 @@ const COLOR_PICKER_PRESETS = [
   '#3DA9FF', '#8FF0C6', '#CCFF00', '#F2C94C', '#D8B4FE', '#FF7A29'
 ];
 
+const hexToHsl = (hex) => {
+  const safe = /^#[0-9a-fA-F]{6}$/.test(hex || '') ? hex.slice(1) : 'ffffff';
+  const r = parseInt(safe.slice(0, 2), 16) / 255;
+  const g = parseInt(safe.slice(2, 4), 16) / 255;
+  const b = parseInt(safe.slice(4, 6), 16) / 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b), delta = max - min;
+  let h = 0;
+  if (delta) h = max === r ? ((g - b) / delta + (g < b ? 6 : 0)) : max === g ? ((b - r) / delta + 2) : ((r - g) / delta + 4);
+  h = Math.round(h * 60);
+  const l = (max + min) / 2;
+  const s = delta ? delta / (1 - Math.abs(2 * l - 1)) : 0;
+  return { h, s: Math.round(s * 100), l: Math.round(l * 100) };
+};
+
+const hslToHex = (h, s, l) => {
+  const sat = s / 100, light = l / 100;
+  const chroma = (1 - Math.abs(2 * light - 1)) * sat;
+  const x = chroma * (1 - Math.abs((h / 60) % 2 - 1));
+  const m = light - chroma / 2;
+  const [r, g, b] = h < 60 ? [chroma, x, 0] : h < 120 ? [x, chroma, 0] : h < 180 ? [0, chroma, x] : h < 240 ? [0, x, chroma] : h < 300 ? [x, 0, chroma] : [chroma, 0, x];
+  return `#${[r, g, b].map(channel => Math.round((channel + m) * 255).toString(16).padStart(2, '0')).join('').toUpperCase()}`;
+};
+
+// HSV (hue/saturation/value) rather than HSL — the single saturation×value
+// square below needs "value" (0 = black regardless of hue), not "lightness"
+// (0 = black, 100 = white regardless of hue), to match how a real color
+// picker's gradient square works: hue across the top-right corner fading to
+// white on the left and to black on the bottom, all in one drag surface.
+const hexToHsv = (hex) => {
+  const safe = /^#[0-9a-fA-F]{6}$/.test(hex || '') ? hex.slice(1) : 'ffffff';
+  const r = parseInt(safe.slice(0, 2), 16) / 255;
+  const g = parseInt(safe.slice(2, 4), 16) / 255;
+  const b = parseInt(safe.slice(4, 6), 16) / 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b), delta = max - min;
+  let h = 0;
+  if (delta) h = max === r ? ((g - b) / delta + (g < b ? 6 : 0)) : max === g ? ((b - r) / delta + 2) : ((r - g) / delta + 4);
+  h = Math.round(h * 60);
+  const s = max === 0 ? 0 : delta / max;
+  return { h, s: Math.round(s * 100), v: Math.round(max * 100) };
+};
+
+const hsvToHex = (h, s, v) => {
+  const sat = s / 100, val = v / 100;
+  const c = val * sat;
+  const x = c * (1 - Math.abs((h / 60) % 2 - 1));
+  const m = val - c;
+  const [r, g, b] = h < 60 ? [c, x, 0] : h < 120 ? [x, c, 0] : h < 180 ? [0, c, x] : h < 240 ? [0, x, c] : h < 300 ? [x, 0, c] : [c, 0, x];
+  return `#${[r, g, b].map(channel => Math.round((channel + m) * 255).toString(16).padStart(2, '0')).join('').toUpperCase()}`;
+};
+
+const CUSTOM_COLORS_STORAGE_KEY = 'kappgen_custom_colors';
+const loadCustomColors = () => {
+  try { return JSON.parse(localStorage.getItem(CUSTOM_COLORS_STORAGE_KEY) || '[]'); } catch { return []; }
+};
+
 function ColorPickerButton({ value, onChange, label, allowNone = false }) {
   const [open, setOpen] = useState(false);
   const isNone = allowNone && (!value || value === 'transparent');
   const [hexDraft, setHexDraft] = useState(isNone ? '' : (value || '#FFFFFF'));
+  const [customColors, setCustomColors] = useState(loadCustomColors);
+  const [showCustomColors, setShowCustomColors] = useState(true);
   const wrapRef = useRef(null);
+  const squareRef = useRef(null);
+  const draggingRef = useRef(false);
 
   useEffect(() => { setHexDraft(isNone ? '' : (value || '#FFFFFF')); }, [value, isNone]);
 
@@ -2615,6 +2674,56 @@ function ColorPickerButton({ value, onChange, label, allowNone = false }) {
   const commitHex = (hex) => {
     setHexDraft(hex);
     if (/^#[0-9a-fA-F]{6}$/.test(hex)) onChange(hex);
+  };
+  const hsv = hexToHsv(hexDraft);
+  const updateHsv = (key, next) => commitHex(hsvToHex(key === 'h' ? next : hsv.h, key === 's' ? next : hsv.s, key === 'v' ? next : hsv.v));
+  const pickScreenColor = async () => {
+    try {
+      if (!window.EyeDropper) return;
+      const result = await new window.EyeDropper().open();
+      commitHex(result.sRGBHex.toUpperCase());
+    } catch { /* User cancelled the native eyedropper. */ }
+  };
+
+  // A single square drag surface (saturation across, value/brightness down)
+  // reads as an actual color tool the way separate saturation/lightness
+  // sliders never quite did — this is the layout every native OS color
+  // picker (macOS, Chrome's <input type=color>) settled on.
+  const updateFromSquarePointer = (clientX, clientY) => {
+    const rect = squareRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const s = Math.round(Math.max(0, Math.min(1, (clientX - rect.left) / rect.width)) * 100);
+    const v = Math.round((1 - Math.max(0, Math.min(1, (clientY - rect.top) / rect.height))) * 100);
+    updateHsv('s', s);
+    commitHex(hsvToHex(hsv.h, s, v));
+  };
+  const onSquarePointerDown = (e) => {
+    draggingRef.current = true;
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+    updateFromSquarePointer(e.clientX, e.clientY);
+  };
+  const onSquarePointerMove = (e) => {
+    if (!draggingRef.current) return;
+    updateFromSquarePointer(e.clientX, e.clientY);
+  };
+  const endSquareDrag = () => { draggingRef.current = false; };
+
+  const saveCustomColor = () => {
+    if (!/^#[0-9a-fA-F]{6}$/.test(hexDraft)) return;
+    const upper = hexDraft.toUpperCase();
+    setCustomColors(prev => {
+      const next = [upper, ...prev.filter(c => c !== upper)].slice(0, 18);
+      try { localStorage.setItem(CUSTOM_COLORS_STORAGE_KEY, JSON.stringify(next)); } catch {}
+      return next;
+    });
+  };
+  const removeCustomColor = (e, c) => {
+    e.stopPropagation();
+    setCustomColors(prev => {
+      const next = prev.filter(x => x !== c);
+      try { localStorage.setItem(CUSTOM_COLORS_STORAGE_KEY, JSON.stringify(next)); } catch {}
+      return next;
+    });
   };
 
   return (
@@ -2632,8 +2741,76 @@ function ColorPickerButton({ value, onChange, label, allowNone = false }) {
       </button>
 
       {open && (
-        <div className="absolute z-30 top-full left-0 mt-2 w-56 bg-[var(--bg-dropdown)] border border-[var(--border-dropdown)] rounded-xl shadow-2xl p-3 space-y-3">
+        <div className="absolute z-30 top-full left-0 mt-2 w-72 bg-[var(--bg-dropdown)] border border-[var(--border-dropdown)] rounded-2xl shadow-2xl p-3 space-y-3">
           {label && <div className="text-[11px] font-bold text-slate-300">{label}</div>}
+
+          <div
+            ref={squareRef}
+            onPointerDown={onSquarePointerDown}
+            onPointerMove={onSquarePointerMove}
+            onPointerUp={endSquareDrag}
+            onPointerLeave={endSquareDrag}
+            className="relative w-full aspect-[4/3] rounded-xl border border-white/10 cursor-crosshair select-none touch-none"
+            style={{
+              background: `linear-gradient(to top, #000, transparent), linear-gradient(to right, #fff, hsl(${hsv.h} 100% 50%))`,
+            }}
+          >
+            <div
+              className="absolute w-4 h-4 -ml-2 -mt-2 rounded-full border-2 border-white shadow-[0_0_0_1px_rgba(0,0,0,0.5)] pointer-events-none"
+              style={{ left: `${hsv.s}%`, top: `${100 - hsv.v}%`, backgroundColor: isNone ? 'transparent' : (value || '#FFFFFF') }}
+            />
+          </div>
+
+          <input type="range" min="0" max="359" value={hsv.h} onChange={e => updateHsv('h', Number(e.target.value))} className="color-hue-slider w-full" />
+
+          <div className="flex items-center gap-2">
+            <span className="w-6 h-6 rounded-lg border border-white/20 flex-shrink-0" style={{ backgroundColor: /^#[0-9a-fA-F]{6}$/.test(hexDraft) ? hexDraft : 'transparent' }} />
+            <div className="flex-1 min-w-0 flex items-center gap-1 bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-lg px-2 py-1.5 focus-within:border-[#00c2ff]">
+              <span className="text-[10px] font-bold text-slate-500 shrink-0">Hex</span>
+              <input
+                value={hexDraft}
+                onChange={e => commitHex(e.target.value)}
+                placeholder="#RRGGBB"
+                className="flex-1 min-w-0 bg-transparent text-xs font-mono text-white outline-none"
+              />
+            </div>
+            {typeof window !== 'undefined' && 'EyeDropper' in window && <button type="button" title="Prélever une couleur précise" onClick={pickScreenColor} className="w-8 h-8 shrink-0 rounded-lg border border-[var(--border)] text-[#65d7ff] hover:bg-[#00c2ff]/10"><span className="material-symbols-outlined text-[16px]">colorize</span></button>}
+          </div>
+
+          <div>
+            <button
+              type="button"
+              onClick={() => setShowCustomColors(s => !s)}
+              className="w-full flex items-center justify-between text-[11px] font-bold text-slate-300 hover:text-white py-1"
+            >
+              Mes couleurs
+              <span className="material-symbols-outlined text-[16px]">{showCustomColors ? 'expand_less' : 'expand_more'}</span>
+            </button>
+            {showCustomColors && (
+              <div className="grid grid-cols-6 gap-2 mt-1.5">
+                <button
+                  type="button"
+                  onClick={saveCustomColor}
+                  title="Enregistrer la couleur actuelle"
+                  className="w-full aspect-square rounded-lg border-2 border-dashed border-white/25 text-slate-400 hover:text-white hover:border-white/50 flex items-center justify-center"
+                >
+                  <span className="material-symbols-outlined text-[16px]">add</span>
+                </button>
+                {customColors.map(c => (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => commitHex(c)}
+                    onDoubleClick={e => removeCustomColor(e, c)}
+                    title={`${c} (double-clic pour retirer)`}
+                    className={`w-full aspect-square rounded-lg border-2 transition-transform hover:scale-110 ${!isNone && value?.toUpperCase() === c ? 'border-[#00c2ff]' : 'border-white/15'}`}
+                    style={{ backgroundColor: c }}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+
           <div className="grid grid-cols-6 gap-2">
             {COLOR_PICKER_PRESETS.map(c => (
               <button
@@ -2646,15 +2823,7 @@ function ColorPickerButton({ value, onChange, label, allowNone = false }) {
               />
             ))}
           </div>
-          <div className="flex items-center gap-2">
-            <span className="w-6 h-6 rounded-lg border border-white/20 flex-shrink-0" style={{ backgroundColor: /^#[0-9a-fA-F]{6}$/.test(hexDraft) ? hexDraft : 'transparent' }} />
-            <input
-              value={hexDraft}
-              onChange={e => commitHex(e.target.value)}
-              placeholder="#RRGGBB"
-              className="flex-1 min-w-0 bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-lg px-2 py-1.5 text-xs font-mono text-white focus:border-[#00c2ff] outline-none"
-            />
-          </div>
+
           {allowNone && (
             <button
               type="button"
