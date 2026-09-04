@@ -3668,7 +3668,12 @@ function LiveParticlePreview({ effects, settings, playing }) {
     const particles = enabled.flatMap(id => {
       const config = settings[id] || {};
       const density = config.density ?? 50;
-      const count = Math.round(8 + density * 0.55);
+      const count = Math.round(
+        id === 'snow' ? 45 + density * 1.65
+          : id === 'stars' ? 26 + density * 1.05
+            : id === 'rain' ? 18 + density * 0.85
+              : 8 + density * 0.55
+      );
       return Array.from({ length: count }, () => ({
         id, x: random(), y: random(), depth: 0.35 + random() * 0.85,
         size: 0.35 + random() * 1.8, drift: (random() - 0.5) * 0.18,
@@ -3699,12 +3704,16 @@ function LiveParticlePreview({ effects, settings, playing }) {
         let y = particle.y * rect.height;
         const motion = t * particle.speed * speedControl;
         if (particle.id === 'snow') {
-          y = ((particle.y + motion * (0.035 + particle.depth * 0.055)) % 1) * rect.height;
-          x += Math.sin(motion * 1.4 + particle.phase) * (4 + particle.depth * 12);
+          y = ((particle.y + motion * (0.07 + particle.depth * 0.12)) % 1) * rect.height;
+          x += Math.sin(motion * 1.4 + particle.phase) * (3 + particle.depth * 10);
         }
         if (particle.id === 'rain') {
           y = ((particle.y + motion * (0.16 + particle.depth * 0.13)) % 1) * rect.height;
           x += motion * (3 + turbulence * 9);
+        }
+        if (particle.id === 'dust') {
+          x = ((particle.x + motion * (0.018 + particle.depth * 0.028) + organicDrift + 2) % 1) * rect.width;
+          y += Math.sin(motion * 1.9 + particle.phase) * (2 + particle.depth * 8);
         }
         if (particle.id === 'sparks') y = ((particle.y - motion * 0.09 + 2) % 1) * rect.height;
         const radius = particle.size * sizeControl * particle.depth;
@@ -3717,12 +3726,7 @@ function LiveParticlePreview({ effects, settings, playing }) {
         } else if (particle.id === 'stars') {
           const twinkle = 0.4 + 0.6 * Math.sin(motion * 2.4 + particle.phase) ** 2;
           ctx.globalAlpha *= twinkle;
-          ctx.strokeStyle = '#f7fbff'; ctx.lineWidth = Math.max(.35, radius * .24);
-          ctx.beginPath();
-          ctx.moveTo(x - radius * 2.5, y); ctx.lineTo(x + radius * 2.5, y);
-          ctx.moveTo(x, y - radius * 2.5); ctx.lineTo(x, y + radius * 2.5);
-          ctx.stroke();
-          ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.arc(x, y, Math.max(.45, radius * .6), 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = '#f8fbff'; ctx.beginPath(); ctx.arc(x, y, Math.max(.28, radius * .42), 0, Math.PI * 2); ctx.fill();
         } else if (particle.id === 'sparks') {
           ctx.strokeStyle = '#ff8c2a'; ctx.lineWidth = Math.max(.35, radius * .45); ctx.lineCap = 'round';
           ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - Math.sin(particle.phase) * radius * 2, y + radius * 4.5); ctx.stroke();
