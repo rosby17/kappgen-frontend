@@ -14115,7 +14115,9 @@ export default function App() {
                   });
                   const hasGrain = overlayEffects.includes('grain') || overlayEffects.includes('white_noise');
                   const hasVignette = overlayEffects.includes('vignette');
-                  const effectIntensity = (id, legacy = 50) => ((effectSettings[id]?.intensity ?? legacy) / 100);
+                  const effectIntensity = (id, legacy = 50) => (
+                    ((effectSettings[id]?.intensity ?? legacy) / 100) * ((effectSettings[id]?.opacity ?? 100) / 100)
+                  );
                   const grainIntensity = effectIntensity('grain', newChannel.effects_config.grain_intensity ?? 50);
                   const vignetteIntensity = effectIntensity('vignette', newChannel.effects_config.vignette_intensity ?? 50);
                   const particlePreview = (id) => {
@@ -14399,6 +14401,15 @@ export default function App() {
                                     </div>
                                   );
                                 })}
+                              </div>
+                              <div className="mt-3 border-t border-[#00c2ff]/15 pt-3">
+                                <label className="flex items-baseline justify-between gap-2 text-[11px] font-bold text-slate-200 mb-1">
+                                  <span>Opacité</span><span className="text-[#00c2ff]">{selectedEffectSettings.opacity ?? 100}%</span>
+                                </label>
+                                <p className="mb-1 text-[9px] text-slate-500">Fond l’effet dans l’image sans modifier son mouvement.</p>
+                                <input type="range" min="0" max="100" value={selectedEffectSettings.opacity ?? 100}
+                                  onChange={e => setSelectedEffectSetting('opacity', parseInt(e.target.value))}
+                                  className="w-full accent-[#00c2ff]" />
                               </div>
                               {particleEffectIds.includes(selectedEffect.id) && (
                                 <div className="mt-4 border-t border-[#00c2ff]/15 pt-3">
