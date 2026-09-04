@@ -14260,17 +14260,17 @@ export default function App() {
                                   </div>
                                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                                     {group.effects.map(({ id, label, icon }) => (
-                                      <button key={id} type="button" onClick={() => {
-                                        // An enabled card is an inspector entry point, not a
-                                        // destructive toggle. This makes its controls reliably
-                                        // appear on the first click.
-                                        setSelectedVisualEffect(id);
-                                        if (!overlayEffects.includes(id)) toggleOverlayEffect(id);
-                                      }} aria-pressed={overlayEffects.includes(id)}
+                                      <button key={id} type="button" onClick={() => toggleOverlayEffect(id)} aria-pressed={overlayEffects.includes(id)}
                                         className={`min-h-16 rounded-xl border px-2.5 py-2 text-left transition-all ${overlayEffects.includes(id) ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff] shadow-[0_0_18px_rgba(0,194,255,0.08)]' : 'bg-[var(--bg-surface-alt)] border-[var(--border)] text-slate-300 hover:border-slate-500'}`}>
                                         <span className="flex items-center gap-2">
                                           <span className="material-symbols-outlined text-[19px]">{overlayEffects.includes(id) ? 'check_circle' : icon}</span>
                                           <span className="text-[10px] font-bold leading-tight">{label}</span>
+                                          {overlayEffects.includes(id) && (
+                                            <span role="button" tabIndex={0} title={`Régler ${label}`}
+                                              onClick={e => { e.stopPropagation(); setSelectedVisualEffect(id); }}
+                                              onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); setSelectedVisualEffect(id); } }}
+                                              className="material-symbols-outlined ml-auto rounded-md p-1 text-[15px] text-[#65d7ff] hover:bg-[#00c2ff]/20">tune</span>
+                                          )}
                                         </span>
                                       </button>
                                     ))}
