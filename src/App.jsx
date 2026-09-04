@@ -42,7 +42,6 @@ const IMAGE_GENERATION_CREDITS_MIN = 956;
 const IMAGE_GENERATION_CREDITS_MAX = 1001;
 const THUMBNAIL_GENERATION_CREDITS = 2000;
 const MUSIC_GENERATION_CREDITS = 300;
-const TRANSCRIPTION_CREDITS_PER_SEC = 3;
 const AUTH_PATHS = new Set(['/login', '/signup', '/signin']);
 
 // Broad coverage of the languages with established YouTube audiences. Values
@@ -7127,7 +7126,12 @@ export default function App() {
       audioFilesList.forEach(file => {
         formData.append("audio_files", file);
       });
-      formData.append("transcribe_audio", transcribeAudio ? "true" : "false");
+      // The toggle itself is hidden whenever subtitles are off (no point paying
+      // to transcribe subtitles nobody will see) — but its state can still be
+      // stale true from an earlier session, so re-check subtitles here rather
+      // than trusting transcribeAudio alone.
+      const subtitlesEnabled = activeChannel.subtitle_style?.enabled ?? true;
+      formData.append("transcribe_audio", (subtitlesEnabled && transcribeAudio) ? "true" : "false");
       formData.append("audio_rights_confirmed", audioRightsConfirmed ? "true" : "false");
       formData.append("audio_source_type", audioSourceType);
     }
@@ -17231,7 +17235,13 @@ export default function App() {
                     ))}
                   </div>
 
-                  {(submitMode === 'audio_upload' || submitMode === 'text') && (
+                  {/* N'a de sens que si les sous-titres eux-mêmes sont activés (case
+                      "Sous-titres" juste au-dessus) — sinon on facturerait une
+                      transcription précise pour des sous-titres qui ne s'afficheront
+                      jamais. Un seul moteur de transcription existe (Izivoice), donc
+                      pas de sélection à faire ici, juste précis vs estimé — le coût
+                      en crédits n'est plus affiché, seule la case à cocher compte. */}
+                  {(submitMode === 'audio_upload' || submitMode === 'text') && (activeChannel.subtitle_style?.enabled ?? true) && (
                     <button
                       type="button"
                       onClick={() => setTranscribeAudio(prev => !prev)}
@@ -17241,14 +17251,11 @@ export default function App() {
                           : 'bg-[var(--bg-surface-alt)] border-[var(--border)] text-slate-500 hover:border-slate-500'
                       }`}
                       title={submitMode === 'text'
-                        ? `Sans transcription, les sous-titres sont estimés en répartissant le script uniformément sur la durée — moins précis mais gratuit. Avec transcription : ${TRANSCRIPTION_CREDITS_PER_SEC} crédits par seconde d'audio (gratuit si tu utilises ta propre clé Izivoice).`
-                        : `Sans transcription, les sous-titres utiliseront le titre du fichier au lieu du texte réel parlé. Avec transcription : ${TRANSCRIPTION_CREDITS_PER_SEC} crédits par seconde d'audio (gratuit si tu utilises ta propre clé Izivoice).`}
+                        ? "Sans transcription, les sous-titres sont estimés en répartissant le script uniformément sur la durée — moins précis. Avec transcription : synchronisés sur les mots réellement prononcés."
+                        : "Sans transcription, les sous-titres utiliseront le titre du fichier au lieu du texte réel parlé. Avec transcription : synchronisés sur les mots réellement prononcés."}
                     >
                       <span className="material-symbols-outlined text-[16px] shrink-0">record_voice_over</span>
                       <span className="flex-1 truncate">Transcrire pour des sous-titres précis (IA)</span>
-                      <span className="shrink-0 px-1.5 py-0.5 rounded-md bg-amber-400/20 border border-amber-400/50 text-amber-300 text-[10px] font-extrabold whitespace-nowrap">
-                        {TRANSCRIPTION_CREDITS_PER_SEC} crédits/sec
-                      </span>
                       <span className="material-symbols-outlined text-[16px] shrink-0">{transcribeAudio ? 'check_box' : 'check_box_outline_blank'}</span>
                     </button>
                   )}
