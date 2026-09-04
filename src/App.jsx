@@ -13999,15 +13999,79 @@ export default function App() {
                             <label className="block text-xs font-bold text-slate-300 mb-2">Police (Font)</label>
                             <button
                               type="button"
-                              onClick={() => { setFontSearchQuery(''); setFontPickerOpen(true); }}
+                              onClick={() => { setFontSearchQuery(''); setFontPickerOpen(o => !o); }}
                               className="w-full flex items-center justify-between bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-4 py-2.5 text-left hover:border-[#00c2ff] transition-colors"
                             >
                               <span style={{ fontFamily: newChannel.subtitle_style.font }} className="text-sm text-white truncate">
                                 {subtitleFonts.find(f => f.value === newChannel.subtitle_style.font)?.label || newChannel.subtitle_style.font}
                               </span>
-                              <span className="material-symbols-outlined text-[18px] text-slate-400 flex-shrink-0">expand_more</span>
+                              <span className={`material-symbols-outlined text-[18px] text-slate-400 flex-shrink-0 transition-transform ${fontPickerOpen ? 'rotate-180' : ''}`}>expand_more</span>
                             </button>
-                            <p className="text-[10px] text-slate-500 mt-1.5">{subtitleFonts.length} polices auto-hébergées disponibles pour le rendu final.</p>
+                            {!fontPickerOpen && (
+                              <p className="text-[10px] text-slate-500 mt-1.5">{subtitleFonts.length} polices auto-hébergées disponibles pour le rendu final.</p>
+                            )}
+
+                            {/* Intégré directement dans le panneau (pas de popup flottante) —
+                                se déplie sous le bouton, comme une vraie liste de sélection. */}
+                            {fontPickerOpen && (() => {
+                              const query = fontSearchQuery.trim().toLowerCase();
+                              const filtered = subtitleFonts.filter(f => !query || f.label.toLowerCase().includes(query) || f.group.toLowerCase().includes(query));
+                              const groups = [];
+                              for (const f of filtered) {
+                                const lastGroup = groups[groups.length - 1];
+                                if (lastGroup && lastGroup.name === f.group) lastGroup.fonts.push(f);
+                                else groups.push({ name: f.group, fonts: [f] });
+                              }
+                              return (
+                                <div className="mt-2 bg-[var(--bg-input)] border border-[var(--border)] rounded-xl overflow-hidden">
+                                  <div className="p-2.5 border-b border-[var(--border-subtle)]">
+                                    <div className="relative">
+                                      <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-[16px]">search</span>
+                                      <input
+                                        autoFocus
+                                        value={fontSearchQuery}
+                                        onChange={e => setFontSearchQuery(e.target.value)}
+                                        placeholder="Rechercher une police..."
+                                        className="w-full bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-lg pl-9 pr-3 py-2 text-xs text-white focus:border-[#00c2ff] outline-none"
+                                      />
+                                    </div>
+                                  </div>
+                                  <div className="max-h-72 overflow-y-auto p-2 space-y-3">
+                                    {filtered.length === 0 && (
+                                      <p className="text-xs text-slate-500 text-center py-6">Aucune police ne correspond à "{fontSearchQuery}".</p>
+                                    )}
+                                    {groups.map(group => (
+                                      <div key={group.name}>
+                                        <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider px-1.5 mb-1">{group.name}</div>
+                                        <div className="space-y-0.5">
+                                          {group.fonts.map(f => {
+                                            const isActive = newChannel.subtitle_style.font === f.value;
+                                            return (
+                                              <button
+                                                key={f.value}
+                                                type="button"
+                                                onClick={() => {
+                                                  setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, font: f.value } });
+                                                  setFontPickerOpen(false);
+                                                }}
+                                                className={`w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-left transition-colors ${
+                                                  isActive ? 'bg-[#00c2ff]/10 border border-[#00c2ff]' : 'hover:bg-[var(--bg-surface-alt)] border border-transparent'
+                                                }`}
+                                              >
+                                                <span style={{ fontFamily: f.value }} className={`text-sm truncate ${isActive ? 'text-[#00c2ff]' : 'text-white'}`}>
+                                                  {f.label}
+                                                </span>
+                                                {isActive && <span className="material-symbols-outlined text-[16px] text-[#00c2ff] shrink-0">check</span>}
+                                              </button>
+                                            );
+                                          })}
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              );
+                            })()}
                           </div>
 
                           <div>
@@ -19464,74 +19528,6 @@ export default function App() {
         </div>,
         document.body
       )}
-
-      {fontPickerOpen && (() => {
-        const query = fontSearchQuery.trim().toLowerCase();
-        const filtered = subtitleFonts.filter(f => !query || f.label.toLowerCase().includes(query) || f.group.toLowerCase().includes(query));
-        const groups = [];
-        for (const f of filtered) {
-          const lastGroup = groups[groups.length - 1];
-          if (lastGroup && lastGroup.name === f.group) lastGroup.fonts.push(f);
-          else groups.push({ name: f.group, fonts: [f] });
-        }
-        return (
-          <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-[110] flex items-center justify-center p-6" onClick={() => setFontPickerOpen(false)}>
-            <div className="bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-3xl w-full max-w-lg shadow-2xl flex flex-col max-h-[80vh]" onClick={e => e.stopPropagation()}>
-              <div className="p-5 border-b border-[var(--border-soft)] space-y-3 flex-shrink-0">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-base font-bold text-white">Choisir une police</h3>
-                  <button onClick={() => setFontPickerOpen(false)} className="text-slate-400 hover:text-white">
-                    <span className="material-symbols-outlined">close</span>
-                  </button>
-                </div>
-                <div className="relative">
-                  <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-[18px]">search</span>
-                  <input
-                    autoFocus
-                    value={fontSearchQuery}
-                    onChange={e => setFontSearchQuery(e.target.value)}
-                    placeholder="Rechercher une police..."
-                    className="w-full bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl pl-10 pr-4 py-2.5 text-sm text-white focus:border-[#00c2ff] outline-none"
-                  />
-                </div>
-              </div>
-              <div className="overflow-y-auto p-3 space-y-4">
-                {filtered.length === 0 && (
-                  <p className="text-xs text-slate-500 text-center py-8">Aucune police ne correspond à "{fontSearchQuery}".</p>
-                )}
-                {groups.map(group => (
-                  <div key={group.name}>
-                    <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider px-2 mb-1.5">{group.name}</div>
-                    <div className="space-y-1">
-                      {group.fonts.map(f => {
-                        const isActive = newChannel.subtitle_style.font === f.value;
-                        return (
-                          <button
-                            key={f.value}
-                            type="button"
-                            onClick={() => {
-                              setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, font: f.value } });
-                              setFontPickerOpen(false);
-                            }}
-                            className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-left transition-colors ${
-                              isActive ? 'bg-[#00c2ff]/10 border border-[#00c2ff]' : 'hover:bg-[var(--bg-surface-alt)] border border-transparent'
-                            }`}
-                          >
-                            <span style={{ fontFamily: f.value }} className={`text-base ${isActive ? 'text-[#00c2ff]' : 'text-white'}`}>
-                              {f.label}
-                            </span>
-                            {isActive && <span className="material-symbols-outlined text-[18px] text-[#00c2ff]">check</span>}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        );
-      })()}
 
       {confirmDialog && (
         <div
