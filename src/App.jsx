@@ -3970,7 +3970,8 @@ export default function App() {
   const [activeProduct, setActiveProduct] = useState('montage');
   const [productMenuOpen, setProductMenuOpen] = useState(false);
   const NICHECUT_PRODUCTS = [
-    { id: 'montage', label: 'Montage Simple', icon: 'movie_edit', available: true },
+    { id: 'montage', label: 'Faceless', icon: 'movie_edit', available: true },
+    { id: 'facecam', label: 'Facecam', icon: 'videocam', available: true },
     { id: 'avatar', label: 'Vidéos Avatar', icon: 'face', available: false },
     { id: 'music', label: 'Vidéo Musicale', icon: 'library_music', available: true },
   ];
@@ -4738,6 +4739,54 @@ export default function App() {
       showToast(err.message, "error");
     }
   };
+  // Sound effects (SFX) — each staged file needs its own short label (the
+  // matching pass at render time has no way to hear the clip, so the label
+  // is the only signal it has to place it against the transcript). Kept as
+  // {file, label} pairs rather than a plain file list like music, which
+  // doesn't need per-track metadata.
+  const sfxInputRef = useRef(null);
+  const [sfxFiles, setSfxFiles] = useState([]);
+  const [existingSfx, setExistingSfx] = useState([]);
+
+  const handleSfxFileSelect = (e) => {
+    const files = Array.from(e.target.files || []);
+    e.target.value = '';
+    if (files.length) setSfxFiles(prev => [...prev, ...files.map(file => ({ file, label: '' }))]);
+  };
+
+  const uploadChannelSfx = async (channelId) => {
+    const ready = sfxFiles.filter(s => s.label.trim());
+    if (!ready.length) return;
+    const formData = new FormData();
+    ready.forEach(s => { formData.append('files', s.file); formData.append('labels', s.label.trim()); });
+    const res = await authFetch(`${API_BASE}/channels/${channelId}/sfx`, { method: 'POST', body: formData });
+    if (!res.ok) {
+      const detail = await res.json().catch(() => ({}));
+      throw new Error(detail.detail || "Impossible d'importer les bruitages.");
+    }
+    return res.json();
+  };
+
+  const fetchChannelSfx = async (channelId) => {
+    try {
+      const res = await authFetch(`${API_BASE}/channels/${channelId}/sfx`);
+      if (res.ok) setExistingSfx(await res.json());
+    } catch (err) {
+      console.error("Erreur chargement des bruitages:", err);
+    }
+  };
+
+  const handleDeleteSfx = async (sfxId) => {
+    if (!editingChannelId) return;
+    try {
+      const res = await authFetch(`${API_BASE}/channels/${editingChannelId}/sfx/${sfxId}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error("Suppression impossible.");
+      setExistingSfx(prev => prev.filter(s => s.id !== sfxId));
+    } catch (err) {
+      showToast(err.message, "error");
+    }
+  };
+
   const fetchLibraryOverview = async () => {
     setLibraryLoading(true);
     try {
@@ -5369,6 +5418,7 @@ export default function App() {
     name: '',
     description: '',
     niche: 'Philosophie & Stoïcisme',
+    sfx_enabled: true,
     subtitle_style: {
       enabled: true,
       font: 'Inter',
@@ -6365,6 +6415,8 @@ export default function App() {
     setLogoPreviewUrl(null);
     setLocalImageFiles([]);
     setMusicFiles([]);
+    setSfxFiles([]);
+    setExistingSfx([]);
     setLibraryUploadStatus(null);
     setLibraryUploadProgress(0);
     setLibraryUploadMessage('');
@@ -6643,12 +6695,15 @@ export default function App() {
       voice_id: channel.voice_id || '',
       voice_name: channel.voice_name || '',
       voice_settings: channel.voice_settings || defaultChannelForm.voice_settings,
+      sfx_enabled: channel.sfx_enabled !== false,
     });
     const draft = loadDraft(channel.id);
     if (draft) setNewChannel(draft);
     setNicheMode(nicheOptions.includes((draft || channel).niche) ? 'preset' : 'custom');
     setLogoFile(null);
     setMusicFiles([]);
+    setSfxFiles([]);
+    fetchChannelSfx(channel.id);
     setLocalImageFiles([]);
     setSelectedFolderName('');
     setLibraryUploadStatus(null);
@@ -6740,6 +6795,7 @@ export default function App() {
     setNicheMode(nicheOptions.includes(channel.niche) ? 'preset' : 'custom');
     setLogoFile(null);
     setMusicFiles([]);
+    setSfxFiles([]);
     setLocalImageFiles([]);
     setSelectedFolderName('');
     setLibraryUploadStatus(null);
@@ -6790,6 +6846,7 @@ export default function App() {
     setNicheMode(nicheOptions.includes(template.niche) ? 'preset' : 'custom');
     setLogoFile(null);
     setMusicFiles([]);
+    setSfxFiles([]);
     setLocalImageFiles([]);
     setSelectedFolderName('');
     setLibraryUploadStatus(null);
@@ -7251,6 +7308,10 @@ export default function App() {
       if (musicFiles.length) {
         saved = await uploadChannelMusic(saved.id);
         setMusicFiles([]);
+      }
+      if (sfxFiles.some(s => s.label.trim())) {
+        await uploadChannelSfx(saved.id);
+        setSfxFiles([]);
       }
       if (stagedLibraryToken && needsLibrary) {
         const attachForm = new FormData();
@@ -13727,6 +13788,87 @@ export default function App() {
                         onChange={e => setNewChannel({ ...newChannel, music_preference: { ...newChannel.music_preference, volume: parseFloat(e.target.value) } })}
                         className="w-full accent-[#00c2ff]"
                       />
+                    </div>
+
+                    {/* Bruitages (SFX) — indépendant de la musique de fond, avec son
+                        propre interrupteur : tout le monde n'aime pas les effets
+                        sonores dans ses vidéos, donc ça ne s'active jamais tout seul
+                        du simple fait d'avoir importé des fichiers. */}
+                    <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-surface-soft)] p-4 space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h4 className="text-xs font-extrabold text-white flex items-center gap-2">
+                            <span className="material-symbols-outlined text-[#00c2ff] text-[18px]">graphic_eq</span>
+                            Bruitages (SFX)
+                          </h4>
+                          <p className="text-[10px] text-slate-500 mt-1">L'IA place tes propres effets sonores aux moments pertinents du script.</p>
+                        </div>
+                        <label className="inline-flex items-center gap-2 cursor-pointer select-none shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => setNewChannel({ ...newChannel, sfx_enabled: !(newChannel.sfx_enabled ?? true) })}
+                            className={`relative w-9 h-5 rounded-full overflow-hidden transition-colors ${(newChannel.sfx_enabled ?? true) ? 'bg-[#00c2ff]' : 'bg-[var(--border)]'}`}
+                          >
+                            <span className={`absolute left-0.5 top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${(newChannel.sfx_enabled ?? true) ? 'translate-x-4' : 'translate-x-0'}`} />
+                          </button>
+                          <span className="text-[11px] font-bold text-slate-400">{(newChannel.sfx_enabled ?? true) ? 'Activés' : 'Désactivés'}</span>
+                        </label>
+                      </div>
+
+                      {(newChannel.sfx_enabled ?? true) && (
+                        <div className="space-y-3">
+                          <div
+                            onClick={() => sfxInputRef.current && sfxInputRef.current.click()}
+                            className="border-2 border-dashed border-[var(--border)] hover:border-[#00c2ff] rounded-xl p-4 text-center cursor-pointer transition-colors"
+                          >
+                            <span className="material-symbols-outlined text-slate-400 text-[24px]">upload_file</span>
+                            <p className="text-[11px] text-slate-300 mt-1 font-bold">Clique pour importer un ou plusieurs bruitages</p>
+                            <p className="text-[10px] text-slate-500 mt-0.5">MP3, WAV, M4A, OGG — courts (whoosh, ding, pop...)</p>
+                          </div>
+                          <input
+                            ref={sfxInputRef}
+                            type="file"
+                            accept="audio/mpeg,audio/wav,audio/mp4,audio/ogg,.mp3,.wav,.m4a,.ogg"
+                            multiple
+                            onChange={handleSfxFileSelect}
+                            className="hidden"
+                          />
+
+                          {existingSfx.length > 0 && (
+                            <div className="space-y-2">
+                              {existingSfx.map(s => (
+                                <ServerAudioPreview
+                                  key={s.id}
+                                  src={getVideoUrl(s.url)}
+                                  name={s.label}
+                                  onRemove={() => handleDeleteSfx(s.id)}
+                                />
+                              ))}
+                            </div>
+                          )}
+
+                          {sfxFiles.length > 0 && (
+                            <div className="space-y-2">
+                              <p className="text-[10px] text-slate-500">Décris chaque effet — c'est ce que l'IA lit pour savoir quand l'utiliser (ex. "whoosh de transition", "ding de notification").</p>
+                              {sfxFiles.map((s, i) => (
+                                <div key={`${s.file.name}-${i}`} className="flex items-center gap-2 bg-[var(--bg-input)] border border-[var(--border-subtle)] rounded-xl px-3 py-2">
+                                  <span className="material-symbols-outlined text-[16px] text-slate-400 shrink-0">audiotrack</span>
+                                  <span className="text-[11px] text-slate-300 truncate max-w-[120px] shrink-0">{s.file.name}</span>
+                                  <input
+                                    value={s.label}
+                                    onChange={e => setSfxFiles(prev => prev.map((item, idx) => idx === i ? { ...item, label: e.target.value } : item))}
+                                    placeholder="Description (ex : whoosh de transition)"
+                                    className="flex-1 min-w-0 bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-lg px-2 py-1.5 text-[11px] text-white focus:border-[#00c2ff] outline-none"
+                                  />
+                                  <button type="button" onClick={() => setSfxFiles(prev => prev.filter((_, idx) => idx !== i))} className="shrink-0 text-slate-400 hover:text-white">
+                                    <span className="material-symbols-outlined text-[16px]">close</span>
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
 
                     <div className="hidden rounded-2xl border border-[var(--border)] bg-[var(--bg-surface-soft)] p-4 space-y-4">
