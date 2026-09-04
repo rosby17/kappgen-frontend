@@ -6492,7 +6492,12 @@ export default function App() {
     setBrollUploadMessage('');
     setStagedLibraryToken(null);
     setLogoPreviewUrl(channel.branding?.logo_path
-      ? `${STORAGE_BASE}/${channel.branding.logo_path}`
+      // Same fixed-path caching issue as getChannelLogoUrl: logo.jpg is
+      // overwritten in place, so without a bust key tied to the actual
+      // synced avatar, opening the edit wizard kept showing whatever the
+      // browser had already cached at this URL — the wrong channel's old
+      // avatar, even right after a correct re-sync.
+      ? `${STORAGE_BASE}/${channel.branding.logo_path}${channel.branding?.youtube_avatar_synced_url ? `?v=${encodeURIComponent(channel.branding.youtube_avatar_synced_url)}` : ''}`
       : (channel.youtube_channel_thumbnail_url || null));
     setWizardStep(startStep);
     setView('wizard');
