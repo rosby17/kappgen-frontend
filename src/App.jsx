@@ -808,7 +808,7 @@ function writeVoiceMetaCache(cache) {
 // this must stay in sync with). `sources` (a list) is the current shape on
 // image_style; `source` (a single exclusive string) is the old one, read
 // here for every channel saved before this existed.
-const IMAGE_SOURCE_PRIORITY = ['ai_generated', 'library', 'community'];
+const IMAGE_SOURCE_PRIORITY = ['ai_generated', 'library', 'community', 'google_search'];
 function resolveEnabledImageSources(imageStyle) {
   if (!imageStyle) return ['library'];
   const sources = imageStyle.sources;
@@ -3975,6 +3975,12 @@ export default function App() {
     { id: 'avatar', label: 'Vidéos Avatar', icon: 'face', available: false },
     { id: 'music', label: 'Vidéo Musicale', icon: 'library_music', available: true },
   ];
+  const [facecamChannelId, setFacecamChannelId] = useState('');
+  const [facecamFile, setFacecamFile] = useState(null);
+  const [facecamCloudLink, setFacecamCloudLink] = useState('');
+  const [facecamTitle, setFacecamTitle] = useState('');
+  const [facecamUploading, setFacecamUploading] = useState(false);
+  const [facecamUploadError, setFacecamUploadError] = useState('');
   const [channelsLoaded, setChannelsLoaded] = useState(false);
   const [videosLoaded, setVideosLoaded] = useState(false);
   const [channelsLoadError, setChannelsLoadError] = useState('');
@@ -4272,6 +4278,40 @@ export default function App() {
 
   const showToast = (message, type = 'success') => {
     setToast({ message: type === 'error' ? friendlyErrorMessage(message) : message, type });
+  };
+
+  const submitFacecamVideo = async () => {
+    if (!facecamChannelId) {
+      setFacecamUploadError('Choisis une chaîne.');
+      return;
+    }
+    if (!facecamFile && !facecamCloudLink.trim()) {
+      setFacecamUploadError('Ajoute un fichier vidéo ou un lien cloud.');
+      return;
+    }
+    setFacecamUploading(true);
+    setFacecamUploadError('');
+    try {
+      const form = new FormData();
+      form.append('channel_id', facecamChannelId);
+      if (facecamTitle.trim()) form.append('title', facecamTitle.trim());
+      if (facecamFile) form.append('raw_file', facecamFile);
+      if (facecamCloudLink.trim()) form.append('cloud_link', facecamCloudLink.trim());
+      const res = await authFetch(`${API_BASE}/videos/facecam/upload`, { method: 'POST', body: form });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || 'Échec de l\'envoi de la vidéo.');
+      }
+      showToast('Vidéo facecam envoyée — le montage automatique va démarrer.');
+      setFacecamFile(null);
+      setFacecamCloudLink('');
+      setFacecamTitle('');
+      fetchAllVideos?.();
+    } catch (err) {
+      setFacecamUploadError(err.message || 'Échec de l\'envoi de la vidéo.');
+    } finally {
+      setFacecamUploading(false);
+    }
   };
 
   const loadProductionProgress = async (videoId, { quiet = false } = {}) => {
@@ -10328,8 +10368,96 @@ export default function App() {
               onClick={() => setActiveProduct('montage')}
               className="mt-2 px-5 py-2.5 bg-[var(--bg-surface-alt)] text-white rounded-xl font-bold text-xs hover:bg-[var(--border-soft)] transition-colors border border-[var(--border)]"
             >
-              Retour à Montage Simple
+              Retour à Faceless
             </button>
+          </div>
+        )}
+
+        {activeProduct === 'facecam' && (
+          <div className="absolute inset-0 z-30 bg-[var(--bg-input-alt)] overflow-y-auto flex flex-col items-center p-8">
+            <div className="w-full max-w-lg space-y-5 py-8">
+              <div className="text-center space-y-2">
+                <div className="w-16 h-16 mx-auto rounded-2xl bg-[#00c2ff]/10 flex items-center justify-center">
+                  <span className="material-symbols-outlined text-[32px] text-[#00c2ff]">videocam</span>
+                </div>
+                <h2 className="text-2xl font-extrabold text-white">Facecam</h2>
+                <p className="text-sm text-slate-400">
+                  Envoie ton enregistrement brut (webcam/écran) — silences et erreurs coupés, coupes vérifiées,
+                  cartes de titre animées et b-roll ajoutés automatiquement.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-300 mb-2">Chaîne</label>
+                <select
+                  value={facecamChannelId}
+                  onChange={e => setFacecamChannelId(e.target.value)}
+                  className="w-full bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-3 py-2.5 text-sm text-white"
+                >
+                  <option value="">Choisir une chaîne…</option>
+                  {productChannels.map(c => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-300 mb-2">Titre (optionnel)</label>
+                <input
+                  type="text"
+                  value={facecamTitle}
+                  onChange={e => setFacecamTitle(e.target.value)}
+                  placeholder="Titre de la vidéo"
+                  className="w-full bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-3 py-2.5 text-sm text-white"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-300 mb-2">Fichier vidéo brut</label>
+                <label className="flex flex-col items-center justify-center gap-2 border-2 border-dashed border-[var(--border)] rounded-xl px-4 py-8 cursor-pointer hover:border-[#00c2ff] transition-colors text-center">
+                  <span className="material-symbols-outlined text-[28px] text-slate-400">upload_file</span>
+                  <span className="text-xs text-slate-400">
+                    {facecamFile ? facecamFile.name : 'Glisse ton fichier ici ou clique pour parcourir (MP4, MOV, MKV, WEBM)'}
+                  </span>
+                  <input
+                    type="file"
+                    accept=".mp4,.mov,.mkv,.webm"
+                    className="hidden"
+                    onChange={e => setFacecamFile(e.target.files?.[0] || null)}
+                  />
+                </label>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <div className="flex-1 h-px bg-[var(--border-subtle)]" />
+                <span className="text-[10px] font-bold text-slate-500 uppercase">ou</span>
+                <div className="flex-1 h-px bg-[var(--border-subtle)]" />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-300 mb-2">Lien cloud (Drive / Dropbox)</label>
+                <input
+                  type="text"
+                  value={facecamCloudLink}
+                  onChange={e => setFacecamCloudLink(e.target.value)}
+                  placeholder="https://drive.google.com/file/d/…"
+                  className="w-full bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-3 py-2.5 text-sm text-white"
+                />
+                <p className="text-[10px] text-slate-500 mt-1">Le lien doit être partagé publiquement ("Toute personne disposant du lien").</p>
+              </div>
+
+              {facecamUploadError && (
+                <p className="text-xs font-bold text-red-400">{facecamUploadError}</p>
+              )}
+
+              <button
+                onClick={submitFacecamVideo}
+                disabled={facecamUploading}
+                className="w-full px-5 py-3 bg-[#00c2ff] hover:bg-[#38d0ff] disabled:opacity-50 text-slate-950 font-bold text-sm rounded-xl transition-colors"
+              >
+                {facecamUploading ? 'Envoi en cours…' : 'Lancer le montage automatique'}
+              </button>
+            </div>
           </div>
         )}
         
@@ -12990,6 +13118,11 @@ export default function App() {
                     setEnabledImageSources(isCommunityChecked ? enabledImageSources.filter(s => s !== 'community') : [...enabledImageSources, 'community']);
                   };
 
+                  const isGoogleSearchChecked = enabledImageSources.includes('google_search');
+                  const toggleGoogleSearch = () => {
+                    setEnabledImageSources(isGoogleSearchChecked ? enabledImageSources.filter(s => s !== 'google_search') : [...enabledImageSources, 'google_search']);
+                  };
+
                   // How many distinct AI images to generate for this video — the
                   // rest of the timeline reuses/recycles them instead of generating
                   // a fresh (paid) image per scene, so the creator controls their
@@ -13330,6 +13463,42 @@ export default function App() {
                           </div>
                         );
                       })()}
+
+                        {/* Option D: real photos (brand logos, named tools, actual
+                            people/places) via Google Image Search — a real photo
+                            neither the AI generator (which is deliberately barred
+                            from rendering text/logos) nor stock libraries can
+                            provide. Limited on purpose (backend caps it at 8
+                            distinct fetches per video) to protect the shared daily
+                            search quota, so this is a complement to the other
+                            sources, never meant to carry a whole video alone. */}
+                        <div
+                          onClick={toggleGoogleSearch}
+                          className={`p-5 rounded-2xl border-2 transition-all cursor-pointer space-y-2 flex flex-col justify-between ${
+                            isGoogleSearchChecked
+                              ? 'bg-[var(--bg-surface-alt)] border-[#00c2ff] shadow-lg shadow-[#00c2ff]/10'
+                              : 'bg-[var(--bg-surface-soft)] border-[var(--border-soft)] hover:border-slate-500 opacity-60'
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="material-symbols-outlined text-[24px] text-[#00c2ff]">travel_explore</span>
+                                <h4 className="text-xs font-bold text-white">Option D : Recherche Google Images</h4>
+                              </div>
+                              <p className="mt-1 text-[11px] text-slate-400">
+                                Logos de marque, outils cités, captures d'écran réelles — pour ce que l'IA ne peut pas dessiner et que les banques d'images (Pexels) n'indexent pas. Usage limité par vidéo, en complément des autres sources.
+                              </p>
+                            </div>
+                            <input
+                              type="checkbox"
+                              checked={isGoogleSearchChecked}
+                              onChange={toggleGoogleSearch}
+                              onClick={(e) => e.stopPropagation()}
+                              className="kappgen-checkbox shrink-0"
+                            />
+                          </div>
+                        </div>
 
                         </div>
                       </div>
