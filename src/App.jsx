@@ -15000,6 +15000,24 @@ export default function App() {
                             </div>
                           </div>
 
+                          {/* Motion design (titres animés) — nouveau, gourmand en temps de
+                              rendu (Node/Chrome headless, ~15-25s par carte), donc explicitement
+                              opt-in plutôt qu'activé par défaut comme les autres effets. */}
+                          <label className="mt-4 flex cursor-pointer items-start gap-2.5 rounded-xl border border-white/10 bg-black/10 px-3 py-2.5">
+                            <input
+                              type="checkbox"
+                              checked={!!newChannel.effects_config.motion_cards_enabled}
+                              onChange={() => setNewChannel({ ...newChannel, effects_config: { ...newChannel.effects_config, motion_cards_enabled: !newChannel.effects_config.motion_cards_enabled } })}
+                              className="kappgen-checkbox shrink-0 mt-0.5"
+                            />
+                            <span>
+                              <span className="block text-[10px] font-bold text-white">Titres animés (motion design) — bêta</span>
+                              <span className="block text-[10px] text-slate-400 mt-0.5">
+                                Insère automatiquement des cartes de titre animées (statistique, changement de section) aux moments clés du script. Rallonge le temps de rendu de la vidéo.
+                              </span>
+                            </span>
+                          </label>
+
                         </div>
 
                         <div className="lg:sticky lg:top-4">
