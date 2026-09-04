@@ -9456,28 +9456,61 @@ export default function App() {
     setOpenVideoMenuId(null);
     setRegeneratingCardThumbnailIds(prev => new Set(prev).add(vid.id));
     try {
-      const res = await authFetch(`${API_BASE}/videos/${vid.id}/thumbnail/regenerate`, { method: 'POST' });
-      if (!res.ok) {
-        const detail = await res.json().catch(() => ({}));
-        throw new Error(detail.detail || "Échec de la régénération de la miniature.");
+      const statusUrl = `${API_BASE}/videos/${vid.id}/thumbnail/regenerate/status`;
+      const getRegenerationStatus = async () => {
+        const response = await authFetch(statusUrl, { timeoutMs: 12000 });
+        if (!response.ok) return null;
+        return response.json().catch(() => null);
+      };
+
+      let jobStarted = false;
+      try {
+        const res = await authFetch(`${API_BASE}/videos/${vid.id}/thumbnail/regenerate`, {
+          method: 'POST',
+          timeoutMs: 15000,
+        });
+        if (res.ok) {
+          jobStarted = true;
+        } else if (res.status === 409 && (await getRegenerationStatus())?.regenerating) {
+          // A previous click has already started this job. Treat the action as
+          // idempotent instead of showing an error to the user.
+          jobStarted = true;
+        } else {
+          const detail = await res.json().catch(() => ({}));
+          throw new Error(detail.detail || "Échec de la régénération de la miniature.");
+        }
+      } catch (requestError) {
+        // The server can accept the job just before a transient proxy/network
+        // disconnect. Confirm its state before reporting the request as failed.
+        if ((await getRegenerationStatus().catch(() => null))?.regenerating) {
+          jobStarted = true;
+        } else {
+          throw requestError;
+        }
       }
+
       // The endpoint only starts the job — the AI background-image call it
       // can trigger routinely takes well over a minute, longer than
       // Cloudflare's edge proxy holds a request open, which used to surface
       // here as a raw "Failed to fetch" once the connection got cut mid-
       // request. Poll the dedicated status endpoint instead of awaiting one
       // long response.
-      for (let attempt = 0; attempt < 40; attempt++) {
+      let completed = false;
+      for (let attempt = 0; jobStarted && attempt < 40; attempt++) {
         await new Promise(r => setTimeout(r, 3000));
-        const statusRes = await authFetch(`${API_BASE}/videos/${vid.id}/thumbnail/regenerate/status`);
-        if (!statusRes.ok) break;
-        const body = await statusRes.json().catch(() => ({}));
-        if (!body.regenerating) break;
+        const body = await getRegenerationStatus().catch(() => null);
+        if (body && !body.regenerating) {
+          completed = true;
+          break;
+        }
       }
       // thumbnail.jpg is overwritten in place — vid.finished_at doesn't change,
       // so the <img>/poster would keep serving the old cached file without this.
       setThumbnailBust(prev => ({ ...prev, [vid.id]: Date.now() }));
-      showToast('Miniature régénérée.', 'success');
+      showToast(
+        completed ? 'Miniature régénérée.' : 'Régénération lancée. Elle continue en arrière-plan.',
+        'success'
+      );
     } catch (err) {
       showToast(err.message, 'error');
     } finally {
