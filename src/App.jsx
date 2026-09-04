@@ -14115,16 +14115,27 @@ export default function App() {
                   });
                   const hasGrain = overlayEffects.includes('grain') || overlayEffects.includes('white_noise');
                   const hasVignette = overlayEffects.includes('vignette');
-                  const grainIntensity = (newChannel.effects_config.grain_intensity ?? 50) / 100;
-                  const vignetteIntensity = (newChannel.effects_config.vignette_intensity ?? 50) / 100;
-                  const particleIntensity = (newChannel.effects_config.particle_intensity ?? 50) / 100;
-                  const particleDensity = selectedEffectSettings.density ?? newChannel.effects_config.particle_density ?? 50;
-                  const particleSize = selectedEffectSettings.size ?? newChannel.effects_config.particle_size ?? 50;
-                  const particleSpeed = selectedEffectSettings.speed ?? newChannel.effects_config.particle_speed ?? 50;
-                  const particleDispersion = selectedEffectSettings.dispersion ?? newChannel.effects_config.particle_dispersion ?? 50;
-                  const particleScale = 0.78 + (particleSize / 100) * 0.55;
-                  const particleDuration = `${(12 - (particleSpeed / 100) * 8).toFixed(1)}s`;
-                  const particleOffset = `${Math.round((particleDispersion - 50) / 7)}px`;
+                  const effectIntensity = (id, legacy = 50) => ((effectSettings[id]?.intensity ?? legacy) / 100);
+                  const grainIntensity = effectIntensity('grain', newChannel.effects_config.grain_intensity ?? 50);
+                  const vignetteIntensity = effectIntensity('vignette', newChannel.effects_config.vignette_intensity ?? 50);
+                  const particlePreview = (id) => {
+                    const settings = effectSettings[id] || {};
+                    const density = settings.density ?? newChannel.effects_config.particle_density ?? 50;
+                    const size = settings.size ?? newChannel.effects_config.particle_size ?? 50;
+                    const speed = settings.speed ?? newChannel.effects_config.particle_speed ?? 50;
+                    const dispersion = settings.dispersion ?? newChannel.effects_config.particle_dispersion ?? 50;
+                    return {
+                      intensity: effectIntensity(id, newChannel.effects_config.particle_intensity ?? 50), density,
+                      scale: 0.78 + (size / 100) * 0.55,
+                      duration: `${(12 - (speed / 100) * 8).toFixed(1)}s`,
+                      offset: `${Math.round((dispersion - 50) / 7)}px`,
+                    };
+                  };
+                  const starsPreview = particlePreview('stars');
+                  const dustPreview = particlePreview('dust');
+                  const snowPreview = particlePreview('snow');
+                  const rainPreview = particlePreview('rain');
+                  const sparksPreview = particlePreview('sparks');
                   const hasChromaticAberration = overlayEffects.includes('chromatic_aberration');
                   const hasOldFilm = overlayEffects.includes('old_film');
                   const hasFlicker = overlayEffects.includes('flicker');
@@ -14324,43 +14335,43 @@ export default function App() {
                               <div className="absolute inset-0 bg-white animate-pulse" style={{ opacity: 0.06 }} />
                             )}
                             {overlayEffects.includes('stars') && (
-                              <div className="effect-preview-stars absolute inset-[-10%] mix-blend-screen" style={{ opacity: 0.2 + particleIntensity * (0.38 + particleDensity / 180), animationDuration: particleDuration, backgroundImage: 'radial-gradient(circle at 12% 18%, white 0 1px, transparent 2px), radial-gradient(circle at 72% 24%, #dff6ff 0 1.5px, transparent 2.5px), radial-gradient(circle at 42% 68%, white 0 1px, transparent 2px), radial-gradient(circle at 88% 76%, #fff6cc 0 1.5px, transparent 2.5px)', backgroundSize: `${90 * particleScale}px ${75 * particleScale}px, ${130 * particleScale}px ${105 * particleScale}px, ${70 * particleScale}px ${95 * particleScale}px, ${160 * particleScale}px ${125 * particleScale}px`, backgroundPosition: `${particleOffset} 0, 0 ${particleOffset}, ${particleOffset} ${particleOffset}, 0 0` }} />
+                              <div className="effect-preview-stars absolute inset-[-10%] mix-blend-screen" style={{ opacity: 0.05 + starsPreview.intensity * (0.2 + starsPreview.density / 120), animationDuration: starsPreview.duration, backgroundImage: 'radial-gradient(circle at 12% 18%, white 0 1px, transparent 2px), radial-gradient(circle at 72% 24%, #dff6ff 0 1.5px, transparent 2.5px), radial-gradient(circle at 42% 68%, white 0 1px, transparent 2px), radial-gradient(circle at 88% 76%, #fff6cc 0 1.5px, transparent 2.5px)', backgroundSize: `${90 * starsPreview.scale}px ${75 * starsPreview.scale}px, ${130 * starsPreview.scale}px ${105 * starsPreview.scale}px, ${70 * starsPreview.scale}px ${95 * starsPreview.scale}px, ${160 * starsPreview.scale}px ${125 * starsPreview.scale}px`, backgroundPosition: `${starsPreview.offset} 0, 0 ${starsPreview.offset}, ${starsPreview.offset} ${starsPreview.offset}, 0 0` }} />
                             )}
                             {overlayEffects.includes('dust') && (
                               <>
-                                <div className="effect-preview-dust-near absolute inset-[-20%] mix-blend-screen" style={{ opacity: 0.1 + particleIntensity * (0.18 + particleDensity / 350), animationDuration: particleDuration, backgroundImage: 'radial-gradient(circle, rgba(255,225,170,.9) 0 1px, transparent 3px)', backgroundSize: `${47 * particleScale}px ${63 * particleScale}px`, backgroundPosition: `${particleOffset} 0`, filter: 'blur(.7px)' }} />
-                                <div className="effect-preview-dust-far absolute inset-[-20%] mix-blend-screen" style={{ opacity: 0.08 + particleIntensity * (0.1 + particleDensity / 500), animationDuration: `${parseFloat(particleDuration) * 1.55}s`, backgroundImage: 'radial-gradient(circle, rgba(255,240,205,.75) 0 .6px, transparent 2px)', backgroundSize: `${29 * particleScale}px ${37 * particleScale}px`, backgroundPosition: `0 ${particleOffset}`, filter: 'blur(.2px)' }} />
+                                <div className="effect-preview-dust-near absolute inset-[-20%] mix-blend-screen" style={{ opacity: 0.03 + dustPreview.intensity * (0.12 + dustPreview.density / 220), animationDuration: dustPreview.duration, backgroundImage: 'radial-gradient(circle, rgba(255,225,170,.9) 0 1px, transparent 3px)', backgroundSize: `${47 * dustPreview.scale}px ${63 * dustPreview.scale}px`, backgroundPosition: `${dustPreview.offset} 0`, filter: 'blur(.7px)' }} />
+                                <div className="effect-preview-dust-far absolute inset-[-20%] mix-blend-screen" style={{ opacity: 0.02 + dustPreview.intensity * (0.06 + dustPreview.density / 320), animationDuration: `${parseFloat(dustPreview.duration) * 1.55}s`, backgroundImage: 'radial-gradient(circle, rgba(255,240,205,.75) 0 .6px, transparent 2px)', backgroundSize: `${29 * dustPreview.scale}px ${37 * dustPreview.scale}px`, backgroundPosition: `0 ${dustPreview.offset}`, filter: 'blur(.2px)' }} />
                               </>
                             )}
                             {overlayEffects.includes('snow') && (
-                              <div className="effect-preview-snow absolute inset-[-30%] mix-blend-screen" style={{ opacity: 0.22 + particleIntensity * (0.3 + particleDensity / 330), animationDuration: particleDuration, backgroundImage: 'radial-gradient(circle, white 0 2px, transparent 3px), radial-gradient(circle, white 0 1px, transparent 2px)', backgroundSize: `${48 * particleScale}px ${55 * particleScale}px, ${29 * particleScale}px ${37 * particleScale}px`, backgroundPosition: `${particleOffset} 0, 13px ${17 + parseInt(particleOffset)}px` }} />
+                              <div className="effect-preview-snow absolute inset-[-30%] mix-blend-screen" style={{ opacity: 0.04 + snowPreview.intensity * (0.2 + snowPreview.density / 180), animationDuration: snowPreview.duration, backgroundImage: 'radial-gradient(circle, white 0 2px, transparent 3px), radial-gradient(circle, white 0 1px, transparent 2px)', backgroundSize: `${48 * snowPreview.scale}px ${55 * snowPreview.scale}px, ${29 * snowPreview.scale}px ${37 * snowPreview.scale}px`, backgroundPosition: `${snowPreview.offset} 0, 13px ${17 + parseInt(snowPreview.offset)}px` }} />
                             )}
                             {overlayEffects.includes('rain') && (
-                              <div className="effect-preview-rain absolute inset-[-40%] mix-blend-screen" style={{ opacity: 0.16 + particleIntensity * (0.24 + particleDensity / 420), animationDuration: `${Math.max(.35, parseFloat(particleDuration) / 10)}s`, backgroundImage: 'repeating-linear-gradient(105deg, transparent 0 18px, rgba(190,225,255,.75) 19px, transparent 21px)', backgroundSize: `${Math.round(100 * particleScale)}% ${Math.round(100 * particleScale)}%`, backgroundPosition: `${particleOffset} 0` }} />
+                              <div className="effect-preview-rain absolute inset-[-40%] mix-blend-screen" style={{ opacity: 0.03 + rainPreview.intensity * (0.12 + rainPreview.density / 230), animationDuration: `${Math.max(.35, parseFloat(rainPreview.duration) / 10)}s`, backgroundImage: 'repeating-linear-gradient(105deg, transparent 0 18px, rgba(190,225,255,.75) 19px, transparent 21px)', backgroundSize: `${Math.round(100 * rainPreview.scale)}% ${Math.round(100 * rainPreview.scale)}%`, backgroundPosition: `${rainPreview.offset} 0` }} />
                             )}
                             {overlayEffects.includes('fog') && (
-                              <div className="effect-preview-fog absolute inset-[-25%]" style={{ opacity: 0.15 + particleIntensity * 0.45, background: 'linear-gradient(165deg, transparent 5%, rgba(225,235,240,.75) 48%, transparent 88%)', filter: 'blur(10px)' }} />
+                              <div className="effect-preview-fog absolute inset-[-25%]" style={{ opacity: 0.03 + effectIntensity('fog') * 0.7, background: 'linear-gradient(165deg, transparent 5%, rgba(225,235,240,.75) 48%, transparent 88%)', filter: `blur(${3 + effectIntensity('fog') * 16}px)` }} />
                             )}
                             {overlayEffects.includes('sparks') && (
-                              <div className="effect-preview-sparks absolute inset-[-30%] mix-blend-screen" style={{ opacity: 0.18 + particleIntensity * (0.3 + particleDensity / 300), animationDuration: `${Math.max(.7, parseFloat(particleDuration) / 3)}s`, backgroundImage: 'radial-gradient(circle, #fff 0 1px, #ff9d00 2px, transparent 4px)', backgroundSize: `${67 * particleScale}px ${83 * particleScale}px`, backgroundPosition: `${particleOffset} 0`, filter: 'blur(.3px)' }} />
+                              <div className="effect-preview-sparks absolute inset-[-30%] mix-blend-screen" style={{ opacity: 0.03 + sparksPreview.intensity * (0.15 + sparksPreview.density / 170), animationDuration: `${Math.max(.7, parseFloat(sparksPreview.duration) / 3)}s`, backgroundImage: 'radial-gradient(circle, #fff 0 1px, #ff9d00 2px, transparent 4px)', backgroundSize: `${67 * sparksPreview.scale}px ${83 * sparksPreview.scale}px`, backgroundPosition: `${sparksPreview.offset} 0`, filter: 'blur(.3px)' }} />
                             )}
                             {overlayEffects.includes('light_leak') && (
-                              <div className="effect-preview-light-leak absolute inset-[-15%] mix-blend-screen" style={{ opacity: 0.18 + particleIntensity * 0.4, background: 'radial-gradient(circle at 0% 35%, rgba(255,70,20,.95), rgba(255,180,50,.35) 25%, transparent 55%)' }} />
+                              <div className="effect-preview-light-leak absolute inset-[-15%] mix-blend-screen" style={{ opacity: 0.02 + effectIntensity('light_leak') * 0.72, background: 'radial-gradient(circle at 0% 35%, rgba(255,70,20,.95), rgba(255,180,50,.35) 25%, transparent 55%)' }} />
                             )}
                             {overlayEffects.includes('dream_glow') && (
-                              <div className="absolute inset-0 mix-blend-screen" style={{ opacity: 0.14 + particleIntensity * 0.25, background: 'radial-gradient(circle at 50% 45%, rgba(255,220,255,.9), rgba(120,180,255,.25) 35%, transparent 70%)', filter: 'blur(8px)' }} />
+                              <div className="absolute inset-0 mix-blend-screen" style={{ opacity: 0.02 + effectIntensity('dream_glow') * 0.45, background: 'radial-gradient(circle at 50% 45%, rgba(255,220,255,.9), rgba(120,180,255,.25) 35%, transparent 70%)', filter: `blur(${2 + effectIntensity('dream_glow') * 13}px)` }} />
                             )}
                             {overlayEffects.includes('horror') && (
                               <div className="absolute inset-0 mix-blend-multiply" style={{ background: 'radial-gradient(circle, rgba(30,0,0,.05) 25%, rgba(70,0,0,.75) 100%)' }} />
                             )}
                             {overlayEffects.includes('black_noise') && (
-                              <div className="absolute inset-0 mix-blend-multiply" style={{ opacity: 0.25 + particleIntensity * 0.45, backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='90' height='90'%3E%3Cfilter id='n'%3E%3CfeTurbulence baseFrequency='.8' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")" }} />
+                              <div className="absolute inset-0 mix-blend-multiply" style={{ opacity: 0.03 + effectIntensity('black_noise') * 0.72, backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='90' height='90'%3E%3Cfilter id='n'%3E%3CfeTurbulence baseFrequency='.8' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")" }} />
                             )}
                             {overlayEffects.includes('film_scratches') && (
-                              <div className="absolute inset-0 mix-blend-screen" style={{ opacity: 0.2 + particleIntensity * 0.35, backgroundImage: 'repeating-linear-gradient(90deg, transparent 0 37px, rgba(255,255,255,.45) 38px, transparent 39px, transparent 71px)' }} />
+                              <div className="absolute inset-0 mix-blend-screen" style={{ opacity: 0.03 + effectIntensity('film_scratches') * 0.55, backgroundImage: 'repeating-linear-gradient(90deg, transparent 0 37px, rgba(255,255,255,.45) 38px, transparent 39px, transparent 71px)' }} />
                             )}
                             {overlayEffects.includes('vhs_glitch') && (
-                              <div className="absolute inset-0 mix-blend-screen" style={{ opacity: 0.3 + particleIntensity * 0.35, backgroundImage: 'repeating-linear-gradient(0deg, transparent 0 5px, rgba(0,210,255,.2) 6px, rgba(255,0,80,.16) 7px, transparent 8px)' }} />
+                              <div className="absolute inset-0 mix-blend-screen" style={{ opacity: 0.03 + effectIntensity('vhs_glitch') * 0.65, backgroundImage: 'repeating-linear-gradient(0deg, transparent 0 5px, rgba(0,210,255,.2) 6px, rgba(255,0,80,.16) 7px, transparent 8px)' }} />
                             )}
                           </div>
                           <p className="text-[10px] text-slate-500 mt-2">Aperçu approximatif — le rendu final vidéo peut légèrement varier.</p>
