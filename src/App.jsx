@@ -4308,6 +4308,9 @@ export default function App() {
 
   // Wizard State
   const [wizardStep, setWizardStep] = useState(1);
+  // The effects step has a focused inspector: controls belong to the selected
+  // effect rather than being a generic panel detached from its toggle.
+  const [selectedVisualEffect, setSelectedVisualEffect] = useState('');
   // Aperçu Final (step 6) recap checklist — purely local to the preview, lets the
   // user toggle each configured element on/off to see the mockup with/without it.
   // Only "visual" has no real per-channel setting (a video always needs a
@@ -5174,6 +5177,7 @@ export default function App() {
       particle_speed: 50,
       particle_dispersion: 50,
       particle_direction: 'auto',
+      effect_settings: {},
       zoom_min_pct: 1.0,
       zoom_max_pct: 1.15,
       watermark_enabled: true
@@ -14089,17 +14093,29 @@ export default function App() {
                   const toggleOverlayEffect = (id) => {
                     const next = overlayEffects.includes(id) ? overlayEffects.filter(e => e !== id) : [...overlayEffects, id];
                     setNewChannel({ ...newChannel, effects_config: { ...newChannel.effects_config, overlay_effects: next } });
+                    setSelectedVisualEffect(next.includes(id) ? id : (selectedVisualEffect === id ? '' : selectedVisualEffect));
                   };
+                  const effectSettings = newChannel.effects_config.effect_settings || {};
+                  const selectedEffectSettings = effectSettings[selectedVisualEffect] || {};
+                  const setSelectedEffectSetting = (key, value) => setNewChannel({
+                    ...newChannel,
+                    effects_config: {
+                      ...newChannel.effects_config,
+                      effect_settings: {
+                        ...effectSettings,
+                        [selectedVisualEffect]: { ...selectedEffectSettings, [key]: value },
+                      },
+                    },
+                  });
                   const hasGrain = overlayEffects.includes('grain') || overlayEffects.includes('white_noise');
                   const hasVignette = overlayEffects.includes('vignette');
                   const grainIntensity = (newChannel.effects_config.grain_intensity ?? 50) / 100;
                   const vignetteIntensity = (newChannel.effects_config.vignette_intensity ?? 50) / 100;
                   const particleIntensity = (newChannel.effects_config.particle_intensity ?? 50) / 100;
-                  const particleDensity = newChannel.effects_config.particle_density ?? 50;
-                  const particleSize = newChannel.effects_config.particle_size ?? 50;
-                  const particleSpeed = newChannel.effects_config.particle_speed ?? 50;
-                  const particleDispersion = newChannel.effects_config.particle_dispersion ?? 50;
-                  const particleDirection = newChannel.effects_config.particle_direction || 'auto';
+                  const particleDensity = selectedEffectSettings.density ?? newChannel.effects_config.particle_density ?? 50;
+                  const particleSize = selectedEffectSettings.size ?? newChannel.effects_config.particle_size ?? 50;
+                  const particleSpeed = selectedEffectSettings.speed ?? newChannel.effects_config.particle_speed ?? 50;
+                  const particleDispersion = selectedEffectSettings.dispersion ?? newChannel.effects_config.particle_dispersion ?? 50;
                   const particleScale = 0.78 + (particleSize / 100) * 0.55;
                   const particleDuration = `${(12 - (particleSpeed / 100) * 8).toFixed(1)}s`;
                   const particleOffset = `${Math.round((particleDispersion - 50) / 7)}px`;
@@ -14108,8 +14124,6 @@ export default function App() {
                   const hasFlicker = overlayEffects.includes('flicker');
                   const hasSoftFocus = overlayEffects.includes('soft_focus');
                   const hasSharpen = overlayEffects.includes('sharpen');
-                  const atmosphericEffects = ['stars', 'dust', 'snow', 'rain', 'fog', 'sparks'];
-                  const hasAtmosphere = atmosphericEffects.some(id => overlayEffects.includes(id));
                   const effectGroups = [
                     { title: 'Particules & météo', icon: 'weather_mix', effects: [
                       { id: 'stars', label: 'Étoiles', icon: 'star' },
@@ -14140,6 +14154,23 @@ export default function App() {
                       { id: 'vhs_glitch', label: 'VHS / Glitch', icon: 'broken_image' },
                     ]},
                   ];
+                  const selectedEffect = effectGroups.flatMap(group => group.effects).find(effect => effect.id === selectedVisualEffect);
+                  const particleEffectIds = ['stars', 'dust', 'snow', 'rain', 'sparks'];
+                  const effectControls = selectedEffect ? (
+                    particleEffectIds.includes(selectedEffect.id)
+                      ? [
+                        { key: 'intensity', label: 'Présence', hint: 'Visibilité dans l’image' },
+                        { key: 'density', label: 'Densité', hint: 'Nombre de particules' },
+                        { key: 'size', label: 'Taille', hint: 'Lointaines ou proches' },
+                        { key: 'speed', label: 'Vitesse', hint: 'Mouvement subtil ou soutenu' },
+                        { key: 'dispersion', label: 'Dispersion', hint: 'Répartition dans le cadre' },
+                      ]
+                      : selectedEffect.id === 'fog'
+                        ? [{ key: 'intensity', label: 'Densité du brouillard', hint: 'Voile atmosphérique' }]
+                        : selectedEffect.id === 'vignette'
+                          ? [{ key: 'intensity', label: 'Assombrissement des bords', hint: 'Force de la vignette' }]
+                          : [{ key: 'intensity', label: 'Intensité', hint: 'Force de l’effet' }]
+                  ) : [];
 
                   const colorGradeFilter = ({
                     warm: 'saturate(1.25) sepia(0.12) brightness(1.05)',
@@ -14237,41 +14268,56 @@ export default function App() {
                             </div>
                           </div>
 
-                          {(hasGrain || hasVignette || hasAtmosphere) && (
-                            <div className="pt-2 border-t border-[var(--border-soft)] space-y-4">
-                              <label className="block text-xs font-bold text-[#00c2ff]">Intensité</label>
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                {hasGrain && (
-                                  <div>
-                                    <label className="block text-[11px] font-bold text-slate-300 mb-2">
-                                      Grain / Bruit ({newChannel.effects_config.grain_intensity ?? 50}%)
-                                    </label>
-                                    <input
-                                      type="range"
-                                      min="0"
-                                      max="100"
-                                      value={newChannel.effects_config.grain_intensity ?? 50}
-                                      onChange={e => setNewChannel({ ...newChannel, effects_config: { ...newChannel.effects_config, grain_intensity: parseInt(e.target.value) } })}
-                                      className="w-full accent-[#00c2ff]"
-                                    />
-                                  </div>
-                                )}
-                                {hasVignette && (
-                                  <div>
-                                    <label className="block text-[11px] font-bold text-slate-300 mb-2">
-                                      Assombrissement des bords ({newChannel.effects_config.vignette_intensity ?? 50}%)
-                                    </label>
-                                    <input
-                                      type="range"
-                                      min="0"
-                                      max="100"
-                                      value={newChannel.effects_config.vignette_intensity ?? 50}
-                                      onChange={e => setNewChannel({ ...newChannel, effects_config: { ...newChannel.effects_config, vignette_intensity: parseInt(e.target.value) } })}
-                                      className="w-full accent-[#00c2ff]"
-                                    />
-                                  </div>
-                                )}
+                          {selectedEffect && overlayEffects.includes(selectedEffect.id) && (
+                            <div className="rounded-2xl border border-[#00c2ff]/30 bg-[#00c2ff]/5 p-4">
+                              <div className="mb-3 flex items-center gap-2">
+                                <span className="material-symbols-outlined text-[18px] text-[#00c2ff]">tune</span>
+                                <div>
+                                  <p className="text-xs font-bold text-white">Réglages — {selectedEffect.label}</p>
+                                  <p className="text-[10px] text-slate-400">Ces valeurs s’appliquent uniquement à cet effet.</p>
+                                </div>
                               </div>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3">
+                                {effectControls.map(control => {
+                                  const value = selectedEffectSettings[control.key] ?? 50;
+                                  return (
+                                    <div key={control.key}>
+                                      <label className="flex items-baseline justify-between gap-2 text-[11px] font-bold text-slate-200 mb-1">
+                                        <span>{control.label}</span><span className="text-[#00c2ff]">{value}%</span>
+                                      </label>
+                                      <p className="mb-1 text-[9px] text-slate-500">{control.hint}</p>
+                                      <input type="range" min="0" max="100" value={value}
+                                        onChange={e => setSelectedEffectSetting(control.key, parseInt(e.target.value))}
+                                        className="w-full accent-[#00c2ff]" />
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                              {particleEffectIds.includes(selectedEffect.id) && (
+                                <div className="mt-4 border-t border-[#00c2ff]/15 pt-3">
+                                  <p className="mb-2 text-[11px] font-bold text-slate-200">Sens du mouvement</p>
+                                  <div className="grid grid-cols-5 gap-1.5 rounded-xl border border-[var(--border)] bg-[var(--bg-input)] p-1.5">
+                                    {[
+                                      { id: 'auto', icon: 'auto_awesome', label: 'Auto' },
+                                      { id: 'up', icon: 'north', label: 'Haut' },
+                                      { id: 'down', icon: 'south', label: 'Bas' },
+                                      { id: 'left', icon: 'west', label: 'Gauche' },
+                                      { id: 'right', icon: 'east', label: 'Droite' },
+                                    ].map(direction => {
+                                      const isActive = (selectedEffectSettings.direction || 'auto') === direction.id;
+                                      return (
+                                        <button key={direction.id} type="button" title={direction.label}
+                                          onClick={() => setSelectedEffectSetting('direction', direction.id)}
+                                          className={`flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-lg border text-[9px] font-bold transition-all ${isActive ? 'border-[#00c2ff] bg-[#00c2ff]/15 text-[#65d7ff] shadow-[0_0_14px_rgba(0,194,255,0.14)]' : 'border-transparent text-slate-400 hover:border-slate-600 hover:text-slate-200'}`}>
+                                          <span className="material-symbols-outlined text-[16px]">{direction.icon}</span>
+                                          {direction.label}
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                  <p className="mt-1.5 text-[9px] text-slate-500">Auto respecte le mouvement naturel de l’effet.</p>
+                                </div>
+                              )}
                             </div>
                           )}
 
@@ -14360,42 +14406,6 @@ export default function App() {
                           </div>
                           <p className="text-[10px] text-slate-500 mt-2">Aperçu approximatif — le rendu final vidéo peut légèrement varier.</p>
 
-                          {hasAtmosphere && (
-                            <div className="mt-3 rounded-xl border border-[#00c2ff]/25 bg-[#00c2ff]/5 p-3 space-y-3">
-                              <div>
-                                <label className="block text-[11px] font-bold text-[#7ddcff] mb-1">Mouvement des particules</label>
-                                <p className="text-[10px] leading-relaxed text-slate-400">Des couches fines et décalées donnent de la profondeur, sans voile uniforme sur l’image.</p>
-                              </div>
-                              <div className="grid grid-cols-2 gap-x-3 gap-y-3">
-                                {[
-                                  { key: 'particle_intensity', label: 'Présence', value: newChannel.effects_config.particle_intensity ?? 50 },
-                                  { key: 'particle_density', label: 'Densité', value: particleDensity },
-                                  { key: 'particle_size', label: 'Taille', value: particleSize },
-                                  { key: 'particle_speed', label: 'Vitesse', value: particleSpeed },
-                                  { key: 'particle_dispersion', label: 'Dispersion', value: particleDispersion },
-                                ].map(control => (
-                                  <div key={control.key}>
-                                    <label className="block text-[10px] font-bold text-slate-300 mb-1">{control.label} <span className="text-[#00c2ff]">{control.value}%</span></label>
-                                    <input type="range" min="0" max="100" value={control.value}
-                                      onChange={e => setNewChannel({ ...newChannel, effects_config: { ...newChannel.effects_config, [control.key]: parseInt(e.target.value) } })}
-                                      className="w-full accent-[#00c2ff]" />
-                                  </div>
-                                ))}
-                                <div>
-                                  <label className="block text-[10px] font-bold text-slate-300 mb-1">Sens du mouvement</label>
-                                  <select value={particleDirection}
-                                    onChange={e => setNewChannel({ ...newChannel, effects_config: { ...newChannel.effects_config, particle_direction: e.target.value } })}
-                                    className="w-full rounded-lg border border-[var(--border)] bg-[var(--bg-input)] px-2 py-1.5 text-[10px] text-slate-200 focus:border-[#00c2ff] focus:outline-none">
-                                    <option value="auto">Naturel / auto</option>
-                                    <option value="up">Vers le haut</option>
-                                    <option value="down">Vers le bas</option>
-                                    <option value="left">Vers la gauche</option>
-                                    <option value="right">Vers la droite</option>
-                                  </select>
-                                </div>
-                              </div>
-                            </div>
-                          )}
                         </div>
                       </div>
                     </div>
