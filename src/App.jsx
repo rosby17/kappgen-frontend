@@ -14153,38 +14153,38 @@ export default function App() {
                           </div>
 
                           {!!newChannel.subtitle_style.box_color && newChannel.subtitle_style.box_color !== 'transparent' && (
-                            <div className="space-y-4 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-input)] p-3">
+                            <div className="space-y-2">
                               <div className="grid grid-cols-2 gap-3">
                                 <div>
-                                  <label className="block text-xs font-bold text-slate-300 mb-2">Largeur de la bulle ({newChannel.subtitle_style.box_padding_x ?? newChannel.subtitle_style.box_padding ?? 10}px)</label>
+                                  <label className="block text-xs font-bold text-slate-300 mb-1">Largeur de la bulle ({newChannel.subtitle_style.box_padding_x ?? newChannel.subtitle_style.box_padding ?? 10}px)</label>
                                   <input
                                     type="range" min="0" max="60"
                                     value={newChannel.subtitle_style.box_padding_x ?? newChannel.subtitle_style.box_padding ?? 10}
                                     onChange={e => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, box_padding_x: parseInt(e.target.value) || 0 } })}
-                                    className="w-full accent-[#00c2ff] mt-3"
+                                    className="w-full accent-[#00c2ff]"
                                   />
-                                  <p className="text-[10px] text-slate-500 mt-1">Espace ajouté à gauche/droite du texte.</p>
+                                  <p className="text-[10px] text-slate-500 mt-0.5">Espace à gauche/droite du texte.</p>
                                 </div>
                                 <div>
-                                  <label className="block text-xs font-bold text-slate-300 mb-2">Hauteur de la bulle ({newChannel.subtitle_style.box_padding_y ?? newChannel.subtitle_style.box_padding ?? 10}px)</label>
+                                  <label className="block text-xs font-bold text-slate-300 mb-1">Hauteur de la bulle ({newChannel.subtitle_style.box_padding_y ?? newChannel.subtitle_style.box_padding ?? 10}px)</label>
                                   <input
                                     type="range" min="0" max="60"
                                     value={newChannel.subtitle_style.box_padding_y ?? newChannel.subtitle_style.box_padding ?? 10}
                                     onChange={e => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, box_padding_y: parseInt(e.target.value) || 0 } })}
-                                    className="w-full accent-[#00c2ff] mt-3"
+                                    className="w-full accent-[#00c2ff]"
                                   />
-                                  <p className="text-[10px] text-slate-500 mt-1">Espace ajouté au-dessus/en-dessous du texte.</p>
+                                  <p className="text-[10px] text-slate-500 mt-0.5">Espace au-dessus/en-dessous du texte.</p>
                                 </div>
                               </div>
                               <div>
-                                <label className="block text-xs font-bold text-slate-300 mb-2">Arrondi des coins ({newChannel.subtitle_style.box_radius ?? 0}px)</label>
+                                <label className="block text-xs font-bold text-slate-300 mb-1">Arrondi des coins ({newChannel.subtitle_style.box_radius ?? 0}px)</label>
                                 <input
                                   type="range" min="0" max="50"
                                   value={newChannel.subtitle_style.box_radius ?? 0}
                                   onChange={e => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, box_radius: parseInt(e.target.value) || 0 } })}
-                                  className="w-full accent-[#00c2ff] mt-3"
+                                  className="w-full accent-[#00c2ff]"
                                 />
-                                <p className="text-[10px] text-slate-500 mt-1">0 = coins carrés. Monte le curseur pour des coins arrondis.</p>
+                                <p className="text-[10px] text-slate-500 mt-0.5">0 = coins carrés.</p>
                               </div>
                             </div>
                           )}
