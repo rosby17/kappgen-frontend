@@ -42,7 +42,6 @@ const IMAGE_GENERATION_CREDITS_MIN = 956;
 const IMAGE_GENERATION_CREDITS_MAX = 1001;
 const THUMBNAIL_GENERATION_CREDITS = 2000;
 const MUSIC_GENERATION_CREDITS = 300;
-const TRANSCRIPTION_CREDITS_PER_SEC = 3;
 const AUTH_PATHS = new Set(['/login', '/signup', '/signin']);
 
 // Broad coverage of the languages with established YouTube audiences. Values
@@ -277,7 +276,10 @@ const getVideoThumbnailUrl = (vid, bustKey) => {
   // URL — and therefore the cache — always changes with it, everywhere a
   // video's thumbnail is shown; `bustKey` (from local state, lost on
   // refresh) only helps this tab update instantly without a re-fetch.
-  return getVideoUrl(vid.output_path.replace(/[^/]+$/, 'thumbnail.jpg')) + `?v=${bustKey || vid.thumbnail_updated_at || vid.finished_at || ''}`;
+  // Use the inline API endpoint so legacy videos whose local thumbnail was
+  // never generated can be repaired from their MP4 instead of displaying a
+  // black poster forever.
+  return `${API_BASE}/videos/${encodeURIComponent(vid.id)}/thumbnail?v=${bustKey || vid.thumbnail_updated_at || vid.finished_at || ''}`;
 };
 
 // Preset Subtitle Styles
@@ -681,7 +683,6 @@ const SUBTITLE_FONTS = [
   { value: 'Inter', label: 'Inter', group: 'Sans-serif' },
   { value: 'Liberation Sans', label: 'Liberation Sans', group: 'Sans-serif' },
   { value: 'DejaVu Sans', label: 'DejaVu Sans', group: 'Sans-serif' },
-  { value: 'Noto Sans', label: 'Noto Sans', group: 'Sans-serif' },
   { value: 'Cabin', label: 'Cabin', group: 'Sans-serif' },
   { value: 'Karla', label: 'Karla', group: 'Sans-serif' },
   { value: 'Manrope', label: 'Manrope', group: 'Sans-serif' },
@@ -1925,12 +1926,26 @@ function MusicChannelWizard({ authFetch, showToast, onCreated, onBack }) {
     try {
       const body = new FormData();
       body.append('style_prompt', form.style_prompt.trim());
-      const res = await authFetch(`${API_BASE}/channels/music-video/preview`, { method: 'POST', body, timeoutMs: 60000 });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.detail || "Aperçu impossible.");
+      const res = await authFetch(`${API_BASE}/channels/music-video/preview`, { method: 'POST', body });
+      const started = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(started.detail || "Aperçu impossible.");
+
+      // Same async-job pattern as the AI music wizard preview — the
+      // generation call commonly runs past Cloudflare's ~100s proxy
+      // timeout, so the backend returns a job_id right away and we poll
+      // for the real result instead of expecting it in this response.
+      for (let attempt = 0; ; attempt++) {
+        if (attempt > 0) await new Promise(r => setTimeout(r, 3000));
+        const statusRes = await authFetch(`${API_BASE}/channels/preview-ai-music/status/${started.job_id}`);
+        const statusBody = await statusRes.json().catch(() => ({}));
+        if (!statusRes.ok) throw new Error(statusBody.detail || "Aperçu impossible.");
+        if (statusBody.status === 'done') break;
+        if (statusBody.status === 'error') throw new Error(statusBody.detail || "Génération musicale impossible.");
+        if (attempt > 100) throw new Error("La génération prend trop de temps, réessaie plus tard.");
       }
-      const blob = await res.blob();
+      const fileRes = await authFetch(`${API_BASE}/channels/preview-ai-music/file/${started.job_id}`);
+      if (!fileRes.ok) throw new Error("Impossible de récupérer l'aperçu musical généré.");
+      const blob = await fileRes.blob();
       setPreviewUrl(URL.createObjectURL(blob));
     } catch (err) {
       showToast(err.message, 'error');
@@ -2883,8 +2898,16 @@ async function getFolderHandle(channelKey) {
 // list would have correctly excluded, some of which then failed partway
 // through upload as a confusing "erreur réseau".
 const LOCAL_IMAGE_EXTENSIONS_RE = /\.(jpg|jpeg|jfif|jpe|png|webp|gif|avif|bmp|tif|tiff|heic|heif)$/i;
+// Matches ALLOWED_BROLL_EXTENSIONS / orchestrator.py's broll_paths filter
+// backend-side — a folder dropped into "Importer un dossier local" can mix
+// images and B-roll video clips together; each goes to its own upload
+// endpoint (library-images vs broll) but from the one folder pick/drop.
+const LOCAL_VIDEO_EXTENSIONS_RE = /\.(mp4|mov|webm|m4v|avi|mkv)$/i;
 
 async function readImagesFromDirHandle(dirHandle) {
+  // Despite the name (kept for the existing call sites' image-only use),
+  // this only ever returns images — see readMediaFromDirHandle for the
+  // images+videos split used by the local-folder importer.
   const files = [];
   for await (const entry of dirHandle.values()) {
     if (entry.kind === "file" && LOCAL_IMAGE_EXTENSIONS_RE.test(entry.name)) {
@@ -2893,6 +2916,16 @@ async function readImagesFromDirHandle(dirHandle) {
     }
   }
   return files;
+}
+
+async function readMediaFromDirHandle(dirHandle) {
+  const images = [], videos = [];
+  for await (const entry of dirHandle.values()) {
+    if (entry.kind !== "file") continue;
+    if (LOCAL_IMAGE_EXTENSIONS_RE.test(entry.name)) images.push(await entry.getFile());
+    else if (LOCAL_VIDEO_EXTENSIONS_RE.test(entry.name)) videos.push(await entry.getFile());
+  }
+  return { images, videos };
 }
 
 function YouTubeIcon({ className = "" }) {
@@ -3614,6 +3647,115 @@ function AdminActivityChart({ series }) {
   );
 }
 
+// A small canvas particle engine for the live effects preview. It deliberately
+// uses a seeded distribution (not repeating CSS backgrounds), so particles
+// have varied size, depth, drift and starting positions while remaining stable
+// when a creator adjusts a slider.
+function LiveParticlePreview({ effects, settings, playing }) {
+  const canvasRef = useRef(null);
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return undefined;
+    const ctx = canvas.getContext('2d');
+    let frameId;
+    let start = performance.now();
+    const seed = (value) => {
+      let state = value;
+      return () => { state = (state * 1664525 + 1013904223) >>> 0; return state / 4294967296; };
+    };
+    const random = seed(20260904);
+    const enabled = effects.filter(id => ['stars', 'dust', 'snow', 'rain', 'sparks'].includes(id));
+    const particles = enabled.flatMap(id => {
+      const config = settings[id] || {};
+      const density = config.density ?? 50;
+      const count = Math.round(
+        id === 'snow' ? 45 + density * 1.65
+          : id === 'stars' ? 26 + density * 1.05
+            : id === 'rain' ? 18 + density * 0.85
+              : 8 + density * 0.55
+      );
+      return Array.from({ length: count }, () => ({
+        id, x: random(), y: random(), depth: 0.35 + random() * 0.85,
+        size: 0.35 + random() * 1.8, drift: (random() - 0.5) * 0.18,
+        phase: random() * Math.PI * 2, speed: 0.35 + random() * 1.25,
+      }));
+    });
+    const draw = (now) => {
+      const rect = canvas.getBoundingClientRect();
+      const ratio = window.devicePixelRatio || 1;
+      if (canvas.width !== Math.round(rect.width * ratio) || canvas.height !== Math.round(rect.height * ratio)) {
+        canvas.width = Math.round(rect.width * ratio); canvas.height = Math.round(rect.height * ratio);
+      }
+      ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+      ctx.clearRect(0, 0, rect.width, rect.height);
+      const t = (now - start) / 1000;
+      particles.forEach(particle => {
+        const config = settings[particle.id] || {};
+        const intensity = (config.intensity ?? 50) / 100;
+        const opacity = (config.opacity ?? 100) / 100;
+        const sizeControl = 0.45 + (config.size ?? 50) / 100 * 1.5;
+        const speedControl = 0.35 + (config.speed ?? 50) / 100 * 1.8;
+        const turbulence = (config.turbulence ?? 50) / 100;
+        const softness = (config.softness ?? 50) / 100;
+        const life = 0.2 + 0.8 * Math.sin((t * particle.speed * speedControl + particle.phase) * 0.75) ** 2;
+        const alpha = intensity * opacity * life * (0.08 + particle.depth * 0.5);
+        const organicDrift = Math.sin(t * particle.speed * (0.4 + turbulence * 2.8) + particle.phase) * particle.drift * (0.3 + turbulence * 1.7);
+        let x = (particle.x + organicDrift) * rect.width;
+        let y = particle.y * rect.height;
+        const motion = t * particle.speed * speedControl;
+        if (particle.id === 'snow') {
+          y = ((particle.y + motion * (0.07 + particle.depth * 0.12)) % 1) * rect.height;
+          x += Math.sin(motion * 1.4 + particle.phase) * (3 + particle.depth * 10);
+        }
+        if (particle.id === 'rain') {
+          y = ((particle.y + motion * (0.16 + particle.depth * 0.13)) % 1) * rect.height;
+          x += motion * (3 + turbulence * 9);
+        }
+        if (particle.id === 'dust') {
+          x = ((particle.x + motion * (0.018 + particle.depth * 0.028) + organicDrift + 2) % 1) * rect.width;
+          y += Math.sin(motion * 1.9 + particle.phase) * (2 + particle.depth * 8);
+        }
+        if (particle.id === 'sparks') y = ((particle.y - motion * 0.09 + 2) % 1) * rect.height;
+        const radius = particle.size * sizeControl * particle.depth;
+        ctx.globalAlpha = alpha;
+        ctx.filter = particle.id === 'dust' || particle.id === 'snow' ? `blur(${Math.max(0, (1 - particle.depth) * softness * 3)}px)` : 'none';
+        if (particle.id === 'rain') {
+          ctx.strokeStyle = '#c8eaff'; ctx.lineWidth = Math.max(.45, radius * .55);
+          ctx.lineCap = 'round';
+          ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - radius * 2.1, y - radius * 5.5); ctx.stroke();
+        } else if (particle.id === 'stars') {
+          const twinkle = 0.4 + 0.6 * Math.sin(motion * 2.4 + particle.phase) ** 2;
+          ctx.globalAlpha *= twinkle;
+          ctx.fillStyle = '#f8fbff'; ctx.beginPath(); ctx.arc(x, y, Math.max(.28, radius * .42), 0, Math.PI * 2); ctx.fill();
+        } else if (particle.id === 'sparks') {
+          ctx.strokeStyle = '#ff8c2a'; ctx.lineWidth = Math.max(.35, radius * .45); ctx.lineCap = 'round';
+          ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - Math.sin(particle.phase) * radius * 2, y + radius * 4.5); ctx.stroke();
+          const glow = ctx.createRadialGradient(x, y, 0, x, y, Math.max(1, radius * 3));
+          glow.addColorStop(0, 'rgba(255,246,190,1)'); glow.addColorStop(.28, 'rgba(255,150,45,.8)'); glow.addColorStop(1, 'rgba(255,80,0,0)');
+          ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(x, y, Math.max(.5, radius * 1.5), 0, Math.PI * 2); ctx.fill();
+        } else if (particle.id === 'snow') {
+          ctx.fillStyle = 'rgba(250,253,255,.96)';
+          ctx.beginPath(); ctx.ellipse(x, y, Math.max(.45, radius * .8), Math.max(.6, radius * 1.15), particle.phase, 0, Math.PI * 2); ctx.fill();
+        } else {
+          const color = particle.id === 'sparks' ? '255,164,54' : particle.id === 'dust' ? '255,224,177' : '235,246,255';
+          const glow = ctx.createRadialGradient(x, y, 0, x, y, Math.max(1, radius * (particle.id === 'dust' ? 3.4 : 1.8)));
+          glow.addColorStop(0, `rgba(${color},1)`);
+          glow.addColorStop(particle.id === 'dust' ? 0.24 : 0.5, `rgba(${color},.35)`);
+          glow.addColorStop(1, `rgba(${color},0)`);
+          ctx.fillStyle = glow;
+          ctx.beginPath(); ctx.arc(x, y, Math.max(.35, radius), 0, Math.PI * 2); ctx.fill();
+        }
+      });
+      ctx.globalAlpha = 1;
+      ctx.filter = 'none';
+      if (playing) frameId = requestAnimationFrame(draw);
+    };
+    frameId = requestAnimationFrame(draw);
+    return () => cancelAnimationFrame(frameId);
+  }, [effects, settings, playing]);
+  return <canvas ref={canvasRef} aria-hidden className="absolute inset-0 h-full w-full pointer-events-none mix-blend-screen" />;
+}
+
 export default function App() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -3885,6 +4027,14 @@ export default function App() {
   const [timezoneSearch, setTimezoneSearch] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [channelSortBy, setChannelSortBy] = useState('recent');
+  // Cross-account pipeline sharing — "Partager le pipeline" generates a
+  // code (shown here), "Importer un pipeline" redeems one from another
+  // creator into a brand new channel of your own. See handleSharePipeline /
+  // handleRedeemPipelineShare below.
+  const [pipelineShareInfo, setPipelineShareInfo] = useState(null); // { code, expiresAt, channelName }
+  const [pipelineRedeemOpen, setPipelineRedeemOpen] = useState(false);
+  const [pipelineRedeemCode, setPipelineRedeemCode] = useState('');
+  const [pipelineRedeemLoading, setPipelineRedeemLoading] = useState(false);
   const [videoFilterChannelId, setVideoFilterChannelId] = useState('all');
   const [libraryOverview, setLibraryOverview] = useState(null);
   const [libraryLoading, setLibraryLoading] = useState(false);
@@ -3922,7 +4072,7 @@ export default function App() {
   const wizardSubtitleDragRef = useRef(null);
   const [mockupSubtitlePreviewRef, mockupSubtitlePreviewScale] = useSubtitlePreviewScale();
   const [submitSubtitlePreviewRef, submitSubtitlePreviewScale] = useSubtitlePreviewScale();
-  const [confirmDialog, setConfirmDialog] = useState(null); // { title, message, danger, resolve }
+  const [confirmDialog, setConfirmDialog] = useState(null); // { title, message, danger, icon, details, confirmLabel, resolve }
 
   const handleWizardSubtitlePointerDown = (event) => {
     if (event.button !== 0) return;
@@ -3974,7 +4124,7 @@ export default function App() {
 
   const handleCancelProduction = async (videoId) => {
     if (!videoId || cancellingProduction) return;
-    if (!window.confirm("Annuler cette vidéo ? Le rendu s'arrêtera à l'étape en cours et les crédits déjà dépensés seront remboursés.")) return;
+    if (!await askConfirm("Le rendu s'arrêtera à l'étape en cours et les crédits déjà dépensés seront remboursés.", { title: "Annuler cette vidéo ?", danger: true, confirmLabel: "Annuler le rendu" })) return;
     setCancellingProduction(true);
     try {
       const res = await authFetch(`${API_BASE}/videos/${videoId}/cancel`, { method: 'POST' });
@@ -4033,9 +4183,17 @@ export default function App() {
     return () => clearInterval(timer);
   }, [productionInspector?.video?.id]);
 
-  const askConfirm = (message, { title = "Confirmer l'action", danger = false } = {}) => {
+  const askConfirm = (message, {
+    title = "Confirmer l'action",
+    danger = false,
+    icon = null,
+    eyebrow = null,
+    details = [],
+    confirmLabel = 'Confirmer',
+    cancelLabel = 'Annuler',
+  } = {}) => {
     return new Promise((resolve) => {
-      setConfirmDialog({ title, message, danger, resolve });
+      setConfirmDialog({ title, message, danger, icon, eyebrow, details, confirmLabel, cancelLabel, resolve });
     });
   };
 
@@ -4258,6 +4416,10 @@ export default function App() {
 
   // Wizard State
   const [wizardStep, setWizardStep] = useState(1);
+  // The effects step has a focused inspector: controls belong to the selected
+  // effect rather than being a generic panel detached from its toggle.
+  const [selectedVisualEffect, setSelectedVisualEffect] = useState('');
+  const [effectsPreviewPlaying, setEffectsPreviewPlaying] = useState(true);
   // Aperçu Final (step 6) recap checklist — purely local to the preview, lets the
   // user toggle each configured element on/off to see the mockup with/without it.
   // Only "visual" has no real per-channel setting (a video always needs a
@@ -4272,6 +4434,12 @@ export default function App() {
   // 9-step script/voiceover flow) or 'music' (MusicChannelWizard). Same
   // view/sidebar/header shell either way; only the step content differs.
   const [wizardContentType, setWizardContentType] = useState('narration');
+  // Set when an admin opens a creator's pipeline from the admin panel
+  // ("Gérer le pipeline de la chaîne") — closing or saving the wizard must
+  // land back on the admin panel, not on that channel's own (creator-facing)
+  // 'channels'/'channel_detail' view, which used to strand the admin inside
+  // a stranger's account view until they manually navigated back out.
+  const [wizardOpenedFromAdmin, setWizardOpenedFromAdmin] = useState(false);
   const [fontPickerOpen, setFontPickerOpen] = useState(false);
   const [fontSearchQuery, setFontSearchQuery] = useState('');
   const [subtitleTab, setSubtitleTab] = useState('customize');
@@ -4341,11 +4509,26 @@ export default function App() {
       if (newChannel.music_preference.ai_prompt) formData.append('ai_prompt', newChannel.music_preference.ai_prompt);
       formData.append('duration', '20');
       const res = await authFetch(`${API_BASE}/channels/preview-ai-music`, { method: 'POST', body: formData });
-      if (!res.ok) {
-        const detail = await res.json().catch(() => ({}));
-        throw new Error(detail.detail || "Génération impossible.");
+      const started = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(started.detail || "Génération impossible.");
+
+      // Izivoice's music generation is a genuinely async task on their end
+      // that commonly runs well past Cloudflare's ~100s proxy timeout — the
+      // backend kicks it off in the background and returns a job_id right
+      // away instead of holding the request open, so poll for the real
+      // result here instead of expecting it in this response.
+      for (let attempt = 0; ; attempt++) {
+        if (attempt > 0) await new Promise(r => setTimeout(r, 3000));
+        const statusRes = await authFetch(`${API_BASE}/channels/preview-ai-music/status/${started.job_id}`);
+        const statusBody = await statusRes.json().catch(() => ({}));
+        if (!statusRes.ok) throw new Error(statusBody.detail || "Génération impossible.");
+        if (statusBody.status === 'done') break;
+        if (statusBody.status === 'error') throw new Error(statusBody.detail || "Génération musicale impossible.");
+        if (attempt > 100) throw new Error("La génération prend trop de temps, réessaie plus tard.");
       }
-      const blob = await res.blob();
+      const fileRes = await authFetch(`${API_BASE}/channels/preview-ai-music/file/${started.job_id}`);
+      if (!fileRes.ok) throw new Error("Impossible de récupérer l'aperçu musical généré.");
+      const blob = await fileRes.blob();
       setAiMusicPreviewUrl(URL.createObjectURL(blob));
       // A real music choice was made — same rule as picking a file in "Mes propres musiques".
       setNewChannel(prev => ({ ...prev, music_preference: { ...prev.music_preference, enabled: true } }));
@@ -4534,7 +4717,7 @@ export default function App() {
   };
 
   const deleteAllLibraryImages = async (channelId) => {
-    if (!window.confirm('Supprimer toutes les images uploadées pour cette chaîne ? Cette action est irréversible.')) return;
+    if (!await askConfirm('Cette action est irréversible.', { title: 'Supprimer toutes les images uploadées ?', danger: true, confirmLabel: 'Supprimer' })) return;
     setLibraryBusyKey(`${channelId}:__all__`);
     try {
       const res = await authFetch(`${API_BASE}/channels/${channelId}/library/images`, { method: 'DELETE' });
@@ -4550,6 +4733,16 @@ export default function App() {
   };
 
   const [libraryUploadingId, setLibraryUploadingId] = useState(null);
+  const [brollUploadProgress, setBrollUploadProgress] = useState(0);
+  const [brollUploadMessage, setBrollUploadMessage] = useState('');
+  // api.kappgen.com is proxied through Cloudflare, whose request-body cap
+  // sits at 100MB regardless of the backend's own (much higher) limit — a
+  // clip over that silently fails at the edge with no usable error, which
+  // read as the upload just hanging forever with the spinner never
+  // resolving. Below this threshold we still use the normal API upload;
+  // at/over it we go straight to R2 (see uploadOneBrollDirect) instead of
+  // asking the creator to compress anything.
+  const CLOUDFLARE_UPLOAD_LIMIT_BYTES = 95 * 1024 * 1024;
   const uploadLibraryImages = async (channelId, fileList) => {
     const files = Array.from(fileList || []);
     if (!files.length) return;
@@ -4571,23 +4764,126 @@ export default function App() {
     }
   };
 
+  // A clip over CLOUDFLARE_UPLOAD_LIMIT_BYTES skips our API entirely for the
+  // file bytes: the browser PUTs straight to R2 with a short-lived presigned
+  // URL, then we just tell the backend to pull it onto local disk (a
+  // server-to-R2 transfer, not routed through Cloudflare's inbound proxy).
+  // No compression, no size rejection — this is what actually fixes large
+  // B-roll uploads instead of asking the creator to shrink the file first.
+  const uploadOneBrollDirect = async (channelId, file, onProgress) => {
+    const startRes = await authFetch(`${API_BASE}/channels/${channelId}/broll/direct-upload/start`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ filename: file.name, content_type: file.type || 'video/mp4' }),
+    });
+    const startData = await startRes.json().catch(() => ({}));
+    if (!startRes.ok) throw new Error(startData.detail || "Impossible de préparer l'envoi direct.");
+    const { upload_url, object_key } = startData;
+
+    await new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('PUT', upload_url);
+      xhr.timeout = 30 * 60 * 1000; // 30min — this is the big raw-file leg
+      xhr.upload.onprogress = (event) => {
+        if (event.lengthComputable) onProgress(event.loaded / event.total);
+      };
+      xhr.onerror = () => reject(new Error('Erreur réseau pendant l’envoi direct vers le stockage.'));
+      xhr.ontimeout = () => reject(new Error('L’envoi direct a pris trop de temps — réessaie avec une connexion plus stable.'));
+      xhr.onload = () => {
+        if (xhr.status < 200 || xhr.status >= 300) reject(new Error(`Échec de l’envoi direct (HTTP ${xhr.status}).`));
+        else resolve();
+      };
+      xhr.setRequestHeader('Content-Type', file.type || 'video/mp4');
+      xhr.send(file);
+    });
+
+    const confirmRes = await authFetch(`${API_BASE}/channels/${channelId}/broll/direct-upload/confirm`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ object_key, filename: file.name }),
+    });
+    const confirmData = await confirmRes.json().catch(() => ({}));
+    if (!confirmRes.ok) throw new Error(confirmData.detail || "Échec de la finalisation de l'envoi.");
+  };
+
   const uploadLibraryBroll = async (channelId, fileList) => {
     const files = Array.from(fileList || []);
     if (!files.length) return;
+
+    const smallFiles = files.filter(f => f.size <= CLOUDFLARE_UPLOAD_LIMIT_BYTES);
+    const largeFiles = files.filter(f => f.size > CLOUDFLARE_UPLOAD_LIMIT_BYTES);
+
     setLibraryUploadingId(`${channelId}:broll`);
-    try {
+    setBrollUploadProgress(1);
+    const totalBytes = files.reduce((sum, f) => sum + f.size, 0) || 1;
+    let smallBytesDone = 0, largeBytesDone = 0;
+    const reportProgress = () => setBrollUploadProgress(Math.min(99, Math.round(((smallBytesDone + largeBytesDone) / totalBytes) * 100)));
+
+    let okCount = 0;
+    const errors = [];
+
+    if (smallFiles.length) {
+      const smallTotal = smallFiles.reduce((sum, f) => sum + f.size, 0) || 1;
       const formData = new FormData();
-      files.forEach(f => formData.append('files', f));
-      const res = await authFetch(`${API_BASE}/channels/${channelId}/broll`, { method: 'POST', body: formData });
-      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || 'Échec de l’ajout des B-roll.');
-      showToast(`${files.length} clip(s) B-roll ajouté(s).`, 'success');
+      smallFiles.forEach(f => formData.append('files', f));
+      try {
+        await new Promise((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          xhr.open('POST', `${API_BASE}/channels/${channelId}/broll`);
+          xhr.withCredentials = true;
+          xhr.timeout = 15 * 60 * 1000;
+          xhr.upload.onprogress = (event) => {
+            if (!event.lengthComputable) return;
+            smallBytesDone = event.loaded;
+            reportProgress();
+          };
+          xhr.onerror = () => reject(new Error('Erreur réseau pendant l’envoi des vidéos B-roll.'));
+          xhr.ontimeout = () => reject(new Error('L’envoi des vidéos B-roll a pris trop de temps.'));
+          xhr.onload = () => {
+            let data = {};
+            try { data = JSON.parse(xhr.responseText || '{}'); } catch {}
+            if (xhr.status < 200 || xhr.status >= 300) { reject(new Error(data.detail || `Échec de l’ajout des B-roll (HTTP ${xhr.status}).`)); return; }
+            smallBytesDone = smallTotal;
+            resolve();
+          };
+          xhr.send(formData);
+        });
+        okCount += smallFiles.length;
+      } catch (err) {
+        errors.push(err.message);
+      }
+    }
+
+    let largeBaseDone = 0;
+    for (const file of largeFiles) {
+      try {
+        await uploadOneBrollDirect(channelId, file, (frac) => {
+          largeBytesDone = largeBaseDone + frac * file.size;
+          reportProgress();
+        });
+        largeBaseDone += file.size;
+        largeBytesDone = largeBaseDone;
+        reportProgress();
+        okCount += 1;
+      } catch (err) {
+        errors.push(`${file.name}: ${err.message}`);
+      }
+    }
+
+    if (okCount) {
+      showToast(`${okCount} clip(s) B-roll ajouté(s).`, 'success');
+      setBrollUploadMessage(`✓ ${okCount} clip(s) B-roll intégré(s) au site et prêt(s) pour le montage.`);
+      setNewChannel(prev => ({
+        ...prev,
+        image_style: { ...prev.image_style, broll_count: Math.max(0, Number(prev.image_style?.broll_count || 0)) + okCount, broll_path: prev.image_style?.broll_path || `channels/${channelId}/broll` },
+      }));
       await fetchChannelLibraryDetail(channelId);
       fetchLibraryOverview();
-    } catch (err) {
-      showToast(err.message, 'error');
-    } finally {
-      setLibraryUploadingId(null);
     }
+    if (errors.length) showToast(errors.join(' — '), 'error');
+
+    setLibraryUploadingId(null);
+    setBrollUploadProgress(0);
   };
 
   const deleteLibraryMusicTrack = async (channelId, trackPath) => {
@@ -4953,7 +5249,7 @@ export default function App() {
       mode: 'library',
       track_id_or_style: 'ambient',
       volume: 0.10,
-      auto_ducking: true,
+      auto_ducking: false,
       ducking_amount: 0.70,
       fade_in_seconds: 2,
       fade_out_seconds: 3,
@@ -4961,7 +5257,7 @@ export default function App() {
       soundgoodizer_amount: 0.35,
       reverb_enabled: false,
       reverb_amount: 0.15,
-      maximus_enabled: true,
+      maximus_enabled: false,
       maximus_amount: 0.40
     },
     image_style: {
@@ -4991,6 +5287,12 @@ export default function App() {
       grain_intensity: 50,
       vignette_intensity: 50,
       particle_intensity: 50,
+      particle_density: 50,
+      particle_size: 50,
+      particle_speed: 50,
+      particle_dispersion: 50,
+      particle_direction: 'auto',
+      effect_settings: {},
       zoom_min_pct: 1.0,
       zoom_max_pct: 1.15,
       watermark_enabled: true
@@ -5116,23 +5418,11 @@ export default function App() {
       const data = await res.json();
       if (!Array.isArray(data)) throw new Error('Réponse API invalide');
 
-      // Detect a video that just flipped to 'done' since the last poll, and
-      // pull its cost recap — this is the "juste après la génération" trigger,
-      // since render completion is only ever observed here (polling), not as
-      // a direct response to a submit call.
-      const previousStatuses = allVideosStatusRef.current;
-      const freshlyDone = data.filter(v => v.status === 'done' && previousStatuses[v.id] && previousStatuses[v.id] !== 'done');
       allVideosStatusRef.current = Object.fromEntries(data.map(v => [v.id, v.status]));
 
       setAllVideos(data);
       setVideosLoadError('');
 
-      if (freshlyDone.length > 0) {
-        const video = freshlyDone[0];
-        authFetch(`${API_BASE}/videos/${video.id}/cost-recap`).then(r => r.ok ? r.json() : null).then(recap => {
-          if (recap && recap.total_credits > 0) setCostRecap({ videoTitle: video.title || 'Vidéo', ...recap });
-        }).catch(() => {});
-      }
     } catch (e) {
       console.error("API error loading videos:", e);
       setVideosLoadError("Impossible de charger vos vidéos. Vérifiez que l’API KappGen est accessible.");
@@ -5904,6 +6194,7 @@ export default function App() {
     setNicheMode('preset');
     setWizardMode('create');
     setEditingChannelId(null);
+    setWizardOpenedFromAdmin(false);
     setLogoFile(null);
     setLogoPreviewUrl(null);
     setLocalImageFiles([]);
@@ -5911,6 +6202,7 @@ export default function App() {
     setLibraryUploadStatus(null);
     setLibraryUploadProgress(0);
     setLibraryUploadMessage('');
+    setBrollUploadMessage('');
     setStagedLibraryToken(null);
     if (libraryUploadXhrRef.current) libraryUploadXhrRef.current.abort();
     setWizardStep(1);
@@ -6120,6 +6412,7 @@ export default function App() {
   const openEditWizard = (channel, e, startStep = 1) => {
     if (e) e.stopPropagation();
     setOpenChannelMenuId(null);
+    setWizardOpenedFromAdmin(false);
     setWizardMode('edit');
     setEditingChannelId(channel.id);
     // Without this, wizardContentType kept whatever it was last set to (e.g.
@@ -6196,12 +6489,166 @@ export default function App() {
     setLibraryUploadStatus(null);
     setLibraryUploadProgress(0);
     setLibraryUploadMessage('');
+    setBrollUploadMessage('');
     setStagedLibraryToken(null);
     setLogoPreviewUrl(channel.branding?.logo_path
       ? `${STORAGE_BASE}/${channel.branding.logo_path}`
       : (channel.youtube_channel_thumbnail_url || null));
     setWizardStep(startStep);
     setView('wizard');
+  };
+
+  // "Réutiliser le pipeline" — a creator whose channel already works well
+  // in a niche wants a second (or third) channel with the exact same
+  // montage/sous-titres/musique/effets/automatisation/publication settings,
+  // just under a different name (often the same niche, sometimes a new
+  // one). Shares openEditWizard's field-by-field copy above, but lands in
+  // 'create' mode (a real new channel, own id, own storage) instead of
+  // patching the source channel — and deliberately drops what can't be
+  // shared between two channels: name (left blank so nothing gets saved
+  // without the creator actually choosing one), the source's own YouTube
+  // description/logo/thumbnail-style/voice-clone id.
+  const openDuplicateWizard = (channel, e) => {
+    if (e) e.stopPropagation();
+    setOpenChannelMenuId(null);
+    setWizardMode('create');
+    setEditingChannelId(null);
+    setWizardContentType(channel.content_type === 'music' ? 'music' : 'narration');
+    setNewChannel({
+      ...defaultChannelForm,
+      name: '',
+      description: '',
+      niche: channel.niche || '',
+      subtitle_style: { ...defaultChannelForm.subtitle_style, ...(channel.subtitle_style || {}) },
+      branding: { ...defaultChannelForm.branding, ...(channel.branding || {}), logo_path: null },
+      music_preference: { ...defaultChannelForm.music_preference, ...(channel.music_preference || {}) },
+      image_style: { ...defaultChannelForm.image_style, ...(channel.image_style || {}) },
+      thumbnail_style: null,
+      effects_config: {
+        ...defaultChannelForm.effects_config,
+        ...(channel.effects_config || {}),
+        overlay_effects: channel.effects_config?.overlay_effects || ({
+          none: [], grain: ['grain'], white_noise: ['white_noise'],
+          vignette: ['vignette'], grain_vignette: ['grain', 'vignette'],
+        })[channel.effects_config?.overlay_effect || 'grain'] || ['grain'],
+      },
+      automation_mode: channel.automation_mode || 'manual',
+      automation_style_prompt: channel.automation_style_prompt || '',
+      topic_examples: channel.topic_examples || '',
+      use_web_trends: !!channel.use_web_trends,
+      youtube_topic_sources: channel.youtube_topic_sources || '',
+      videos_per_day: channel.videos_per_day ?? 1,
+      automation_window_start_hour: channel.automation_window_start_hour ?? 7,
+      automation_window_end_hour: channel.automation_window_end_hour ?? 11,
+      active_days: channel.active_days || null,
+      script_generation_hour: channel.script_generation_hour ?? -1,
+      script_generation_minute: channel.script_generation_minute ?? 0,
+      script_generation_second: channel.script_generation_second ?? 0,
+      script_generation_days: channel.script_generation_days || null,
+      timezone: channel.timezone || defaultChannelForm.timezone,
+      publish_mode: channel.publish_mode || 'manual',
+      youtube_made_for_kids: !!channel.youtube_made_for_kids,
+      youtube_default_description: channel.youtube_default_description || '',
+      youtube_default_tags: channel.youtube_default_tags || [],
+      youtube_category_id: channel.youtube_category_id || '22',
+      youtube_privacy_status: channel.youtube_privacy_status || 'public',
+      youtube_contains_synthetic_media: channel.youtube_contains_synthetic_media !== false,
+      youtube_license: channel.youtube_license || 'youtube',
+      youtube_notify_subscribers: channel.youtube_notify_subscribers !== false,
+      youtube_embeddable: channel.youtube_embeddable !== false,
+      youtube_public_stats_viewable: channel.youtube_public_stats_viewable !== false,
+      publish_time_mode: channel.publish_time_mode || 'range',
+      publish_schedule_hour: channel.publish_schedule_hour ?? 8,
+      publish_schedule_day_offset: channel.publish_schedule_day_offset ?? 1,
+      script_structure: channel.script_structure || defaultChannelForm.script_structure,
+      // A voice clone is tied to the source channel's own Izivoice voice id
+      // — never silently hand a brand new channel someone else's clone.
+      voice_id: '',
+      voice_name: '',
+      voice_settings: channel.voice_settings || defaultChannelForm.voice_settings,
+    });
+    setNicheMode(nicheOptions.includes(channel.niche) ? 'preset' : 'custom');
+    setLogoFile(null);
+    setMusicFiles([]);
+    setLocalImageFiles([]);
+    setSelectedFolderName('');
+    setLibraryUploadStatus(null);
+    setLibraryUploadProgress(0);
+    setLibraryUploadMessage('');
+    setBrollUploadMessage('');
+    setStagedLibraryToken(null);
+    setLogoPreviewUrl(null);
+    setWizardStep(1);
+    setView('wizard');
+    showToast(`Pipeline de « ${channel.name} » réutilisé — personnalise puis crée ta nouvelle chaîne.`, 'success');
+  };
+
+  // Cross-account counterpart to openDuplicateWizard above: hands the
+  // pipeline to a DIFFERENT creator's account via a short code instead of
+  // duplicating it into your own. A one-time snapshot, not a live link —
+  // redeeming it just pre-fills the recipient's own create-channel wizard
+  // once; their new channel is fully independent from that point on.
+  const handleSharePipeline = async (channel, e) => {
+    if (e) e.stopPropagation();
+    setOpenChannelMenuId(null);
+    try {
+      const res = await authFetch(`${API_BASE}/channels/${channel.id}/pipeline-share`, { method: 'POST' });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || "Partage impossible.");
+      setPipelineShareInfo({ code: data.code, expiresAt: data.expires_at, channelName: channel.name });
+    } catch (err) {
+      showToast(err.message || "Erreur lors du partage du pipeline.", "error");
+    }
+  };
+
+  // Same pre-fill logic as openDuplicateWizard, sourced from a redeemed
+  // share's frozen template (server-built by build_pipeline_share_template,
+  // same field names as newChannel) instead of a live Channel object.
+  const openSharedPipelineWizard = (template, sourceChannelName) => {
+    setWizardMode('create');
+    setEditingChannelId(null);
+    setWizardContentType(template.content_type === 'music' ? 'music' : 'narration');
+    setNewChannel({
+      ...defaultChannelForm,
+      ...template,
+      name: '',
+      description: '',
+      thumbnail_style: null,
+      voice_id: '',
+      voice_name: '',
+    });
+    setNicheMode(nicheOptions.includes(template.niche) ? 'preset' : 'custom');
+    setLogoFile(null);
+    setMusicFiles([]);
+    setLocalImageFiles([]);
+    setSelectedFolderName('');
+    setLibraryUploadStatus(null);
+    setLibraryUploadProgress(0);
+    setLibraryUploadMessage('');
+    setBrollUploadMessage('');
+    setStagedLibraryToken(null);
+    setLogoPreviewUrl(null);
+    setWizardStep(1);
+    setView('wizard');
+    showToast(`Pipeline de « ${sourceChannelName} » importé — personnalise puis crée ta nouvelle chaîne.`, 'success');
+  };
+
+  const handleRedeemPipelineShare = async () => {
+    const code = pipelineRedeemCode.trim();
+    if (!code) return;
+    setPipelineRedeemLoading(true);
+    try {
+      const res = await authFetch(`${API_BASE}/channels/pipeline-share/${encodeURIComponent(code)}`);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || "Code invalide.");
+      openSharedPipelineWizard(data.template, data.source_channel_name);
+      setPipelineRedeemOpen(false);
+      setPipelineRedeemCode('');
+    } catch (err) {
+      showToast(err.message || "Code invalide.", "error");
+    } finally {
+      setPipelineRedeemLoading(false);
+    }
   };
 
   const resizeImageFile = (file, maxDim = 512, quality = 0.9) => new Promise((resolve, reject) => {
@@ -6417,6 +6864,22 @@ export default function App() {
       .catch(() => {});
   };
 
+  // A folder dropped/picked for "Importer un dossier local" can mix images
+  // and B-roll video clips together (the wizard's own "Mode de montage" step
+  // right below offers "Mix images + vidéos") — videos go to the separate
+  // broll endpoint instead of the image library one. Needs a real channel id
+  // (broll is uploaded directly, no staging-token path for a not-yet-created
+  // channel the way images have) — falls back to a clear toast instead of
+  // silently dropping the files when creating a brand-new channel.
+  const uploadLocalVideoFiles = (videoFiles, channelIdForUpload) => {
+    if (!videoFiles.length) return;
+    if (!channelIdForUpload) {
+      showToast(`${videoFiles.length} vidéo(s) ignorée(s) — enregistre d'abord la chaîne pour ajouter des clips B-roll.`, "error");
+      return;
+    }
+    uploadLibraryBroll(channelIdForUpload, videoFiles);
+  };
+
   // File System Access API (Chrome/Edge): remembers the folder handle so a
   // later "Rafraîchir" can re-read it with one permission click instead of
   // reopening the OS folder picker. Falls back to the classic <input
@@ -6425,13 +6888,14 @@ export default function App() {
     if (!window.showDirectoryPicker) return false;
     try {
       const dirHandle = await window.showDirectoryPicker({ mode: 'read' });
-      const files = await readImagesFromDirHandle(dirHandle);
-      if (files.length === 0) {
-        showToast("Aucune image trouvée dans ce dossier.", "error");
+      const { images, videos } = await readMediaFromDirHandle(dirHandle);
+      if (images.length === 0 && videos.length === 0) {
+        showToast("Aucune image ni vidéo trouvée dans ce dossier.", "error");
         return true;
       }
       if (channelKeyForSync) await saveFolderHandle(channelKeyForSync, dirHandle);
-      prepareLocalImageFiles(files, dirHandle.name, channelKeyForSync);
+      if (images.length > 0) prepareLocalImageFiles(images, dirHandle.name, channelKeyForSync);
+      uploadLocalVideoFiles(videos, channelKeyForSync || editingChannelId);
       return true;
     } catch (err) {
       if (err && err.name === 'AbortError') return true; // user cancelled the picker — not an error
@@ -6449,12 +6913,13 @@ export default function App() {
         permission = await handle.requestPermission({ mode: 'read' });
       }
       if (permission !== 'granted') return false;
-      const files = await readImagesFromDirHandle(handle);
-      if (files.length === 0) {
+      const { images, videos } = await readMediaFromDirHandle(handle);
+      if (images.length === 0 && videos.length === 0) {
         if (!silent) showToast("Le dossier semble vide maintenant.", "error");
         return false;
       }
-      prepareLocalImageFiles(files, handle.name, channelKeyForSync);
+      if (images.length > 0) prepareLocalImageFiles(images, handle.name, channelKeyForSync);
+      if (!silent) uploadLocalVideoFiles(videos, channelKeyForSync || editingChannelId);
       return true;
     } catch {
       return false;
@@ -6462,15 +6927,13 @@ export default function App() {
   };
 
   const handleLocalFolderSelect = (e) => {
-    const files = Array.from(e.target.files).filter(f => 
-      LOCAL_IMAGE_EXTENSIONS_RE.test(f.name)
-    );
-    if (files.length > 0) {
-      // Extract directory name from webkitRelativePath
-      const firstPath = files[0].webkitRelativePath || '';
-      const folderName = firstPath ? firstPath.split('/')[0] : 'Dossier Images';
-      prepareLocalImageFiles(files, folderName);
-    }
+    const allFiles = Array.from(e.target.files);
+    const files = allFiles.filter(f => LOCAL_IMAGE_EXTENSIONS_RE.test(f.name));
+    const videoFiles = allFiles.filter(f => LOCAL_VIDEO_EXTENSIONS_RE.test(f.name));
+    const firstPath = allFiles[0]?.webkitRelativePath || '';
+    const folderName = firstPath ? firstPath.split('/')[0] : 'Dossier Images';
+    if (files.length > 0) prepareLocalImageFiles(files, folderName);
+    uploadLocalVideoFiles(videoFiles, editingChannelId);
   };
 
   const handleFolderDrop = (e) => {
@@ -6478,14 +6941,12 @@ export default function App() {
     e.stopPropagation();
     setIsFolderDragging(false);
 
-    const droppedFiles = Array.from(e.dataTransfer.files).filter(f => 
-      LOCAL_IMAGE_EXTENSIONS_RE.test(f.name)
-    );
+    const allDropped = Array.from(e.dataTransfer.files);
+    const droppedFiles = allDropped.filter(f => LOCAL_IMAGE_EXTENSIONS_RE.test(f.name));
+    const droppedVideos = allDropped.filter(f => LOCAL_VIDEO_EXTENSIONS_RE.test(f.name));
 
-    if (droppedFiles.length > 0) {
-      const folderName = "Dossier Images Déposé";
-      prepareLocalImageFiles(droppedFiles, folderName);
-    }
+    if (droppedFiles.length > 0) prepareLocalImageFiles(droppedFiles, "Dossier Images Déposé");
+    uploadLocalVideoFiles(droppedVideos, editingChannelId);
   };
 
   const uploadChannelLogo = async (channelId) => {
@@ -6636,8 +7097,12 @@ export default function App() {
       await fetchChannels();
       fetchNicheOptions();
       setActiveChannel(saved);
-      setView('channel_detail');
-      fetchChannelVideos(saved.id);
+      if (wizardOpenedFromAdmin) {
+        setView('admin');
+      } else {
+        setView('channel_detail');
+        fetchChannelVideos(saved.id);
+      }
       clearDraft(wizardMode === 'edit' ? editingChannelId : null);
       resetWizardState();
       if (savingIncomplete || !saved.is_render_ready) {
@@ -6789,7 +7254,12 @@ export default function App() {
       audioFilesList.forEach(file => {
         formData.append("audio_files", file);
       });
-      formData.append("transcribe_audio", transcribeAudio ? "true" : "false");
+      // The toggle itself is hidden whenever subtitles are off (no point paying
+      // to transcribe subtitles nobody will see) — but its state can still be
+      // stale true from an earlier session, so re-check subtitles here rather
+      // than trusting transcribeAudio alone.
+      const subtitlesEnabled = activeChannel.subtitle_style?.enabled ?? true;
+      formData.append("transcribe_audio", (subtitlesEnabled && transcribeAudio) ? "true" : "false");
       formData.append("audio_rights_confirmed", "true");
       formData.append("audio_source_type", audioSourceType);
     }
@@ -6968,7 +7438,7 @@ export default function App() {
   // mechanism (rotate through multiple keys, skip exhausted ones) is the
   // same for all three, just scoped by this tab.
   const [hfAccountsProvider, setHfAccountsProvider] = useState('huggingface');
-  const IMAGE_KEY_PROVIDER_LABELS = { huggingface: 'Hugging Face', fal: 'fal.ai', izivoice: 'Izivoice' };
+  const IMAGE_KEY_PROVIDER_LABELS = { huggingface: 'Hugging Face', fal: 'fal.ai', izivoice: 'Izivoice', gemini: 'Google Gemini (gratuit)' };
   const [hfAccountBusy, setHfAccountBusy] = useState(false);
   const [hfAccountChecking, setHfAccountChecking] = useState(null);
   const [editingHfLabelId, setEditingHfLabelId] = useState(null);
@@ -7342,7 +7812,7 @@ export default function App() {
   // deletes the channel (and its videos), not just its library-sharing
   // status. Confirmed inline since it's irreversible.
   const deleteAdminLibraryChannel = async (channelId, channelName) => {
-    if (!window.confirm(`Supprimer définitivement la chaîne « ${channelName || channelId} » et toutes ses vidéos ? Cette action est irréversible.`)) return;
+    if (!await askConfirm(`Cette action est irréversible.`, { title: `Supprimer définitivement la chaîne « ${channelName || channelId} » ?`, danger: true, confirmLabel: 'Supprimer' })) return;
     try {
       const res = await authFetch(`${API_BASE}/admin/channels/${channelId}`, { method: 'DELETE' });
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || "Suppression impossible.");
@@ -7402,7 +7872,7 @@ export default function App() {
 
   const deleteSelectedAdminLibraryImages = async (channelId, filenames) => {
     if (!filenames.length) return;
-    if (!window.confirm(`Supprimer définitivement ${filenames.length} image${filenames.length > 1 ? 's' : ''} ?`)) return;
+    if (!await askConfirm(`Cette action est irréversible.`, { title: `Supprimer définitivement ${filenames.length} image${filenames.length > 1 ? 's' : ''} ?`, danger: true, confirmLabel: 'Supprimer' })) return;
     try {
       const results = await Promise.all(filenames.map(filename =>
         authFetch(`${API_BASE}/admin/channel-library/${channelId}/images/${encodeURIComponent(filename)}`, { method: 'DELETE' })
@@ -7423,7 +7893,7 @@ export default function App() {
   // uploads (off-topic photos, low quality) polluted the niche's shared pool.
   const deleteUploadedAdminLibraryImages = async (folder, nicheName) => {
     const channelId = folder.channel_id;
-    if (!window.confirm(`Supprimer toutes les images UPLOADÉES de « ${folder.channel_name} » (les images générées par l'IA sont conservées) ?`)) return;
+    if (!await askConfirm(`Les images générées par l'IA sont conservées.`, { title: `Supprimer toutes les images uploadées de « ${folder.channel_name} » ?`, danger: true, confirmLabel: 'Supprimer' })) return;
     try {
       const res = await authFetch(`${API_BASE}/admin/channel-library/${channelId}/uploaded-images`, { method: 'DELETE' });
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || "Suppression impossible.");
@@ -7486,7 +7956,7 @@ export default function App() {
   };
 
   const deleteAdminVideo = async (videoId) => {
-    if (!window.confirm("Supprimer définitivement cette vidéo ?")) return;
+    if (!await askConfirm("Cette action est irréversible.", { title: "Supprimer définitivement cette vidéo ?", danger: true, confirmLabel: 'Supprimer' })) return;
     try {
       const res = await authFetch(`${API_BASE}/admin/videos/${videoId}`, { method: 'DELETE' });
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || 'Échec de la suppression');
@@ -7511,6 +7981,24 @@ export default function App() {
     }
   };
 
+  // Lets an admin open any creator's channel pipeline directly from one of
+  // its videos in the admin list — the exact same wizard the owner sees,
+  // fully editable (pause automation, change niche, anything) without
+  // needing their permission. Backend ownership checks across channels.py
+  // all allow this for current_user.is_admin.
+  const openAdminChannelPipeline = async (channelId) => {
+    if (!channelId) return;
+    try {
+      const res = await authFetch(`${API_BASE}/channels/${channelId}`);
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || 'Chaîne introuvable.');
+      const channel = await res.json();
+      openEditWizard(channel);
+      setWizardOpenedFromAdmin(true);
+    } catch (err) {
+      showToast(err.message || "Impossible d'ouvrir le pipeline de cette chaîne.", 'error');
+    }
+  };
+
   // Keep the admin list actions identical to the creator video menu. Actions
   // that need the full editor/modal open the same existing UI, while the
   // admin-specific detail/retry/delete handlers remain available here too.
@@ -7520,6 +8008,7 @@ export default function App() {
       <button onClick={(e) => { e.stopPropagation(); setAdminVideoMenuId(null); handleRegenerateCardThumbnail(vid, e); }} disabled={regeneratingCardThumbnailIds.has(vid.id)} className="w-full px-3 py-2 text-left text-xs font-medium text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 disabled:opacity-50"><span className="material-symbols-outlined text-[15px] text-[#00c2ff]">autorenew</span>{regeneratingCardThumbnailIds.has(vid.id) ? 'Régénération…' : 'Régénérer la miniature'}</button>
       <button onClick={(e) => { e.stopPropagation(); setAdminVideoMenuId(null); openThumbnailModal(vid, e); }} className="w-full px-3 py-2 text-left text-xs font-medium text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2"><span className="material-symbols-outlined text-[15px] text-[#00c2ff]">photo_library</span>Historique des miniatures</button>
       <button onClick={(e) => { e.stopPropagation(); setAdminVideoMenuId(null); openAdminVideoDetail(vid.id); }} className="w-full px-3 py-2 text-left text-xs font-medium text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2"><span className="material-symbols-outlined text-[15px] text-[#00c2ff]">movie_edit</span>Éditer la vidéo</button>
+      <button onClick={(e) => { e.stopPropagation(); setAdminVideoMenuId(null); openAdminChannelPipeline(vid.channel_id); }} className="w-full px-3 py-2 text-left text-xs font-medium text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2"><span className="material-symbols-outlined text-[15px] text-amber-400">settings_suggest</span>Gérer le pipeline de la chaîne</button>
       {vid.status === 'queued' && (
         <button onClick={(e) => { e.stopPropagation(); setAdminVideoMenuId(null); setAdminVideoPriority(vid.id, !vid.admin_priority); }} className="w-full px-3 py-2 text-left text-xs font-medium text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2">
           <span className={`material-symbols-outlined text-[15px] ${vid.admin_priority ? 'text-amber-400' : 'text-[#00c2ff]'}`}>bolt</span>
@@ -7528,7 +8017,7 @@ export default function App() {
       )}
       <button onClick={(e) => handleDownloadVideo(vid, e)} disabled={!vid.output_path} className="w-full px-3 py-2 text-left text-xs font-medium text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 disabled:opacity-40"><span className="material-symbols-outlined text-[15px] text-[#00c2ff]">download</span>Télécharger</button>
       <button onClick={(e) => openRetentionModal(vid, e)} className="w-full px-3 py-2 text-left text-xs font-medium text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2"><span className="material-symbols-outlined text-[15px] text-[#00c2ff]">schedule</span>Conserver plus longtemps</button>
-      <button onClick={(e) => handlePublishYouTube(vid, e)} disabled={vid.status !== 'done'} className="w-full px-3 py-2 text-left text-xs font-medium text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 disabled:opacity-40"><span className="material-symbols-outlined text-[15px] text-[#00c2ff]">smart_display</span>{vid.youtube_video_id ? 'Voir sur YouTube' : 'Publier sur YouTube'}</button>
+      <button onClick={(e) => handlePublishYouTube(vid, e)} disabled={vid.status !== 'done'} className="w-full px-3 py-2 text-left text-xs font-medium text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 disabled:opacity-40"><span className="material-symbols-outlined text-[15px] text-[#00c2ff]">smart_display</span>{vid.youtube_video_id ? 'Republier sur YouTube' : 'Publier sur YouTube'}</button>
       <button onClick={(e) => { e.stopPropagation(); setAdminVideoMenuId(null); setMovingVideoId(vid.id); }} className="w-full px-3 py-2 text-left text-xs font-medium text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2"><span className="material-symbols-outlined text-[15px] text-[#00c2ff]">drive_file_move</span>Déplacer vers…</button>
       <div className="my-1 h-px bg-[var(--border-dropdown)]" />
       <button onClick={(e) => { e.stopPropagation(); setAdminVideoMenuId(null); deleteAdminVideo(vid.id); }} className="w-full px-3 py-2 text-left text-xs font-medium text-rose-400 hover:bg-rose-950/50 flex items-center gap-2"><span className="material-symbols-outlined text-[15px]">delete</span>Supprimer</button>
@@ -7647,7 +8136,7 @@ export default function App() {
       if (!res.ok) throw new Error();
       const data = await res.json();
       setThumbnailProviderModeState(prev => ({ ...prev, order: data.order }));
-      const labels = { huggingface: 'Hugging Face', fal: 'fal.ai', izivoice: 'Izivoice' };
+      const labels = { huggingface: 'Hugging Face', fal: 'fal.ai', izivoice: 'Izivoice', gemini: 'Google Gemini' };
       showToast(nextOrder.includes(id) ? `${labels[id] || id} ajouté à la priorité.` : `${labels[id] || id} retiré de la priorité.`, 'success');
     } catch {
       showToast('Échec de la mise à jour.', 'error');
@@ -7787,7 +8276,7 @@ export default function App() {
   };
 
   const deleteHfAccount = async (id) => {
-    if (!window.confirm('Retirer ce compte Hugging Face ?')) return;
+    if (!await askConfirm('Le compte ne sera plus utilisé pour les générations.', { title: 'Retirer ce compte Hugging Face ?', danger: true, confirmLabel: 'Retirer' })) return;
     try {
       const res = await authFetch(`${API_BASE}/admin/hf-accounts/${id}`, { method: 'DELETE' });
       if (!res.ok) throw new Error();
@@ -8184,7 +8673,7 @@ export default function App() {
   };
 
   const handleDeleteClonedVoice = async (voiceId) => {
-    if (!window.confirm('Supprimer définitivement cette voix clonée ? Cette action est irréversible.')) return;
+    if (!await askConfirm('Cette action est irréversible.', { title: 'Supprimer définitivement cette voix clonée ?', danger: true, confirmLabel: 'Supprimer' })) return;
     try {
       const res = await authFetch(`${API_BASE}/channels/my-cloned-voices/${voiceId}`, { method: 'DELETE' });
       const body = await res.json().catch(() => ({}));
@@ -8286,7 +8775,20 @@ export default function App() {
   const [retryingVideoVisualsId, setRetryingVideoVisualsId] = useState(null);
   const handleRetryVideoVisuals = async (videoId) => {
     if (!videoId || retryingVideoVisualsId) return;
-    if (!window.confirm("Relancer uniquement le montage (images/vidéos) ? La voix off actuelle est conservée telle quelle.")) return;
+    const confirmed = await askConfirm(
+      "KappGen va rechercher de nouveaux visuels et reconstruire toutes les scènes de cette vidéo.",
+      {
+        title: 'Relancer le montage ?',
+        eyebrow: 'Nouveau rendu visuel',
+        icon: 'movie_edit',
+        confirmLabel: 'Relancer le montage',
+        details: [
+          { icon: 'graphic_eq', label: 'Voix off conservée', description: 'La narration et sa synchronisation ne seront pas modifiées.', tone: 'success' },
+          { icon: 'auto_awesome_motion', label: 'Visuels régénérés', description: 'Les images, vidéos Pexels et scènes seront reconstruits.', tone: 'info' },
+        ],
+      },
+    );
+    if (!confirmed) return;
     setRetryingVideoVisualsId(videoId);
     try {
       const res = await authFetch(`${API_BASE}/videos/${videoId}/retry-visuals`, { method: 'POST' });
@@ -8368,6 +8870,8 @@ export default function App() {
     if (e) e.stopPropagation();
     setOpenVideoMenuId(null);
     if (!vid.output_path) return;
+    // The general « Télécharger » action opens the export choices. Each
+    // format button in that dialog then starts its own direct download.
     setDownloadModalVideo(vid);
   };
 
@@ -8428,13 +8932,8 @@ export default function App() {
   const handlePublishYouTube = async (vid, e) => {
     if (e) e.stopPropagation();
     setOpenVideoMenuId(null);
-    if (vid.youtube_video_id) {
-      window.open(`https://youtu.be/${vid.youtube_video_id}`, '_blank', 'noopener,noreferrer');
-      return;
-    }
-    // Review step: the AI already proposed a ready-to-publish title (100
-    // chars max, YouTube's limit) and description right after the render
-    // finished — let the creator see and tweak them before anything goes live.
+    // A published video can intentionally be sent again; always open the
+    // title/description review instead of redirecting to the old YouTube URL.
     setPublishTitleDraft((vid.title || '').slice(0, 100));
     setPublishDescriptionDraft(vid.youtube_description || '');
     setPublishReviewMode('publish');
@@ -8442,14 +8941,7 @@ export default function App() {
     setYoutubeComplianceReport(null);
     setYoutubeComplianceConfirmed(false);
     setYoutubeComplianceDossier(null);
-    setYoutubeComplianceLoading(true);
-    try {
-      const res = await authFetch(`${API_BASE}/videos/${vid.id}/youtube/compliance`);
-      const report = await res.json();
-      if (res.ok) setYoutubeComplianceReport(report);
-    } finally {
-      setYoutubeComplianceLoading(false);
-    }
+    setYoutubeComplianceLoading(false);
   };
 
   const handleViewTrustScore = async (vid, e) => {
@@ -8567,8 +9059,11 @@ export default function App() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          confirm_human_review: youtubeComplianceConfirmed,
-          force_publish: youtubeComplianceReport?.status === 'red' && youtubeComplianceConfirmed,
+          // L'écran de publication ne montre plus le contrôle : le clic
+          // explicite sur « Publier » constitue l'autorisation de l'envoyer.
+          confirm_human_review: true,
+          force_publish: true,
+          republish: !!vid.youtube_video_id,
         }),
       });
       const body = await res.json().catch(() => ({}));
@@ -8622,11 +9117,6 @@ export default function App() {
     setDownloadingQuality(quality);
     const base = `kappgen-${(vid.title || vid.script_text || 'video').slice(0, 40).replace(/[^a-z0-9]+/gi, '-')}`;
     triggerFileDownload(`${API_BASE}/videos/${vid.id}/download?quality=${quality}`, `${base}-${quality}.mp4`);
-    // The creator asked for the thumbnail to come down alongside the video
-    // itself every time, not just as a separate manual step — a short delay
-    // avoids the two downloads racing/being coalesced by some browsers when
-    // fired in the exact same tick from one click.
-    setTimeout(() => triggerFileDownload(`${API_BASE}/videos/${vid.id}/thumbnail/download`, `${base}-thumbnail.jpg`), 400);
     setTimeout(() => {
       setDownloadingQuality(null);
       setDownloadModalVideo(null);
@@ -8636,6 +9126,7 @@ export default function App() {
   // KappGen Studio — post-render editor: swap a bad scene image without
   // redoing TTS/pacing/image-gen for the whole video.
   const [studioScenes, setStudioScenes] = useState([]);
+  const [studioSceneError, setStudioSceneError] = useState('');
   const [studioLoading, setStudioLoading] = useState(false);
   const [studioReplacingIndex, setStudioReplacingIndex] = useState(null);
   const [studioReassembling, setStudioReassembling] = useState(false);
@@ -8728,6 +9219,7 @@ export default function App() {
     setSelectedVideo(null);
     setStudioLoading(true);
     setStudioScenes([]);
+    setStudioSceneError('');
     setStudioSelectedIndex(null);
     setStudioTitleDraft(vid.title || '');
     setStudioEditingTitle(false);
@@ -8747,6 +9239,11 @@ export default function App() {
       if (Array.isArray(scenes)) setStudioFullScriptDraft(scenes.map(s => s.text || '').join('\n\n'));
     } catch (err) {
       console.error("Erreur chargement des scènes:", err);
+      // Le backend restaure automatiquement les fichiers d'édition archivés
+      // sur B2 avant de renvoyer cette erreur — si elle arrive quand même,
+      // c'est que la restauration a échoué (rien à restaurer, ou vidéo
+      // antérieure à l'archivage), pas un simple dépassement de délai.
+      setStudioSceneError(err.message || "Cette vidéo n'est plus éditable (fichiers sources introuvables, même dans l'archive).");
       setStudioScenes(null); // null = "not editable", distinct from [] = "loaded, no scenes"
     } finally {
       setStudioLoading(false);
@@ -9091,28 +9588,61 @@ export default function App() {
     setOpenVideoMenuId(null);
     setRegeneratingCardThumbnailIds(prev => new Set(prev).add(vid.id));
     try {
-      const res = await authFetch(`${API_BASE}/videos/${vid.id}/thumbnail/regenerate`, { method: 'POST' });
-      if (!res.ok) {
-        const detail = await res.json().catch(() => ({}));
-        throw new Error(detail.detail || "Échec de la régénération de la miniature.");
+      const statusUrl = `${API_BASE}/videos/${vid.id}/thumbnail/regenerate/status`;
+      const getRegenerationStatus = async () => {
+        const response = await authFetch(statusUrl, { timeoutMs: 12000 });
+        if (!response.ok) return null;
+        return response.json().catch(() => null);
+      };
+
+      let jobStarted = false;
+      try {
+        const res = await authFetch(`${API_BASE}/videos/${vid.id}/thumbnail/regenerate`, {
+          method: 'POST',
+          timeoutMs: 15000,
+        });
+        if (res.ok) {
+          jobStarted = true;
+        } else if (res.status === 409 && (await getRegenerationStatus())?.regenerating) {
+          // A previous click has already started this job. Treat the action as
+          // idempotent instead of showing an error to the user.
+          jobStarted = true;
+        } else {
+          const detail = await res.json().catch(() => ({}));
+          throw new Error(detail.detail || "Échec de la régénération de la miniature.");
+        }
+      } catch (requestError) {
+        // The server can accept the job just before a transient proxy/network
+        // disconnect. Confirm its state before reporting the request as failed.
+        if ((await getRegenerationStatus().catch(() => null))?.regenerating) {
+          jobStarted = true;
+        } else {
+          throw requestError;
+        }
       }
+
       // The endpoint only starts the job — the AI background-image call it
       // can trigger routinely takes well over a minute, longer than
       // Cloudflare's edge proxy holds a request open, which used to surface
       // here as a raw "Failed to fetch" once the connection got cut mid-
       // request. Poll the dedicated status endpoint instead of awaiting one
       // long response.
-      for (let attempt = 0; attempt < 40; attempt++) {
+      let completed = false;
+      for (let attempt = 0; jobStarted && attempt < 40; attempt++) {
         await new Promise(r => setTimeout(r, 3000));
-        const statusRes = await authFetch(`${API_BASE}/videos/${vid.id}/thumbnail/regenerate/status`);
-        if (!statusRes.ok) break;
-        const body = await statusRes.json().catch(() => ({}));
-        if (!body.regenerating) break;
+        const body = await getRegenerationStatus().catch(() => null);
+        if (body && !body.regenerating) {
+          completed = true;
+          break;
+        }
       }
       // thumbnail.jpg is overwritten in place — vid.finished_at doesn't change,
       // so the <img>/poster would keep serving the old cached file without this.
       setThumbnailBust(prev => ({ ...prev, [vid.id]: Date.now() }));
-      showToast('Miniature régénérée.', 'success');
+      showToast(
+        completed ? 'Miniature régénérée.' : 'Régénération lancée. Elle continue en arrière-plan.',
+        'success'
+      );
     } catch (err) {
       showToast(err.message, 'error');
     } finally {
@@ -9777,17 +10307,28 @@ export default function App() {
                     <h2 className="text-xl font-extrabold text-white">Mes Chaînes</h2>
                     <p className="text-xs text-slate-400 mt-1">Configurez l'identité, les sous-titres et les effets de vos chaînes automatiques.</p>
                   </div>
-                  {productChannels.length > 1 && (
-                    <select
-                      value={channelSortBy}
-                      onChange={e => setChannelSortBy(e.target.value)}
-                      className="bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-3 py-2 text-xs text-white focus:border-[#00c2ff] outline-none"
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => { setPipelineRedeemCode(''); setPipelineRedeemOpen(true); }}
+                      title="Importer le pipeline d'une chaîne qu'un autre créateur a partagé avec toi"
+                      className="bg-[var(--bg-surface-alt)] border border-[var(--border)] hover:border-slate-500 rounded-xl px-3 py-2 text-xs font-bold text-white transition-colors flex items-center gap-1.5"
                     >
-                      <option value="recent">Trier : récentes</option>
-                      <option value="most_used">Trier : plus utilisées</option>
-                      <option value="least_used">Trier : moins utilisées</option>
-                    </select>
-                  )}
+                      <span className="material-symbols-outlined text-[16px] text-[#00c2ff]">redeem</span>
+                      Importer un pipeline
+                    </button>
+                    {productChannels.length > 1 && (
+                      <select
+                        value={channelSortBy}
+                        onChange={e => setChannelSortBy(e.target.value)}
+                        className="bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-3 py-2 text-xs text-white focus:border-[#00c2ff] outline-none"
+                      >
+                        <option value="recent">Trier : récentes</option>
+                        <option value="most_used">Trier : plus utilisées</option>
+                        <option value="least_used">Trier : moins utilisées</option>
+                      </select>
+                    )}
+                  </div>
                 </div>
 
                 {!channelsLoaded ? (
@@ -9898,6 +10439,20 @@ export default function App() {
                                     Modifier la chaîne
                                   </button>
                                   <button
+                                    onClick={(e) => openDuplicateWizard(chan, e)}
+                                    className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium"
+                                  >
+                                    <span className="material-symbols-outlined text-[16px] text-[#00c2ff]">content_copy</span>
+                                    Réutiliser le pipeline
+                                  </button>
+                                  <button
+                                    onClick={(e) => handleSharePipeline(chan, e)}
+                                    className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium"
+                                  >
+                                    <span className="material-symbols-outlined text-[16px] text-[#00c2ff]">ios_share</span>
+                                    Partager le pipeline
+                                  </button>
+                                  <button
                                     onClick={(e) => handleToggleChannelActive(chan, e)}
                                     className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium"
                                   >
@@ -9952,20 +10507,24 @@ export default function App() {
 
             {/* VIEW 3: MES VIDÉOS (Videos Library View) */}
             {view === 'videos' && (
-              <div className="-ml-4 md:-ml-6">
+              <>
                 {/* Folder rail removed entirely per explicit request — no more
                     nested "sidebar within the sidebar". Videos are no longer
                     filterable by folder on this page; folder_id still exists
                     on Video (moveVideoToFolder / "Déplacer vers…" in the
-                    kebab menu is untouched) in case it's wanted back later. */}
-                <section className="flex-1 min-w-0 space-y-6">
+                    kebab menu is untouched) in case it's wanted back later.
+                    The negative margin this view used to carry (to butt up
+                    against the removed rail) is gone too — it had nothing
+                    left to compensate for and was shoving the whole page off
+                    its normal alignment on mobile, unlike every other tab. */}
+                <section className="space-y-6">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                   <div>
                     <h2 className="text-xl font-extrabold text-white">Mes Vidéos</h2>
                     <p className="text-xs text-slate-400 mt-1">Historique de tous les sujets de vidéos rendus ou en cours de traitement.</p>
                   </div>
 
-                  <div className="flex items-center gap-3">
+                  <div className="flex flex-wrap items-center gap-3">
                     {/* Channel Filter Selector — custom dropdown (not a native
                         <select>) so the checkmark on the active item sits
                         inside our own styled panel instead of wherever the
@@ -10313,7 +10872,7 @@ export default function App() {
                                   {vid.status === 'done' && (
                                     <button disabled={publishingVideoId === vid.id} onClick={(e) => handlePublishYouTube(vid, e)} className="w-full text-left px-3 py-1.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium disabled:opacity-50">
                                       <span className="material-symbols-outlined text-[14px] text-[#00c2ff]">{vid.youtube_video_id ? 'open_in_new' : 'smart_display'}</span>
-                                      {vid.youtube_video_id ? 'Voir sur YouTube' : publishingVideoId === vid.id ? 'Publication…' : 'Publier sur YouTube'}
+                                      {vid.youtube_video_id ? 'Republier sur YouTube' : publishingVideoId === vid.id ? 'Publication…' : 'Publier sur YouTube'}
                                     </button>
                                   )}
                                   {vid.status === 'done' && vid.youtube_video_id && (
@@ -10406,7 +10965,7 @@ export default function App() {
                 )}
 
               </section>
-              </div>
+              </>
             )}
 
             {/* VIEW 3.5: BIBLIOTHÈQUE (uploaded images + music per channel, with delete) */}
@@ -10865,14 +11424,15 @@ export default function App() {
                             directory="true"
                             multiple
                             onChange={(e) => {
-                              const files = Array.from(e.target.files).filter(f =>
-                                LOCAL_IMAGE_EXTENSIONS_RE.test(f.name)
-                              );
+                              const allFiles = Array.from(e.target.files);
+                              const files = allFiles.filter(f => LOCAL_IMAGE_EXTENSIONS_RE.test(f.name));
+                              const videoFiles = allFiles.filter(f => LOCAL_VIDEO_EXTENSIONS_RE.test(f.name));
                               if (files.length > 0) {
                                 const firstPath = files[0].webkitRelativePath || '';
                                 const folderName = firstPath ? firstPath.split('/')[0] : 'Dossier Images';
                                 prepareLocalImageFiles(files, folderName, activeChannel.id);
                               }
+                              uploadLocalVideoFiles(videoFiles, activeChannel.id);
                               setLibrarySyncing(false);
                             }}
                             className="hidden"
@@ -11277,7 +11837,7 @@ export default function App() {
                                 {vid.status === 'done' && (
                                   <button disabled={publishingVideoId === vid.id} onClick={(e) => handlePublishYouTube(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium disabled:opacity-50">
                                     <span className="material-symbols-outlined text-[16px] text-[#00c2ff]">{vid.youtube_video_id ? 'open_in_new' : 'smart_display'}</span>
-                                    {vid.youtube_video_id ? 'Voir sur YouTube' : publishingVideoId === vid.id ? 'Publication…' : 'Publier sur YouTube'}
+                                    {vid.youtube_video_id ? 'Republier sur YouTube' : publishingVideoId === vid.id ? 'Publication…' : 'Publier sur YouTube'}
                                   </button>
                                 )}
                                 {vid.status === 'done' && vid.youtube_video_id && (
@@ -11378,10 +11938,10 @@ export default function App() {
               <MusicChannelWizard
                 authFetch={authFetch}
                 showToast={showToast}
-                onBack={() => setView('channels')}
+                onBack={() => setView(wizardOpenedFromAdmin ? 'admin' : 'channels')}
                 onCreated={(channel) => {
                   setChannels(prev => [channel, ...prev]);
-                  setView('channels');
+                  setView(wizardOpenedFromAdmin ? 'admin' : 'channels');
                 }}
               />
             )}
@@ -11400,7 +11960,7 @@ export default function App() {
                     <p className="text-xs text-slate-400 mt-1">Étape {wizardStep} sur 9</p>
                   </div>
                   <button
-                    onClick={() => setView(wizardMode === 'edit' && editingChannelId ? 'channel_detail' : 'channels')}
+                    onClick={() => setView(wizardOpenedFromAdmin ? 'admin' : (wizardMode === 'edit' && editingChannelId ? 'channel_detail' : 'channels'))}
                     className="text-slate-400 hover:text-white p-2 shrink-0"
                   >
                     <span className="material-symbols-outlined">close</span>
@@ -11599,7 +12159,7 @@ export default function App() {
                           ) : (
                             <div className="space-y-2.5">
                               {(newChannel.branding.overlays || []).map(ov => {
-                                const ovSize = ov.size_percent ?? 12;
+                                const ovSize = ov.size_percent ?? 10;
                                 const xy = presetXY(ov.corner, ovSize);
                                 const xPercent = ov.x_percent ?? xy.x;
                                 const yPercent = ov.y_percent ?? xy.y;
@@ -11714,11 +12274,11 @@ export default function App() {
                               src={getVideoUrl(ov.image_path)}
                               alt=""
                               className="absolute object-contain drop-shadow-lg"
-                              style={{
-                                width: `${ov.size_percent || 12}%`,
+                                style={{
+                                  width: `${ov.size_percent || 10}%`,
                                 ...overlayPositionStyle(
-                                  ov.x_percent ?? presetXY(ov.corner, ov.size_percent ?? 12).x,
-                                  ov.y_percent ?? presetXY(ov.corner, ov.size_percent ?? 12).y
+                                  ov.x_percent ?? presetXY(ov.corner, ov.size_percent ?? 10).x,
+                                  ov.y_percent ?? presetXY(ov.corner, ov.size_percent ?? 10).y
                                 ),
                                 ...shapeClipStyle(ov.shape),
                               }}
@@ -11743,13 +12303,13 @@ export default function App() {
 
                     <div>
                       <label className="block text-xs font-bold text-slate-300 mb-2">Niche de contenu</label>
-                      <div className="flex flex-wrap gap-2">
+                      <div className="flex flex-wrap gap-x-2 gap-y-3">
                         {nicheOptions.map(n => (
                           <button
                             key={n}
                             type="button"
                             onClick={() => setNewChannel({ ...newChannel, niche: n })}
-                            className={`px-3.5 py-2 rounded-xl text-xs font-bold border transition-colors ${
+                            className={`shrink-0 px-3.5 py-2 rounded-xl text-xs font-bold border transition-colors ${
                               newChannel.niche === n
                                 ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]'
                                 : 'bg-[var(--bg-surface-alt)] border-[var(--border)] text-slate-300 hover:border-slate-500'
@@ -11762,7 +12322,7 @@ export default function App() {
                       <input
                         value={newChannel.niche}
                         onChange={e => setNewChannel({ ...newChannel, niche: e.target.value })}
-                        className="w-full mt-2 bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-3 py-2 text-xs text-white focus:border-[#00c2ff] outline-none"
+                        className="w-full mt-4 bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-3 py-2 text-xs text-white focus:border-[#00c2ff] outline-none"
                         placeholder="Écris ta propre niche..."
                       />
                     </div>
@@ -12199,8 +12759,11 @@ export default function App() {
                   // manually, so keep treating those as "manual".
                   const imageCountMode = newChannel.image_style.image_count_mode ?? (newChannel.image_style.max_unique_images ? 'manual' : 'auto');
 
-                  const hasStoredLibrary = Number(newChannel.image_style.library_image_count || 0) > 0
-                    && String(newChannel.image_style.library_path || '').startsWith('channels/');
+                  // The staging upload returns its image count before the
+                  // channel is saved and may not have a library_path yet.
+                  // The count is still authoritative: keep the confirmation
+                  // visible instead of reverting to an empty dropzone.
+                  const hasStoredLibrary = Number(newChannel.image_style.library_image_count || 0) > 0;
 
                   return (
                     <div className="flex flex-col space-y-6">
@@ -12210,7 +12773,7 @@ export default function App() {
 
                       <div className="rounded-2xl border border-violet-500/20 bg-violet-500/[.05] p-4 order-2">
                         <h4 className="text-xs font-bold text-white">2. Mode de montage</h4>
-                        <p className="mt-1 text-[10px] text-slate-400">Choisis comment les images et les vidéos B-roll importées doivent être utilisés.</p>
+                        <p className="mt-1 text-[10px] text-slate-400">Choisis la composition du montage. En mode mixte ou vidéo, KappGen complète automatiquement tes médias avec des séquences Pexels.</p>
                         <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
                           {[['images', 'Images uniquement', 'image'], ['videos', 'Vidéos B-roll uniquement', 'movie'], ['mixed', 'Mix images + vidéos', 'perm_media']].map(([value, label, icon]) => (
                             <button type="button" key={value} onClick={() => setNewChannel({ ...newChannel, image_style: { ...newChannel.image_style, media_mode: value } })} className={`flex items-center gap-2 rounded-xl border px-3 py-2.5 text-left text-[10px] font-bold transition ${newChannel.image_style.media_mode === value ? 'border-violet-400 bg-violet-500/20 text-white' : 'border-white/10 bg-black/10 text-slate-400 hover:border-violet-400/50'}`}>
@@ -12218,12 +12781,27 @@ export default function App() {
                             </button>
                           ))}
                         </div>
-                        {/* Option C (community + Pexels) supplies real stock B-roll
-                            clips automatically for every scene — this warning only
-                            applies when NEITHER a local library NOR that option is
-                            in play, since otherwise there's nothing actually missing. */}
-                        {newChannel.image_style.media_mode === 'videos' && !isCommunityChecked && !hasStoredLibrary && (
-                          <p className="mt-2 text-[10px] text-amber-300">Ce mode nécessite au moins un clip B-roll importé dans la Bibliothèque, ou l'Option C (banque de stock Pexels) cochée ci-dessous.</p>
+                        {newChannel.image_style.media_mode === 'mixed' && (
+                          <p className="mt-2 text-[10px] text-violet-200">Le rythme images/vidéos s’adapte automatiquement à la niche. Tes B-roll sont prioritaires et Pexels complète les scènes animées restantes.</p>
+                        )}
+                        {newChannel.image_style.media_mode === 'videos' && (
+                          <p className="mt-2 text-[10px] text-violet-200">Tes B-roll sont utilisés lorsqu’ils existent. Sans vidéo importée, toutes les scènes sont recherchées automatiquement sur Pexels.</p>
+                        )}
+                        {(newChannel.image_style.media_mode === 'videos' || newChannel.image_style.media_mode === 'mixed') && (
+                          <label className="mt-3 flex cursor-pointer items-start gap-2.5 rounded-xl border border-white/10 bg-black/10 px-3 py-2.5">
+                            <input
+                              type="checkbox"
+                              checked={!!newChannel.image_style.broll_shuffle}
+                              onChange={() => setNewChannel({ ...newChannel, image_style: { ...newChannel.image_style, broll_shuffle: !newChannel.image_style.broll_shuffle } })}
+                              className="kappgen-checkbox shrink-0 mt-0.5"
+                            />
+                            <span>
+                              <span className="block text-[10px] font-bold text-white">Remixer mes B-roll (déjà publiés ailleurs)</span>
+                              <span className="block text-[10px] text-slate-400 mt-0.5">
+                                Chaque scène pioche un extrait à un point aléatoire de la vidéo au lieu de la rejouer du début à la fin — ordre différent à chaque rendu, plus un léger zoom pour ne pas ressembler à une simple reprise.
+                              </span>
+                            </span>
+                          </label>
                         )}
                       </div>
 
@@ -12303,7 +12881,7 @@ export default function App() {
                             )}
                             {localImageFiles.length === 0 && !libraryUploadStatus && hasStoredLibrary && (
                               <div className="mt-3 px-3 py-2 bg-emerald-950/60 border border-emerald-700/60 text-emerald-300 rounded-lg text-[10px] font-bold">
-                                ✓ {newChannel.image_style.library_image_count} images déjà enregistrées sur le serveur — pas besoin de réimporter, choisis un dossier seulement pour remplacer.
+                                ✓ {newChannel.image_style.library_image_count} images déjà enregistrées sur le serveur — dossier présent et prêt. Choisis un autre dossier seulement pour remplacer.
                               </div>
                             )}
                             {libraryUploadStatus && (
@@ -12341,18 +12919,47 @@ export default function App() {
                                 )}
                               </div>
                             )}
+                            {/* A dropped/picked folder can also contain B-roll video clips
+                                (see uploadLocalVideoFiles) — real upload-progress bar (not
+                                just a spinner) so a large video visibly advances instead of
+                                reading as stuck. */}
+                            {libraryUploadingId === `${wizardMode === 'edit' ? editingChannelId : null}:broll` && (
+                              <div className="mt-3 p-3 rounded-xl border text-left bg-[#081c2a] border-[#00c2ff]/40 space-y-2">
+                                <div className="flex items-center justify-between gap-3">
+                                  <div className="flex items-center gap-1.5 text-[10px] font-bold text-[#00c2ff]">
+                                    <span className="material-symbols-outlined text-[15px] animate-spin">progress_activity</span>
+                                    Envoi des vidéos B-roll…
+                                  </div>
+                                  <span className="text-xs font-mono font-black text-white">{brollUploadProgress}%</span>
+                                </div>
+                                <div className="h-2.5 bg-slate-900 rounded-full overflow-hidden border border-slate-700/60">
+                                  <div className="h-full rounded-full bg-[#00c2ff] transition-all duration-300" style={{ width: `${brollUploadProgress}%` }} />
+                                </div>
+                              </div>
+                            )}
+                            {!!brollUploadMessage && (
+                              <div className="mt-3 px-3 py-2 rounded-xl border border-emerald-700/60 bg-emerald-950/60 text-[10px] font-bold text-emerald-300">
+                                {brollUploadMessage}
+                              </div>
+                            )}
                           </div>
-                          {isOptionAChecked && (
-                            <label className="flex cursor-pointer items-center gap-2 text-[10px] text-slate-400" onClick={(e) => e.stopPropagation()}>
-                              <input
-                                type="checkbox"
-                                checked={!!newChannel.image_style.share_with_community}
-                                onChange={() => setNewChannel({ ...newChannel, image_style: { ...newChannel.image_style, share_with_community: !newChannel.image_style.share_with_community } })}
-                                className="kappgen-checkbox shrink-0"
-                              />
-                              Partager avec la communauté
-                            </label>
-                          )}
+                          {/* Always mounted (not conditional on isOptionAChecked) so the
+                              card's height/dropzone position never shifts depending on
+                              whether Option A is currently selected — just dimmed and
+                              inert instead of appearing/disappearing. */}
+                          <label
+                            className={`flex items-center gap-2 text-[10px] text-slate-400 transition-opacity ${isOptionAChecked ? 'cursor-pointer' : 'opacity-40 pointer-events-none'}`}
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={!!newChannel.image_style.share_with_community}
+                              onChange={() => setNewChannel({ ...newChannel, image_style: { ...newChannel.image_style, share_with_community: !newChannel.image_style.share_with_community } })}
+                              disabled={!isOptionAChecked}
+                              className="kappgen-checkbox shrink-0"
+                            />
+                            Partager avec la communauté
+                          </label>
                         </div>
 
                         {/* OPTION B: GÉNÉRATION IA AUTOMATIQUE */}
@@ -12371,7 +12978,6 @@ export default function App() {
                               <div className="flex items-center gap-2.5">
                                 <span className="material-symbols-outlined text-[#00c2ff] text-[24px]">auto_awesome</span>
                                 <h4 className="font-bold text-white text-xs">Option B: Génération IA Automatique</h4>
-                                <span className="shrink-0 text-[9px] font-extrabold uppercase tracking-wide px-1.5 py-0.5 rounded bg-gradient-to-r from-[#00c2ff] to-[#0088ff] text-slate-950">Pro</span>
                               </div>
                               <input
                                 type="checkbox"
@@ -12445,9 +13051,10 @@ export default function App() {
                       {(() => {
                         const nicheSet = (newChannel.niche || '').trim();
                         const available = communityLibraryAvailability?.available;
-                        // Free Pexels stock (video + photos) rides along with this
-                        // option, so it stays usable even before a niche has its
-                        // own shared pool — the niche itself is all that's required.
+                        // This option controls shared still-image pools. Pexels
+                        // motion footage is controlled by the montage mode above,
+                        // so mixed/video projects remain viable without coupling
+                        // two otherwise independent creator choices.
                         const disabled = !nicheSet;
                         return (
                           <div
@@ -12466,8 +13073,8 @@ export default function App() {
                                   {!nicheSet
                                     ? "Choisis d'abord une niche (étape 1)."
                                     : available
-                                      ? "Images partagées de ta niche (gratuites) + vraies séquences vidéo et photos de stock cherchées automatiquement pour chaque scène (100 crédits par séquence/photo utilisée)."
-                                      : `Pas encore de bibliothèque partagée pour « ${nicheSet} », mais les séquences vidéo et photos de stock sont cherchées automatiquement pour chaque scène (100 crédits par séquence/photo utilisée).`}
+                                      ? "Images partagées et vérifiées de ta niche, utilisées gratuitement dans les scènes prévues en image."
+                                      : `La bibliothèque de « ${nicheSet} » est encore vide. Les autres sources cochées prendront automatiquement le relais.`}
                                 </p>
                               </div>
                               <input
@@ -12942,7 +13549,7 @@ export default function App() {
                       />
                     </div>
 
-                    <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-surface-soft)] p-4 space-y-4">
+                    <div className="hidden rounded-2xl border border-[var(--border)] bg-[var(--bg-surface-soft)] p-4 space-y-4">
                       <div>
                         <h4 className="text-xs font-extrabold text-white flex items-center gap-2">
                           <span className="material-symbols-outlined text-[#00c2ff] text-[18px]">graphic_eq</span>
@@ -13560,7 +14167,7 @@ export default function App() {
                                 }}>
                                   Dans ce mode, un paragraphe complet reste affiché suffisamment longtemps pour être lu confortablement. Il est ensuite remplacé par le paragraphe suivant, sans animation mot par mot.
                                 </p>
-                              ) : sampleWords.map((wordObj, i) => {
+                              ) : sampleWords.slice(0, Math.max(1, newChannel.subtitle_style.words_per_line || 6)).map((wordObj, i) => {
                                 const highlightMode = newChannel.subtitle_style.highlight_mode || (newChannel.subtitle_style.karaoke === false ? 'line' : 'word');
                                 const isColored = highlightMode === 'line' || (highlightMode === 'word' && wordObj.highlight);
                                 const displayText = applySubtitleCase(wordObj.text, newChannel.subtitle_style.text_case);
@@ -13605,19 +14212,57 @@ export default function App() {
                   const toggleOverlayEffect = (id) => {
                     const next = overlayEffects.includes(id) ? overlayEffects.filter(e => e !== id) : [...overlayEffects, id];
                     setNewChannel({ ...newChannel, effects_config: { ...newChannel.effects_config, overlay_effects: next } });
+                    setSelectedVisualEffect(next.includes(id) ? id : (selectedVisualEffect === id ? '' : selectedVisualEffect));
                   };
+                  const effectSettings = newChannel.effects_config.effect_settings || {};
+                  // Existing channels often arrive with effects already enabled
+                  // but no transient UI selection. Focus the first active one so
+                  // the inspector below the preview is never blank on open.
+                  const focusedEffectId = overlayEffects.includes(selectedVisualEffect)
+                    ? selectedVisualEffect
+                    : (overlayEffects[0] || '');
+                  const selectedEffectSettings = effectSettings[focusedEffectId] || {};
+                  const setSelectedEffectSetting = (key, value) => setNewChannel({
+                    ...newChannel,
+                    effects_config: {
+                      ...newChannel.effects_config,
+                      effect_settings: {
+                        ...effectSettings,
+                        [focusedEffectId]: { ...selectedEffectSettings, [key]: value },
+                      },
+                    },
+                  });
                   const hasGrain = overlayEffects.includes('grain') || overlayEffects.includes('white_noise');
                   const hasVignette = overlayEffects.includes('vignette');
-                  const grainIntensity = (newChannel.effects_config.grain_intensity ?? 50) / 100;
-                  const vignetteIntensity = (newChannel.effects_config.vignette_intensity ?? 50) / 100;
-                  const particleIntensity = (newChannel.effects_config.particle_intensity ?? 50) / 100;
+                  const effectIntensity = (id, legacy = 50) => (
+                    ((effectSettings[id]?.intensity ?? legacy) / 100) * ((effectSettings[id]?.opacity ?? 100) / 100)
+                  );
+                  const grainIntensity = effectIntensity('grain', newChannel.effects_config.grain_intensity ?? 50);
+                  const whiteNoiseIntensity = effectIntensity('white_noise', newChannel.effects_config.grain_intensity ?? 50);
+                  const vignetteIntensity = effectIntensity('vignette', newChannel.effects_config.vignette_intensity ?? 50);
+                  const particlePreview = (id) => {
+                    const settings = effectSettings[id] || {};
+                    const density = settings.density ?? newChannel.effects_config.particle_density ?? 50;
+                    const size = settings.size ?? newChannel.effects_config.particle_size ?? 50;
+                    const speed = settings.speed ?? newChannel.effects_config.particle_speed ?? 50;
+                    const dispersion = settings.dispersion ?? newChannel.effects_config.particle_dispersion ?? 50;
+                    return {
+                      intensity: effectIntensity(id, newChannel.effects_config.particle_intensity ?? 50), density,
+                      scale: 0.78 + (size / 100) * 0.55,
+                      duration: `${(12 - (speed / 100) * 8).toFixed(1)}s`,
+                      offset: `${Math.round((dispersion - 50) / 7)}px`,
+                    };
+                  };
+                  const starsPreview = particlePreview('stars');
+                  const dustPreview = particlePreview('dust');
+                  const snowPreview = particlePreview('snow');
+                  const rainPreview = particlePreview('rain');
+                  const sparksPreview = particlePreview('sparks');
                   const hasChromaticAberration = overlayEffects.includes('chromatic_aberration');
                   const hasOldFilm = overlayEffects.includes('old_film');
                   const hasFlicker = overlayEffects.includes('flicker');
                   const hasSoftFocus = overlayEffects.includes('soft_focus');
                   const hasSharpen = overlayEffects.includes('sharpen');
-                  const atmosphericEffects = ['stars', 'dust', 'snow', 'rain', 'fog', 'sparks'];
-                  const hasAtmosphere = atmosphericEffects.some(id => overlayEffects.includes(id));
                   const effectGroups = [
                     { title: 'Particules & météo', icon: 'weather_mix', effects: [
                       { id: 'stars', label: 'Étoiles', icon: 'star' },
@@ -13648,6 +14293,25 @@ export default function App() {
                       { id: 'vhs_glitch', label: 'VHS / Glitch', icon: 'broken_image' },
                     ]},
                   ];
+                  const selectedEffect = effectGroups.flatMap(group => group.effects).find(effect => effect.id === focusedEffectId);
+                  const particleEffectIds = ['stars', 'dust', 'snow', 'rain', 'sparks'];
+                  const effectControls = selectedEffect ? (
+                    particleEffectIds.includes(selectedEffect.id)
+                      ? [
+                        { key: 'intensity', label: 'Présence', hint: 'Visibilité dans l’image' },
+                        { key: 'density', label: 'Densité', hint: 'Nombre de particules' },
+                        { key: 'size', label: 'Taille', hint: 'Lointaines ou proches' },
+                        { key: 'speed', label: 'Vitesse', hint: 'Mouvement subtil ou soutenu' },
+                        { key: 'dispersion', label: 'Dispersion', hint: 'Répartition dans le cadre' },
+                        { key: 'turbulence', label: 'Turbulence', hint: 'Dérive organique et vent' },
+                        { key: 'softness', label: 'Profondeur de champ', hint: 'Particules nettes ou bokeh' },
+                      ]
+                      : selectedEffect.id === 'fog'
+                        ? [{ key: 'intensity', label: 'Densité du brouillard', hint: 'Voile atmosphérique' }]
+                        : selectedEffect.id === 'vignette'
+                          ? [{ key: 'intensity', label: 'Assombrissement des bords', hint: 'Force de la vignette' }]
+                          : [{ key: 'intensity', label: 'Intensité', hint: 'Force de l’effet' }]
+                  ) : [];
 
                   const colorGradeFilter = ({
                     warm: 'saturate(1.25) sepia(0.12) brightness(1.05)',
@@ -13736,6 +14400,12 @@ export default function App() {
                                         <span className="flex items-center gap-2">
                                           <span className="material-symbols-outlined text-[19px]">{overlayEffects.includes(id) ? 'check_circle' : icon}</span>
                                           <span className="text-[10px] font-bold leading-tight">{label}</span>
+                                          {overlayEffects.includes(id) && (
+                                            <span role="button" tabIndex={0} title={`Régler ${label}`}
+                                              onClick={e => { e.stopPropagation(); setSelectedVisualEffect(id); }}
+                                              onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); setSelectedVisualEffect(id); } }}
+                                              className="material-symbols-outlined ml-auto rounded-md p-1 text-[15px] text-[#65d7ff] hover:bg-[#00c2ff]/20">tune</span>
+                                          )}
                                         </span>
                                       </button>
                                     ))}
@@ -13745,49 +14415,18 @@ export default function App() {
                             </div>
                           </div>
 
-                          {(hasGrain || hasVignette || hasAtmosphere) && (
-                            <div className="pt-2 border-t border-[var(--border-soft)] space-y-4">
-                              <label className="block text-xs font-bold text-[#00c2ff]">Intensité</label>
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                {hasGrain && (
-                                  <div>
-                                    <label className="block text-[11px] font-bold text-slate-300 mb-2">
-                                      Grain / Bruit ({newChannel.effects_config.grain_intensity ?? 50}%)
-                                    </label>
-                                    <input
-                                      type="range"
-                                      min="0"
-                                      max="100"
-                                      value={newChannel.effects_config.grain_intensity ?? 50}
-                                      onChange={e => setNewChannel({ ...newChannel, effects_config: { ...newChannel.effects_config, grain_intensity: parseInt(e.target.value) } })}
-                                      className="w-full accent-[#00c2ff]"
-                                    />
-                                  </div>
-                                )}
-                                {hasVignette && (
-                                  <div>
-                                    <label className="block text-[11px] font-bold text-slate-300 mb-2">
-                                      Assombrissement des bords ({newChannel.effects_config.vignette_intensity ?? 50}%)
-                                    </label>
-                                    <input
-                                      type="range"
-                                      min="0"
-                                      max="100"
-                                      value={newChannel.effects_config.vignette_intensity ?? 50}
-                                      onChange={e => setNewChannel({ ...newChannel, effects_config: { ...newChannel.effects_config, vignette_intensity: parseInt(e.target.value) } })}
-                                      className="w-full accent-[#00c2ff]"
-                                    />
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          )}
-
                         </div>
 
                         <div className="lg:sticky lg:top-4">
-                          <label className="block text-xs font-bold text-slate-300 mb-2">Aperçu des effets</label>
-                          <div className="relative aspect-video rounded-2xl overflow-hidden border-2 border-[var(--border)] bg-[var(--bg-input-alt)]">
+                          <div className="mb-2 flex items-center justify-between gap-2">
+                            <label className="block text-xs font-bold text-slate-300">Aperçu des effets</label>
+                            <button type="button" onClick={() => setEffectsPreviewPlaying(value => !value)}
+                              className="inline-flex items-center gap-1 rounded-md border border-[#00c2ff]/35 bg-[#00c2ff]/10 px-2 py-1 text-[9px] font-bold text-[#65d7ff] hover:bg-[#00c2ff]/20">
+                              <span className="material-symbols-outlined text-[13px]">{effectsPreviewPlaying ? 'pause' : 'play_arrow'}</span>
+                              {effectsPreviewPlaying ? 'En direct' : 'Aperçu figé'}
+                            </button>
+                          </div>
+                          <div className={`relative aspect-video rounded-2xl overflow-hidden border-2 border-[var(--border)] bg-[var(--bg-input-alt)] ${effectsPreviewPlaying ? '' : 'effect-preview-paused'}`}>
                             {previewImgSrc ? (
                               // A real project image (library-preview) can 404 when the channel
                               // has no uploaded library yet (e.g. AI-generated-only channels) —
@@ -13802,6 +14441,7 @@ export default function App() {
                             {isStablePreview && (
                               <span className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-black/50 text-[9px] font-bold text-slate-300 backdrop-blur-sm">Image de démonstration</span>
                             )}
+                            <LiveParticlePreview effects={overlayEffects} settings={effectSettings} playing={effectsPreviewPlaying} />
                             {hasChromaticAberration && (
                               <>
                                 <img src={previewImgSrc} alt="" aria-hidden className="absolute inset-0 w-full h-full object-cover mix-blend-screen opacity-60" style={{ filter: 'brightness(0.6) sepia(1) saturate(6) hue-rotate(-50deg)', transform: 'translateX(-2px)' }} onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = STABLE_EFFECT_PREVIEW_IMAGES[0]; }} />
@@ -13810,15 +14450,15 @@ export default function App() {
                             )}
                             {(hasGrain || hasOldFilm) && (
                               <div
-                                className="absolute inset-0 mix-blend-overlay"
+                                className="effect-preview-grain absolute inset-0 mix-blend-overlay"
                                 style={{
-                                  opacity: hasOldFilm ? 0.4 : (overlayEffects.includes('white_noise') && !overlayEffects.includes('grain') ? 0.6 : 0.3) * grainIntensity,
+                                  opacity: hasOldFilm ? 0.4 : (overlayEffects.includes('white_noise') && !overlayEffects.includes('grain') ? 0.72 * whiteNoiseIntensity : 0.42 * grainIntensity),
                                   backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")"
                                 }}
                               />
                             )}
                             {(hasVignette || hasOldFilm) && (
-                              <div className="absolute inset-0" style={{ boxShadow: hasOldFilm ? 'inset 0 0 50px 15px rgba(0,0,0,0.75)' : `inset 0 0 ${60 * vignetteIntensity}px ${20 * vignetteIntensity}px rgba(0,0,0,0.8)` }} />
+                              <div className="absolute inset-0" style={{ opacity: hasOldFilm ? 1 : vignetteIntensity, boxShadow: hasOldFilm ? 'inset 0 0 50px 15px rgba(0,0,0,0.75)' : `inset 0 0 ${45 + 75 * vignetteIntensity}px ${12 + 42 * vignetteIntensity}px rgba(0,0,0,0.9)` }} />
                             )}
                             {hasOldFilm && (
                               <div className="absolute inset-0" style={{ backgroundColor: 'rgba(120,90,40,0.15)', mixBlendMode: 'multiply' }} />
@@ -13826,56 +14466,109 @@ export default function App() {
                             {hasFlicker && (
                               <div className="absolute inset-0 bg-white animate-pulse" style={{ opacity: 0.06 }} />
                             )}
-                            {overlayEffects.includes('stars') && (
-                              <div className="effect-preview-stars absolute inset-[-10%] mix-blend-screen" style={{ opacity: 0.25 + particleIntensity * 0.65, backgroundImage: 'radial-gradient(circle at 12% 18%, white 0 1px, transparent 2px), radial-gradient(circle at 72% 24%, #dff6ff 0 1.5px, transparent 2.5px), radial-gradient(circle at 42% 68%, white 0 1px, transparent 2px), radial-gradient(circle at 88% 76%, #fff6cc 0 1.5px, transparent 2.5px)', backgroundSize: '90px 75px, 130px 105px, 70px 95px, 160px 125px' }} />
+                            {false && overlayEffects.includes('stars') && (
+                              <div className="effect-preview-stars absolute inset-[-10%] mix-blend-screen" style={{ opacity: 0.05 + starsPreview.intensity * (0.2 + starsPreview.density / 120), animationDuration: starsPreview.duration, backgroundImage: 'radial-gradient(circle at 12% 18%, white 0 1px, transparent 2px), radial-gradient(circle at 72% 24%, #dff6ff 0 1.5px, transparent 2.5px), radial-gradient(circle at 42% 68%, white 0 1px, transparent 2px), radial-gradient(circle at 88% 76%, #fff6cc 0 1.5px, transparent 2.5px)', backgroundSize: `${90 * starsPreview.scale}px ${75 * starsPreview.scale}px, ${130 * starsPreview.scale}px ${105 * starsPreview.scale}px, ${70 * starsPreview.scale}px ${95 * starsPreview.scale}px, ${160 * starsPreview.scale}px ${125 * starsPreview.scale}px`, backgroundPosition: `${starsPreview.offset} 0, 0 ${starsPreview.offset}, ${starsPreview.offset} ${starsPreview.offset}, 0 0` }} />
                             )}
-                            {overlayEffects.includes('dust') && (
+                            {false && overlayEffects.includes('dust') && (
                               <>
-                                <div className="effect-preview-dust-near absolute inset-[-20%] mix-blend-screen" style={{ opacity: 0.12 + particleIntensity * 0.32, backgroundImage: 'radial-gradient(circle, rgba(255,225,170,.9) 0 1px, transparent 3px)', backgroundSize: '47px 63px', filter: 'blur(.7px)' }} />
-                                <div className="effect-preview-dust-far absolute inset-[-20%] mix-blend-screen" style={{ opacity: 0.1 + particleIntensity * 0.2, backgroundImage: 'radial-gradient(circle, rgba(255,240,205,.75) 0 .6px, transparent 2px)', backgroundSize: '29px 37px', filter: 'blur(.2px)' }} />
+                                <div className="effect-preview-dust-near absolute inset-[-20%] mix-blend-screen" style={{ opacity: 0.03 + dustPreview.intensity * (0.12 + dustPreview.density / 220), animationDuration: dustPreview.duration, backgroundImage: 'radial-gradient(circle at 7% 18%, rgba(255,225,170,.9) 0 2.4px, transparent 3.4px), radial-gradient(circle at 19% 71%, rgba(255,225,170,.75) 0 1.1px, transparent 2.2px), radial-gradient(circle at 28% 33%, rgba(255,225,170,.9) 0 1.8px, transparent 3px), radial-gradient(circle at 43% 81%, rgba(255,225,170,.7) 0 2.8px, transparent 4px), radial-gradient(circle at 54% 12%, rgba(255,225,170,.85) 0 1.4px, transparent 2.6px), radial-gradient(circle at 68% 48%, rgba(255,225,170,.8) 0 2.1px, transparent 3.3px), radial-gradient(circle at 77% 23%, rgba(255,225,170,.65) 0 1px, transparent 2px), radial-gradient(circle at 91% 76%, rgba(255,225,170,.85) 0 2.6px, transparent 3.8px)', backgroundPosition: `${dustPreview.offset} 0`, filter: 'blur(.7px)' }} />
+                                <div className="effect-preview-dust-far absolute inset-[-20%] mix-blend-screen" style={{ opacity: 0.02 + dustPreview.intensity * (0.06 + dustPreview.density / 320), animationDuration: `${parseFloat(dustPreview.duration) * 1.55}s`, backgroundImage: 'radial-gradient(circle at 4% 61%, rgba(255,240,205,.75) 0 .55px, transparent 1.5px), radial-gradient(circle at 14% 38%, rgba(255,240,205,.6) 0 .8px, transparent 1.7px), radial-gradient(circle at 25% 9%, rgba(255,240,205,.75) 0 .45px, transparent 1.4px), radial-gradient(circle at 36% 56%, rgba(255,240,205,.7) 0 .75px, transparent 1.6px), radial-gradient(circle at 49% 26%, rgba(255,240,205,.65) 0 .5px, transparent 1.4px), radial-gradient(circle at 58% 89%, rgba(255,240,205,.75) 0 .85px, transparent 1.8px), radial-gradient(circle at 73% 63%, rgba(255,240,205,.65) 0 .55px, transparent 1.5px), radial-gradient(circle at 84% 42%, rgba(255,240,205,.75) 0 .8px, transparent 1.7px), radial-gradient(circle at 96% 15%, rgba(255,240,205,.6) 0 .45px, transparent 1.3px)', backgroundPosition: `0 ${dustPreview.offset}`, filter: 'blur(.2px)' }} />
                               </>
                             )}
-                            {overlayEffects.includes('snow') && (
-                              <div className="effect-preview-snow absolute inset-[-30%] mix-blend-screen" style={{ opacity: 0.3 + particleIntensity * 0.6, backgroundImage: 'radial-gradient(circle, white 0 2px, transparent 3px), radial-gradient(circle, white 0 1px, transparent 2px)', backgroundSize: '48px 55px, 29px 37px', backgroundPosition: '0 0, 13px 17px' }} />
+                            {false && overlayEffects.includes('snow') && (
+                              <div className="effect-preview-snow absolute inset-[-30%] mix-blend-screen" style={{ opacity: 0.04 + snowPreview.intensity * (0.2 + snowPreview.density / 180), animationDuration: snowPreview.duration, backgroundImage: 'radial-gradient(circle, white 0 2px, transparent 3px), radial-gradient(circle, white 0 1px, transparent 2px)', backgroundSize: `${48 * snowPreview.scale}px ${55 * snowPreview.scale}px, ${29 * snowPreview.scale}px ${37 * snowPreview.scale}px`, backgroundPosition: `${snowPreview.offset} 0, 13px ${17 + parseInt(snowPreview.offset)}px` }} />
                             )}
-                            {overlayEffects.includes('rain') && (
-                              <div className="effect-preview-rain absolute inset-[-40%] mix-blend-screen" style={{ opacity: 0.2 + particleIntensity * 0.45, backgroundImage: 'repeating-linear-gradient(105deg, transparent 0 18px, rgba(190,225,255,.75) 19px, transparent 21px)' }} />
+                            {false && overlayEffects.includes('rain') && (
+                              <div className="effect-preview-rain absolute inset-[-40%] mix-blend-screen" style={{ opacity: 0.03 + rainPreview.intensity * (0.12 + rainPreview.density / 230), animationDuration: `${Math.max(.35, parseFloat(rainPreview.duration) / 10)}s`, backgroundImage: 'repeating-linear-gradient(105deg, transparent 0 18px, rgba(190,225,255,.75) 19px, transparent 21px)', backgroundSize: `${Math.round(100 * rainPreview.scale)}% ${Math.round(100 * rainPreview.scale)}%`, backgroundPosition: `${rainPreview.offset} 0` }} />
                             )}
                             {overlayEffects.includes('fog') && (
-                              <div className="effect-preview-fog absolute inset-[-25%]" style={{ opacity: 0.15 + particleIntensity * 0.45, background: 'linear-gradient(165deg, transparent 5%, rgba(225,235,240,.75) 48%, transparent 88%)', filter: 'blur(10px)' }} />
+                              <div className="effect-preview-fog absolute inset-[-25%]" style={{ opacity: 0.03 + effectIntensity('fog') * 0.7, background: 'linear-gradient(165deg, transparent 5%, rgba(225,235,240,.75) 48%, transparent 88%)', filter: `blur(${3 + effectIntensity('fog') * 16}px)` }} />
                             )}
-                            {overlayEffects.includes('sparks') && (
-                              <div className="effect-preview-sparks absolute inset-[-30%] mix-blend-screen" style={{ opacity: 0.25 + particleIntensity * 0.65, backgroundImage: 'radial-gradient(circle, #fff 0 1px, #ff9d00 2px, transparent 4px)', backgroundSize: '67px 83px', filter: 'blur(.3px)' }} />
+                            {false && overlayEffects.includes('sparks') && (
+                              <div className="effect-preview-sparks absolute inset-[-30%] mix-blend-screen" style={{ opacity: 0.03 + sparksPreview.intensity * (0.15 + sparksPreview.density / 170), animationDuration: `${Math.max(.7, parseFloat(sparksPreview.duration) / 3)}s`, backgroundImage: 'radial-gradient(circle, #fff 0 1px, #ff9d00 2px, transparent 4px)', backgroundSize: `${67 * sparksPreview.scale}px ${83 * sparksPreview.scale}px`, backgroundPosition: `${sparksPreview.offset} 0`, filter: 'blur(.3px)' }} />
                             )}
                             {overlayEffects.includes('light_leak') && (
-                              <div className="effect-preview-light-leak absolute inset-[-15%] mix-blend-screen" style={{ opacity: 0.18 + particleIntensity * 0.4, background: 'radial-gradient(circle at 0% 35%, rgba(255,70,20,.95), rgba(255,180,50,.35) 25%, transparent 55%)' }} />
+                              <div className="effect-preview-light-leak absolute inset-[-15%] mix-blend-screen" style={{ opacity: 0.02 + effectIntensity('light_leak') * 0.72, background: 'radial-gradient(circle at 0% 35%, rgba(255,70,20,.95), rgba(255,180,50,.35) 25%, transparent 55%)' }} />
                             )}
                             {overlayEffects.includes('dream_glow') && (
-                              <div className="absolute inset-0 mix-blend-screen" style={{ opacity: 0.14 + particleIntensity * 0.25, background: 'radial-gradient(circle at 50% 45%, rgba(255,220,255,.9), rgba(120,180,255,.25) 35%, transparent 70%)', filter: 'blur(8px)' }} />
+                              <div className="absolute inset-0 mix-blend-screen" style={{ opacity: 0.02 + effectIntensity('dream_glow') * 0.45, background: 'radial-gradient(circle at 50% 45%, rgba(255,220,255,.9), rgba(120,180,255,.25) 35%, transparent 70%)', filter: `blur(${2 + effectIntensity('dream_glow') * 13}px)` }} />
                             )}
                             {overlayEffects.includes('horror') && (
                               <div className="absolute inset-0 mix-blend-multiply" style={{ background: 'radial-gradient(circle, rgba(30,0,0,.05) 25%, rgba(70,0,0,.75) 100%)' }} />
                             )}
                             {overlayEffects.includes('black_noise') && (
-                              <div className="absolute inset-0 mix-blend-multiply" style={{ opacity: 0.25 + particleIntensity * 0.45, backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='90' height='90'%3E%3Cfilter id='n'%3E%3CfeTurbulence baseFrequency='.8' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")" }} />
+                              <div className="absolute inset-0 mix-blend-multiply" style={{ opacity: 0.03 + effectIntensity('black_noise') * 0.72, backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='90' height='90'%3E%3Cfilter id='n'%3E%3CfeTurbulence baseFrequency='.8' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")" }} />
                             )}
                             {overlayEffects.includes('film_scratches') && (
-                              <div className="absolute inset-0 mix-blend-screen" style={{ opacity: 0.2 + particleIntensity * 0.35, backgroundImage: 'repeating-linear-gradient(90deg, transparent 0 37px, rgba(255,255,255,.45) 38px, transparent 39px, transparent 71px)' }} />
+                              <div className="absolute inset-0 mix-blend-screen" style={{ opacity: 0.03 + effectIntensity('film_scratches') * 0.55, backgroundImage: 'repeating-linear-gradient(90deg, transparent 0 37px, rgba(255,255,255,.45) 38px, transparent 39px, transparent 71px)' }} />
                             )}
                             {overlayEffects.includes('vhs_glitch') && (
-                              <div className="absolute inset-0 mix-blend-screen" style={{ opacity: 0.3 + particleIntensity * 0.35, backgroundImage: 'repeating-linear-gradient(0deg, transparent 0 5px, rgba(0,210,255,.2) 6px, rgba(255,0,80,.16) 7px, transparent 8px)' }} />
+                              <div className="absolute inset-0 mix-blend-screen" style={{ opacity: 0.03 + effectIntensity('vhs_glitch') * 0.65, backgroundImage: 'repeating-linear-gradient(0deg, transparent 0 5px, rgba(0,210,255,.2) 6px, rgba(255,0,80,.16) 7px, transparent 8px)' }} />
                             )}
                           </div>
                           <p className="text-[10px] text-slate-500 mt-2">Aperçu approximatif — le rendu final vidéo peut légèrement varier.</p>
-
-                          {hasAtmosphere && (
-                            <div className="mt-3">
-                              <label className="block text-[11px] font-bold text-slate-300 mb-2">Particules / Atmosphère ({newChannel.effects_config.particle_intensity ?? 50}%)</label>
-                              <input type="range" min="0" max="100" value={newChannel.effects_config.particle_intensity ?? 50}
-                                onChange={e => setNewChannel({ ...newChannel, effects_config: { ...newChannel.effects_config, particle_intensity: parseInt(e.target.value) } })}
-                                className="w-full accent-[#00c2ff]" />
+                          {selectedEffect && overlayEffects.includes(selectedEffect.id) && (
+                            <div className="mt-3 rounded-2xl border border-[#00c2ff]/30 bg-[#00c2ff]/5 p-4">
+                              <div className="mb-3 flex items-center gap-2">
+                                <span className="material-symbols-outlined text-[18px] text-[#00c2ff]">tune</span>
+                                <div>
+                                  <p className="text-xs font-bold text-white">Réglages — {selectedEffect.label}</p>
+                                  <p className="text-[10px] text-slate-400">Ces valeurs s’appliquent uniquement à cet effet.</p>
+                                </div>
+                              </div>
+                              <div className="grid grid-cols-1 gap-x-4 gap-y-3">
+                                {effectControls.map(control => {
+                                  const value = selectedEffectSettings[control.key] ?? 50;
+                                  return (
+                                    <div key={control.key}>
+                                      <label className="flex items-baseline justify-between gap-2 text-[11px] font-bold text-slate-200 mb-1">
+                                        <span>{control.label}</span><span className="text-[#00c2ff]">{value}%</span>
+                                      </label>
+                                      <p className="mb-1 text-[9px] text-slate-500">{control.hint}</p>
+                                      <input type="range" min="0" max="100" value={value}
+                                        onChange={e => setSelectedEffectSetting(control.key, parseInt(e.target.value))}
+                                        className="w-full accent-[#00c2ff]" />
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                              <div className="mt-3 border-t border-[#00c2ff]/15 pt-3">
+                                <label className="flex items-baseline justify-between gap-2 text-[11px] font-bold text-slate-200 mb-1">
+                                  <span>Opacité</span><span className="text-[#00c2ff]">{selectedEffectSettings.opacity ?? 100}%</span>
+                                </label>
+                                <p className="mb-1 text-[9px] text-slate-500">Fond l’effet dans l’image sans modifier son mouvement.</p>
+                                <input type="range" min="0" max="100" value={selectedEffectSettings.opacity ?? 100}
+                                  onChange={e => setSelectedEffectSetting('opacity', parseInt(e.target.value))}
+                                  className="w-full accent-[#00c2ff]" />
+                              </div>
+                              {particleEffectIds.includes(selectedEffect.id) && (
+                                <div className="mt-4 border-t border-[#00c2ff]/15 pt-3">
+                                  <p className="mb-2 text-[11px] font-bold text-slate-200">Sens du mouvement</p>
+                                  <div className="grid grid-cols-5 gap-1.5 rounded-xl border border-[var(--border)] bg-[var(--bg-input)] p-1.5">
+                                    {[
+                                      { id: 'auto', icon: 'auto_awesome', label: 'Auto' },
+                                      { id: 'up', icon: 'north', label: 'Haut' },
+                                      { id: 'down', icon: 'south', label: 'Bas' },
+                                      { id: 'left', icon: 'west', label: 'Gauche' },
+                                      { id: 'right', icon: 'east', label: 'Droite' },
+                                    ].map(direction => {
+                                      const isActive = (selectedEffectSettings.direction || 'auto') === direction.id;
+                                      return (
+                                        <button key={direction.id} type="button" title={direction.label}
+                                          onClick={() => setSelectedEffectSetting('direction', direction.id)}
+                                          className={`flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-lg border text-[9px] font-bold transition-all ${isActive ? 'border-[#00c2ff] bg-[#00c2ff]/15 text-[#65d7ff] shadow-[0_0_14px_rgba(0,194,255,0.14)]' : 'border-transparent text-slate-400 hover:border-slate-600 hover:text-slate-200'}`}>
+                                          <span className="material-symbols-outlined text-[16px]">{direction.icon}</span>
+                                          {direction.label}
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                  <p className="mt-1.5 text-[9px] text-slate-500">Auto respecte le mouvement naturel de l’effet.</p>
+                                </div>
+                              )}
                             </div>
                           )}
+
                         </div>
                       </div>
                     </div>
@@ -14066,12 +14759,21 @@ export default function App() {
                           })}
                         </div>
                         <div className={`mt-3 space-y-4 ${newChannel.publish_mode === 'auto' || newChannel.publish_mode === 'scheduled' ? '' : 'hidden'}`}>
-                          <div className="grid grid-cols-1 gap-3 md:grid-cols-12 [&>div:nth-child(1)]:md:col-span-2 [&>div:nth-child(2)]:hidden [&>div:nth-child(3)]:md:col-span-3 [&>div:nth-child(4)]:md:col-span-4 [&>div:nth-child(5)]:md:col-span-3 [&>div:nth-child(4)>div]:border-[var(--border-subtle)]" data-publication-popover>
+                          <div className="grid grid-cols-1 gap-3 md:grid-cols-12 [&>div:nth-child(1)]:md:col-span-2 [&>div:nth-child(2)]:hidden [&>div:nth-child(3)]:md:col-span-3 [&>div:nth-child(4)]:md:col-span-4 [&>div:nth-child(5)]:md:col-span-3 [&>div:nth-child(4)>div]:border-[var(--border-subtle)] [&>div:nth-child(6)]:md:col-span-3" data-publication-popover>
                             <div><span className="mb-1.5 block text-[10px] font-bold text-slate-400">Visibilité</span><div className="relative"><button type="button" onClick={() => setVisibilityMenuOpen(v => !v)} className="flex h-10 w-full items-center justify-between rounded-xl border border-[var(--border)] bg-[var(--bg-surface-alt)] px-3 text-[11px] text-white"><span>{[['private','Privée'],['unlisted','Non répertoriée'],['members','Réservée aux membres'],['public','Publique']].find(([id]) => id === (newChannel.youtube_privacy_status || 'public'))?.[1] || 'Publique'}</span><span className="material-symbols-outlined text-[16px]">expand_more</span></button>{visibilityMenuOpen && <div role="radiogroup" className="absolute left-0 right-0 top-full z-30 mt-1 rounded-xl border border-[var(--border)] bg-[var(--bg-dropdown)] p-1 shadow-2xl">{[['private','Privée'],['unlisted','Non répertoriée'],['members','Réservée aux membres'],['public','Publique']].map(([id,label]) => { const selected = (newChannel.youtube_privacy_status || 'public') === id; return <button key={id} type="button" role="radio" aria-checked={selected} onClick={() => { setNewChannel({ ...newChannel, youtube_privacy_status: id }); setVisibilityMenuOpen(false); }} className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-[11px] ${selected ? 'bg-[#00c2ff]/10 text-[#00c2ff]' : 'text-slate-300 hover:bg-white/5'}`}><span className={`h-3.5 w-3.5 rounded-full border-2 ${selected ? 'border-[4px] border-[#00c2ff]' : 'border-slate-500'}`} />{label}</button>; })}</div>}</div></div>
                             <div className="relative"><span className="mb-1.5 block text-[10px] font-bold text-slate-400">Programmer</span><button type="button" onClick={() => setScheduleCalendarOpen(v => !v)} className="flex h-10 w-full items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--bg-surface-alt)] px-3 text-left text-[11px] text-white"><span className="material-symbols-outlined text-[15px] text-[#00c2ff]">calendar_month</span><span className="flex-1">{newChannel.publish_schedule_date ? new Date(`${newChannel.publish_schedule_date}T12:00:00`).toLocaleDateString('fr-FR') : 'Choisir une date'}</span><span className="material-symbols-outlined text-[15px] text-slate-500">expand_more</span></button>{scheduleCalendarOpen && (() => { const year = scheduleCalendarMonth.getFullYear(); const month = scheduleCalendarMonth.getMonth(); const firstOffset = (new Date(year, month, 1).getDay() + 6) % 7; const total = new Date(year, month + 1, 0).getDate(); const cells = [...Array(firstOffset).fill(null), ...Array.from({ length: total }, (_, i) => i + 1)]; const monthLabel = new Intl.DateTimeFormat('fr-FR', { month: 'long', year: 'numeric' }).format(scheduleCalendarMonth); return <div className="absolute left-0 top-full z-40 mt-1 w-[280px] rounded-2xl border border-[#00c2ff]/30 bg-[#111923] p-3 shadow-2xl"><div className="mb-3 flex items-center justify-between"><span className="text-xs font-bold capitalize text-white">{monthLabel}</span><div className="flex gap-1"><button type="button" onClick={() => setScheduleCalendarMonth(new Date(year, month - 1, 1))} className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-white/5 hover:text-white"><span className="material-symbols-outlined text-[17px]">chevron_left</span></button><button type="button" onClick={() => setScheduleCalendarMonth(new Date(year, month + 1, 1))} className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-white/5 hover:text-white"><span className="material-symbols-outlined text-[17px]">chevron_right</span></button></div></div><div className="grid grid-cols-7 gap-1">{['L','M','M','J','V','S','D'].map((d,i) => <span key={`${d}-${i}`} className="py-1 text-center text-[9px] font-bold text-slate-500">{d}</span>)}{cells.map((day,i) => { if (!day) return <span key={`empty-${i}`} />; const date = `${year}-${String(month + 1).padStart(2,'0')}-${String(day).padStart(2,'0')}`; const selected = newChannel.publish_schedule_date === date; const past = new Date(year, month, day, 23, 59) < new Date(); return <button key={date} type="button" disabled={past} onClick={() => { setNewChannel({ ...newChannel, publish_schedule_date: date, publish_mode: 'scheduled' }); setScheduleCalendarOpen(false); }} className={`aspect-square rounded-lg text-[10px] font-bold transition-colors ${selected ? 'bg-[#00c2ff] text-slate-950' : past ? 'text-slate-700' : 'text-slate-300 hover:bg-[#00c2ff]/15 hover:text-[#00c2ff]'}`}>{day}</button>; })}</div><button type="button" onClick={() => { const today = new Date(); setScheduleCalendarMonth(today); }} className="mt-3 text-[10px] font-bold text-[#00c2ff]">Aujourd’hui</button></div>; })()}</div>
                             <div className="relative"><span className="mb-1.5 block text-[10px] font-bold text-slate-400">Jours de publication</span><button type="button" onClick={() => setScheduleDaysOpen(v => !v)} className="flex h-10 w-full items-center justify-between rounded-xl border border-[var(--border)] bg-[var(--bg-surface-alt)] px-3 text-[11px] text-white"><span className="flex min-w-0 items-center gap-2"><span className="material-symbols-outlined text-[15px] text-[#00c2ff]">event_repeat</span><span className="truncate">{!newChannel.active_days || newChannel.active_days.length === 0 || newChannel.active_days.length === 7 ? 'Tous les jours' : newChannel.active_days.map(d => ['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'][d]).join(', ')}</span></span><span className="material-symbols-outlined text-[15px] text-slate-500">expand_more</span></button>{scheduleDaysOpen && <div className="absolute left-0 top-full z-40 mt-1 w-[300px] rounded-2xl border border-[#00c2ff]/30 bg-[#111923] p-3 shadow-2xl"><p className="mb-2 text-[10px] font-bold text-white">Répéter chaque semaine</p><div className="grid grid-cols-7 gap-1">{['L','M','M','J','V','S','D'].map((label,day) => { const current = newChannel.active_days?.length ? newChannel.active_days : [0,1,2,3,4,5,6]; const selected = current.includes(day); return <button key={day} type="button" onClick={() => { const next = selected ? current.filter(d => d !== day) : [...current, day].sort(); setNewChannel({ ...newChannel, active_days: next.length === 7 ? null : next, publish_mode: 'auto' }); }} className={`aspect-square rounded-lg border text-[10px] font-bold ${selected ? 'border-[#00c2ff] bg-[#00c2ff] text-slate-950' : 'border-[var(--border)] text-slate-400 hover:border-[#00c2ff]/60'}`}>{label}</button>; })}</div><button type="button" onClick={() => setScheduleDaysOpen(false)} className="mt-3 w-full rounded-lg bg-[#00c2ff]/10 py-2 text-[10px] font-bold text-[#00c2ff]">Terminé</button></div>}</div>
                             <div><div className="mb-1.5 flex items-center justify-between gap-2"><span className="text-[10px] font-bold text-slate-400">Heure de publication</span><span className="flex gap-2"><button type="button" onClick={() => setNewChannel({ ...newChannel, publish_time_mode: 'fixed' })} className={`flex items-center gap-1 text-[9px] font-bold ${(newChannel.publish_time_mode || 'range') === 'fixed' ? 'text-[#00c2ff]' : 'text-slate-500'}`}><span className="material-symbols-outlined text-[12px]">{(newChannel.publish_time_mode || 'range') === 'fixed' ? 'radio_button_checked' : 'radio_button_unchecked'}</span>Fixe</button><button type="button" onClick={() => setNewChannel({ ...newChannel, publish_time_mode: 'range' })} className={`flex items-center gap-1 text-[9px] font-bold ${(newChannel.publish_time_mode || 'range') === 'range' ? 'text-[#00c2ff]' : 'text-slate-500'}`}><span className="material-symbols-outlined text-[12px]">{(newChannel.publish_time_mode || 'range') === 'range' ? 'radio_button_checked' : 'radio_button_unchecked'}</span>Plage</button></span></div>{(newChannel.publish_time_mode || 'range') === 'fixed' ? <DirectHourInput value={newChannel.publish_schedule_hour ?? 8} onChange={h => setNewChannel({ ...newChannel, publish_schedule_hour: h })} /> : <div className="grid grid-cols-2 gap-1"><DirectHourInput value={newChannel.automation_window_start_hour ?? 7} onChange={h => setNewChannel({ ...newChannel, automation_window_start_hour: h })} /><DirectHourInput value={newChannel.automation_window_end_hour ?? 11} onChange={h => setNewChannel({ ...newChannel, automation_window_end_hour: h })} /></div>}</div>
                             <div><span className="mb-1.5 block text-[10px] font-bold text-slate-400">Fuseau horaire</span>{timezonePicker}</div>
+                            <div>
+                              <span className="mb-1.5 block text-[10px] font-bold text-slate-400">Vidéos par jour</span>
+                              <div className="flex h-10 items-center gap-1.5 rounded-xl border border-[var(--border)] bg-[var(--bg-surface-alt)] px-2">
+                                <button type="button" onClick={() => setNewChannel({ ...newChannel, videos_per_day: Math.max(1, (newChannel.videos_per_day || 1) - 1) })} className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-white hover:bg-white/5"><span className="material-symbols-outlined text-[16px]">remove</span></button>
+                                <input type="number" min={1} max={100} value={newChannel.videos_per_day || 1} onChange={e => { const n = parseInt(e.target.value); setNewChannel({ ...newChannel, videos_per_day: Number.isFinite(n) ? Math.min(100, Math.max(1, n)) : 1 }); }} className="w-full min-w-0 flex-1 bg-transparent text-center text-[11px] font-bold text-white outline-none" />
+                                <button type="button" onClick={() => setNewChannel({ ...newChannel, videos_per_day: Math.min(100, (newChannel.videos_per_day || 1) + 1) })} className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-white hover:bg-white/5"><span className="material-symbols-outlined text-[16px]">add</span></button>
+                              </div>
+                              <p className="mt-1 text-[9px] text-slate-500">Réparties automatiquement dans la plage horaire, à des heures différentes.</p>
+                            </div>
                           </div>
                           <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-surface-alt)] px-3 py-3"><div className="flex items-start gap-2"><span className="material-symbols-outlined text-[18px] text-[#00c2ff]">auto_awesome</span><div className="min-w-0 flex-1"><span className="block text-[11px] font-bold text-white">Utilisation de l’IA</span><span className="mt-0.5 block text-[9px] leading-relaxed text-slate-500">La vidéo contient-elle une scène réaliste générée ou modifiée par IA ?</span><div className="mt-2 flex gap-2">{[['Oui',true],['Non',false]].map(([label,value]) => <button key={label} type="button" onClick={() => setNewChannel({ ...newChannel, youtube_contains_synthetic_media: value })} className={`min-w-24 rounded-lg border px-3 py-2 text-[10px] font-bold ${(newChannel.youtube_contains_synthetic_media !== false) === value ? 'border-[#00c2ff] bg-[#00c2ff]/10 text-[#00c2ff]' : 'border-[var(--border)] text-slate-300'}`}>{label}</button>)}</div></div></div></div>
                           <div>
@@ -14347,12 +15049,12 @@ export default function App() {
                               src={getVideoUrl(ov.image_path)}
                               alt=""
                               className="absolute object-contain drop-shadow-lg"
-                              style={{
-                                width: `${ov.size_percent || 12}%`,
+                                style={{
+                                  width: `${ov.size_percent || 10}%`,
                                 zIndex: zForLayer('logo'),
                                 ...overlayPositionStyle(
-                                  ov.x_percent ?? presetXY(ov.corner, ov.size_percent ?? 12).x,
-                                  ov.y_percent ?? presetXY(ov.corner, ov.size_percent ?? 12).y
+                                  ov.x_percent ?? presetXY(ov.corner, ov.size_percent ?? 10).x,
+                                  ov.y_percent ?? presetXY(ov.corner, ov.size_percent ?? 10).y
                                 ),
                                 ...shapeClipStyle(ov.shape),
                               }}
@@ -15994,7 +16696,7 @@ export default function App() {
                       const selected = rank !== -1;
                       const health = (adminProviders || []).find(p => p.id === id);
                       const dotColor = health?.status === 'ok' ? 'bg-emerald-500' : health?.status === 'quota_exhausted' ? 'bg-rose-500' : id === 'huggingface' ? 'bg-emerald-500' : 'bg-slate-600';
-                      const label = { huggingface: 'Hugging Face (gratuit)', fal: 'fal.ai', izivoice: 'Izivoice' }[id] || id;
+                      const label = { huggingface: 'Hugging Face (gratuit)', fal: 'fal.ai', izivoice: 'Izivoice', gemini: 'Google Gemini (gratuit)' }[id] || id;
                       return (
                         <button
                           key={id}
@@ -16549,7 +17251,7 @@ export default function App() {
                     ) : null}
 
                     {label === 'Audio' && (productionProgress.audio_ready ? (
-                      <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--bg-surface-alt)] p-5"><h3 className="mb-3 text-xs font-extrabold text-white">Voix générée</h3><audio controls preload="metadata" className="w-full" style={{ colorScheme: 'dark' }} src={`${API_BASE}${productionProgress.audio_url}`} /></div>
+                      <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--bg-surface-alt)] p-5"><h3 className="mb-3 text-xs font-extrabold text-white">Voix générée</h3><ServerAudioPreview src={`${API_BASE}${productionProgress.audio_url}`} name="Voix off" /></div>
                     ) : <div className="rounded-xl border border-dashed border-slate-700 p-8 text-center text-xs font-bold text-slate-400">La voix est en cours de préparation. Le lecteur apparaîtra automatiquement.</div>)}
 
                     {isGallery && (productionProgress.scenes?.length ? (
@@ -16747,7 +17449,13 @@ export default function App() {
                     ))}
                   </div>
 
-                  {(submitMode === 'audio_upload' || submitMode === 'text') && (
+                  {/* N'a de sens que si les sous-titres eux-mêmes sont activés (case
+                      "Sous-titres" juste au-dessus) — sinon on facturerait une
+                      transcription précise pour des sous-titres qui ne s'afficheront
+                      jamais. Un seul moteur de transcription existe (Izivoice), donc
+                      pas de sélection à faire ici, juste précis vs estimé — le coût
+                      en crédits n'est plus affiché, seule la case à cocher compte. */}
+                  {(submitMode === 'audio_upload' || submitMode === 'text') && (activeChannel.subtitle_style?.enabled ?? true) && (
                     <button
                       type="button"
                       onClick={() => setTranscribeAudio(prev => !prev)}
@@ -16757,14 +17465,11 @@ export default function App() {
                           : 'bg-[var(--bg-surface-alt)] border-[var(--border)] text-slate-500 hover:border-slate-500'
                       }`}
                       title={submitMode === 'text'
-                        ? `Sans transcription, les sous-titres sont estimés en répartissant le script uniformément sur la durée — moins précis mais gratuit. Avec transcription : ${TRANSCRIPTION_CREDITS_PER_SEC} crédits par seconde d'audio (gratuit si tu utilises ta propre clé Izivoice).`
-                        : `Sans transcription, les sous-titres utiliseront le titre du fichier au lieu du texte réel parlé. Avec transcription : ${TRANSCRIPTION_CREDITS_PER_SEC} crédits par seconde d'audio (gratuit si tu utilises ta propre clé Izivoice).`}
+                        ? "Sans transcription, les sous-titres sont estimés en répartissant le script uniformément sur la durée — moins précis. Avec transcription : synchronisés sur les mots réellement prononcés."
+                        : "Sans transcription, les sous-titres utiliseront le titre du fichier au lieu du texte réel parlé. Avec transcription : synchronisés sur les mots réellement prononcés."}
                     >
                       <span className="material-symbols-outlined text-[16px] shrink-0">record_voice_over</span>
                       <span className="flex-1 truncate">Transcrire pour des sous-titres précis (IA)</span>
-                      <span className="shrink-0 px-1.5 py-0.5 rounded-md bg-amber-400/20 border border-amber-400/50 text-amber-300 text-[10px] font-extrabold whitespace-nowrap">
-                        {TRANSCRIPTION_CREDITS_PER_SEC} crédits/sec
-                      </span>
                       <span className="material-symbols-outlined text-[16px] shrink-0">{transcribeAudio ? 'check_box' : 'check_box_outline_blank'}</span>
                     </button>
                   )}
@@ -16900,7 +17605,11 @@ export default function App() {
                     if (!submitVideoTitle.trim()) return showToast("Le titre de la vidéo est obligatoire.", "error");
                     if (submitMode === 'text' && !singleScriptText.trim()) return showToast("Veuillez saisir le texte de votre script.", "error");
                     if (submitMode === 'audio_upload' && audioFilesList.length === 0) return showToast("Veuillez ajouter au moins un fichier audio.", "error");
-                    if (submitMode === 'audio_upload' && !audioSourceType) return showToast("Indiquez la provenance de l’audio.", "error");
+                    // audioSourceType is NOT checked here: its only UI (the "Provenance
+                    // de l'audio" card) lives on step 2, not step 1 — gating step 1 on it
+                    // made it impossible to ever reach the screen that sets it. Step 2's
+                    // "Confirmer et Lancer" button (and handleSubjectSubmit itself)
+                    // already validates it before actually submitting.
                     setSubmitStep(2);
                   }}
                   className="w-full py-3.5 bg-gradient-to-r from-[#00c2ff] to-[#0088ff] text-slate-950 font-bold text-sm rounded-xl hover:opacity-90 transition-all flex items-center justify-center gap-2 shadow-lg shadow-[#00c2ff]/25"
@@ -16972,7 +17681,7 @@ export default function App() {
                 {retryingVideoVisualsId === selectedVideo.id ? 'Relance…' : 'Relancer le montage'}
               </button>
               <button
-                onClick={() => setDownloadModalVideo(selectedVideo)}
+                onClick={() => runDownload(selectedVideo, 'hd')}
                 className="flex-1 py-3 bg-[#00c2ff] text-slate-950 font-bold text-xs rounded-xl text-center hover:bg-[#38d0ff] transition-all flex items-center justify-center gap-2"
               >
                 <span className="material-symbols-outlined text-[18px]">download</span> Télécharger MP4
@@ -17041,7 +17750,7 @@ export default function App() {
             <div className="flex-1 flex items-center justify-center text-xs text-slate-500">Chargement des scènes...</div>
           ) : studioScenes === null ? (
             <div className="flex-1 flex items-center justify-center text-xs text-slate-500 px-10 text-center">
-              Cette vidéo n'est plus éditable (fichiers sources purgés après 7 jours, ou vidéo antérieure à cette fonctionnalité).
+              {studioSceneError}
             </div>
           ) : studioScenes.length === 0 ? (
             <div className="flex-1 flex items-center justify-center text-xs text-slate-500">Aucune scène trouvée.</div>
@@ -17589,7 +18298,7 @@ export default function App() {
                 : 'Retrouvez le score de confiance et le détail des contrôles de cette vidéo, même après sa publication.'}
             </p>
 
-            <div className={`rounded-2xl border p-4 ${youtubeComplianceReport?.score >= 80 ? 'border-emerald-500/40 bg-emerald-500/5' : youtubeComplianceReport?.score >= 60 ? 'border-amber-500/40 bg-amber-500/5' : youtubeComplianceReport ? 'border-rose-500/40 bg-rose-500/5' : 'border-slate-700 bg-slate-900/30'}`}>
+            {publishReviewMode !== 'publish' && <div className={`rounded-2xl border p-4 ${youtubeComplianceReport?.score >= 80 ? 'border-emerald-500/40 bg-emerald-500/5' : youtubeComplianceReport?.score >= 60 ? 'border-amber-500/40 bg-amber-500/5' : youtubeComplianceReport ? 'border-rose-500/40 bg-rose-500/5' : 'border-slate-700 bg-slate-900/30'}`}>
               {youtubeComplianceLoading ? (
                 <div className="flex items-center gap-2 text-xs text-slate-300"><span className="material-symbols-outlined animate-spin text-[17px]">progress_activity</span>Contrôle YouTube en cours…</div>
               ) : youtubeComplianceReport ? (
@@ -17678,7 +18387,7 @@ export default function App() {
                   )}
                 </div>
               ) : <p className="text-[10px] text-slate-500">Le rapport n’a pas pu être chargé.</p>}
-            </div>
+            </div>}
 
             {publishReviewMode !== 'trust' && <div>
               <div className="flex items-center justify-between mb-1.5">
@@ -17714,13 +18423,13 @@ export default function App() {
               </button>
               <button
                 onClick={confirmPublishYouTube}
-                disabled={!!publishingVideoId || !publishTitleDraft.trim() || youtubeComplianceLoading || !youtubeComplianceReport || (youtubeComplianceReport.status === 'red' && !youtubeComplianceConfirmed)}
+                disabled={!!publishingVideoId || !publishTitleDraft.trim()}
                 className="flex-1 py-2.5 bg-[#00c2ff] text-slate-950 rounded-xl font-bold text-xs hover:bg-[#38d0ff] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
               >
                 {publishingVideoId ? (
                   <><span className="material-symbols-outlined text-[16px] animate-spin">progress_activity</span> Publication…</>
                 ) : (
-                  <><YouTubeIcon className="w-4 h-3" /> {youtubeComplianceReport?.status === 'red' ? 'Forcer la publication' : 'Publier'}</>
+                  <><YouTubeIcon className="w-4 h-3" /> Publier</>
                 )}
               </button>
             </div> : publishReviewMode === 'edit' ? <div className="flex gap-3"><button onClick={() => setPublishReviewMode('trust')} className="flex-1 rounded-xl border border-[var(--border)] bg-[var(--bg-surface-alt)] py-2.5 text-xs font-bold text-slate-300">Retour</button><button disabled={metadataImproving || !publishTitleDraft.trim()} onClick={saveTrustMetadata} className="flex-1 rounded-xl bg-[#00c2ff] py-2.5 text-xs font-extrabold text-slate-950 disabled:opacity-50">{metadataImproving ? 'Enregistrement…' : 'Enregistrer et vérifier'}</button><button disabled={metadataImproving} onClick={regenerateTrustMetadata} title="Régénérer avec KappGen" className="rounded-xl border border-[#00c2ff]/40 px-3 text-[#00c2ff] disabled:opacity-50"><span className={`material-symbols-outlined text-[18px] ${metadataImproving ? 'animate-spin' : ''}`}>{metadataImproving ? 'progress_activity' : 'auto_awesome'}</span></button></div> : <button onClick={() => setPublishReviewVideo(null)} className="w-full rounded-xl border border-[var(--border)] bg-[var(--bg-surface-alt)] py-2.5 text-xs font-bold text-slate-300 transition-colors hover:bg-[var(--border-soft)]">Fermer</button>}
@@ -17746,52 +18455,80 @@ export default function App() {
       )}
 
       {downloadModalVideo && (
-        <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-[60] flex items-center justify-center p-6">
-          <div className="bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-3xl p-6 max-w-[420px] w-full shadow-2xl space-y-5">
-            <div className="flex justify-between items-center">
-              <h3 className="text-sm font-bold text-white">Télécharger la vidéo</h3>
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/90 p-4 backdrop-blur-md sm:p-6" onClick={() => { if (!downloadingQuality) setDownloadModalVideo(null); }}>
+          <div className="w-full max-w-[500px] overflow-hidden rounded-3xl border border-[#00c2ff]/20 bg-[var(--bg-surface)] shadow-[0_32px_100px_rgba(0,0,0,.55)]" onClick={event => event.stopPropagation()}>
+            <div className="relative overflow-hidden border-b border-[var(--border-soft)] px-5 pb-5 pt-6 sm:px-6">
+              <div className="pointer-events-none absolute -right-12 -top-16 h-40 w-40 rounded-full bg-[#00c2ff]/15 blur-3xl" />
+              <div className="relative flex items-start justify-between gap-4">
+                <div className="flex min-w-0 items-center gap-3">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-[#00c2ff]/30 bg-[#00c2ff]/10 text-[#63dcff]">
+                    <span className="material-symbols-outlined text-[23px]">file_download</span>
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-[10px] font-extrabold uppercase tracking-[.16em] text-[#63dcff]">Export terminé</div>
+                    <h3 className="mt-0.5 truncate text-base font-extrabold text-white">Télécharger la vidéo</h3>
+                  </div>
+                </div>
               <button
                 onClick={() => { if (!downloadingQuality) setDownloadModalVideo(null); }}
-                className="text-slate-400 hover:text-white"
+                className="rounded-xl p-2 text-slate-400 transition hover:bg-white/5 hover:text-white disabled:cursor-not-allowed"
+                disabled={!!downloadingQuality}
+                aria-label="Fermer"
               >
                 <span className="material-symbols-outlined">close</span>
               </button>
+              </div>
+              <p className="relative mt-4 truncate text-xs font-medium text-slate-300">{downloadModalVideo.title || 'Vidéo KappGen'}</p>
             </div>
-            <p className="text-xs text-slate-400">Format MP4. Choisissez la qualité d'export — la miniature se télécharge automatiquement avec la vidéo.</p>
 
-            <div className="space-y-2.5">
+            <div className="space-y-3 p-5 sm:p-6">
+              <div className="flex items-center justify-between px-0.5">
+                <p className="text-[11px] font-bold text-slate-300">Choisir le format vidéo</p>
+                <span className="text-[10px] text-slate-500">MP4 uniquement</span>
+              </div>
               {[
-                { key: 'sd', label: 'SD', detail: '854×480 — fichier léger, partage rapide' },
-                { key: 'hd', label: 'HD', detail: '1920×1080 — qualité native du rendu' },
+                { key: 'hd', label: 'Haute définition', format: 'HD · 1920×1080', detail: 'Qualité native du rendu', icon: 'high_quality', recommended: true },
+                { key: 'sd', label: 'Version légère', format: 'SD · 854×480', detail: 'Plus rapide à partager et à envoyer', icon: 'bolt', recommended: false },
+                { key: '4k', label: 'Ultra haute définition', format: '4K · 3840×2160', detail: 'Upscale premium · 5 000 crédits', icon: '4k', recommended: false },
               ].map(opt => (
                 <button
                   key={opt.key}
                   disabled={!!downloadingQuality}
                   onClick={() => runDownload(downloadModalVideo, opt.key)}
-                  className="w-full flex items-center justify-between p-3.5 bg-[var(--bg-surface-alt)] hover:bg-[var(--border-soft)] border border-[var(--border)] rounded-2xl transition-all disabled:opacity-50 text-left"
+                  className={`group relative flex w-full items-center justify-between overflow-hidden rounded-2xl border p-4 text-left transition-all disabled:opacity-50 ${opt.recommended ? 'border-[#00c2ff]/45 bg-[#00c2ff]/[.08] hover:border-[#00c2ff] hover:bg-[#00c2ff]/[.13]' : 'border-[var(--border)] bg-[var(--bg-surface-alt)] hover:border-slate-500 hover:bg-[var(--border-soft)]'}`}
                 >
-                  <div>
-                    <div className="text-xs font-bold text-white">{opt.label}</div>
-                    <div className="text-[11px] text-slate-400">{opt.detail}</div>
+                  <div className="flex items-center gap-3">
+                    <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${opt.recommended ? 'bg-[#00c2ff] text-slate-950' : 'bg-slate-800 text-slate-300'}`}>
+                      <span className="material-symbols-outlined text-[20px]">{opt.icon}</span>
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2"><span className="text-xs font-extrabold text-white">{opt.label}</span>{opt.recommended && <span className="rounded-full bg-[#00c2ff] px-1.5 py-0.5 text-[8px] font-extrabold uppercase tracking-wide text-slate-950">Recommandé</span>}</div>
+                      <div className="mt-0.5 text-[10px] font-medium text-slate-400">{opt.format} · {opt.detail}</div>
+                    </div>
                   </div>
                   {downloadingQuality === opt.key ? (
                     <span className="material-symbols-outlined text-[18px] text-[#00c2ff] animate-spin">progress_activity</span>
                   ) : (
-                    <span className="material-symbols-outlined text-[18px] text-[#00c2ff]">download</span>
+                    <span className="material-symbols-outlined text-[20px] text-[#63dcff] transition-transform group-hover:translate-y-0.5">download</span>
                   )}
                 </button>
               ))}
+              <div className="my-4 flex items-center gap-3"><div className="h-px flex-1 bg-[var(--border-soft)]" /><span className="text-[9px] font-bold uppercase tracking-[.12em] text-slate-600">ou séparément</span><div className="h-px flex-1 bg-[var(--border-soft)]" /></div>
               <button
                 disabled={!!downloadingQuality}
                 onClick={() => runThumbnailDownload(downloadModalVideo)}
-                className="w-full flex items-center justify-between p-3.5 bg-[var(--bg-surface-alt)] hover:bg-[var(--border-soft)] border border-dashed border-[var(--border)] rounded-2xl transition-all disabled:opacity-50 text-left"
+                className="group flex w-full items-center justify-between rounded-2xl border border-dashed border-[#00c2ff]/35 bg-[#00c2ff]/[.035] p-4 text-left transition-all hover:border-[#00c2ff]/70 hover:bg-[#00c2ff]/[.08] disabled:opacity-50"
               >
-                <div>
-                  <div className="text-xs font-bold text-white">Miniature seule</div>
-                  <div className="text-[11px] text-slate-400">JPG — pour publier manuellement ailleurs</div>
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#00c2ff]/15 text-[#63dcff]"><span className="material-symbols-outlined text-[20px]">add_photo_alternate</span></div>
+                  <div>
+                    <div className="text-xs font-extrabold text-white">Miniature uniquement</div>
+                    <div className="mt-0.5 text-[10px] font-medium text-slate-400">JPG · prête pour YouTube ou un autre réseau</div>
+                  </div>
                 </div>
-                <span className="material-symbols-outlined text-[18px] text-[#00c2ff]">image</span>
+                <span className="material-symbols-outlined text-[20px] text-[#63dcff] transition-transform group-hover:translate-y-0.5">download</span>
               </button>
+              <p className="pt-1 text-center text-[10px] leading-relaxed text-slate-500">La miniature JPG se télécharge séparément via le bouton dédié.</p>
             </div>
           </div>
         </div>
@@ -17999,6 +18736,74 @@ export default function App() {
                 </div>
               ))}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* PIPELINE SHARE CODE — shown right after generating one, so the
+          creator can copy it and hand it to whoever they're sharing the
+          channel's template with. */}
+      {pipelineShareInfo && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-6" onClick={() => setPipelineShareInfo(null)}>
+          <div className="bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-3xl p-8 max-w-[440px] w-full shadow-2xl space-y-5" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-start gap-3">
+              <div>
+                <h3 className="text-base font-extrabold text-white">Pipeline prêt à partager</h3>
+                <p className="text-xs text-slate-400 mt-1">Les réglages de « {pipelineShareInfo.channelName} » (sous-titres, musique, effets, automatisation, publication) sont figés dans ce code — transmets-le à qui tu veux.</p>
+              </div>
+              <button onClick={() => setPipelineShareInfo(null)} className="text-slate-400 hover:text-white shrink-0">
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+            <div className="flex items-center gap-2 bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-4 py-3.5">
+              <span className="flex-1 text-lg font-extrabold tracking-[0.2em] text-[#00c2ff] text-center select-all">{pipelineShareInfo.code}</span>
+              <button
+                type="button"
+                onClick={() => { navigator.clipboard?.writeText(pipelineShareInfo.code); showToast('Code copié.', 'success'); }}
+                className="shrink-0 flex items-center gap-1.5 rounded-lg bg-[#00c2ff]/10 px-3 py-2 text-[11px] font-bold text-[#00c2ff] hover:bg-[#00c2ff]/20"
+              >
+                <span className="material-symbols-outlined text-[15px]">content_copy</span>
+                Copier
+              </button>
+            </div>
+            <p className="text-[11px] text-slate-500">
+              La personne qui reçoit ce code peut l'utiliser depuis « Mes Chaînes → Importer un pipeline » pour créer sa propre chaîne avec les mêmes réglages — son identité, son logo, sa voix et sa connexion YouTube restent les siens. Valable jusqu'au {pipelineShareInfo.expiresAt ? new Date(pipelineShareInfo.expiresAt).toLocaleDateString('fr-FR') : '—'}.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* PIPELINE REDEEM MODAL — the "Importer un pipeline" entry point from
+          Mes Chaînes; turns someone else's share code into a pre-filled
+          create-channel wizard. */}
+      {pipelineRedeemOpen && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-6" onClick={() => !pipelineRedeemLoading && setPipelineRedeemOpen(false)}>
+          <div className="bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-3xl p-8 max-w-[440px] w-full shadow-2xl space-y-5" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-start gap-3">
+              <div>
+                <h3 className="text-base font-extrabold text-white">Importer un pipeline partagé</h3>
+                <p className="text-xs text-slate-400 mt-1">Colle le code qu'un autre créateur t'a transmis — ça ouvrira l'assistant de création avec les mêmes réglages, prêts à personnaliser.</p>
+              </div>
+              <button onClick={() => setPipelineRedeemOpen(false)} className="text-slate-400 hover:text-white shrink-0">
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+            <input
+              autoFocus
+              value={pipelineRedeemCode}
+              onChange={e => setPipelineRedeemCode(e.target.value.toUpperCase())}
+              onKeyDown={e => { if (e.key === 'Enter') handleRedeemPipelineShare(); }}
+              placeholder="ex. 7K9QXM2P"
+              className="w-full bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-4 py-3 text-center text-base font-extrabold tracking-[0.2em] text-white placeholder:font-normal placeholder:tracking-normal placeholder:text-slate-600 focus:border-[#00c2ff] outline-none"
+            />
+            <button
+              type="button"
+              onClick={handleRedeemPipelineShare}
+              disabled={!pipelineRedeemCode.trim() || pipelineRedeemLoading}
+              className="w-full bg-[#00c2ff] hover:bg-[#38d0ff] disabled:opacity-40 disabled:pointer-events-none text-slate-950 font-bold text-sm rounded-xl py-3 transition-colors"
+            >
+              {pipelineRedeemLoading ? 'Vérification…' : 'Importer'}
+            </button>
           </div>
         </div>
       )}
@@ -18519,33 +19324,71 @@ export default function App() {
       })()}
 
       {confirmDialog && (
-        <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-[110] flex items-center justify-center p-6">
-          <div className="bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-3xl p-7 max-w-[420px] w-full shadow-2xl space-y-5">
-            <div className="flex items-start gap-3">
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${confirmDialog.danger ? 'bg-rose-950 text-rose-300' : 'bg-[var(--bg-surface-alt)] text-[#00c2ff]'}`}>
-                <span className="material-symbols-outlined text-[20px]">{confirmDialog.danger ? 'warning' : 'help'}</span>
+        <div
+          className="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-[110] flex items-end sm:items-center justify-center p-0 sm:p-6 animate-in fade-in duration-200"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="confirm-dialog-title"
+          onClick={() => resolveConfirm(false)}
+        >
+          <div
+            className="relative overflow-hidden bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-t-3xl sm:rounded-3xl p-6 sm:p-7 max-w-[460px] w-full shadow-2xl space-y-5 animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-200"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className={`absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent ${confirmDialog.danger ? 'via-rose-500' : 'via-[#00c2ff]'} to-transparent`} />
+            <button
+              type="button"
+              onClick={() => resolveConfirm(false)}
+              aria-label="Fermer"
+              className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition hover:bg-white/5 hover:text-white"
+            >
+              <span className="material-symbols-outlined text-[18px]">close</span>
+            </button>
+
+            <div className="flex items-start gap-4 pr-8">
+              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 border ${confirmDialog.danger ? 'bg-rose-500/10 border-rose-500/20 text-rose-300' : 'bg-[#00c2ff]/10 border-[#00c2ff]/20 text-[#56d9ff]'}`}>
+                <span className="material-symbols-outlined text-[24px]">{confirmDialog.icon || (confirmDialog.danger ? 'warning' : 'help')}</span>
               </div>
-              <div>
-                <h3 className="text-base font-extrabold text-white">{confirmDialog.title}</h3>
-                <p className="text-sm text-slate-400 mt-1">{confirmDialog.message}</p>
+              <div className="min-w-0 pt-0.5">
+                {confirmDialog.eyebrow && (
+                  <p className={`text-[9px] font-extrabold uppercase tracking-[.18em] ${confirmDialog.danger ? 'text-rose-300' : 'text-[#56d9ff]'}`}>{confirmDialog.eyebrow}</p>
+                )}
+                <h3 id="confirm-dialog-title" className="text-lg font-extrabold text-white mt-0.5">{confirmDialog.title}</h3>
+                <p className="text-xs leading-relaxed text-slate-400 mt-1.5 whitespace-pre-line">{confirmDialog.message}</p>
               </div>
             </div>
-            <div className="flex justify-end gap-3 pt-1">
+
+            {confirmDialog.details?.length > 0 && (
+              <div className="grid gap-2.5">
+                {confirmDialog.details.map((detail, index) => (
+                  <div key={`${detail.label}-${index}`} className="flex items-start gap-3 rounded-2xl border border-white/[.06] bg-white/[.025] px-3.5 py-3">
+                    <span className={`material-symbols-outlined mt-0.5 text-[18px] ${detail.tone === 'success' ? 'text-emerald-400' : detail.tone === 'danger' ? 'text-rose-400' : 'text-[#56d9ff]'}`}>{detail.icon || 'check_circle'}</span>
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold text-slate-200">{detail.label}</p>
+                      {detail.description && <p className="mt-0.5 text-[10px] leading-relaxed text-slate-500">{detail.description}</p>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2.5 pt-1">
               <button
                 onClick={() => resolveConfirm(false)}
-                className="px-4 py-2.5 bg-[var(--bg-surface-alt)] text-slate-300 border border-[var(--border)] rounded-xl font-bold text-xs hover:bg-[var(--border-soft)] transition-all"
+                className="sm:min-w-28 px-4 py-3 bg-[var(--bg-surface-alt)] text-slate-300 border border-[var(--border)] rounded-xl font-bold text-xs hover:bg-[var(--border-soft)] hover:text-white transition-all"
               >
-                Annuler
+                {confirmDialog.cancelLabel}
               </button>
               <button
                 onClick={() => resolveConfirm(true)}
-                className={`px-4 py-2.5 rounded-xl font-bold text-xs transition-all ${
+                className={`sm:min-w-44 px-4 py-3 rounded-xl font-extrabold text-xs transition-all flex items-center justify-center gap-2 ${
                   confirmDialog.danger
-                    ? 'bg-rose-600 text-white hover:bg-rose-500'
-                    : 'bg-[#00c2ff] text-slate-950 hover:bg-[#38d0ff]'
+                    ? 'bg-rose-600 text-white hover:bg-rose-500 shadow-lg shadow-rose-950/30'
+                    : 'bg-gradient-to-r from-[#65e0ff] to-[#1a9cff] text-slate-950 hover:brightness-110 shadow-lg shadow-[#00c2ff]/20'
                 }`}
               >
-                Confirmer
+                <span className="material-symbols-outlined text-[17px]">{confirmDialog.danger ? 'warning' : (confirmDialog.icon || 'check')}</span>
+                {confirmDialog.confirmLabel}
               </button>
             </div>
           </div>
