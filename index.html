@@ -26,9 +26,9 @@
       }());
     </script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
-    <!-- Tailwind CSS CDN -->
-    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-    <script id="tailwind-config">
+    <!-- Tailwind is compiled during the Vite build; the former runtime config
+         is retained below as a source comment until the next markup cleanup. -->
+    <!--
       tailwind.config = {
         darkMode: "class",
         theme: {
@@ -110,7 +110,7 @@
           }
         }
       }
-    </script>
+    -->
   </head>
   <body class="bg-background text-on-background font-body-md antialiased min-h-screen selection:bg-primary selection:text-on-primary">
     <div id="root">

@@ -1,5 +1,9 @@
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Montserrat:wght@600;700;800;900&family=Bebas+Neue&family=Oswald:wght@600;700&display=swap');
 
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 /* Theme tokens — every UI-chrome color (backgrounds, borders, hover states)
    in App.jsx was originally a hardcoded hex value with no light-mode
    equivalent. Rather than rewrite hundreds of individual class strings,
