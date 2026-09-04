@@ -2763,52 +2763,26 @@ function ColorPickerButton({ value, onChange, label, allowNone = false }) {
           <input type="range" min="0" max="359" value={hsv.h} onChange={e => updateHsv('h', Number(e.target.value))} className="color-hue-slider w-full" />
 
           <div className="flex items-center gap-1.5">
-            <span className="w-5 h-5 rounded-md border border-white/20 flex-shrink-0" style={{ backgroundColor: /^#[0-9a-fA-F]{6}$/.test(hexDraft) ? hexDraft : 'transparent' }} />
-            <div className="flex-1 min-w-0 flex items-center gap-1 bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-lg px-1.5 py-1 focus-within:border-[#00c2ff]">
-              <span className="text-[9px] font-bold text-slate-500 shrink-0">Hex</span>
-              <input
-                value={hexDraft}
-                onChange={e => commitHex(e.target.value)}
-                placeholder="#RRGGBB"
-                className="flex-1 min-w-0 bg-transparent text-[11px] font-mono text-white outline-none"
-              />
-            </div>
-            {typeof window !== 'undefined' && 'EyeDropper' in window && <button type="button" title="Prélever une couleur précise" onClick={pickScreenColor} className="w-6 h-6 shrink-0 rounded-md border border-[var(--border)] text-[#65d7ff] hover:bg-[#00c2ff]/10"><span className="material-symbols-outlined text-[14px]">colorize</span></button>}
+            <span className="w-7 h-7 rounded-md border border-white/20 flex-shrink-0" style={{ backgroundColor: /^#[0-9a-fA-F]{6}$/.test(hexDraft) ? hexDraft : 'transparent' }} />
+            <input
+              value={hexDraft}
+              onChange={e => commitHex(e.target.value)}
+              placeholder="#RRGGBB"
+              className="flex-1 min-w-0 h-7 bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-md px-2 text-[11px] font-mono text-white focus:border-[#00c2ff] outline-none"
+            />
+            {typeof window !== 'undefined' && 'EyeDropper' in window && <button type="button" title="Prélever une couleur précise" onClick={pickScreenColor} className="w-7 h-7 shrink-0 rounded-md border border-[var(--border)] text-[#65d7ff] hover:bg-[#00c2ff]/10 flex items-center justify-center"><span className="material-symbols-outlined text-[14px]">colorize</span></button>}
           </div>
 
-          <div>
+          {allowNone && (
             <button
               type="button"
-              onClick={() => setShowCustomColors(s => !s)}
-              className="w-full flex items-center justify-between text-[10px] font-bold text-slate-300 hover:text-white py-0.5"
+              onClick={() => { onChange('transparent'); setOpen(false); }}
+              className={`w-full flex items-center justify-center gap-1.5 text-[10px] font-bold py-1.5 rounded-lg border transition-colors ${isNone ? 'bg-[#00c2ff]/10 text-[#00c2ff] border-[#00c2ff]/40' : 'text-slate-300 border-[var(--border)] hover:border-slate-400 hover:text-white'}`}
             >
-              Mes couleurs
-              <span className="material-symbols-outlined text-[14px]">{showCustomColors ? 'expand_less' : 'expand_more'}</span>
+              <span className="material-symbols-outlined text-[14px]">block</span>
+              Aucune couleur
             </button>
-            {showCustomColors && (
-              <div className="grid grid-cols-7 gap-1 mt-1">
-                <button
-                  type="button"
-                  onClick={saveCustomColor}
-                  title="Enregistrer la couleur actuelle"
-                  className="w-full aspect-square rounded-md border-2 border-dashed border-white/25 text-slate-400 hover:text-white hover:border-white/50 flex items-center justify-center"
-                >
-                  <span className="material-symbols-outlined text-[13px]">add</span>
-                </button>
-                {customColors.map(c => (
-                  <button
-                    key={c}
-                    type="button"
-                    onClick={() => commitHex(c)}
-                    onDoubleClick={e => removeCustomColor(e, c)}
-                    title={`${c} (double-clic pour retirer)`}
-                    className={`w-full aspect-square rounded-md border-2 transition-transform hover:scale-110 ${!isNone && value?.toUpperCase() === c ? 'border-[#00c2ff]' : 'border-white/15'}`}
-                    style={{ backgroundColor: c }}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
+          )}
 
           <div className="grid grid-cols-7 gap-1">
             {COLOR_PICKER_PRESETS.map(c => (
@@ -2823,15 +2797,39 @@ function ColorPickerButton({ value, onChange, label, allowNone = false }) {
             ))}
           </div>
 
-          {allowNone && (
+          <div>
             <button
               type="button"
-              onClick={() => { onChange('transparent'); setOpen(false); }}
-              className={`w-full text-center text-[10px] font-bold py-1 rounded-md transition-colors ${isNone ? 'bg-[#00c2ff]/10 text-[#00c2ff]' : 'text-slate-400 hover:text-white'}`}
+              onClick={() => setShowCustomColors(s => !s)}
+              className="w-full flex items-center justify-between text-[10px] font-bold text-slate-300 hover:text-white py-0.5"
             >
-              Aucune couleur
+              Mes couleurs
+              <span className="material-symbols-outlined text-[14px]">{showCustomColors ? 'expand_less' : 'expand_more'}</span>
             </button>
-          )}
+            {showCustomColors && (
+              <div className="grid grid-cols-7 gap-1 mt-1">
+                {customColors.map(c => (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => commitHex(c)}
+                    onDoubleClick={e => removeCustomColor(e, c)}
+                    title={`${c} (double-clic pour retirer)`}
+                    className={`w-full aspect-square rounded-md border-2 transition-transform hover:scale-110 ${!isNone && value?.toUpperCase() === c ? 'border-[#00c2ff]' : 'border-white/15'}`}
+                    style={{ backgroundColor: c }}
+                  />
+                ))}
+                <button
+                  type="button"
+                  onClick={saveCustomColor}
+                  title="Enregistrer la couleur actuelle"
+                  className="w-full aspect-square rounded-md border-2 border-dashed border-white/25 text-slate-400 hover:text-white hover:border-white/50 flex items-center justify-center"
+                >
+                  <span className="material-symbols-outlined text-[13px]">add</span>
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>
