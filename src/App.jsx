@@ -2733,14 +2733,14 @@ function ColorPickerButton({ value, onChange, label, allowNone = false }) {
         className="flex items-center gap-2 bg-[var(--bg-surface-alt)] border border-[var(--border)] hover:border-[#00c2ff] rounded-xl px-2.5 py-2 transition-colors"
       >
         <span
-          className="w-6 h-6 rounded-lg border border-white/20 flex-shrink-0"
-          style={isNone ? { backgroundImage: 'linear-gradient(45deg, #ef4444 45%, transparent 45%, transparent 55%, #ef4444 55%)' } : { backgroundColor: value || '#FFFFFF' }}
+          className="w-5 h-5 rounded-md border border-white/20 flex-shrink-0"
+          style={isNone ? { backgroundColor: '#3a3f4b' } : { backgroundColor: value || '#FFFFFF' }}
         />
         <span className="text-xs font-mono text-slate-300">{isNone ? 'Aucune' : (value || '#FFFFFF').toUpperCase()}</span>
       </button>
 
       {open && (
-        <div className="absolute z-30 top-full left-0 mt-2 w-72 bg-[var(--bg-dropdown)] border border-[var(--border-dropdown)] rounded-2xl shadow-2xl p-3 space-y-3">
+        <div className="absolute z-30 top-full left-0 mt-2 w-56 bg-[var(--bg-dropdown)] border border-[var(--border-dropdown)] rounded-xl shadow-2xl p-2.5 space-y-2">
           {label && <div className="text-[11px] font-bold text-slate-300">{label}</div>}
 
           <div
@@ -2749,52 +2749,66 @@ function ColorPickerButton({ value, onChange, label, allowNone = false }) {
             onPointerMove={onSquarePointerMove}
             onPointerUp={endSquareDrag}
             onPointerLeave={endSquareDrag}
-            className="relative w-full aspect-[4/3] rounded-xl border border-white/10 cursor-crosshair select-none touch-none"
+            className="relative w-full h-24 rounded-lg border border-white/10 cursor-crosshair select-none touch-none"
             style={{
               background: `linear-gradient(to top, #000, transparent), linear-gradient(to right, #fff, hsl(${hsv.h} 100% 50%))`,
             }}
           >
             <div
-              className="absolute w-4 h-4 -ml-2 -mt-2 rounded-full border-2 border-white shadow-[0_0_0_1px_rgba(0,0,0,0.5)] pointer-events-none"
+              className="absolute w-3.5 h-3.5 -ml-[7px] -mt-[7px] rounded-full border-2 border-white shadow-[0_0_0_1px_rgba(0,0,0,0.5)] pointer-events-none"
               style={{ left: `${hsv.s}%`, top: `${100 - hsv.v}%`, backgroundColor: isNone ? 'transparent' : (value || '#FFFFFF') }}
             />
           </div>
 
           <input type="range" min="0" max="359" value={hsv.h} onChange={e => updateHsv('h', Number(e.target.value))} className="color-hue-slider w-full" />
 
-          <div className="flex items-center gap-2">
-            <span className="w-6 h-6 rounded-lg border border-white/20 flex-shrink-0" style={{ backgroundColor: /^#[0-9a-fA-F]{6}$/.test(hexDraft) ? hexDraft : 'transparent' }} />
-            <div className="flex-1 min-w-0 flex items-center gap-1 bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-lg px-2 py-1.5 focus-within:border-[#00c2ff]">
-              <span className="text-[10px] font-bold text-slate-500 shrink-0">Hex</span>
-              <input
-                value={hexDraft}
-                onChange={e => commitHex(e.target.value)}
-                placeholder="#RRGGBB"
-                className="flex-1 min-w-0 bg-transparent text-xs font-mono text-white outline-none"
+          <div className="flex items-center gap-1.5">
+            <span className="w-7 h-7 rounded-md border border-white/20 flex-shrink-0" style={{ backgroundColor: /^#[0-9a-fA-F]{6}$/.test(hexDraft) ? hexDraft : (isNone ? '#3a3f4b' : '#FFFFFF') }} />
+            <span className="text-[9px] font-bold text-slate-500 shrink-0">Hex</span>
+            <input
+              value={hexDraft}
+              onChange={e => commitHex(e.target.value)}
+              placeholder="#RRGGBB"
+              className="w-[86px] shrink-0 h-7 bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-md px-2 text-[11px] font-mono text-white focus:border-[#00c2ff] outline-none"
+            />
+            {typeof window !== 'undefined' && 'EyeDropper' in window && <button type="button" title="Prélever une couleur précise" onClick={pickScreenColor} className="w-7 h-7 shrink-0 ml-auto rounded-md border border-[var(--border)] text-[#65d7ff] hover:bg-[#00c2ff]/10 flex items-center justify-center"><span className="material-symbols-outlined text-[14px]">colorize</span></button>}
+          </div>
+
+          {allowNone && (
+            <button
+              type="button"
+              onClick={() => { onChange('transparent'); setOpen(false); }}
+              className={`w-full flex items-center justify-center gap-1.5 text-[10px] font-bold py-1.5 rounded-lg border transition-colors ${isNone ? 'bg-[#00c2ff]/10 text-[#00c2ff] border-[#00c2ff]/40' : 'text-slate-300 border-[var(--border)] hover:border-slate-400 hover:text-white'}`}
+            >
+              <span className="material-symbols-outlined text-[14px]">block</span>
+              Aucune couleur
+            </button>
+          )}
+
+          <div className="grid grid-cols-7 gap-1">
+            {COLOR_PICKER_PRESETS.map(c => (
+              <button
+                key={c}
+                type="button"
+                onClick={() => { commitHex(c); onChange(c); }}
+                className={`w-full aspect-square rounded-md border-2 transition-transform hover:scale-110 ${!isNone && value?.toUpperCase() === c ? 'border-[#00c2ff]' : 'border-white/15'}`}
+                style={{ backgroundColor: c }}
+                title={c}
               />
-            </div>
-            {typeof window !== 'undefined' && 'EyeDropper' in window && <button type="button" title="Prélever une couleur précise" onClick={pickScreenColor} className="w-8 h-8 shrink-0 rounded-lg border border-[var(--border)] text-[#65d7ff] hover:bg-[#00c2ff]/10"><span className="material-symbols-outlined text-[16px]">colorize</span></button>}
+            ))}
           </div>
 
           <div>
             <button
               type="button"
               onClick={() => setShowCustomColors(s => !s)}
-              className="w-full flex items-center justify-between text-[11px] font-bold text-slate-300 hover:text-white py-1"
+              className="w-full flex items-center justify-between text-[10px] font-bold text-slate-300 hover:text-white py-0.5"
             >
               Mes couleurs
-              <span className="material-symbols-outlined text-[16px]">{showCustomColors ? 'expand_less' : 'expand_more'}</span>
+              <span className="material-symbols-outlined text-[14px]">{showCustomColors ? 'expand_less' : 'expand_more'}</span>
             </button>
             {showCustomColors && (
-              <div className="grid grid-cols-6 gap-2 mt-1.5">
-                <button
-                  type="button"
-                  onClick={saveCustomColor}
-                  title="Enregistrer la couleur actuelle"
-                  className="w-full aspect-square rounded-lg border-2 border-dashed border-white/25 text-slate-400 hover:text-white hover:border-white/50 flex items-center justify-center"
-                >
-                  <span className="material-symbols-outlined text-[16px]">add</span>
-                </button>
+              <div className="grid grid-cols-7 gap-1 mt-1">
                 {customColors.map(c => (
                   <button
                     key={c}
@@ -2802,36 +2816,21 @@ function ColorPickerButton({ value, onChange, label, allowNone = false }) {
                     onClick={() => commitHex(c)}
                     onDoubleClick={e => removeCustomColor(e, c)}
                     title={`${c} (double-clic pour retirer)`}
-                    className={`w-full aspect-square rounded-lg border-2 transition-transform hover:scale-110 ${!isNone && value?.toUpperCase() === c ? 'border-[#00c2ff]' : 'border-white/15'}`}
+                    className={`w-full aspect-square rounded-md border-2 transition-transform hover:scale-110 ${!isNone && value?.toUpperCase() === c ? 'border-[#00c2ff]' : 'border-white/15'}`}
                     style={{ backgroundColor: c }}
                   />
                 ))}
+                <button
+                  type="button"
+                  onClick={saveCustomColor}
+                  title="Enregistrer la couleur actuelle"
+                  className="w-full aspect-square rounded-md border-2 border-dashed border-white/25 text-slate-400 hover:text-white hover:border-white/50 flex items-center justify-center"
+                >
+                  <span className="material-symbols-outlined text-[13px]">add</span>
+                </button>
               </div>
             )}
           </div>
-
-          <div className="grid grid-cols-6 gap-2">
-            {COLOR_PICKER_PRESETS.map(c => (
-              <button
-                key={c}
-                type="button"
-                onClick={() => { commitHex(c); onChange(c); }}
-                className={`w-full aspect-square rounded-lg border-2 transition-transform hover:scale-110 ${!isNone && value?.toUpperCase() === c ? 'border-[#00c2ff]' : 'border-white/15'}`}
-                style={{ backgroundColor: c }}
-                title={c}
-              />
-            ))}
-          </div>
-
-          {allowNone && (
-            <button
-              type="button"
-              onClick={() => { onChange('transparent'); setOpen(false); }}
-              className={`w-full text-center text-[11px] font-bold py-1.5 rounded-lg transition-colors ${isNone ? 'bg-[#00c2ff]/10 text-[#00c2ff]' : 'text-slate-400 hover:text-white'}`}
-            >
-              Aucune couleur
-            </button>
-          )}
         </div>
       )}
     </div>
@@ -13998,15 +13997,79 @@ export default function App() {
                             <label className="block text-xs font-bold text-slate-300 mb-2">Police (Font)</label>
                             <button
                               type="button"
-                              onClick={() => { setFontSearchQuery(''); setFontPickerOpen(true); }}
+                              onClick={() => { setFontSearchQuery(''); setFontPickerOpen(o => !o); }}
                               className="w-full flex items-center justify-between bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-4 py-2.5 text-left hover:border-[#00c2ff] transition-colors"
                             >
                               <span style={{ fontFamily: newChannel.subtitle_style.font }} className="text-sm text-white truncate">
                                 {subtitleFonts.find(f => f.value === newChannel.subtitle_style.font)?.label || newChannel.subtitle_style.font}
                               </span>
-                              <span className="material-symbols-outlined text-[18px] text-slate-400 flex-shrink-0">expand_more</span>
+                              <span className={`material-symbols-outlined text-[18px] text-slate-400 flex-shrink-0 transition-transform ${fontPickerOpen ? 'rotate-180' : ''}`}>expand_more</span>
                             </button>
-                            <p className="text-[10px] text-slate-500 mt-1.5">{subtitleFonts.length} polices auto-hébergées disponibles pour le rendu final.</p>
+                            {!fontPickerOpen && (
+                              <p className="text-[10px] text-slate-500 mt-1.5">{subtitleFonts.length} polices auto-hébergées disponibles pour le rendu final.</p>
+                            )}
+
+                            {/* Intégré directement dans le panneau (pas de popup flottante) —
+                                se déplie sous le bouton, comme une vraie liste de sélection. */}
+                            {fontPickerOpen && (() => {
+                              const query = fontSearchQuery.trim().toLowerCase();
+                              const filtered = subtitleFonts.filter(f => !query || f.label.toLowerCase().includes(query) || f.group.toLowerCase().includes(query));
+                              const groups = [];
+                              for (const f of filtered) {
+                                const lastGroup = groups[groups.length - 1];
+                                if (lastGroup && lastGroup.name === f.group) lastGroup.fonts.push(f);
+                                else groups.push({ name: f.group, fonts: [f] });
+                              }
+                              return (
+                                <div className="mt-2 bg-[var(--bg-input)] border border-[var(--border)] rounded-xl overflow-hidden">
+                                  <div className="p-2.5 border-b border-[var(--border-subtle)]">
+                                    <div className="relative">
+                                      <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-[16px]">search</span>
+                                      <input
+                                        autoFocus
+                                        value={fontSearchQuery}
+                                        onChange={e => setFontSearchQuery(e.target.value)}
+                                        placeholder="Rechercher une police..."
+                                        className="w-full bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-lg pl-9 pr-3 py-2 text-xs text-white focus:border-[#00c2ff] outline-none"
+                                      />
+                                    </div>
+                                  </div>
+                                  <div className="max-h-72 overflow-y-auto p-2 space-y-3">
+                                    {filtered.length === 0 && (
+                                      <p className="text-xs text-slate-500 text-center py-6">Aucune police ne correspond à "{fontSearchQuery}".</p>
+                                    )}
+                                    {groups.map(group => (
+                                      <div key={group.name}>
+                                        <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider px-1.5 mb-1">{group.name}</div>
+                                        <div className="space-y-0.5">
+                                          {group.fonts.map(f => {
+                                            const isActive = newChannel.subtitle_style.font === f.value;
+                                            return (
+                                              <button
+                                                key={f.value}
+                                                type="button"
+                                                onClick={() => {
+                                                  setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, font: f.value } });
+                                                  setFontPickerOpen(false);
+                                                }}
+                                                className={`w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-left transition-colors ${
+                                                  isActive ? 'bg-[#00c2ff]/10 border border-[#00c2ff]' : 'hover:bg-[var(--bg-surface-alt)] border border-transparent'
+                                                }`}
+                                              >
+                                                <span style={{ fontFamily: f.value }} className={`text-sm truncate ${isActive ? 'text-[#00c2ff]' : 'text-white'}`}>
+                                                  {f.label}
+                                                </span>
+                                                {isActive && <span className="material-symbols-outlined text-[16px] text-[#00c2ff] shrink-0">check</span>}
+                                              </button>
+                                            );
+                                          })}
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              );
+                            })()}
                           </div>
 
                           <div>
@@ -14087,15 +14150,42 @@ export default function App() {
                             />
                           </div>
 
-                          <div>
-                            <label className="block text-xs font-bold text-slate-300 mb-2">Épaisseur de la bulle ({newChannel.subtitle_style.box_padding ?? 10}px)</label>
-                            <input
-                              type="range" min="0" max="40"
-                              value={newChannel.subtitle_style.box_padding ?? 10}
-                              onChange={e => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, box_padding: parseInt(e.target.value) || 0 } })}
-                              className="w-full accent-[#00c2ff] mt-3"
-                            />
-                          </div>
+                          {!!newChannel.subtitle_style.box_color && newChannel.subtitle_style.box_color !== 'transparent' && (
+                            <div className="space-y-4 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-input)] p-3">
+                              <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                  <label className="block text-xs font-bold text-slate-300 mb-2">Largeur de la bulle ({newChannel.subtitle_style.box_padding_x ?? newChannel.subtitle_style.box_padding ?? 10}px)</label>
+                                  <input
+                                    type="range" min="0" max="60"
+                                    value={newChannel.subtitle_style.box_padding_x ?? newChannel.subtitle_style.box_padding ?? 10}
+                                    onChange={e => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, box_padding_x: parseInt(e.target.value) || 0 } })}
+                                    className="w-full accent-[#00c2ff] mt-3"
+                                  />
+                                  <p className="text-[10px] text-slate-500 mt-1">Espace ajouté à gauche/droite du texte.</p>
+                                </div>
+                                <div>
+                                  <label className="block text-xs font-bold text-slate-300 mb-2">Hauteur de la bulle ({newChannel.subtitle_style.box_padding_y ?? newChannel.subtitle_style.box_padding ?? 10}px)</label>
+                                  <input
+                                    type="range" min="0" max="60"
+                                    value={newChannel.subtitle_style.box_padding_y ?? newChannel.subtitle_style.box_padding ?? 10}
+                                    onChange={e => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, box_padding_y: parseInt(e.target.value) || 0 } })}
+                                    className="w-full accent-[#00c2ff] mt-3"
+                                  />
+                                  <p className="text-[10px] text-slate-500 mt-1">Espace ajouté au-dessus/en-dessous du texte.</p>
+                                </div>
+                              </div>
+                              <div>
+                                <label className="block text-xs font-bold text-slate-300 mb-2">Arrondi des coins ({newChannel.subtitle_style.box_radius ?? 0}px)</label>
+                                <input
+                                  type="range" min="0" max="50"
+                                  value={newChannel.subtitle_style.box_radius ?? 0}
+                                  onChange={e => setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, box_radius: parseInt(e.target.value) || 0 } })}
+                                  className="w-full accent-[#00c2ff] mt-3"
+                                />
+                                <p className="text-[10px] text-slate-500 mt-1">0 = coins carrés. Monte le curseur pour des coins arrondis.</p>
+                              </div>
+                            </div>
+                          )}
 
                           <div>
                             <label className="block text-xs font-bold text-slate-300 mb-2">Longueur des sous-titres ({newChannel.subtitle_style.words_per_line || 6} mots)</label>
@@ -14326,8 +14416,8 @@ export default function App() {
                               title="Glissez pour déplacer les sous-titres"
                               style={{
                                 backgroundColor: newChannel.subtitle_style.box_color && newChannel.subtitle_style.box_color !== 'transparent' ? newChannel.subtitle_style.box_color : 'transparent',
-                                padding: `${Math.max(2, (newChannel.subtitle_style.box_padding ?? 10) * 0.6)}px ${Math.max(4, (newChannel.subtitle_style.box_padding ?? 10) * 0.9)}px`,
-                                borderRadius: '10px',
+                                padding: `${(newChannel.subtitle_style.box_padding_y ?? newChannel.subtitle_style.box_padding ?? 10) * wizardSubtitlePreviewScale}px ${(newChannel.subtitle_style.box_padding_x ?? newChannel.subtitle_style.box_padding ?? 10) * wizardSubtitlePreviewScale}px`,
+                                borderRadius: `${(newChannel.subtitle_style.box_radius ?? 0) * wizardSubtitlePreviewScale}px`,
                                 opacity: (newChannel.subtitle_style.opacity ?? 100) / 100,
                                 transform: `translateX(${(newChannel.subtitle_style.x_offset || 0) * wizardSubtitlePreviewScale}px) translateY(${(newChannel.subtitle_style.y_offset || 0) * wizardSubtitlePreviewScale}px) rotate(${newChannel.subtitle_style.rotation || 0}deg)`
                               }}
@@ -14352,8 +14442,11 @@ export default function App() {
                                 const highlightMode = newChannel.subtitle_style.highlight_mode || (newChannel.subtitle_style.karaoke === false ? 'line' : 'word');
                                 const isColored = highlightMode === 'line' || (highlightMode === 'word' && wordObj.highlight);
                                 const displayText = applySubtitleCase(wordObj.text, newChannel.subtitle_style.text_case);
-                                const hasBox = newChannel.subtitle_style.box_color && newChannel.subtitle_style.box_color !== 'transparent';
-                                const outlinePx = hasBox ? 0 : (newChannel.subtitle_style.outline_width ?? 3) * wizardSubtitlePreviewScale;
+                                // The background box is now drawn as its own independent shape
+                                // (see subtitles.py) rather than replacing the text outline the
+                                // way the old BorderStyle-3 rendering did — outline and box always
+                                // coexist, so the preview must too.
+                                const outlinePx = (newChannel.subtitle_style.outline_width ?? 3) * wizardSubtitlePreviewScale;
                                 return (
                                   <span
                                     key={i}
@@ -15256,8 +15349,8 @@ export default function App() {
                             <div
                               style={{
                                 backgroundColor: newChannel.subtitle_style.box_color || 'transparent',
-                                padding: '8px 12px',
-                                borderRadius: '10px'
+                                padding: `${newChannel.subtitle_style.box_padding_y ?? newChannel.subtitle_style.box_padding ?? 10}px ${newChannel.subtitle_style.box_padding_x ?? newChannel.subtitle_style.box_padding ?? 10}px`,
+                                borderRadius: `${newChannel.subtitle_style.box_radius ?? 0}px`
                               }}
                               className="flex flex-wrap justify-center items-center gap-1.5 text-center"
                             >
@@ -17726,9 +17819,9 @@ export default function App() {
                                 fontSize: `${(activeChannel.subtitle_style?.size || 44) * submitSubtitlePreviewScale}px`,
                                 fontWeight: '900',
                                 color: (activeChannel.subtitle_style?.karaoke === false || wordObj.highlight) ? (activeChannel.subtitle_style?.color || '#FFD700') : (activeChannel.subtitle_style?.base_color || '#FFFFFF'),
-                                WebkitTextStroke: (activeChannel.subtitle_style?.box_color && activeChannel.subtitle_style.box_color !== 'transparent')
-                                  ? 'none'
-                                  : `${(activeChannel.subtitle_style?.outline_width ?? 3) * submitSubtitlePreviewScale}px ${activeChannel.subtitle_style?.outline_color || '#000000'}`,
+                                WebkitTextStroke: (activeChannel.subtitle_style?.outline_width ?? 3) > 0
+                                  ? `${(activeChannel.subtitle_style?.outline_width ?? 3) * submitSubtitlePreviewScale}px ${activeChannel.subtitle_style?.outline_color || '#000000'}`
+                                  : 'none',
                                 paintOrder: 'stroke fill',
                                 textShadow: '0 2px 8px rgba(0,0,0,0.6)'
                               }}
@@ -17761,11 +17854,14 @@ export default function App() {
                       </div>
                     )}
                   </div>
-                  <div className="bg-[#00c2ff]/10 border border-[#00c2ff]/30 rounded-xl p-3 flex items-start gap-2">
-                    <span className="material-symbols-outlined text-[#00c2ff] text-[18px]">info</span>
-                    <p className="text-[11px] text-slate-300">Le montage utilisera les réglages déjà configurés pour <strong className="text-white">{activeChannel.name}</strong> (sous-titres, musique, visuels). Vous pourrez suivre l'avancement dans "Mes Vidéos".</p>
-                  </div>
                 </div>
+                </div>
+                {/* Full-width, below both columns — confined to the right
+                    column before, this wrapped to three lines despite the
+                    modal having plenty of room either side. */}
+                <div className="bg-[#00c2ff]/10 border border-[#00c2ff]/30 rounded-xl p-3 flex items-center gap-2">
+                  <span className="material-symbols-outlined text-[#00c2ff] text-[18px] shrink-0">info</span>
+                  <p className="text-[11px] text-slate-300 whitespace-nowrap overflow-hidden text-ellipsis">Le montage utilisera les réglages déjà configurés pour <strong className="text-white">{activeChannel.name}</strong> (sous-titres, musique, visuels). Vous pourrez suivre l'avancement dans "Mes Vidéos".</p>
                 </div>
               </>
             )}
@@ -19422,74 +19518,6 @@ export default function App() {
         </div>,
         document.body
       )}
-
-      {fontPickerOpen && (() => {
-        const query = fontSearchQuery.trim().toLowerCase();
-        const filtered = subtitleFonts.filter(f => !query || f.label.toLowerCase().includes(query) || f.group.toLowerCase().includes(query));
-        const groups = [];
-        for (const f of filtered) {
-          const lastGroup = groups[groups.length - 1];
-          if (lastGroup && lastGroup.name === f.group) lastGroup.fonts.push(f);
-          else groups.push({ name: f.group, fonts: [f] });
-        }
-        return (
-          <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-[110] flex items-center justify-center p-6" onClick={() => setFontPickerOpen(false)}>
-            <div className="bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-3xl w-full max-w-lg shadow-2xl flex flex-col max-h-[80vh]" onClick={e => e.stopPropagation()}>
-              <div className="p-5 border-b border-[var(--border-soft)] space-y-3 flex-shrink-0">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-base font-bold text-white">Choisir une police</h3>
-                  <button onClick={() => setFontPickerOpen(false)} className="text-slate-400 hover:text-white">
-                    <span className="material-symbols-outlined">close</span>
-                  </button>
-                </div>
-                <div className="relative">
-                  <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-[18px]">search</span>
-                  <input
-                    autoFocus
-                    value={fontSearchQuery}
-                    onChange={e => setFontSearchQuery(e.target.value)}
-                    placeholder="Rechercher une police..."
-                    className="w-full bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl pl-10 pr-4 py-2.5 text-sm text-white focus:border-[#00c2ff] outline-none"
-                  />
-                </div>
-              </div>
-              <div className="overflow-y-auto p-3 space-y-4">
-                {filtered.length === 0 && (
-                  <p className="text-xs text-slate-500 text-center py-8">Aucune police ne correspond à "{fontSearchQuery}".</p>
-                )}
-                {groups.map(group => (
-                  <div key={group.name}>
-                    <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider px-2 mb-1.5">{group.name}</div>
-                    <div className="space-y-1">
-                      {group.fonts.map(f => {
-                        const isActive = newChannel.subtitle_style.font === f.value;
-                        return (
-                          <button
-                            key={f.value}
-                            type="button"
-                            onClick={() => {
-                              setNewChannel({ ...newChannel, subtitle_style: { ...newChannel.subtitle_style, font: f.value } });
-                              setFontPickerOpen(false);
-                            }}
-                            className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-left transition-colors ${
-                              isActive ? 'bg-[#00c2ff]/10 border border-[#00c2ff]' : 'hover:bg-[var(--bg-surface-alt)] border border-transparent'
-                            }`}
-                          >
-                            <span style={{ fontFamily: f.value }} className={`text-base ${isActive ? 'text-[#00c2ff]' : 'text-white'}`}>
-                              {f.label}
-                            </span>
-                            {isActive && <span className="material-symbols-outlined text-[18px] text-[#00c2ff]">check</span>}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        );
-      })()}
 
       {confirmDialog && (
         <div
