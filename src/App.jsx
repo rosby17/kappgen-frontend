@@ -5244,7 +5244,7 @@ export default function App() {
       mode: 'library',
       track_id_or_style: 'ambient',
       volume: 0.10,
-      auto_ducking: true,
+      auto_ducking: false,
       ducking_amount: 0.70,
       fade_in_seconds: 2,
       fade_out_seconds: 3,
@@ -5252,7 +5252,7 @@ export default function App() {
       soundgoodizer_amount: 0.35,
       reverb_enabled: false,
       reverb_amount: 0.15,
-      maximus_enabled: true,
+      maximus_enabled: false,
       maximus_amount: 0.40
     },
     image_style: {
@@ -13540,7 +13540,7 @@ export default function App() {
                       />
                     </div>
 
-                    <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-surface-soft)] p-4 space-y-4">
+                    <div className="hidden rounded-2xl border border-[var(--border)] bg-[var(--bg-surface-soft)] p-4 space-y-4">
                       <div>
                         <h4 className="text-xs font-extrabold text-white flex items-center gap-2">
                           <span className="material-symbols-outlined text-[#00c2ff] text-[18px]">graphic_eq</span>
