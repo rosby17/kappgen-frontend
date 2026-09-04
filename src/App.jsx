@@ -7180,7 +7180,19 @@ export default function App() {
   };
 
   const getChannelLogoUrl = (channel) => {
-    if (channel?.branding?.logo_path) return getVideoUrl(channel.branding.logo_path);
+    if (channel?.branding?.logo_path) {
+      const base = getVideoUrl(channel.branding.logo_path);
+      // logo.jpg is overwritten in place at this same fixed path every time
+      // the YouTube-synced avatar refreshes (see _fill_logo_from_youtube_avatar
+      // server-side) — without a cache-busting key, disconnecting one YouTube
+      // channel and reconnecting a different one kept showing the first
+      // channel's avatar indefinitely, since the browser never re-fetched a
+      // URL it had already cached. youtube_avatar_synced_url IS the source
+      // avatar's own URL, so it's a different value exactly when — and only
+      // when — there's actually a different picture to show.
+      const bust = channel.branding?.youtube_avatar_synced_url;
+      return bust ? `${base}?v=${encodeURIComponent(bust)}` : base;
+    }
     if (channel?.youtube_channel_thumbnail_url) return channel.youtube_channel_thumbnail_url;
     return "/assets/logo/logo-kappgen.png";
   };
