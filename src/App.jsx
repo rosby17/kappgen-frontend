@@ -7254,12 +7254,10 @@ export default function App() {
       audioFilesList.forEach(file => {
         formData.append("audio_files", file);
       });
-      // The toggle itself is hidden whenever subtitles are off (no point paying
-      // to transcribe subtitles nobody will see) — but its state can still be
-      // stale true from an earlier session, so re-check subtitles here rather
-      // than trusting transcribeAudio alone.
-      const subtitlesEnabled = activeChannel.subtitle_style?.enabled ?? true;
-      formData.append("transcribe_audio", (subtitlesEnabled && transcribeAudio) ? "true" : "false");
+      // No separate opt-in: whenever subtitles are on, an accurate
+      // transcription is what builds them, so it's not a real choice worth
+      // its own toggle — subtitles off means nothing to transcribe for.
+      formData.append("transcribe_audio", (activeChannel.subtitle_style?.enabled ?? true) ? "true" : "false");
       formData.append("audio_rights_confirmed", "true");
       formData.append("audio_source_type", audioSourceType);
     }
@@ -12084,8 +12082,8 @@ export default function App() {
                               <span className="material-symbols-outlined text-[14px]">{overlayUploading ? 'progress_activity' : 'add_photo_alternate'}</span>
                               {overlayUploading ? 'Ajout…' : 'Ajouter'}
                             </button>
-                            <input type="file" ref={overlayInputRef} accept="image/png,image/webp,image/gif" onChange={handleUploadOverlay} className="hidden" />
-                            <input type="file" ref={replaceOverlayInputRef} accept="image/png,image/webp,image/gif" onChange={handleReplaceOverlayFile} className="hidden" />
+                            <input type="file" ref={overlayInputRef} accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml" onChange={handleUploadOverlay} className="hidden" />
+                            <input type="file" ref={replaceOverlayInputRef} accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml" onChange={handleReplaceOverlayFile} className="hidden" />
                           </div>
 
                           {resolvedLogoUrl && (newChannel.branding.logo_enabled ?? true) && (() => {
@@ -17449,13 +17447,13 @@ export default function App() {
                     ))}
                   </div>
 
-                  {/* N'a de sens que si les sous-titres eux-mêmes sont activés (case
-                      "Sous-titres" juste au-dessus) — sinon on facturerait une
-                      transcription précise pour des sous-titres qui ne s'afficheront
-                      jamais. Un seul moteur de transcription existe (Izivoice), donc
-                      pas de sélection à faire ici, juste précis vs estimé — le coût
-                      en crédits n'est plus affiché, seule la case à cocher compte. */}
-                  {(submitMode === 'audio_upload' || submitMode === 'text') && (activeChannel.subtitle_style?.enabled ?? true) && (
+                  {/* Text-mode only: this generates the narration audio itself (TTS), so
+                      "transcribe" is a real added-cost choice — precise Izivoice STT timing
+                      vs. free estimated timing. An uploaded audio file has no such choice:
+                      accurate subtitles need a real transcription of what was actually said,
+                      so whenever subtitles are on it just happens (see the transcribe_audio
+                      field above), no separate toggle to ask about. */}
+                  {submitMode === 'text' && (activeChannel.subtitle_style?.enabled ?? true) && (
                     <button
                       type="button"
                       onClick={() => setTranscribeAudio(prev => !prev)}
@@ -17464,9 +17462,7 @@ export default function App() {
                           ? 'bg-emerald-950/60 border-emerald-700 text-emerald-400'
                           : 'bg-[var(--bg-surface-alt)] border-[var(--border)] text-slate-500 hover:border-slate-500'
                       }`}
-                      title={submitMode === 'text'
-                        ? "Sans transcription, les sous-titres sont estimés en répartissant le script uniformément sur la durée — moins précis. Avec transcription : synchronisés sur les mots réellement prononcés."
-                        : "Sans transcription, les sous-titres utiliseront le titre du fichier au lieu du texte réel parlé. Avec transcription : synchronisés sur les mots réellement prononcés."}
+                      title="Sans transcription, les sous-titres sont estimés en répartissant le script uniformément sur la durée — moins précis. Avec transcription : synchronisés sur les mots réellement prononcés."
                     >
                       <span className="material-symbols-outlined text-[16px] shrink-0">record_voice_over</span>
                       <span className="flex-1 truncate">Transcrire pour des sous-titres précis (IA)</span>
