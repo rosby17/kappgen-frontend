@@ -2329,6 +2329,72 @@ function MusicChannelWizard({ authFetch, showToast, onCreated, onBack, editingCh
     }
   };
 
+  // Thumbnail-style references never had any UI here at all — a music
+  // channel could never configure its own card-thumbnail look, even though
+  // queue_runner.py's thumbnail generation (channel.thumbnail_style) is
+  // completely content-type-agnostic and already ran for these channels
+  // the same as narration ones, just always with the default/no style.
+  // Persisted independently via its own endpoint (like overlays above), not
+  // part of the create/update payload — createChannel doesn't send it.
+  const [thumbnailStyle, setThumbnailStyle] = useState(editingChannel?.thumbnail_style || null);
+  const [thumbnailStyleAnalyzing, setThumbnailStyleAnalyzing] = useState(false);
+  const thumbnailStyleInputRef = useRef(null);
+  const handleUploadThumbnailStyle = async (e) => {
+    const files = Array.from(e.target.files || []);
+    e.target.value = '';
+    if (!files.length) return;
+    setThumbnailStyleAnalyzing(true);
+    try {
+      const channelId = await ensureChannelCreated();
+      const formData = new FormData();
+      files.forEach(file => formData.append('files', file));
+      const res = await authFetch(`${API_BASE}/channels/${channelId}/thumbnail-style`, { method: 'POST', body: formData });
+      if (!res.ok) {
+        const detail = await res.json().catch(() => ({}));
+        throw new Error(detail.detail || "Analyse impossible.");
+      }
+      let data = await res.json();
+      // Same async-analysis + poll pattern as the faceless wizard's
+      // handleUploadThumbnailStyle (App.jsx) — the vision analysis can fall
+      // back across up to 3 providers (~75s worst case), longer than
+      // Cloudflare's edge proxy holds a request open.
+      for (let attempt = 0; attempt < 40 && data.thumbnail_style?.analyzing; attempt++) {
+        await new Promise(r => setTimeout(r, 3000));
+        const statusRes = await authFetch(`${API_BASE}/channels/${channelId}/thumbnail-style/status`);
+        if (!statusRes.ok) break;
+        const body = await statusRes.json().catch(() => ({}));
+        if (body.channel) data = body.channel;
+        if (!body.analyzing) {
+          if (body.analysis_error) throw new Error(body.analysis_error);
+          break;
+        }
+      }
+      setThumbnailStyle(data.thumbnail_style);
+      showToast(`Style de miniature analysé sur ${(data.thumbnail_style?.reference_image_paths || []).length} image(s).`, "success");
+    } catch (err) {
+      showToast(err.message || "Erreur lors de l'analyse des images.", "error");
+    } finally {
+      setThumbnailStyleAnalyzing(false);
+    }
+  };
+  const handleRemoveThumbnailStyle = async (imagePath = null) => {
+    if (!createdChannelId) return;
+    setThumbnailStyleAnalyzing(true);
+    try {
+      const url = imagePath
+        ? `${API_BASE}/channels/${createdChannelId}/thumbnail-style?image_path=${encodeURIComponent(imagePath)}`
+        : `${API_BASE}/channels/${createdChannelId}/thumbnail-style`;
+      const res = await authFetch(url, { method: 'DELETE' });
+      if (!res.ok) throw new Error("Suppression impossible.");
+      const data = await res.json();
+      setThumbnailStyle(data.thumbnail_style || null);
+    } catch (err) {
+      showToast(err.message, "error");
+    } finally {
+      setThumbnailStyleAnalyzing(false);
+    }
+  };
+
   // "Importer mes propres pistes" (music_source_mode 'library') — reuses the
   // exact same /music upload endpoint as a faceless channel's background
   // music library (channel.music_preference.tracks); the render worker picks
@@ -2946,6 +3012,53 @@ function MusicChannelWizard({ authFetch, showToast, onCreated, onBack, editingCh
                   <p className="mt-1 text-[10px] text-slate-500">Photos/logos réels, en complément des autres sources.</p>
                 </div>
               </div>
+            </div>
+
+            <div className="bg-[#171b23] border border-[var(--border)] rounded-xl p-3.5 space-y-2.5">
+              <div className="flex items-center justify-between border-b border-white/10 pb-2">
+                <h4 className="text-xs font-bold text-white">Miniature de la chaîne (carte vidéo)</h4>
+                <span className="text-[10px] font-medium text-slate-500">{THUMBNAIL_GENERATION_CREDITS.toLocaleString()} crédits / miniature</span>
+              </div>
+              <p className="text-[10px] text-slate-500">Importe 1 à 3 miniatures existantes dans le style voulu — KappGen en reproduit le style pour chaque nouvelle vidéo de cette chaîne.</p>
+              <input ref={thumbnailStyleInputRef} type="file" accept="image/png,image/jpeg,image/webp" multiple onChange={handleUploadThumbnailStyle} className="hidden" />
+              {(thumbnailStyle?.reference_image_paths || []).length > 0 ? (
+                <div className="grid gap-2" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(64px, 1fr))' }}>
+                  {thumbnailStyle.reference_image_paths.map((path) => (
+                    <div key={path} className="relative group aspect-square">
+                      <img src={`${STORAGE_BASE}/${path}`} alt="Référence miniature" className="w-full h-full rounded-lg object-cover border border-[var(--border)]" />
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveThumbnailStyle(path)}
+                        disabled={thumbnailStyleAnalyzing}
+                        title="Retirer cette image"
+                        className="absolute -top-1.5 -right-1.5 w-4.5 h-4.5 rounded-full bg-red-500 hover:bg-red-400 text-white flex items-center justify-center disabled:opacity-50 opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <span className="material-symbols-outlined text-[12px]">close</span>
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => !thumbnailStyleAnalyzing && thumbnailStyleInputRef.current?.click()}
+                    disabled={thumbnailStyleAnalyzing}
+                    title="Ajouter d'autres images"
+                    className="aspect-square rounded-lg border-2 border-dashed border-slate-600 text-slate-400 hover:border-[#00c2ff] hover:text-[#00c2ff] flex items-center justify-center disabled:opacity-50"
+                  >
+                    <span className={`material-symbols-outlined text-xl ${thumbnailStyleAnalyzing ? 'animate-spin' : ''}`}>{thumbnailStyleAnalyzing ? 'progress_activity' : 'add'}</span>
+                  </button>
+                </div>
+              ) : (
+                <div
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => !thumbnailStyleAnalyzing && thumbnailStyleInputRef.current?.click()}
+                  onKeyDown={e => { if ((e.key === 'Enter' || e.key === ' ') && !thumbnailStyleAnalyzing) thumbnailStyleInputRef.current?.click(); }}
+                  className="flex min-h-24 cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-600 px-4 text-center text-[11px] text-slate-400 transition-colors hover:border-[#00c2ff] hover:bg-[#00c2ff]/5 hover:text-[#00c2ff]"
+                >
+                  <span className={`material-symbols-outlined text-2xl ${thumbnailStyleAnalyzing ? 'animate-spin' : ''}`}>{thumbnailStyleAnalyzing ? 'progress_activity' : 'cloud_upload'}</span>
+                  <span className="mt-1.5 font-bold">{thumbnailStyleAnalyzing ? 'Analyse des miniatures…' : 'Glisse-dépose les miniatures à reproduire'}</span>
+                </div>
+              )}
             </div>
 
             <div>
