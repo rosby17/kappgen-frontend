@@ -1955,7 +1955,7 @@ function buildMusicChannelForm(channel) {
     description: channel?.description || '',
     style_prompt: cfg.style_prompt || '',
     title_examples: cfg.title_examples || '',
-    music_source_mode: cfg.music_source_mode || 'ai_generate', // 'ai_generate' | 'library' — see STEP 2
+    music_source_mode: cfg.music_source_mode || 'ai_generate', // 'ai_generate' | 'library'; Izivoice powers AI generation.
     edit_mode: cfg.edit_mode || 'loop', // 'loop' | 'compilation'
     // 'auto' (KappGen picks a count that scales with target_duration_minutes,
     // so a long video isn't stuck looping the same handful of images for
@@ -1966,6 +1966,11 @@ function buildMusicChannelForm(channel) {
     target_duration_minutes: cfg.target_duration_minutes ?? 10,
     automation_mode: channel?.automation_mode || 'manual', // 'manual' | 'auto'
     videos_per_day: channel?.videos_per_day ?? 1,
+    script_generation_hour: channel?.script_generation_hour ?? 9,
+    script_generation_minute: channel?.script_generation_minute ?? 0,
+    // [] means every day and remains explicit on a PUT update, so changing a
+    // custom cadence back to all seven days is actually persisted.
+    script_generation_days: channel?.script_generation_days || [],
     logo_enabled: channel?.branding?.logo_enabled ?? true,
     logo_corner: channel?.branding?.logo_corner || 'top-right',
     logo_shape: channel?.branding?.logo_shape || 'rectangle',
@@ -2493,6 +2498,9 @@ function MusicChannelWizard({ authFetch, showToast, onCreated, onBack, editingCh
         description: form.description,
         automation_mode: form.automation_mode,
         videos_per_day: form.videos_per_day,
+        script_generation_hour: form.script_generation_hour,
+        script_generation_minute: form.script_generation_minute,
+        script_generation_days: form.script_generation_days,
         music_channel_config: {
           style_prompt: form.style_prompt.trim(),
           title_examples: form.title_examples,
@@ -2813,7 +2821,7 @@ function MusicChannelWizard({ authFetch, showToast, onCreated, onBack, editingCh
                   className={`p-3 rounded-xl border-2 text-left transition-colors ${form.music_source_mode === 'ai_generate' ? 'border-[#00c2ff] bg-[#00c2ff]/5' : 'border-[var(--border)] hover:border-slate-500'}`}
                 >
                   <div className="text-xs font-bold text-white flex items-center gap-1.5"><span className="material-symbols-outlined text-[16px]">auto_awesome</span> Générer par IA</div>
-                  <div className="text-[10px] text-slate-500 mt-0.5">Décris un style, KappGen compose une piste originale à chaque vidéo.</div>
+                  <div className="text-[10px] text-slate-500 mt-0.5">Décris un style, Izivoice compose une piste originale à chaque vidéo.</div>
                 </button>
                 <button
                   type="button"
@@ -3236,10 +3244,15 @@ function MusicChannelWizard({ authFetch, showToast, onCreated, onBack, editingCh
                   <div className="text-[10px] text-slate-500 mt-0.5">L'IA génère seule, chaque jour.</div>
                 </button>
               </div>
-              <p className="text-[10px] text-amber-400/80 mt-2 px-1 flex items-center gap-1">
-                <span className="material-symbols-outlined text-[13px]">construction</span>
-                La génération automatique de vidéos musicales arrive bientôt — configure ta chaîne dès maintenant, la production démarrera dès que ce sera prêt.
-              </p>
+              {form.automation_mode === 'auto' && <div className="mt-4 rounded-xl border border-[#00c2ff]/25 bg-[#00c2ff]/[.05] p-4 space-y-4">
+                <div className="flex items-center gap-2"><span className="material-symbols-outlined text-[#00c2ff]">schedule</span><div><div className="text-xs font-bold text-white">Programme de création musicale</div><p className="text-[10px] text-slate-400 mt-0.5">KappGen prépare et lance les vidéos musicales à cette cadence via Izivoice.</p></div></div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <label className="block"><span className="block text-[10px] font-bold text-slate-400 mb-1.5">Musiques par jour</span><input type="number" min={1} max={20} value={form.videos_per_day} onChange={e => setForm({ ...form, videos_per_day: Math.max(1, Math.min(20, Number(e.target.value) || 1)) })} className="w-full bg-[var(--bg-input)] border border-[var(--border)] rounded-xl px-3 py-2.5 text-xs text-white focus:border-[#00c2ff] outline-none" /></label>
+                  <label className="block"><span className="block text-[10px] font-bold text-slate-400 mb-1.5">Heure de lancement</span><input type="time" value={`${String(form.script_generation_hour).padStart(2, '0')}:${String(form.script_generation_minute).padStart(2, '0')}`} onChange={e => { const [hour, minute] = e.target.value.split(':').map(Number); setForm({ ...form, script_generation_hour: hour, script_generation_minute: minute }); }} className="w-full bg-[var(--bg-input)] border border-[var(--border)] rounded-xl px-3 py-2.5 text-xs text-white focus:border-[#00c2ff] outline-none" /></label>
+                  <div><span className="block text-[10px] font-bold text-slate-400 mb-1.5">Fuseau horaire</span><div className="rounded-xl border border-[var(--border)] bg-[var(--bg-input)] px-3 py-2.5 text-xs text-slate-300 truncate">{form.timezone}</div></div>
+                </div>
+                <div><span className="block text-[10px] font-bold text-slate-400 mb-1.5">Jours de création</span><div className="grid grid-cols-7 gap-1.5">{['L','M','M','J','V','S','D'].map((label, day) => { const days = form.script_generation_days?.length ? form.script_generation_days : [0,1,2,3,4,5,6]; const selected = days.includes(day); return <button key={day} type="button" onClick={() => { const next = selected ? days.filter(d => d !== day) : [...days, day].sort(); setForm({ ...form, script_generation_days: next.length === 7 ? [] : next }); }} className={`aspect-square rounded-lg border text-[10px] font-bold ${selected ? 'border-[#00c2ff] bg-[#00c2ff] text-slate-950' : 'border-[var(--border)] text-slate-400 hover:border-[#00c2ff]/60'}`}>{label}</button>; })}</div></div>
+              </div>}
             </div>
 
             <div>
