@@ -2130,6 +2130,7 @@ function MusicChannelWizard({ authFetch, showToast, onCreated, onBack, editingCh
         script_generation_hour: form.script_generation_hour,
         script_generation_minute: form.script_generation_minute,
         script_generation_days: form.script_generation_days,
+        thumbnail_style: thumbnailStyle,
         music_channel_config: {
           style_prompt: form.style_prompt.trim(),
           title_examples: form.title_examples,
@@ -2349,6 +2350,7 @@ function MusicChannelWizard({ authFetch, showToast, onCreated, onBack, editingCh
   // part of the create/update payload — createChannel doesn't send it.
   const [thumbnailStyle, setThumbnailStyle] = useState(editingChannel?.thumbnail_style || null);
   const [thumbnailStyleAnalyzing, setThumbnailStyleAnalyzing] = useState(false);
+  const [thumbnailDragOver, setThumbnailDragOver] = useState(false);
   const thumbnailStyleInputRef = useRef(null);
   const handleUploadThumbnailStyle = async (e) => {
     const files = Array.from(e.target.files || []);
@@ -2519,6 +2521,7 @@ function MusicChannelWizard({ authFetch, showToast, onCreated, onBack, editingCh
         },
         branding: brandingPatch,
         image_style: form.image_style,
+        thumbnail_style: thumbnailStyle,
         subtitle_style: form.subtitle_style,
         effects_config: form.effects_config,
         publish_mode: form.publish_mode,
@@ -3075,11 +3078,35 @@ function MusicChannelWizard({ authFetch, showToast, onCreated, onBack, editingCh
               </div>
             </div>
 
-            <div className="bg-[#171b23] border border-[var(--border)] rounded-xl p-3.5 space-y-2.5">
+            <div
+              className={`bg-[#171b23] border rounded-xl p-3.5 space-y-2.5 transition-colors ${thumbnailDragOver ? 'border-[#00c2ff] bg-[#00c2ff]/[.06]' : 'border-[var(--border)]'}`}
+              onDragOver={(e) => { e.preventDefault(); if (!thumbnailStyle?.disabled) setThumbnailDragOver(true); }}
+              onDragLeave={() => setThumbnailDragOver(false)}
+              onDrop={(e) => { e.preventDefault(); setThumbnailDragOver(false); if (thumbnailStyle?.disabled) return; const files = Array.from(e.dataTransfer.files || []).filter(f => /image\/(png|jpeg|webp)/.test(f.type)); if (files.length) handleUploadThumbnailStyle({ target: { files, value: '' } }); }}
+            >
               <div className="flex items-center justify-between border-b border-white/10 pb-2">
                 <h4 className="text-xs font-bold text-white">Miniature de la chaîne (carte vidéo)</h4>
-                <span className="text-[10px] font-medium text-slate-500">{THUMBNAIL_GENERATION_CREDITS.toLocaleString()} crédits / miniature</span>
+                {!thumbnailStyle?.disabled && (
+                  <span className="text-[10px] font-medium text-slate-500">{THUMBNAIL_GENERATION_CREDITS.toLocaleString()} crédits / miniature</span>
+                )}
               </div>
+
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={!!thumbnailStyle?.disabled}
+                  onChange={e => setThumbnailStyle(prev => ({ ...(prev || {}), disabled: e.target.checked }))}
+                />
+                <span className="text-[11px] font-bold text-slate-300">Je ne veux pas de miniature générée par IA</span>
+              </label>
+
+              {thumbnailStyle?.disabled ? (
+                <p className="text-[10px] text-slate-500">
+                  Aucune miniature ne sera générée ni facturée pour cette chaîne — la vignette affichée dans
+                  l'app sera automatiquement une image tirée de la vidéo montée elle-même.
+                </p>
+              ) : (
+              <>
               <p className="text-[10px] text-slate-500">Importe 1 à 3 miniatures existantes dans le style voulu — KappGen en reproduit le style pour chaque nouvelle vidéo de cette chaîne.</p>
               <input ref={thumbnailStyleInputRef} type="file" accept="image/png,image/jpeg,image/webp" multiple onChange={handleUploadThumbnailStyle} className="hidden" />
               {(thumbnailStyle?.reference_image_paths || []).length > 0 ? (
@@ -3118,7 +3145,10 @@ function MusicChannelWizard({ authFetch, showToast, onCreated, onBack, editingCh
                 >
                   <span className={`material-symbols-outlined text-2xl ${thumbnailStyleAnalyzing ? 'animate-spin' : ''}`}>{thumbnailStyleAnalyzing ? 'progress_activity' : 'cloud_upload'}</span>
                   <span className="mt-1.5 font-bold">{thumbnailStyleAnalyzing ? 'Analyse des miniatures…' : 'Glisse-dépose les miniatures à reproduire'}</span>
+                  {!thumbnailStyleAnalyzing && <span className="mt-0.5 text-slate-500">ou clique ici</span>}
                 </div>
+              )}
+              </>
               )}
             </div>
 
@@ -3148,34 +3178,54 @@ function MusicChannelWizard({ authFetch, showToast, onCreated, onBack, editingCh
                   : "Plusieurs pistes seront générées et enchaînées pour atteindre la durée cible."}
               </p>
             </div>
-            <div>
-              <label className="block text-xs font-bold text-slate-300 mb-2">Images illustratives</label>
-              <div className="flex items-center gap-2 bg-[var(--bg-input)] border border-[var(--border-subtle)] rounded-xl px-3 py-2.5">
-                <span className="material-symbols-outlined text-[16px] text-slate-500 shrink-0">image</span>
-                <span className="text-[11px] text-slate-400 flex-1">Nombre d'images distinctes (0 = aucune, juste le spectre audio)</span>
+            {/* Same layout as the faceless wizard's "Nombre de visuels utilisés
+                dans le montage" (App.jsx, Visuels step) — Auto/Nombre précis
+                toggle, source-agnostic. 0 in manual mode is still meaningful
+                here (unlike faceless): no images at all, just the audio-
+                spectrum visual. */}
+            <div className="p-3.5 rounded-xl bg-[#171b23] border border-[var(--border)] space-y-3">
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-[#00c2ff] text-[18px]">filter_none</span>
+                <h4 className="text-xs font-bold text-white">Nombre de visuels utilisés dans le montage</h4>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
                   onClick={() => setForm({ ...form, image_count: 'auto' })}
-                  className={`px-2.5 h-7 rounded-lg text-[10px] font-bold border transition-colors ${form.image_count === 'auto' ? 'bg-[#00c2ff] text-slate-950 border-[#00c2ff]' : 'bg-[var(--bg-surface-alt)] text-slate-300 border-[var(--border)] hover:border-slate-500'}`}
-                  title="KappGen choisit le nombre d'images en fonction de la durée cible"
+                  className={`px-3 py-2 rounded-lg text-[10px] font-bold border transition-colors ${form.image_count === 'auto' ? 'bg-[#00c2ff]/15 border-[#00c2ff] text-white' : 'bg-transparent border-[var(--border)] text-slate-400 hover:text-white'}`}
                 >
-                  Auto
+                  Auto — KappGen décide
                 </button>
-                <input
-                  type="number"
-                  min={0}
-                  max={500}
-                  value={form.image_count === 'auto' ? '' : form.image_count}
-                  placeholder="Auto"
-                  onChange={e => setForm({ ...form, image_count: Math.max(0, Math.min(500, parseInt(e.target.value) || 0)) })}
-                  className="w-16 text-center bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-lg py-1 text-xs font-bold text-white focus:border-[#00c2ff] outline-none disabled:opacity-40"
-                />
+                <button
+                  type="button"
+                  onClick={() => setForm({ ...form, image_count: form.image_count === 'auto' ? 1 : form.image_count })}
+                  className={`px-3 py-2 rounded-lg text-[10px] font-bold border transition-colors ${form.image_count !== 'auto' ? 'bg-[#00c2ff]/15 border-[#00c2ff] text-white' : 'bg-transparent border-[var(--border)] text-slate-400 hover:text-white'}`}
+                >
+                  Nombre précis
+                </button>
               </div>
-              <p className="text-[10px] text-slate-500 mt-1.5 px-1">
-                {form.image_count === 'auto'
-                  ? "KappGen choisit automatiquement combien d'images distinctes générer selon la durée cible, pour que la vidéo ne boucle jamais trop longtemps sur la même image."
-                  : "Nombre fixe d'images distinctes, quelle que soit la durée cible — pas de plafond, chaque image est facturée normalement."}
-              </p>
+              {form.image_count === 'auto' ? (
+                <p className="text-[10px] text-slate-500">
+                  KappGen choisit automatiquement combien d'images distinctes générer selon la durée cible, pour que la vidéo ne boucle jamais trop longtemps sur la même image.
+                </p>
+              ) : (
+                <>
+                  <div className="flex items-center justify-between gap-3">
+                    <label className="text-[10px] font-bold text-slate-300">Nombre de visuels distincts (0 = aucun, juste le spectre audio)</label>
+                    <input
+                      type="number"
+                      min={0}
+                      max={500}
+                      value={form.image_count}
+                      onChange={e => setForm({ ...form, image_count: Math.max(0, Math.min(500, parseInt(e.target.value) || 0)) })}
+                      className="w-16 bg-[var(--bg-input)] border border-[var(--border)] rounded-lg px-2 py-1 text-xs text-white text-center focus:border-[#00c2ff] outline-none"
+                    />
+                  </div>
+                  <p className="text-[10px] text-slate-500">
+                    Nombre fixe d'images distinctes, quelle que soit la durée cible — pas de plafond, chaque image est facturée normalement.
+                  </p>
+                </>
+              )}
             </div>
             <div>
               <label className="block text-xs font-bold text-slate-300 mb-2">Durée cible</label>
