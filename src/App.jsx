@@ -4250,6 +4250,37 @@ function SkeletonGrid({ count = 6, cardClassName = "min-h-[220px]" }) {
   );
 }
 
+// Mirrors the stage names facecam_editor.py actually writes to
+// video.progress_stage (backend/src/pipeline/facecam_editor.py) — French
+// labels here, matched loosely so a backend rename doesn't just go blank.
+const FACECAM_STAGES = [
+  { key: 'transcription', label: 'Transcription' },
+  { key: 'cuts', label: 'Coupes (silences, erreurs)' },
+  { key: 'verification', label: 'Vérification' },
+  { key: 'broll_and_cards', label: 'B-roll & cartes' },
+  { key: 'final_mux', label: 'Assemblage final' },
+];
+
+function FacecamStageStepper({ stage }) {
+  const activeIdx = FACECAM_STAGES.findIndex(s => stage && stage.startsWith(s.key));
+  return (
+    <div className="flex items-center gap-1.5 mt-1.5">
+      {FACECAM_STAGES.map((s, idx) => (
+        <div
+          key={s.key}
+          title={s.label}
+          className={`h-1.5 flex-1 rounded-full transition-colors ${
+            idx < activeIdx ? 'bg-[#00c2ff]' : idx === activeIdx ? 'bg-[#00c2ff] animate-pulse' : 'bg-[var(--border-soft)]'
+          }`}
+        />
+      ))}
+      <span className="text-xs font-bold text-[#00c2ff] ml-2 whitespace-nowrap">
+        {activeIdx >= 0 ? FACECAM_STAGES[activeIdx].label : (stage || 'Montage en cours…')}
+      </span>
+    </div>
+  );
+}
+
 // Table-row shimmer for admin lists still loading — same animate-pulse
 // language as SkeletonGrid above, just shaped like table rows instead of
 // cards, so every admin page reads as "loading" instead of flashing a
@@ -4888,10 +4919,20 @@ export default function App() {
         throw new Error(err.detail || 'Échec de l\'envoi de la vidéo.');
       }
       showToast('Vidéo facecam envoyée — le montage automatique va démarrer.');
+      const channelId = facecamChannelId;
       setFacecamFile(null);
       setFacecamCloudLink('');
       setFacecamTitle('');
       fetchAllVideos?.();
+      // Drop the creator straight onto the channel page instead of leaving
+      // them on the upload form — that's where the per-stage progress
+      // (transcription/coupes/vérification/b-roll/mux) is visible.
+      const chan = channels.find(c => c.id === channelId);
+      if (chan) {
+        setActiveChannel(chan);
+        fetchChannelVideos(channelId);
+        setView('channel_detail');
+      }
     } catch (err) {
       setFacecamUploadError(err.message || 'Échec de l\'envoi de la vidéo.');
     } finally {
@@ -6503,6 +6544,18 @@ export default function App() {
       console.error("API error loading channel videos:", e);
     }
   };
+
+  // Facecam has no client-side render step to watch (it's all server-side
+  // ffmpeg/whisper work) — polling channelVideos is the only way this page
+  // reflects progress_stage moving from transcription -> cuts -> ... live,
+  // instead of the creator having to manually refresh to see each step.
+  useEffect(() => {
+    if (view !== 'channel_detail' || !activeChannel || activeChannel.content_type !== 'facecam') return;
+    const hasActiveRender = channelVideos.some(v => v.status === 'queued' || v.status === 'rendering');
+    if (!hasActiveRender) return;
+    const id = setInterval(() => fetchChannelVideos(activeChannel.id), 4000);
+    return () => clearInterval(id);
+  }, [view, activeChannel?.id, activeChannel?.content_type, channelVideos]);
 
   // URL <-> app-state routing. The app keeps its existing `view`/`activeChannel`/
   // `wizardMode` state machine; these two effects just keep the browser URL in
@@ -10974,16 +11027,21 @@ export default function App() {
         )}
 
         {activeProduct === 'facecam' && view === 'home' && (
-          <div className="absolute inset-0 z-30 bg-[var(--bg-input-alt)] overflow-y-auto flex flex-col items-center p-8">
+          <div className="absolute inset-0 z-30 bg-[var(--bg-input-alt)] overflow-y-auto">
+            <div className="min-h-full flex flex-col lg:flex-row items-stretch">
+              {/* Left: the submission form — warm, human copy instead of a bare
+                  utility form, since this is the very first thing a Facecam
+                  creator sees. */}
+              <div className="flex-1 flex flex-col items-center p-8">
             <div className="w-full max-w-lg space-y-5 py-8">
               <div className="text-center space-y-2">
-                <div className="w-16 h-16 mx-auto rounded-2xl bg-[#00c2ff]/10 flex items-center justify-center">
-                  <span className="material-symbols-outlined text-[32px] text-[#00c2ff]">videocam</span>
+                <div className="w-16 h-16 mx-auto rounded-2xl bg-[#ff9d5c]/10 flex items-center justify-center">
+                  <span className="material-symbols-outlined text-[32px] text-[#ff9d5c]">videocam</span>
                 </div>
-                <h2 className="text-2xl font-extrabold text-white">Facecam</h2>
+                <h2 className="text-2xl font-extrabold text-white">Salut, prêt à monter ta prochaine vidéo ?</h2>
                 <p className="text-sm text-slate-400">
-                  Envoie ton enregistrement brut (webcam/écran) — silences et erreurs coupés, coupes vérifiées,
-                  cartes de titre animées et b-roll ajoutés automatiquement.
+                  Dépose ton enregistrement brut (webcam ou écran) — on coupe les silences et les erreurs,
+                  on vérifie chaque coupe, et on ajoute cartes de titre et b-roll automatiquement.
                 </p>
               </div>
 
@@ -11105,6 +11163,36 @@ export default function App() {
               >
                 {facecamUploading ? 'Envoi en cours…' : 'Lancer le montage automatique'}
               </button>
+            </div>
+              </div>
+
+              {/* Right: a warm "editing bay waiting for footage" illustration —
+                  purely decorative, hidden below lg where the form already
+                  fills the width. */}
+              <div className="hidden lg:flex flex-1 items-center justify-center bg-gradient-to-br from-[#2a1d14] via-[#1c1712] to-[#12100e] relative overflow-hidden p-10">
+                <div className="absolute inset-0 opacity-40" style={{ backgroundImage: 'radial-gradient(circle at 30% 20%, rgba(255,157,92,0.18), transparent 55%), radial-gradient(circle at 75% 75%, rgba(0,194,255,0.12), transparent 50%)' }} />
+                <div className="relative z-10 max-w-sm w-full">
+                  <svg viewBox="0 0 360 300" className="w-full h-auto drop-shadow-2xl">
+                    <rect x="30" y="40" width="300" height="180" rx="16" fill="#2c241d" stroke="#ff9d5c" strokeOpacity="0.25" strokeWidth="2" />
+                    <rect x="46" y="56" width="268" height="148" rx="10" fill="#181310" />
+                    <circle cx="180" cy="130" r="46" fill="none" stroke="#ff9d5c" strokeWidth="3" strokeDasharray="6 8" opacity="0.7">
+                      <animateTransform attributeName="transform" type="rotate" from="0 180 130" to="360 180 130" dur="8s" repeatCount="indefinite" />
+                    </circle>
+                    <path d="M165 112 l30 18 -30 18 z" fill="#ff9d5c" opacity="0.85" />
+                    <rect x="70" y="228" width="90" height="10" rx="5" fill="#ff9d5c" opacity="0.5" />
+                    <rect x="170" y="228" width="120" height="10" rx="5" fill="#3a322a" />
+                    <circle cx="180" cy="130" r="3" fill="#ff9d5c">
+                      <animate attributeName="opacity" values="1;0.2;1" dur="1.6s" repeatCount="indefinite" />
+                    </circle>
+                  </svg>
+                  <div className="text-center mt-6 space-y-1.5">
+                    <p className="text-sm font-bold text-white/90">La table de montage t'attend</p>
+                    <p className="text-xs text-white/50 max-w-xs mx-auto">
+                      Dès que ton fichier arrive, le montage automatique démarre : silences coupés, vérification, b-roll et cartes ajoutées.
+                    </p>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         )}
@@ -13137,12 +13225,15 @@ export default function App() {
                         </div>
                         <div className="min-w-0 flex-1">
                           <div className="text-sm font-bold text-white truncate">{vid.title || 'Sans titre'}</div>
-                          <div className="text-xs text-slate-400 mt-0.5">
-                            {vid.status === 'done' && 'Prête'}
-                            {vid.status === 'rendering' && (vid.progress_stage || 'Montage en cours…')}
-                            {vid.status === 'queued' && 'En attente'}
-                            {vid.status === 'failed' && (vid.error_message || 'Échec du montage')}
-                          </div>
+                          {vid.status === 'rendering' ? (
+                            <FacecamStageStepper stage={vid.progress_stage} />
+                          ) : (
+                            <div className="text-xs text-slate-400 mt-0.5">
+                              {vid.status === 'done' && 'Prête'}
+                              {vid.status === 'queued' && 'En attente'}
+                              {vid.status === 'failed' && (vid.error_message || 'Échec du montage')}
+                            </div>
+                          )}
                         </div>
                         {vid.status === 'done' && vid.output_path && (
                           <button
