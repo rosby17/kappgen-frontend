@@ -2170,7 +2170,7 @@ function MusicChannelWizard({ authFetch, showToast, onCreated, onBack }) {
 
   const createChannel = async () => {
     if (!form.name.trim()) return showToast('Donne un nom à ta chaîne.', 'error');
-    if (!form.style_prompt.trim()) return showToast('Décris le style musical voulu.', 'error');
+    if (form.music_source_mode === 'ai_generate' && !form.style_prompt.trim()) return showToast('Décris le style musical voulu.', 'error');
     setCreating(true);
     try {
       const logoXY = presetXY(form.logo_corner, form.logo_size_percent);
@@ -2261,8 +2261,8 @@ function MusicChannelWizard({ authFetch, showToast, onCreated, onBack }) {
 
   const goNext = () => {
     if (step === 1 && !form.name.trim()) return showToast('Donne un nom à ta chaîne.', 'error');
-    if (step === 2 && !form.style_prompt.trim()) return showToast('Décris le style musical voulu.', 'error');
-    setStep(s => Math.min(4, s + 1));
+    if (step === 2 && form.music_source_mode === 'ai_generate' && !form.style_prompt.trim()) return showToast('Décris le style musical voulu.', 'error');
+    setStep(s => Math.min(MUSIC_WIZARD_STEPS.length, s + 1));
   };
 
   return (
@@ -2283,7 +2283,7 @@ function MusicChannelWizard({ authFetch, showToast, onCreated, onBack }) {
         </div>
 
         {/* Step pills */}
-        <div className="flex sm:grid sm:grid-cols-4 gap-2 overflow-x-auto sm:overflow-visible -mx-4 px-4 sm:mx-0 sm:px-0 pb-1 sm:pb-0">
+        <div className="flex sm:grid sm:grid-cols-7 gap-2 overflow-x-auto sm:overflow-visible -mx-4 px-4 sm:mx-0 sm:px-0 pb-1 sm:pb-0">
           {MUSIC_WIZARD_STEPS.map((label, idx) => {
             const stepNum = idx + 1;
             const isActive = step === stepNum;
@@ -2591,10 +2591,55 @@ function MusicChannelWizard({ authFetch, showToast, onCreated, onBack }) {
           </div>
         )}
 
-        {/* STEP 3: MONTAGE */}
+        {/* STEP 3: VISUELS */}
         {step === 3 && (
           <div className="space-y-6">
-            <h3 className="text-base font-bold text-white">3. Montage</h3>
+            <h3 className="text-base font-bold text-white">3. Visuels</h3>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-300 mb-2">Sources visuelles</label>
+              <p className="text-[10px] text-slate-500 mb-2">D'où viennent les images illustratives — combinables, essayées dans cet ordre à chaque rendu.</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div onClick={toggleOptionB} className={`p-3.5 rounded-xl border-2 cursor-pointer transition-all ${isOptionBChecked ? 'bg-[#00c2ff]/5 border-[#00c2ff]' : 'border-[var(--border)] hover:border-slate-500 opacity-60'}`}>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-1.5"><span className="material-symbols-outlined text-[18px] text-[#00c2ff]">auto_awesome</span><span className="text-xs font-bold text-white">Génération IA</span></div>
+                    <input type="checkbox" checked={isOptionBChecked} onChange={toggleOptionB} onClick={e => e.stopPropagation()} className="kappgen-checkbox shrink-0" />
+                  </div>
+                  <p className="mt-1 text-[10px] text-slate-500">Une image générée pour chaque scène, dans le style de la musique.</p>
+                </div>
+                <div onClick={toggleOptionA} className={`p-3.5 rounded-xl border-2 cursor-pointer transition-all ${isOptionAChecked ? 'bg-[#00c2ff]/5 border-[#00c2ff]' : 'border-[var(--border)] hover:border-slate-500 opacity-60'}`}>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-1.5"><span className="material-symbols-outlined text-[18px] text-[#00c2ff]">folder_open</span><span className="text-xs font-bold text-white">Mon dossier local</span></div>
+                    <input type="checkbox" checked={isOptionAChecked} onChange={toggleOptionA} onClick={e => e.stopPropagation()} className="kappgen-checkbox shrink-0" />
+                  </div>
+                  <p className="mt-1 text-[10px] text-slate-500">{form.image_style.library_image_count > 0 ? `${form.image_style.library_image_count} image(s) importée(s).` : 'Tes propres images.'}</p>
+                  {isOptionAChecked && (
+                    <>
+                      <input type="file" ref={localFolderInputRef} accept="image/*" multiple onChange={handleLocalFolderSelect} className="hidden" onClick={e => e.stopPropagation()} />
+                      <button type="button" onClick={e => { e.stopPropagation(); localFolderInputRef.current?.click(); }} disabled={localFolderUploading} className="mt-2 text-[10px] font-bold text-[#00c2ff] hover:text-[#38d0ff] flex items-center gap-1">
+                        <span className={`material-symbols-outlined text-[13px] ${localFolderUploading ? 'animate-spin' : ''}`}>{localFolderUploading ? 'progress_activity' : 'upload'}</span>
+                        {localFolderUploading ? 'Envoi…' : 'Importer des images'}
+                      </button>
+                    </>
+                  )}
+                </div>
+                <div onClick={() => { if (communityLibraryAvailability?.available) toggleCommunity(); }} className={`p-3.5 rounded-xl border-2 transition-all ${communityLibraryAvailability?.available ? 'cursor-pointer' : 'cursor-not-allowed'} ${isCommunityChecked ? 'bg-[#00c2ff]/5 border-[#00c2ff]' : 'border-[var(--border)] hover:border-slate-500 opacity-60'}`}>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-1.5"><span className="material-symbols-outlined text-[18px] text-[#00c2ff]">diversity_3</span><span className="text-xs font-bold text-white">Ressources publiques</span></div>
+                    <input type="checkbox" checked={isCommunityChecked} disabled={!communityLibraryAvailability?.available} onChange={toggleCommunity} onClick={e => e.stopPropagation()} className="kappgen-checkbox shrink-0" />
+                  </div>
+                  <p className="mt-1 text-[10px] text-slate-500">{communityLibraryAvailability?.available ? 'Images partagées et vérifiées, utilisées gratuitement.' : "Aucune bibliothèque partagée pour la musique pour l'instant."}</p>
+                </div>
+                <div onClick={toggleGoogleSearch} className={`p-3.5 rounded-xl border-2 cursor-pointer transition-all ${isGoogleSearchChecked ? 'bg-[#00c2ff]/5 border-[#00c2ff]' : 'border-[var(--border)] hover:border-slate-500 opacity-60'}`}>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-1.5"><span className="material-symbols-outlined text-[18px] text-[#00c2ff]">travel_explore</span><span className="text-xs font-bold text-white">Recherche Google Images</span></div>
+                    <input type="checkbox" checked={isGoogleSearchChecked} onChange={toggleGoogleSearch} onClick={e => e.stopPropagation()} className="kappgen-checkbox shrink-0" />
+                  </div>
+                  <p className="mt-1 text-[10px] text-slate-500">Photos/logos réels, en complément des autres sources.</p>
+                </div>
+              </div>
+            </div>
+
             <div>
               <label className="block text-xs font-bold text-slate-300 mb-2">Comment remplir la durée</label>
               <div className="grid grid-cols-2 gap-3">
@@ -2656,10 +2701,88 @@ function MusicChannelWizard({ authFetch, showToast, onCreated, onBack }) {
           </div>
         )}
 
-        {/* STEP 4: PUBLICATION */}
+        {/* STEP 4: SOUS-TITRES */}
         {step === 4 && (
           <div className="space-y-6">
-            <h3 className="text-base font-bold text-white">4. Publication</h3>
+            <h3 className="text-base font-bold text-white">4. Sous-titres</h3>
+            <label className="flex items-center gap-2.5 rounded-xl border border-[var(--border)] bg-[var(--bg-input)] px-3.5 py-3 cursor-pointer">
+              <input type="checkbox" checked={form.subtitle_style.enabled} onChange={e => setForm({ ...form, subtitle_style: { ...form.subtitle_style, enabled: e.target.checked } })} className="kappgen-checkbox shrink-0" />
+              <span>
+                <span className="block text-xs font-bold text-white">Afficher un texte à l'écran</span>
+                <span className="block text-[10px] text-slate-500 mt-0.5">Titre de la piste ou paroles complètes, affiché en continu (pas de synchronisation mot-à-mot, il n'y a pas de narration à chronométrer).</span>
+              </span>
+            </label>
+            {form.subtitle_style.enabled && (
+              <>
+                <div>
+                  <label className="block text-xs font-bold text-slate-300 mb-2">Texte affiché</label>
+                  <textarea
+                    rows={4}
+                    value={form.subtitle_text}
+                    onChange={e => setForm({ ...form, subtitle_text: e.target.value })}
+                    placeholder={"Titre de la piste, ou les paroles complètes si tu en as"}
+                    className="w-full bg-[var(--bg-input)] border border-[var(--border)] rounded-xl px-3 py-2.5 text-xs text-white focus:border-[#00c2ff] outline-none resize-none"
+                  />
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Police</label>
+                    <select value={form.subtitle_style.font} onChange={e => setForm({ ...form, subtitle_style: { ...form.subtitle_style, font: e.target.value } })} className="w-full bg-[var(--bg-input)] border border-[var(--border)] rounded-xl px-3 py-2.5 text-xs text-white focus:border-[#00c2ff] outline-none">
+                      {SUBTITLE_FONTS.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Position</label>
+                    <div className="grid grid-cols-3 gap-1.5">
+                      {[['top', 'Haut'], ['center', 'Milieu'], ['bottom', 'Bas']].map(([id, label]) => (
+                        <button key={id} type="button" onClick={() => setForm({ ...form, subtitle_style: { ...form.subtitle_style, position: id } })} className={`py-2 rounded-lg text-[10px] font-bold border transition-colors ${form.subtitle_style.position === id ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#38d0ff]' : 'bg-[var(--bg-surface-alt)] border-[var(--border)] text-slate-400'}`}>{label}</button>
+                      ))}
+                    </div>
+                  </div>
+                  <ColorPickerButton label="Couleur du texte" value={form.subtitle_style.base_color} onChange={hex => setForm({ ...form, subtitle_style: { ...form.subtitle_style, base_color: hex } })} />
+                  <ColorPickerButton label="Couleur du contour" value={form.subtitle_style.outline_color} onChange={hex => setForm({ ...form, subtitle_style: { ...form.subtitle_style, outline_color: hex } })} />
+                  <ColorPickerButton allowNone label="Couleur d'arrière-plan" value={form.subtitle_style.box_color} onChange={hex => setForm({ ...form, subtitle_style: { ...form.subtitle_style, box_color: hex } })} />
+                  <MiniSlider label="Taille du texte" value={form.subtitle_style.size} min={20} max={90} onChange={v => setForm({ ...form, subtitle_style: { ...form.subtitle_style, size: v } })} />
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* STEP 5: EFFETS */}
+        {step === 5 && (
+          <div className="space-y-6">
+            <h3 className="text-base font-bold text-white">5. Effets</h3>
+            <div>
+              <label className="block text-xs font-bold text-slate-300 mb-2">Effets visuels</label>
+              <div className="grid grid-cols-2 gap-3">
+                {[['grain', 'Grain', 'grain'], ['vignette', 'Vignette', 'vignette']].map(([id, label, icon]) => {
+                  const checked = (form.effects_config.overlay_effects || []).includes(id);
+                  return (
+                    <div key={id} onClick={() => setForm({ ...form, effects_config: { ...form.effects_config, overlay_effects: checked ? form.effects_config.overlay_effects.filter(e => e !== id) : [...form.effects_config.overlay_effects, id] } })} className={`p-3.5 rounded-xl border-2 cursor-pointer transition-all ${checked ? 'bg-[#00c2ff]/5 border-[#00c2ff]' : 'border-[var(--border)] hover:border-slate-500 opacity-60'}`}>
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1.5"><span className="material-symbols-outlined text-[18px] text-[#00c2ff]">{icon}</span><span className="text-xs font-bold text-white">{label}</span></div>
+                        <input type="checkbox" checked={checked} readOnly className="kappgen-checkbox shrink-0" />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-300 mb-2">Zoom / dézoom (Ken Burns)</label>
+              <div className="grid grid-cols-2 gap-4">
+                <MiniSlider label="Zoom minimum" value={Math.round(form.effects_config.zoom_min_pct * 100)} min={90} max={110} onChange={v => setForm({ ...form, effects_config: { ...form.effects_config, zoom_min_pct: v / 100 } })} />
+                <MiniSlider label="Zoom maximum" value={Math.round(form.effects_config.zoom_max_pct * 100)} min={100} max={150} onChange={v => setForm({ ...form, effects_config: { ...form.effects_config, zoom_max_pct: v / 100 } })} />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* STEP 6: PUBLICATION */}
+        {step === 6 && (
+          <div className="space-y-6">
+            <h3 className="text-base font-bold text-white">6. Publication</h3>
             <div>
               <label className="block text-xs font-bold text-slate-300 mb-2">Mode de production</label>
               <div className="grid grid-cols-2 gap-3">
@@ -2684,6 +2807,83 @@ function MusicChannelWizard({ authFetch, showToast, onCreated, onBack }) {
                 <span className="material-symbols-outlined text-[13px]">construction</span>
                 La génération automatique de vidéos musicales arrive bientôt — configure ta chaîne dès maintenant, la production démarrera dès que ce sera prêt.
               </p>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-300 mb-2">Publication YouTube</label>
+              <div className="grid grid-cols-2 gap-3">
+                <button type="button" onClick={() => setForm({ ...form, publish_mode: 'manual' })} className={`p-3 rounded-xl border-2 text-left transition-colors ${form.publish_mode === 'manual' ? 'border-[#00c2ff] bg-[#00c2ff]/5' : 'border-[var(--border)] hover:border-slate-500'}`}>
+                  <div className="text-xs font-bold text-white flex items-center gap-1.5"><span className="material-symbols-outlined text-[16px]">download</span> Manuelle</div>
+                  <div className="text-[10px] text-slate-500 mt-0.5">Tu télécharges ou publies quand tu veux.</div>
+                </button>
+                <button type="button" onClick={() => setForm({ ...form, publish_mode: 'auto' })} className={`p-3 rounded-xl border-2 text-left transition-colors ${form.publish_mode === 'auto' ? 'border-[#00c2ff] bg-[#00c2ff]/5' : 'border-[var(--border)] hover:border-slate-500'}`}>
+                  <div className="text-xs font-bold text-white flex items-center gap-1.5"><span className="material-symbols-outlined text-[16px]">bolt</span> Automatique</div>
+                  <div className="text-[10px] text-slate-500 mt-0.5">Publiée dès que le rendu est prêt.</div>
+                </button>
+              </div>
+            </div>
+
+            {form.publish_mode === 'auto' && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Visibilité</label>
+                  <select value={form.youtube_privacy_status} onChange={e => setForm({ ...form, youtube_privacy_status: e.target.value })} className="w-full bg-[var(--bg-input)] border border-[var(--border)] rounded-xl px-3 py-2.5 text-xs text-white focus:border-[#00c2ff] outline-none">
+                    <option value="public">Publique</option>
+                    <option value="unlisted">Non répertoriée</option>
+                    <option value="private">Privée</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Catégorie YouTube</label>
+                  <select value={form.youtube_category_id} onChange={e => setForm({ ...form, youtube_category_id: e.target.value })} className="w-full bg-[var(--bg-input)] border border-[var(--border)] rounded-xl px-3 py-2.5 text-xs text-white focus:border-[#00c2ff] outline-none">
+                    <option value="10">Musique</option>
+                    <option value="22">People & Blogs</option>
+                    <option value="24">Entertainment</option>
+                  </select>
+                </div>
+              </div>
+            )}
+
+            <div>
+              <label className="block text-xs font-bold text-slate-300 mb-2">Description ajoutée à chaque vidéo</label>
+              <textarea
+                rows={3}
+                value={form.youtube_default_description}
+                onChange={e => setForm({ ...form, youtube_default_description: e.target.value })}
+                placeholder="Présentation permanente, liens, avertissements…"
+                className="w-full bg-[var(--bg-input)] border border-[var(--border)] rounded-xl px-3 py-2.5 text-xs text-white focus:border-[#00c2ff] outline-none resize-none"
+              />
+            </div>
+
+            <label className="flex items-center gap-2.5 rounded-xl border border-[var(--border)] bg-[var(--bg-input)] px-3.5 py-3 cursor-pointer">
+              <input type="checkbox" checked={form.youtube_made_for_kids} onChange={e => setForm({ ...form, youtube_made_for_kids: e.target.checked })} className="kappgen-checkbox shrink-0" />
+              <span className="text-xs font-bold text-white">Contenu destiné principalement aux enfants</span>
+            </label>
+          </div>
+        )}
+
+        {/* STEP 7: APERÇU */}
+        {step === 7 && (
+          <div className="space-y-6">
+            <h3 className="text-base font-bold text-white">7. Aperçu final</h3>
+            <p className="text-xs text-slate-400">Dernier coup d'œil avant de créer la chaîne — clique sur une étape pour la modifier.</p>
+            <div className="space-y-2">
+              {[
+                { n: 1, label: 'Identité', value: form.name.trim() || '(sans nom)' },
+                { n: 2, label: 'Style & Musique', value: form.music_source_mode === 'library' ? `Pistes importées (${ownMusicTracks.length})` : (form.style_prompt.trim() || '(non décrit)') },
+                { n: 3, label: 'Visuels', value: `${enabledImageSources.length} source(s) · ${form.image_count} image(s)` },
+                { n: 4, label: 'Sous-titres', value: form.subtitle_style.enabled ? 'Texte affiché' : 'Désactivés' },
+                { n: 5, label: 'Effets', value: (form.effects_config.overlay_effects || []).join(', ') || 'Aucun' },
+                { n: 6, label: 'Publication', value: form.publish_mode === 'auto' ? 'Automatique' : 'Manuelle' },
+              ].map(row => (
+                <button key={row.n} type="button" onClick={() => setStep(row.n)} className="w-full flex items-center justify-between gap-3 rounded-xl border border-[var(--border)] bg-[var(--bg-input)] px-4 py-3 text-left hover:border-[#00c2ff]/60 transition-colors">
+                  <div>
+                    <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{row.label}</div>
+                    <div className="text-xs font-bold text-white mt-0.5 truncate">{row.value}</div>
+                  </div>
+                  <span className="material-symbols-outlined text-[16px] text-slate-500 shrink-0">edit</span>
+                </button>
+              ))}
             </div>
           </div>
         )}
@@ -10744,7 +10944,7 @@ export default function App() {
           </div>
         )}
 
-        {activeProduct === 'facecam' && (
+        {activeProduct === 'facecam' && view === 'home' && (
           <div className="absolute inset-0 z-30 bg-[var(--bg-input-alt)] overflow-y-auto flex flex-col items-center p-8">
             <div className="w-full max-w-lg space-y-5 py-8">
               <div className="text-center space-y-2">
