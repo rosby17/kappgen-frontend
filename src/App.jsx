@@ -1942,7 +1942,12 @@ function buildMusicChannelForm(channel) {
     title_examples: cfg.title_examples || '',
     music_source_mode: cfg.music_source_mode || 'ai_generate', // 'ai_generate' | 'library' — see STEP 2
     edit_mode: cfg.edit_mode || 'loop', // 'loop' | 'compilation'
-    image_count: cfg.image_count ?? 1, // 0-N — creator's choice, no fixed montage complexity
+    // 'auto' (KappGen picks a count that scales with target_duration_minutes,
+    // so a long video isn't stuck looping the same handful of images for
+    // hours) or a real 0-N the creator chose themselves (0 = audio-spectrum
+    // visual only, no images at all) — see queue_runner.py's own "auto"
+    // resolution, which mirrors this frontend default exactly.
+    image_count: cfg.image_count ?? 'auto',
     target_duration_minutes: cfg.target_duration_minutes ?? 10,
     automation_mode: channel?.automation_mode || 'manual', // 'manual' | 'auto'
     videos_per_day: channel?.videos_per_day ?? 1,
@@ -2041,6 +2046,28 @@ function MusicChannelWizard({ authFetch, showToast, onCreated, onBack, editingCh
       case 'bottom-right': return { x: rightX, y: bottomY };
       default: return { x: rightX, y: PRESET_MARGIN_PERCENT };
     }
+  };
+  // Same 3 pure helpers as the main wizard's (App.jsx) — kept local for the
+  // same reason as presetXY above: those are closures over the big wizard's
+  // own state and not reachable from this separate component.
+  const overlayCornerStyle = (corner) => {
+    const margin = '6%';
+    switch (corner) {
+      case 'top-left': return { top: margin, left: margin };
+      case 'bottom-left': return { bottom: margin, left: margin };
+      case 'bottom-right': return { bottom: margin, right: margin };
+      case 'top-right':
+      default: return { top: margin, right: margin };
+    }
+  };
+  const overlayPositionStyle = (xPercent, yPercent) => ({
+    left: `${xPercent}%`,
+    top: `${yPercent}%`,
+  });
+  const shapeClipStyle = (shape) => {
+    if (shape === 'circle') return { borderRadius: '50%' };
+    if (shape === 'rounded') return { borderRadius: '18%' };
+    return {};
   };
 
   const logoInputRef = useRef(null);
@@ -2462,6 +2489,7 @@ function MusicChannelWizard({ authFetch, showToast, onCreated, onBack, editingCh
 
         {/* STEP 1: IDENTITÉ */}
         {step === 1 && (
+          <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_360px] gap-6 items-start">
           <div className="space-y-6">
             <h3 className="text-base font-bold text-white">1. Identité de la Chaîne</h3>
 
@@ -2600,6 +2628,56 @@ function MusicChannelWizard({ authFetch, showToast, onCreated, onBack, editingCh
                 )}
               </div>
             </div>
+          </div>
+
+          {/* Live preview — same "Aperçu du placement" panel as the faceless
+              wizard's Identité step, adapted to this wizard's own state (no
+              free-drag x/y here, just corner + size, so positions are
+              computed via presetXY exactly like the final submit does). */}
+          <div className="lg:sticky lg:top-4">
+            <div className="text-xs font-bold text-slate-400 uppercase tracking-wide mb-2">Aperçu du placement</div>
+            <div className="w-full aspect-video rounded-xl bg-gradient-to-b from-slate-800 to-slate-950 border border-[var(--border)] relative overflow-hidden">
+              <img
+                src={STABLE_EFFECT_PREVIEW_IMAGES[0]}
+                alt=""
+                aria-hidden
+                className="absolute inset-0 w-full h-full object-cover"
+              />
+              <div className="absolute inset-0 bg-slate-950/25" />
+              {['top-left', 'top-right', 'bottom-left', 'bottom-right'].map(corner => (
+                <div
+                  key={corner}
+                  className="absolute w-[14%] aspect-[4/3] border border-dashed border-slate-600/50 rounded"
+                  style={overlayCornerStyle(corner)}
+                />
+              ))}
+              {(form.logo_enabled ?? true) && logoPreviewUrl && (
+                <img
+                  src={logoPreviewUrl}
+                  alt=""
+                  className="absolute object-contain drop-shadow-lg"
+                  style={{
+                    width: `${form.logo_size_percent || 10}%`,
+                    ...overlayPositionStyle(presetXY(form.logo_corner, form.logo_size_percent || 10).x, presetXY(form.logo_corner, form.logo_size_percent || 10).y),
+                    ...shapeClipStyle(form.logo_shape),
+                  }}
+                />
+              )}
+              {overlays.map(ov => (
+                <img
+                  key={ov.id}
+                  src={`${STORAGE_BASE}/${ov.image_path}`}
+                  alt=""
+                  className="absolute object-contain drop-shadow-lg"
+                  style={{
+                    width: `${ov.size_percent || 10}%`,
+                    ...overlayPositionStyle(presetXY(ov.corner || 'top-right', ov.size_percent || 10).x, presetXY(ov.corner || 'top-right', ov.size_percent || 10).y),
+                  }}
+                />
+              ))}
+            </div>
+            <p className="text-[10px] text-slate-500 mt-1.5">Les pointillés marquent les 4 coins disponibles pour le logo et chaque incrustation.</p>
+          </div>
           </div>
         )}
 
@@ -2826,18 +2904,30 @@ function MusicChannelWizard({ authFetch, showToast, onCreated, onBack, editingCh
               <label className="block text-xs font-bold text-slate-300 mb-2">Images illustratives</label>
               <div className="flex items-center gap-2 bg-[var(--bg-input)] border border-[var(--border-subtle)] rounded-xl px-3 py-2.5">
                 <span className="material-symbols-outlined text-[16px] text-slate-500 shrink-0">image</span>
-                <span className="text-[11px] text-slate-400 flex-1">Nombre d'images (0 = aucune, juste le spectre audio)</span>
-                {[0, 1, 2, 3].map(n => (
-                  <button
-                    key={n}
-                    type="button"
-                    onClick={() => setForm({ ...form, image_count: n })}
-                    className={`w-7 h-7 rounded-lg text-xs font-bold border transition-colors ${form.image_count === n ? 'bg-[#00c2ff] text-slate-950 border-[#00c2ff]' : 'bg-[var(--bg-surface-alt)] text-slate-300 border-[var(--border)] hover:border-slate-500'}`}
-                  >
-                    {n}
-                  </button>
-                ))}
+                <span className="text-[11px] text-slate-400 flex-1">Nombre d'images distinctes (0 = aucune, juste le spectre audio)</span>
+                <button
+                  type="button"
+                  onClick={() => setForm({ ...form, image_count: 'auto' })}
+                  className={`px-2.5 h-7 rounded-lg text-[10px] font-bold border transition-colors ${form.image_count === 'auto' ? 'bg-[#00c2ff] text-slate-950 border-[#00c2ff]' : 'bg-[var(--bg-surface-alt)] text-slate-300 border-[var(--border)] hover:border-slate-500'}`}
+                  title="KappGen choisit le nombre d'images en fonction de la durée cible"
+                >
+                  Auto
+                </button>
+                <input
+                  type="number"
+                  min={0}
+                  max={500}
+                  value={form.image_count === 'auto' ? '' : form.image_count}
+                  placeholder="Auto"
+                  onChange={e => setForm({ ...form, image_count: Math.max(0, Math.min(500, parseInt(e.target.value) || 0)) })}
+                  className="w-16 text-center bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-lg py-1 text-xs font-bold text-white focus:border-[#00c2ff] outline-none disabled:opacity-40"
+                />
               </div>
+              <p className="text-[10px] text-slate-500 mt-1.5 px-1">
+                {form.image_count === 'auto'
+                  ? "KappGen choisit automatiquement combien d'images distinctes générer selon la durée cible, pour que la vidéo ne boucle jamais trop longtemps sur la même image."
+                  : "Nombre fixe d'images distinctes, quelle que soit la durée cible — pas de plafond, chaque image est facturée normalement."}
+              </p>
             </div>
             <div>
               <label className="block text-xs font-bold text-slate-300 mb-2">Durée cible</label>
@@ -3027,7 +3117,7 @@ function MusicChannelWizard({ authFetch, showToast, onCreated, onBack, editingCh
               {[
                 { n: 1, label: 'Identité', value: form.name.trim() || '(sans nom)' },
                 { n: 2, label: 'Style & Musique', value: form.music_source_mode === 'library' ? `Pistes importées (${ownMusicTracks.length})` : (form.style_prompt.trim() || '(non décrit)') },
-                { n: 3, label: 'Visuels', value: `${enabledImageSources.length} source(s) · ${form.image_count} image(s)` },
+                { n: 3, label: 'Visuels', value: `${enabledImageSources.length} source(s) · ${form.image_count === 'auto' ? 'nombre auto' : `${form.image_count} image(s)`}` },
                 { n: 4, label: 'Sous-titres', value: form.subtitle_style.enabled ? 'Texte affiché' : 'Désactivés' },
                 { n: 5, label: 'Effets', value: (form.effects_config.overlay_effects || []).join(', ') || 'Aucun' },
                 { n: 6, label: 'Publication', value: form.publish_mode === 'auto' ? 'Automatique' : 'Manuelle' },
