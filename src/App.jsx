@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { Navigate, useNavigate, useLocation, useParams } from 'react-router-dom';
 import freedomSunrise from './assets/dashboard/freedom-sunrise.png';
 import FacecamStudio, { FacecamHome, FacecamGallery } from './facecam/FacecamStudio';
+import FacecamLibrary from './facecam/FacecamLibrary';
 import { DEFAULT_SETTINGS } from './facecam/settings';
 
 const getOrigin = () => (typeof window !== 'undefined' ? window.location.origin : '');
@@ -4535,6 +4536,7 @@ export default function App() {
   const [facecamTitle, setFacecamTitle] = useState('');
   const [facecamSettings, setFacecamSettings] = useState(DEFAULT_SETTINGS);
   const [facecamEditorId, setFacecamEditorId] = useState(null);
+  useEffect(() => { setFacecamEditorId(null); }, [view, activeProduct]);
   const [facecamUploading, setFacecamUploading] = useState(false);
   const [facecamUploadError, setFacecamUploadError] = useState('');
   // Facecam has no channel-creation wizard of its own (the big multi-step
@@ -11082,20 +11084,6 @@ export default function App() {
           </div>
         )}
 
-        {activeProduct === 'facecam' && (view === 'home' || facecamEditorId) && (
-          <div className="absolute inset-0 top-14 md:top-0 z-30 bg-[var(--bg-input-alt)] overflow-y-auto">
-            {facecamEditorId ? <FacecamStudio key={facecamEditorId} videoId={facecamEditorId} apiBase={API_BASE} authFetch={authFetch}
-              onBack={() => { setFacecamEditorId(null); fetchAllVideos(); if (activeChannel) fetchChannelVideos(activeChannel.id); }}
-              onChanged={() => { fetchAllVideos(); if (activeChannel) fetchChannelVideos(activeChannel.id); }} /> :
-              <FacecamHome channels={productChannels} channelId={facecamChannelId} setChannelId={setFacecamChannelId}
-                title={facecamTitle} setTitle={setFacecamTitle} files={facecamFiles} setFiles={setFacecamFiles}
-                cloudLink={facecamCloudLink} setCloudLink={setFacecamCloudLink} onCreateChannel={openFacecamCreateModal}
-                onSubmit={submitFacecamVideo} uploading={facecamUploading} error={facecamUploadError}
-                videos={allVideos.filter(v => v.input_type === 'facecam')} onOpen={v => setFacecamEditorId(v.id)}
-                thumbnail={getVideoThumbnailUrl} settings={facecamSettings} setSettings={setFacecamSettings} />}
-          </div>
-        )}
-
         {/* Top Header Bar */}
         <div className="relative z-30 hidden md:flex justify-between items-center px-8 py-5 border-b border-[var(--border-subtle)] bg-[var(--bg-surface-soft)]/60 backdrop-blur-md">
           {/* Only views whose own content doesn't already show a title go
@@ -11104,6 +11092,7 @@ export default function App() {
               so repeating the same words up here was pure redundancy. */}
           <h1 className="text-xl font-extrabold text-white tracking-tight flex items-center gap-3">
             {view === 'home' && 'Tableau de Bord'}
+            {view === 'library' && activeProduct === 'facecam' && 'Bibliothèque Facecam'}
             {view === 'wizard' && (wizardMode === 'edit' ? 'Modifier le Pipeline' : 'Assistant de Création de Chaîne')}
             {view === 'settings' && 'Paramètres'}
           </h1>
@@ -11205,8 +11194,23 @@ export default function App() {
         <div className="flex-1 overflow-y-auto p-4 md:p-6">
           <div className="max-w-[1400px] mx-auto space-y-8">
             
+        {activeProduct === 'facecam' && (view === 'home' || view === 'dashboard' || facecamEditorId) && (
+          <div className="bg-[var(--bg-input-alt)]">
+            {facecamEditorId ? <FacecamStudio key={facecamEditorId} videoId={facecamEditorId} apiBase={API_BASE} authFetch={authFetch}
+              onBack={() => { setFacecamEditorId(null); fetchAllVideos(); if (activeChannel) fetchChannelVideos(activeChannel.id); }}
+              onChanged={() => { fetchAllVideos(); if (activeChannel) fetchChannelVideos(activeChannel.id); }} /> :
+              <FacecamHome channels={productChannels} channelId={facecamChannelId} setChannelId={setFacecamChannelId}
+                title={facecamTitle} setTitle={setFacecamTitle} files={facecamFiles} setFiles={setFacecamFiles}
+                cloudLink={facecamCloudLink} setCloudLink={setFacecamCloudLink} onCreateChannel={openFacecamCreateModal}
+                onSubmit={submitFacecamVideo} uploading={facecamUploading} error={facecamUploadError}
+                videos={allVideos.filter(v => v.input_type === 'facecam')} onOpen={v => setFacecamEditorId(v.id)}
+                onViewVideos={() => setView('videos')} thumbnail={getVideoThumbnailUrl} settings={facecamSettings} setSettings={setFacecamSettings} />}
+          </div>
+        )}
+
+
             {/* VIEW 1: HOME / DASHBOARD OVERVIEW */}
-            {(view === 'home' || view === 'dashboard') && (
+            {activeProduct !== 'facecam' && (view === 'home' || view === 'dashboard') && (
               <>
                 <div className="pt-1">
                   <p className="text-[10px] font-bold uppercase tracking-[.18em] text-[#55d8ff] mb-2">Ton espace KappGen</p>
@@ -11591,7 +11595,7 @@ export default function App() {
             )}
 
             {/* VIEW 3: MES VIDÉOS (Videos Library View) */}
-            {view === 'videos' && (
+            {view === 'videos' && !facecamEditorId && (
               <>
                 {/* Folder rail removed entirely per explicit request — no more
                     nested "sidebar within the sidebar". Videos are no longer
@@ -11784,7 +11788,7 @@ export default function App() {
                             <div
                               onClick={(e) => {
                                 if (videoSelectionMode) { e.stopPropagation(); toggleVideoSelected(vid.id); return; }
-                                if (vid.status === 'done' && (vid.input_type === 'facecam' || vid.content_type === 'facecam')) { e.stopPropagation(); openStudio(vid); return; }
+                                if (vid.status === 'review' && vid.input_type === 'facecam') { e.stopPropagation(); openStudio(vid); return; }
                                 vid.status === 'done' && setSelectedVideo(vid);
                               }}
                               className={`aspect-[16/9] bg-slate-950 rounded-xl relative overflow-hidden border border-[var(--border)] flex items-center justify-center ${vid.status === 'done' ? 'cursor-pointer group' : ''}`}
@@ -11848,6 +11852,11 @@ export default function App() {
                                     {vid.started_at && <span className="text-slate-500">{formatElapsed(vid.started_at)}</span>}
                                   </div>
                                 </div>
+                              ) : vid.status === 'review' && vid.input_type === 'facecam' ? (
+                                <button type="button" onClick={(e) => { e.stopPropagation(); openStudio(vid); }} className="flex flex-col items-center gap-3 text-[#00c2ff] p-4">
+                                  <span className="material-symbols-outlined text-4xl">fact_check</span>
+                                  <strong>Propositions à relire</strong><span className="text-xs">Ouvrir le montage</span>
+                                </button>
                               ) : vid.status === 'failed' ? (
                                 <div className="absolute inset-0 flex flex-col items-center justify-center px-4 py-3 text-center gap-1.5 @lg:gap-3">
                                   {(() => {
@@ -11931,9 +11940,9 @@ export default function App() {
                                     <button onClick={(e) => openThumbnailModal(vid, e)} className="w-full text-left px-3 py-1.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium"><span className="material-symbols-outlined text-[14px] text-[#00c2ff]">photo_library</span> Historique des miniatures</button>
                                     </>
                                   )}
-                                  {vid.status === 'done' && (vid.editable || vid.input_type === 'facecam' || vid.content_type === 'facecam') && (
+                                  {((vid.status === 'done' && vid.editable) || vid.input_type === 'facecam') && (
                                     <button onClick={(e) => { e.stopPropagation(); setOpenVideoMenuId(null); openStudio(vid); }} className="w-full text-left px-3 py-1.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium">
-                                      <span className="material-symbols-outlined text-[14px] text-[#00c2ff]">movie_edit</span> Éditer la vidéo
+                                      <span className="material-symbols-outlined text-[14px] text-[#00c2ff]">movie_edit</span> {vid.input_type === 'facecam' ? 'Ouvrir le montage' : 'Éditer la vidéo'}
                                     </button>
                                   )}
                                   {vid.status === 'done' && (
@@ -12058,7 +12067,15 @@ export default function App() {
             )}
 
             {/* VIEW 3.5: BIBLIOTHÈQUE (uploaded images + music per channel, with delete) */}
-            {view === 'library' && (() => {
+            {view === 'library' && activeProduct === 'facecam' ? (
+              <FacecamLibrary
+                settings={facecamSettings}
+                channels={productChannels}
+                library={(libraryOverview || []).filter(item => productChannelIds.has(item.channel_id))}
+                onSelectStyle={(changes) => setFacecamSettings(current => ({ ...current, ...changes }))}
+                onNewProject={() => setView('home')}
+              />
+            ) : view === 'library' && (() => {
               // Scoped to the active product (Faceless/Facecam/Musique) like
               // "Mes Chaînes" and "Mes Vidéos" already are — only "Ressources
               // publiques" stays shared across all three, since that's a
@@ -12394,7 +12411,7 @@ export default function App() {
             )}
 
             {/* VIEW 4: CHANNEL DETAIL VIEW */}
-            {view === 'channel_detail' && activeChannel && activeChannel.content_type !== 'facecam' && (
+            {!facecamEditorId && view === 'channel_detail' && activeChannel && activeChannel.content_type !== 'facecam' && (
               <div className="space-y-8">
                 <section className="relative overflow-hidden bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-3xl p-6 sm:p-8 shadow-[0_24px_70px_rgba(0,0,0,.10)]">
                   <div className="absolute -top-24 -left-16 w-72 h-72 rounded-full bg-[#00c2ff]/[.055] blur-3xl pointer-events-none" />
@@ -12905,7 +12922,7 @@ export default function App() {
                                 )}
                                 {vid.status === 'done' && vid.editable && (
                                   <button onClick={(e) => { e.stopPropagation(); setOpenVideoMenuId(null); openStudio(vid); }} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium">
-                                    <span className="material-symbols-outlined text-[16px] text-[#00c2ff]">movie_edit</span> Éditer la vidéo
+                                    <span className="material-symbols-outlined text-[16px] text-[#00c2ff]">movie_edit</span> {vid.input_type === 'facecam' ? 'Ouvrir le montage' : 'Éditer la vidéo'}
                                   </button>
                                 )}
                                 {vid.status === 'done' && (
@@ -13035,7 +13052,7 @@ export default function App() {
                 commit history), so it gets its own minimal page: rename,
                 delete, upload a new video, and the history of everything
                 edited under it. */}
-            {view === 'channel_detail' && activeChannel && activeChannel.content_type === 'facecam' && (
+            {!facecamEditorId && view === 'channel_detail' && activeChannel && activeChannel.content_type === 'facecam' && (
               <div className="space-y-6">
                 <div className="flex items-center gap-3">
                   <button

@@ -8,6 +8,8 @@ export const DEFAULT_SETTINGS = {
   format: "original",
   quality: "draft",
   card_style: "minimal",
+  editing_style: "kappgen",
+  format_template: "facecam",
   accent_color: "#00c2ff",
   font_family: "DejaVu Sans",
   caption_position: "bottom",

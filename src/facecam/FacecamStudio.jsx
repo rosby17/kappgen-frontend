@@ -30,6 +30,7 @@ import {
   X,
 } from "lucide-react";
 import "./FacecamStudio.css";
+import Workshop from "./Workshop";
 
 import { DEFAULT_SETTINGS } from './settings';
 
@@ -223,6 +224,7 @@ export function FacecamHome({
   error,
   videos,
   onOpen,
+  onViewVideos,
   thumbnail,
   settings,
   setSettings,
@@ -270,7 +272,7 @@ export function FacecamHome({
         </div>
       </div>
       <div className="fc-import-grid">
-        <section className="fc-panel fc-stack">
+        <section className="fc-panel fc-stack fc-import-form">
           <div className="fc-row fc-between">
             <h2>Nouveau montage</h2>
             <span className="fc-pill">01 / Importer</span>
@@ -422,39 +424,6 @@ export function FacecamHome({
                 ? "Préparer mon montage"
                 : "Lancer le montage"}
           </button>
-        </section>
-        <section className="fc-panel fc-stack">
-          <div>
-            <div className="fc-eyebrow">Ton assistant de montage</div>
-            <h2>Le rythme juste. Ta signature.</h2>
-          </div>
-          {[
-            [
-              Scissors,
-              "Un montage qui respire",
-              "Silences, répétitions et reprises : consulte les propositions avant de couper.",
-            ],
-            [
-              Palette,
-              "Ta charte, dans chaque détail",
-              "Couleurs, typographie, logo et sous-titres réunis dans ton montage.",
-            ],
-            [
-              ShieldCheck,
-              "Une version à relire",
-              "Rendu vérifié, retours horodatés et historique de tes versions.",
-            ],
-          ].map(([Icon, label, description]) => (
-            <div className="fc-feature" key={label}>
-              <span className="fc-icon">
-                <Icon size={19} />
-              </span>
-              <div>
-                <h3>{label}</h3>
-                <p className="fc-muted">{description}</p>
-              </div>
-            </div>
-          ))}
           <div>
             <Toggle
               label="Valider les coupes avant le rendu"
@@ -488,8 +457,9 @@ export function FacecamHome({
             éventuelles. Tes rushs restent la source de chaque nouvelle version.
           </p>
         </section>
+        <Workshop videos={videos} onOpen={onOpen} />
       </div>
-      <FacecamGallery videos={videos} onOpen={onOpen} thumbnail={thumbnail} />
+      <div className="fc-row fc-between fc-panel"><div><h2>Mes vidéos</h2><p className="fc-muted">Retrouve tes projets, leurs propositions et leurs exports.</p></div><button type="button" className="fc-btn fc-primary" onClick={onViewVideos}>Voir mes vidéos <span className="material-symbols-outlined">arrow_forward</span></button></div>
     </div>
   );
 }
@@ -1370,6 +1340,12 @@ export default function FacecamStudio({
           )}
           {tab === "visuals" && (
             <div className="fc-stack">
+              <label>
+                Système de montage
+                <select value={settings.editing_style} disabled={locked} onChange={(e) => changeSetting("editing_style", e.target.value)} style={{ marginTop: 8 }}>
+                  <option value="kappgen">Signature KappGen</option><option value="vox">Explainer éditorial</option><option value="kallaway">Creator premium</option><option value="keynote">Produit minimal</option><option value="atlas">Documentaire</option><option value="terminal">Tech rapide</option><option value="data">Data story</option><option value="optimist">Tech optimiste</option>
+                </select>
+              </label>
               <Toggle
                 label="Cartes de titre"
                 checked={settings.motion}
@@ -1416,6 +1392,7 @@ export default function FacecamStudio({
                   </button>
                 ))}
               </div>
+              <p className="fc-muted" style={{ fontSize: 11 }}>Les cartes de titre et les sous-titres utilisent ce préréglage avec ta charte. Enregistre puis exporte une nouvelle version pour appliquer le changement.</p>
               <Toggle
                 label="Illustrations B-roll"
                 checked={settings.broll}
