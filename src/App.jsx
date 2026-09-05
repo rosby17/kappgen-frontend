@@ -1911,6 +1911,21 @@ function VoiceCloneModal({ onClose, onSubmit, submitting }) {
 // spoken narration to write or voice.
 const MUSIC_WIZARD_STEPS = ['Identité', 'Style & Musique', 'Visuels', 'Sous-titres', 'Effets', 'Publication', 'Aperçu'];
 
+// Mirrors backend/src/api/routes/videos.py's RETENTION_TIERS exactly — the
+// server is the source of truth for the actual price, this is only for
+// rendering the picker without a round-trip. No "à vie" tier, on purpose:
+// storage cost for an inactive video should never go permanently unpaid,
+// so retention is always a fresh, finite purchase a creator can renew.
+const RETENTION_TIERS = {
+  "1d": { days: 1, credits: 200, label: "1 jour" },
+  "1w": { days: 7, credits: 800, label: "1 semaine" },
+  "1m": { days: 30, credits: 3000, label: "1 mois" },
+  "2m": { days: 60, credits: 5500, label: "2 mois" },
+  "3m": { days: 90, credits: 7500, label: "3 mois" },
+  "6m": { days: 180, credits: 13000, label: "6 mois" },
+  "1y": { days: 365, credits: 22000, label: "1 an" },
+};
+
 // Ready-made styles for creators with zero music vocabulary — clicking one
 // fills the field completely instead of staring at a blank textarea with
 // "lofi/BPM/ambient" jargon they don't recognize.
@@ -10287,12 +10302,12 @@ export default function App() {
 
   const [togglingRetentionId, setTogglingRetentionId] = useState(null);
   const [retentionModalVideo, setRetentionModalVideo] = useState(null);
-  const [retentionDays, setRetentionDays] = useState(1);
+  const [retentionTier, setRetentionTier] = useState('1m');
   const openRetentionModal = (vid, e) => {
     if (e) e.stopPropagation();
     setOpenVideoMenuId(null);
     setRetentionModalVideo(vid);
-    setRetentionDays(1);
+    setRetentionTier('1m');
   };
   const purchaseRetention = async () => {
     const vid = retentionModalVideo;
@@ -10302,10 +10317,10 @@ export default function App() {
       const res = await authFetch(`${API_BASE}/videos/${vid.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ retention_days: retentionDays }),
+        body: JSON.stringify({ retention_tier: retentionTier }),
       });
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || "Impossible de prolonger la conservation.");
-      showToast(`Conservation prolongée de ${retentionDays} jour(s).`, 'success');
+      showToast(`Conservation prolongée de ${RETENTION_TIERS[retentionTier].label}.`, 'success');
       setRetentionModalVideo(null);
       fetchAllVideos();
       if (activeChannel) fetchChannelVideos(activeChannel.id);
@@ -12361,7 +12376,7 @@ export default function App() {
                                     </button>
                                   )}
                                   {vid.status === 'done' && (
-                                    <button disabled={togglingRetentionId === vid.id} onClick={(e) => openRetentionModal(vid, e)} title="48 heures incluses, puis 1 000 crédits par jour." className="w-full text-left px-3 py-1.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium disabled:opacity-50">
+                                    <button disabled={togglingRetentionId === vid.id} onClick={(e) => openRetentionModal(vid, e)} title="30 jours inclus, puis un forfait par palier de durée." className="w-full text-left px-3 py-1.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium disabled:opacity-50">
                                       <span className="material-symbols-outlined text-[14px] text-[#00c2ff]">schedule</span>
                                       Conserver plus longtemps
                                     </button>
@@ -13341,7 +13356,7 @@ export default function App() {
                                   </button>
                                 )}
                                 {vid.status === 'done' && (
-                                  <button disabled={togglingRetentionId === vid.id} onClick={(e) => openRetentionModal(vid, e)} title="48 heures incluses, puis 1 000 crédits par jour." className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium disabled:opacity-50">
+                                  <button disabled={togglingRetentionId === vid.id} onClick={(e) => openRetentionModal(vid, e)} title="30 jours inclus, puis un forfait par palier de durée." className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium disabled:opacity-50">
                                     <span className="material-symbols-outlined text-[16px] text-[#00c2ff]">schedule</span>
                                     Conserver plus longtemps
                                   </button>
@@ -20760,15 +20775,15 @@ export default function App() {
         <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/85 p-6 backdrop-blur-md">
           <div className="w-full max-w-md rounded-3xl border border-[var(--border-soft)] bg-[var(--bg-surface)] p-6 shadow-2xl">
             <div className="flex items-start justify-between gap-4">
-              <div><h3 className="flex items-center gap-2 text-sm font-extrabold text-white"><span className="material-symbols-outlined text-[#00c2ff]">schedule</span>Conserver la vidéo</h3><p className="mt-1 text-xs leading-relaxed text-slate-400">Les 48 premières heures sont incluses. Choisissez une durée supplémentaire à 1&nbsp;000 crédits par jour.</p></div>
+              <div><h3 className="flex items-center gap-2 text-sm font-extrabold text-white"><span className="material-symbols-outlined text-[#00c2ff]">schedule</span>Conserver la vidéo</h3><p className="mt-1 text-xs leading-relaxed text-slate-400">Les 30 premiers jours sont inclus. Choisissez une durée supplémentaire — toujours un achat ferme, renouvelable, jamais à vie.</p></div>
               <button onClick={() => !togglingRetentionId && setRetentionModalVideo(null)} className="text-slate-400 hover:text-white"><span className="material-symbols-outlined">close</span></button>
             </div>
-            <div className="mt-5 grid grid-cols-5 gap-2">
-              {[1, 2, 3, 7, 30].map(days => <button key={days} onClick={() => setRetentionDays(days)} className={`rounded-xl border px-2 py-3 text-center transition-all ${retentionDays === days ? 'border-[#00c2ff] bg-[#00c2ff]/10 text-[#5cddff]' : 'border-[var(--border)] bg-[var(--bg-surface-alt)] text-slate-300 hover:border-slate-500'}`}><strong className="block text-sm">{days}</strong><span className="text-[9px]">{days === 7 ? 'semaine' : days === 30 ? 'mois' : 'jour' + (days > 1 ? 's' : '')}</span></button>)}
+            <div className="mt-5 grid grid-cols-4 gap-2">
+              {Object.entries(RETENTION_TIERS).map(([id, tier]) => <button key={id} onClick={() => setRetentionTier(id)} className={`rounded-xl border px-2 py-2.5 text-center transition-all ${retentionTier === id ? 'border-[#00c2ff] bg-[#00c2ff]/10 text-[#5cddff]' : 'border-[var(--border)] bg-[var(--bg-surface-alt)] text-slate-300 hover:border-slate-500'}`}><strong className="block text-xs">{tier.label}</strong><span className="text-[9px] text-slate-500">{tier.credits.toLocaleString()} cr.</span></button>)}
             </div>
-            <div className="mt-4 rounded-xl border border-[#00c2ff]/20 bg-[#00c2ff]/5 px-4 py-3 text-center"><span className="text-[10px] text-slate-400">Coût de conservation</span><strong className="ml-2 text-lg text-[#5cddff]">{(retentionDays * 1000).toLocaleString()} crédits</strong>{creditBalance != null && <span className="ml-2 text-[10px] text-slate-500">· Solde : {creditBalance.toLocaleString()}</span>}</div>
-            <button disabled={!!togglingRetentionId || !canAffordCredits(retentionDays * 1000)} onClick={purchaseRetention} className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-[#00c2ff] py-3 text-xs font-extrabold text-slate-950 transition-all hover:bg-[#38d0ff] disabled:opacity-50"><span className={`material-symbols-outlined text-[17px] ${togglingRetentionId ? 'animate-spin' : ''}`}>{togglingRetentionId ? 'progress_activity' : 'lock_clock'}</span>{togglingRetentionId ? 'Activation…' : `Conserver ${retentionDays} jour${retentionDays > 1 ? 's' : ''} · ${(retentionDays * 1000).toLocaleString()} crédits`}</button>
-            {!canAffordCredits(retentionDays * 1000) && <p className="mt-2 text-center text-[10px] text-rose-300">Crédits insuffisants pour cette durée.</p>}
+            <div className="mt-4 rounded-xl border border-[#00c2ff]/20 bg-[#00c2ff]/5 px-4 py-3 text-center"><span className="text-[10px] text-slate-400">Coût de conservation</span><strong className="ml-2 text-lg text-[#5cddff]">{RETENTION_TIERS[retentionTier].credits.toLocaleString()} crédits</strong>{creditBalance != null && <span className="ml-2 text-[10px] text-slate-500">· Solde : {creditBalance.toLocaleString()}</span>}</div>
+            <button disabled={!!togglingRetentionId || !canAffordCredits(RETENTION_TIERS[retentionTier].credits)} onClick={purchaseRetention} className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-[#00c2ff] py-3 text-xs font-extrabold text-slate-950 transition-all hover:bg-[#38d0ff] disabled:opacity-50"><span className={`material-symbols-outlined text-[17px] ${togglingRetentionId ? 'animate-spin' : ''}`}>{togglingRetentionId ? 'progress_activity' : 'lock_clock'}</span>{togglingRetentionId ? 'Activation…' : `Conserver ${RETENTION_TIERS[retentionTier].label} · ${RETENTION_TIERS[retentionTier].credits.toLocaleString()} crédits`}</button>
+            {!canAffordCredits(RETENTION_TIERS[retentionTier].credits) && <p className="mt-2 text-center text-[10px] text-rose-300">Crédits insuffisants pour cette durée.</p>}
           </div>
         </div>
       )}
