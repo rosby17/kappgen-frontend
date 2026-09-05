@@ -9142,6 +9142,8 @@ export default function App() {
   const [voiceoverProviderModeSaving, setVoiceoverProviderModeSaving] = useState(false);
   const [musicProviderMode, setMusicProviderModeState] = useState(null);
   const [musicProviderModeSaving, setMusicProviderModeSaving] = useState(false);
+  const [paidApisKillSwitch, setPaidApisKillSwitchState] = useState(null);
+  const [paidApisKillSwitchSaving, setPaidApisKillSwitchSaving] = useState(false);
   const [renderConcurrency, setRenderConcurrencyState] = useState(null);
   const [renderConcurrencySaving, setRenderConcurrencySaving] = useState(false);
   const [aiTextProvider, setAiTextProviderState] = useState(null);
@@ -9796,7 +9798,7 @@ export default function App() {
   };
 
   useEffect(() => {
-    if (view === 'admin' && currentUser?.is_admin && adminTab === 'resources') { fetchAdminProviders(); fetchThumbnailProviderMode(); fetchVoiceoverProviderMode(); fetchMusicProviderMode(); fetchAiTextProvider(); fetchRenderConcurrency(); }
+    if (view === 'admin' && currentUser?.is_admin && adminTab === 'resources') { fetchAdminProviders(); fetchThumbnailProviderMode(); fetchVoiceoverProviderMode(); fetchMusicProviderMode(); fetchAiTextProvider(); fetchRenderConcurrency(); fetchPaidApisKillSwitch(); }
   }, [view, currentUser?.is_admin, adminTab]);
 
   useEffect(() => {
@@ -9917,6 +9919,38 @@ export default function App() {
       showToast('Échec de la mise à jour.', 'error');
     } finally {
       setMusicProviderModeSaving(false);
+    }
+  };
+
+  const fetchPaidApisKillSwitch = async () => {
+    try {
+      const res = await authFetch(`${API_BASE}/admin/settings/paid-apis-kill-switch`);
+      if (res.ok) setPaidApisKillSwitchState(await res.json());
+    } catch (err) {
+      console.error("Erreur chargement du coupe-circuit:", err);
+    }
+  };
+
+  const togglePaidApisKillSwitch = async () => {
+    const next = !paidApisKillSwitch?.disabled;
+    if (next && !(await askConfirm(
+      "Toutes les vidéos qui utilisent la voix off ou la musique générée s'arrêteront de fonctionner tant que c'est actif — seules les images/miniatures (Hugging Face) et l'IA texte (Groq/Gemini) continueront. Réactive-le dès que tes comptes payants sont rechargés.",
+      { title: "Couper toutes les API payantes maintenant ?", confirmLabel: "Oui, tout couper", danger: true }
+    ))) return;
+    setPaidApisKillSwitchSaving(true);
+    try {
+      const res = await authFetch(`${API_BASE}/admin/settings/paid-apis-kill-switch`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ disabled: next }),
+      });
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      setPaidApisKillSwitchState(data);
+      showToast(next ? "Toutes les API payantes sont coupées." : "API payantes réactivées.", next ? 'error' : 'success');
+    } catch {
+      showToast('Échec de la mise à jour.', 'error');
+    } finally {
+      setPaidApisKillSwitchSaving(false);
     }
   };
 
@@ -19180,6 +19214,35 @@ export default function App() {
 
           {adminTab === 'resources' && (
             <div className="space-y-5">
+              <div className={`rounded-2xl border-2 p-4 space-y-3 transition-colors ${paidApisKillSwitch?.disabled ? 'border-rose-600 bg-rose-950/30' : 'border-[var(--border-soft)] bg-[var(--bg-surface-alt)]'}`}>
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h4 className="text-sm font-extrabold text-white flex items-center gap-1.5">
+                      <span className="material-symbols-outlined text-[18px] text-rose-400">emergency</span>
+                      Coupe-circuit API payantes
+                    </h4>
+                    <p className="text-[11px] text-slate-400 mt-1 max-w-xl">
+                      Un seul bouton pour arrêter tout appel payant (Izivoice, ai33.pro, Claude/Anthropic, fal.ai, OpenAI, DeepSeek) partout dans l'app — utile quand un compte est à sec, pour ne plus jamais me faire débiter. Seuls les moteurs gratuits (Hugging Face pour les images, Groq/Gemini pour le texte) continuent. Voix off et musique s'arrêtent complètement le temps que c'est actif.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={togglePaidApisKillSwitch}
+                  disabled={paidApisKillSwitchSaving || !paidApisKillSwitch}
+                  className={`w-full py-3 rounded-xl text-sm font-extrabold flex items-center justify-center gap-2 transition-all disabled:opacity-50 ${
+                    paidApisKillSwitch?.disabled
+                      ? 'bg-rose-600 hover:bg-rose-500 text-white'
+                      : 'bg-[#00c2ff] hover:bg-[#38d0ff] text-slate-950'
+                  }`}
+                >
+                  <span className={`material-symbols-outlined text-[18px] ${paidApisKillSwitchSaving ? 'animate-spin' : ''}`}>
+                    {paidApisKillSwitchSaving ? 'progress_activity' : paidApisKillSwitch?.disabled ? 'power_off' : 'power'}
+                  </span>
+                  {!paidApisKillSwitch ? 'Chargement…' : paidApisKillSwitch.disabled ? 'API payantes coupées — cliquer pour réactiver' : 'Tout couper maintenant'}
+                </button>
+              </div>
+
               <div className="flex items-center justify-between gap-3">
                 <button
                   onClick={fetchAdminProviders}
