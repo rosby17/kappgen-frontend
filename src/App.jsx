@@ -4555,7 +4555,11 @@ export default function App() {
     { id: 'music', label: 'Vidéo Musicale', icon: 'library_music', available: true },
   ];
   const [facecamChannelId, setFacecamChannelId] = useState('');
-  const [facecamFile, setFacecamFile] = useState(null);
+  // Array, not a single file — a "rush" is often split across several
+  // files (recorder stopped/restarted mid-session), given in the order
+  // the creator actually recorded them so the backend can concatenate
+  // them correctly before editing.
+  const [facecamFiles, setFacecamFiles] = useState([]);
   const [facecamCloudLink, setFacecamCloudLink] = useState('');
   const [facecamTitle, setFacecamTitle] = useState('');
   const [facecamUploading, setFacecamUploading] = useState(false);
@@ -4901,8 +4905,8 @@ export default function App() {
       setFacecamUploadError('Choisis une chaîne.');
       return;
     }
-    if (!facecamFile && !facecamCloudLink.trim()) {
-      setFacecamUploadError('Ajoute un fichier vidéo ou un lien cloud.');
+    if (facecamFiles.length === 0 && !facecamCloudLink.trim()) {
+      setFacecamUploadError('Ajoute un ou plusieurs fichiers vidéo, ou un lien cloud.');
       return;
     }
     setFacecamUploading(true);
@@ -4911,7 +4915,10 @@ export default function App() {
       const form = new FormData();
       form.append('channel_id', facecamChannelId);
       if (facecamTitle.trim()) form.append('title', facecamTitle.trim());
-      if (facecamFile) form.append('raw_file', facecamFile);
+      // Appended in array order — the order the creator arranged them in,
+      // matching the order they were actually recorded — so the backend
+      // concatenates the rushes correctly before editing.
+      facecamFiles.forEach(f => form.append('raw_files', f));
       if (facecamCloudLink.trim()) form.append('cloud_link', facecamCloudLink.trim());
       const res = await authFetch(`${API_BASE}/videos/facecam/upload`, { method: 'POST', body: form });
       if (!res.ok) {
@@ -4920,7 +4927,7 @@ export default function App() {
       }
       showToast('Vidéo facecam envoyée — le montage automatique va démarrer.');
       const channelId = facecamChannelId;
-      setFacecamFile(null);
+      setFacecamFiles([]);
       setFacecamCloudLink('');
       setFacecamTitle('');
       fetchAllVideos?.();
@@ -11109,29 +11116,76 @@ export default function App() {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-300 mb-2">Fichier vidéo brut</label>
+                <label className="block text-xs font-bold text-slate-300 mb-2">Fichiers vidéo bruts (rushs)</label>
                 <label
                   onDragOver={e => { e.preventDefault(); setFacecamDragOver(true); }}
                   onDragLeave={e => { e.preventDefault(); setFacecamDragOver(false); }}
                   onDrop={e => {
                     e.preventDefault();
                     setFacecamDragOver(false);
-                    const file = e.dataTransfer.files?.[0];
-                    if (file) setFacecamFile(file);
+                    const files = Array.from(e.dataTransfer.files || []);
+                    if (files.length) setFacecamFiles(prev => [...prev, ...files]);
                   }}
                   className={`flex flex-col items-center justify-center gap-2 border-2 border-dashed rounded-xl px-4 py-8 cursor-pointer transition-colors text-center ${facecamDragOver ? 'border-[#00c2ff] bg-[#00c2ff]/5' : 'border-[var(--border)] hover:border-[#00c2ff]'}`}
                 >
                   <span className="material-symbols-outlined text-[28px] text-slate-400">upload_file</span>
                   <span className="text-xs text-slate-400">
-                    {facecamFile ? facecamFile.name : 'Glisse ton fichier ici ou clique pour parcourir (MP4, MOV, MKV, WEBM)'}
+                    Glisse un ou plusieurs fichiers ici, ou clique pour parcourir (MP4, MOV, MKV, WEBM)
                   </span>
                   <input
                     type="file"
                     accept=".mp4,.mov,.mkv,.webm"
+                    multiple
                     className="hidden"
-                    onChange={e => setFacecamFile(e.target.files?.[0] || null)}
+                    onChange={e => {
+                      const files = Array.from(e.target.files || []);
+                      if (files.length) setFacecamFiles(prev => [...prev, ...files]);
+                      e.target.value = '';
+                    }}
                   />
                 </label>
+
+                {facecamFiles.length > 0 && (
+                  <div className="mt-3 space-y-1.5">
+                    <p className="text-[10px] text-slate-500">
+                      {facecamFiles.length > 1
+                        ? "Ordre d'enregistrement — réordonne si besoin, ils seront assemblés dans cet ordre avant le montage."
+                        : '1 fichier prêt.'}
+                    </p>
+                    {facecamFiles.map((f, idx) => (
+                      <div key={`${f.name}-${idx}`} className="flex items-center gap-2 bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-lg px-3 py-2">
+                        <span className="text-[10px] font-bold text-slate-500 w-4 text-center flex-shrink-0">{idx + 1}</span>
+                        <span className="text-xs text-white truncate flex-1">{f.name}</span>
+                        <button
+                          type="button"
+                          onClick={() => setFacecamFiles(prev => { const next = [...prev]; if (idx > 0) [next[idx - 1], next[idx]] = [next[idx], next[idx - 1]]; return next; })}
+                          disabled={idx === 0}
+                          className="w-6 h-6 flex items-center justify-center rounded text-slate-400 hover:text-white disabled:opacity-25 flex-shrink-0"
+                          title="Monter"
+                        >
+                          <span className="material-symbols-outlined text-[16px]">arrow_upward</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setFacecamFiles(prev => { const next = [...prev]; if (idx < next.length - 1) [next[idx + 1], next[idx]] = [next[idx], next[idx + 1]]; return next; })}
+                          disabled={idx === facecamFiles.length - 1}
+                          className="w-6 h-6 flex items-center justify-center rounded text-slate-400 hover:text-white disabled:opacity-25 flex-shrink-0"
+                          title="Descendre"
+                        >
+                          <span className="material-symbols-outlined text-[16px]">arrow_downward</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setFacecamFiles(prev => prev.filter((_, i) => i !== idx))}
+                          className="w-6 h-6 flex items-center justify-center rounded text-slate-500 hover:text-red-400 flex-shrink-0"
+                          title="Retirer"
+                        >
+                          <span className="material-symbols-outlined text-[16px]">close</span>
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div className="flex items-center gap-3">
