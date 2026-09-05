@@ -11752,27 +11752,76 @@ export default function App() {
                                   favor of an aria-label (screen readers only, nothing shown). */}
                               {isMenuOpen && (
                                 <div className="absolute right-0 top-10 w-48 bg-[var(--bg-dropdown)] border border-[var(--border-dropdown)] rounded-xl shadow-2xl z-50 py-1.5 animate-in fade-in duration-150">
-                                  <button
-                                    onClick={(e) => openEditWizard(chan, e)}
-                                    className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium"
-                                  >
-                                    <span className="material-symbols-outlined text-[16px] text-[#00c2ff]">edit</span>
-                                    Modifier la chaîne
-                                  </button>
-                                  <button
-                                    onClick={(e) => openDuplicateWizard(chan, e)}
-                                    className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium"
-                                  >
-                                    <span className="material-symbols-outlined text-[16px] text-[#00c2ff]">content_copy</span>
-                                    Réutiliser le pipeline
-                                  </button>
-                                  <button
-                                    onClick={(e) => handleSharePipeline(chan, e)}
-                                    className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium"
-                                  >
-                                    <span className="material-symbols-outlined text-[16px] text-[#00c2ff]">ios_share</span>
-                                    Partager le pipeline
-                                  </button>
+                                  {chan.content_type === 'facecam' ? (
+                                    <>
+                                      <button
+                                        onClick={async (e) => {
+                                          e.stopPropagation();
+                                          setOpenChannelMenuId(null);
+                                          const name = window.prompt('Renommer la chaîne', chan.name);
+                                          if (!name || !name.trim() || name.trim() === chan.name) return;
+                                          try {
+                                            const res = await authFetch(`${API_BASE}/channels/${chan.id}`, {
+                                              method: 'PUT',
+                                              headers: { 'Content-Type': 'application/json' },
+                                              body: JSON.stringify({ name: name.trim() }),
+                                            });
+                                            if (!res.ok) throw new Error();
+                                            const updated = await res.json();
+                                            setChannels(prev => prev.map(c => c.id === updated.id ? { ...c, ...updated } : c));
+                                            showToast('Chaîne renommée.', 'success');
+                                          } catch {
+                                            showToast('Impossible de renommer la chaîne.', 'error');
+                                          }
+                                        }}
+                                        className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium"
+                                      >
+                                        <span className="material-symbols-outlined text-[16px] text-[#00c2ff]">edit</span>
+                                        Renommer la chaîne
+                                      </button>
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setOpenChannelMenuId(null);
+                                          setFacecamAccentColor(chan.branding?.accent_color || '#00c2ff');
+                                          setFacecamFontFamily(chan.branding?.font_family || 'DejaVu Sans');
+                                          setFacecamLogoFile(null);
+                                          setFacecamBrandingOpen(true);
+                                          setActiveChannel(chan);
+                                          fetchChannelVideos(chan.id);
+                                          setView('channel_detail');
+                                        }}
+                                        className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium"
+                                      >
+                                        <span className="material-symbols-outlined text-[16px] text-[#00c2ff]">palette</span>
+                                        Charte graphique
+                                      </button>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <button
+                                        onClick={(e) => openEditWizard(chan, e)}
+                                        className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium"
+                                      >
+                                        <span className="material-symbols-outlined text-[16px] text-[#00c2ff]">edit</span>
+                                        Modifier la chaîne
+                                      </button>
+                                      <button
+                                        onClick={(e) => openDuplicateWizard(chan, e)}
+                                        className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium"
+                                      >
+                                        <span className="material-symbols-outlined text-[16px] text-[#00c2ff]">content_copy</span>
+                                        Réutiliser le pipeline
+                                      </button>
+                                      <button
+                                        onClick={(e) => handleSharePipeline(chan, e)}
+                                        className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium"
+                                      >
+                                        <span className="material-symbols-outlined text-[16px] text-[#00c2ff]">ios_share</span>
+                                        Partager le pipeline
+                                      </button>
+                                    </>
+                                  )}
                                   <button
                                     onClick={(e) => handleToggleChannelActive(chan, e)}
                                     className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium"
