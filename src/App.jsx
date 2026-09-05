@@ -7121,6 +7121,15 @@ export default function App() {
   // "Nouvelle vidéo" déclenche directement la génération par l'Agent, comme
   // le ferait le pipeline quotidien, et affiche juste l'attente du rendu.
   const startNewVideoFor = async (channel) => {
+    // Facecam has no script/audio form at all — each video is a raw upload
+    // manually edited, so "Nouvelle vidéo" just drops the creator back on
+    // the Facecam upload dropzone, scoped to this channel.
+    if (channel.content_type === 'facecam') {
+      setFacecamChannelId(channel.id);
+      setActiveProduct('facecam');
+      setView('home');
+      return;
+    }
     // Music channels have no per-video form either — everything needed
     // (style, titles, montage) was already set once at channel creation.
     if (channel.content_type !== 'music' && channel.automation_mode !== 'auto') {
@@ -7243,6 +7252,12 @@ export default function App() {
   // offers to create/pick a narration channel or vice versa.
   const openNewVideoFlow = (channelList = channels, contentType = 'narration') => {
     if (channelList.length === 0) {
+      if (contentType === 'facecam') {
+        setActiveProduct('facecam');
+        setView('home');
+        setFacecamShowNewChannel(true);
+        return;
+      }
       openCreateWizard(contentType);
     } else if (channelList.length === 1) {
       startNewVideoFor(channelList[0]);
