@@ -4570,7 +4570,7 @@ export default function App() {
   // channel here only ever needed a name. Kept inline rather than routing
   // through openCreateWizard('facecam'), which would show all that
   // irrelevant configuration.
-  const [facecamShowNewChannel, setFacecamShowNewChannel] = useState(false);
+  const [facecamCreateModalOpen, setFacecamCreateModalOpen] = useState(false);
   const [facecamNewChannelName, setFacecamNewChannelName] = useState('');
   const [facecamCreatingChannel, setFacecamCreatingChannel] = useState(false);
   const [facecamDragOver, setFacecamDragOver] = useState(false);
@@ -4881,6 +4881,18 @@ export default function App() {
     setToast({ message: type === 'error' ? friendlyErrorMessage(message) : message, type });
   };
 
+  // Opens the creation modal with the branding fields reset — a facecam
+  // channel is where the repeatable "charte graphique" (logo, accent
+  // color, font) gets set once and reused on every future video, not a
+  // bare name prompt.
+  const openFacecamCreateModal = () => {
+    setFacecamNewChannelName('');
+    setFacecamLogoFile(null);
+    setFacecamAccentColor('#00c2ff');
+    setFacecamFontFamily('DejaVu Sans');
+    setFacecamCreateModalOpen(true);
+  };
+
   const createFacecamChannel = async () => {
     const name = facecamNewChannelName.trim();
     if (!name) return;
@@ -4896,10 +4908,22 @@ export default function App() {
         throw new Error(detail.detail || 'Impossible de créer la chaîne.');
       }
       const created = await res.json();
+      if (facecamLogoFile) {
+        const logoForm = new FormData();
+        logoForm.append('file', facecamLogoFile);
+        await authFetch(`${API_BASE}/channels/${created.id}/logo`, { method: 'POST', body: logoForm });
+      }
+      const brandRes = await authFetch(`${API_BASE}/channels/${created.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ branding: { accent_color: facecamAccentColor, font_family: facecamFontFamily } }),
+      });
+      const finalChannel = brandRes.ok ? await brandRes.json() : created;
       await fetchChannels();
-      setFacecamChannelId(created.id);
+      setFacecamChannelId(finalChannel.id);
       setFacecamNewChannelName('');
-      setFacecamShowNewChannel(false);
+      setFacecamLogoFile(null);
+      setFacecamCreateModalOpen(false);
       showToast('Chaîne créée.', 'success');
     } catch (err) {
       showToast(err.message, 'error');
@@ -7357,7 +7381,7 @@ export default function App() {
       if (contentType === 'facecam') {
         setActiveProduct('facecam');
         setView('home');
-        setFacecamShowNewChannel(true);
+        openFacecamCreateModal();
         return;
       }
       openCreateWizard(contentType);
@@ -11096,54 +11120,25 @@ export default function App() {
 
               <div>
                 <label className="block text-xs font-bold text-slate-300 mb-2">Chaîne</label>
-                {!facecamShowNewChannel ? (
-                  <div className="flex gap-2">
-                    <select
-                      value={facecamChannelId}
-                      onChange={e => setFacecamChannelId(e.target.value)}
-                      className="flex-1 bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-3 py-2.5 text-sm text-white"
-                    >
-                      <option value="">Choisir une chaîne…</option>
-                      {productChannels.map(c => (
-                        <option key={c.id} value={c.id}>{c.name}</option>
-                      ))}
-                    </select>
-                    <button
-                      type="button"
-                      onClick={() => setFacecamShowNewChannel(true)}
-                      className="px-3 py-2.5 bg-[var(--bg-surface-alt)] border border-[var(--border)] hover:border-[#00c2ff]/50 text-slate-300 hover:text-white text-xs font-bold rounded-xl transition-colors whitespace-nowrap"
-                    >
-                      + Nouvelle
-                    </button>
-                  </div>
-                ) : (
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      autoFocus
-                      value={facecamNewChannelName}
-                      onChange={e => setFacecamNewChannelName(e.target.value)}
-                      onKeyDown={e => { if (e.key === 'Enter') createFacecamChannel(); }}
-                      placeholder="Nom de la chaîne"
-                      className="flex-1 bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-3 py-2.5 text-sm text-white"
-                    />
-                    <button
-                      type="button"
-                      onClick={createFacecamChannel}
-                      disabled={facecamCreatingChannel || !facecamNewChannelName.trim()}
-                      className="px-4 py-2.5 bg-[#00c2ff] hover:bg-[#38d0ff] disabled:opacity-50 text-slate-950 text-xs font-bold rounded-xl transition-colors whitespace-nowrap"
-                    >
-                      {facecamCreatingChannel ? '…' : 'Créer'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => { setFacecamShowNewChannel(false); setFacecamNewChannelName(''); }}
-                      className="px-3 py-2.5 text-slate-400 hover:text-white text-xs font-bold rounded-xl transition-colors"
-                    >
-                      Annuler
-                    </button>
-                  </div>
-                )}
+                <div className="flex gap-2">
+                  <select
+                    value={facecamChannelId}
+                    onChange={e => setFacecamChannelId(e.target.value)}
+                    className="flex-1 bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-3 py-2.5 text-sm text-white"
+                  >
+                    <option value="">Choisir une chaîne…</option>
+                    {productChannels.map(c => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={openFacecamCreateModal}
+                    className="px-3 py-2.5 bg-[var(--bg-surface-alt)] border border-[var(--border)] hover:border-[#00c2ff]/50 text-slate-300 hover:text-white text-xs font-bold rounded-xl transition-colors whitespace-nowrap"
+                  >
+                    + Nouvelle
+                  </button>
+                </div>
               </div>
 
               <div>
@@ -11588,39 +11583,12 @@ export default function App() {
                         <p className="text-sm text-slate-400 mb-6 max-w-md mx-auto">
                           Une chaîne Facecam, c'est juste un nom pour organiser tes montages — pas de pipeline à configurer, chaque vidéo est montée à l'upload.
                         </p>
-                        {!facecamShowNewChannel ? (
-                          <button
-                            onClick={() => setFacecamShowNewChannel(true)}
-                            className="bg-[#00c2ff] text-slate-950 px-6 py-3 rounded-xl font-bold text-sm hover:bg-[#38d0ff] transition-all shadow-lg inline-flex items-center gap-2"
-                          >
-                            <span className="material-symbols-outlined">add</span> Créer une chaîne
-                          </button>
-                        ) : (
-                          <div className="flex items-center justify-center gap-2 max-w-sm mx-auto">
-                            <input
-                              type="text"
-                              autoFocus
-                              value={facecamNewChannelName}
-                              onChange={e => setFacecamNewChannelName(e.target.value)}
-                              onKeyDown={e => { if (e.key === 'Enter') createFacecamChannel(); }}
-                              placeholder="Nom de la chaîne"
-                              className="flex-1 bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-3 py-2.5 text-sm text-white focus:border-[#00c2ff] outline-none"
-                            />
-                            <button
-                              onClick={createFacecamChannel}
-                              disabled={facecamCreatingChannel || !facecamNewChannelName.trim()}
-                              className="bg-[#00c2ff] text-slate-950 px-4 py-2.5 rounded-xl font-bold text-sm hover:bg-[#38d0ff] transition-all disabled:opacity-50"
-                            >
-                              {facecamCreatingChannel ? '…' : 'Créer'}
-                            </button>
-                            <button
-                              onClick={() => { setFacecamShowNewChannel(false); setFacecamNewChannelName(''); }}
-                              className="bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-4 py-2.5 text-sm text-slate-300"
-                            >
-                              Annuler
-                            </button>
-                          </div>
-                        )}
+                        <button
+                          onClick={openFacecamCreateModal}
+                          className="bg-[#00c2ff] text-slate-950 px-6 py-3 rounded-xl font-bold text-sm hover:bg-[#38d0ff] transition-all shadow-lg inline-flex items-center gap-2"
+                        >
+                          <span className="material-symbols-outlined">add</span> Créer une chaîne
+                        </button>
                       </>
                     ) : (
                       <>
@@ -11646,44 +11614,15 @@ export default function App() {
                         grid sibling) stretched every card in its row to match, undoing
                         the height reduction on the two/three cards next to it. */}
                     {activeProduct === 'facecam' ? (
-                      !facecamShowNewChannel ? (
-                        <button
-                          onClick={() => setFacecamShowNewChannel(true)}
-                          className="rounded-2xl p-5 border-2 border-dashed border-[var(--border)] hover:border-[#00c2ff] hover:bg-[var(--bg-surface)] transition-all flex items-center justify-center gap-2.5 text-slate-400 hover:text-[#00c2ff] group"
-                        >
-                          <div className="w-8 h-8 rounded-full bg-[var(--bg-surface-alt)] group-hover:bg-[#00c2ff]/10 flex items-center justify-center transition-colors shrink-0">
-                            <span className="material-symbols-outlined text-[18px]">add</span>
-                          </div>
-                          <span className="font-bold text-sm">Ajouter une Chaîne</span>
-                        </button>
-                      ) : (
-                        <div className="rounded-2xl p-5 border-2 border-dashed border-[#00c2ff]/60 bg-[var(--bg-surface)] flex flex-col gap-2 justify-center">
-                          <input
-                            type="text"
-                            autoFocus
-                            value={facecamNewChannelName}
-                            onChange={e => setFacecamNewChannelName(e.target.value)}
-                            onKeyDown={e => { if (e.key === 'Enter') createFacecamChannel(); }}
-                            placeholder="Nom de la chaîne"
-                            className="bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-3 py-2 text-sm text-white focus:border-[#00c2ff] outline-none"
-                          />
-                          <div className="flex items-center gap-2">
-                            <button
-                              onClick={createFacecamChannel}
-                              disabled={facecamCreatingChannel || !facecamNewChannelName.trim()}
-                              className="flex-1 bg-[#00c2ff] text-slate-950 px-3 py-2 rounded-xl font-bold text-xs hover:bg-[#38d0ff] transition-all disabled:opacity-50"
-                            >
-                              {facecamCreatingChannel ? '…' : 'Créer'}
-                            </button>
-                            <button
-                              onClick={() => { setFacecamShowNewChannel(false); setFacecamNewChannelName(''); }}
-                              className="bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-3 py-2 text-xs text-slate-300"
-                            >
-                              Annuler
-                            </button>
-                          </div>
+                      <button
+                        onClick={openFacecamCreateModal}
+                        className="rounded-2xl p-5 border-2 border-dashed border-[var(--border)] hover:border-[#00c2ff] hover:bg-[var(--bg-surface)] transition-all flex items-center justify-center gap-2.5 text-slate-400 hover:text-[#00c2ff] group"
+                      >
+                        <div className="w-8 h-8 rounded-full bg-[var(--bg-surface-alt)] group-hover:bg-[#00c2ff]/10 flex items-center justify-center transition-colors shrink-0">
+                          <span className="material-symbols-outlined text-[18px]">add</span>
                         </div>
-                      )
+                        <span className="font-bold text-sm">Ajouter une Chaîne</span>
+                      </button>
                     ) : (
                       <button
                         onClick={() => openCreateWizard(activeProductContentType)}
@@ -19138,6 +19077,107 @@ export default function App() {
                   </div>
                 );
               })()}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {facecamCreateModalOpen && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-6">
+          <div className="bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-3xl w-full max-w-lg shadow-2xl">
+            <div className="flex justify-between items-center border-b border-[var(--border-soft)] px-6 py-5">
+              <div>
+                <h2 className="text-lg font-extrabold text-white">Nouvelle chaîne Facecam</h2>
+                <p className="text-xs text-slate-400 mt-1">
+                  Le nom et la charte graphique — logo, couleur, police — sont configurés une fois ici et réutilisés
+                  automatiquement sur chaque montage de cette chaîne. Seuls le fichier brut et le titre changent à chaque vidéo.
+                </p>
+              </div>
+              <button onClick={() => setFacecamCreateModalOpen(false)} className="text-slate-400 hover:text-white p-1 flex-shrink-0">
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+
+            <div className="p-6 space-y-5">
+              <div>
+                <label className="block text-xs font-bold text-slate-300 mb-2">Nom de la chaîne *</label>
+                <input
+                  type="text"
+                  autoFocus
+                  value={facecamNewChannelName}
+                  onChange={e => setFacecamNewChannelName(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter' && facecamNewChannelName.trim()) createFacecamChannel(); }}
+                  placeholder="Ex : Podcast du lundi"
+                  className="w-full bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-3 py-2.5 text-sm text-white"
+                />
+              </div>
+
+              <div className="flex items-center gap-4">
+                <div className="w-16 h-16 rounded-xl bg-[var(--bg-surface-alt)] border border-[var(--border)] flex items-center justify-center overflow-hidden flex-shrink-0">
+                  {facecamLogoFile ? (
+                    <img src={URL.createObjectURL(facecamLogoFile)} alt="" className="w-full h-full object-contain" />
+                  ) : (
+                    <span className="material-symbols-outlined text-slate-600 text-[24px]">image</span>
+                  )}
+                </div>
+                <div className="flex-1">
+                  <label className="block text-xs font-bold text-slate-300 mb-2">Logo (optionnel)</label>
+                  <label className="inline-flex items-center gap-1.5 px-3 py-2 bg-[var(--bg-surface-alt)] border border-[var(--border)] hover:border-[#00c2ff]/50 text-slate-300 hover:text-white text-xs font-bold rounded-xl cursor-pointer transition-colors">
+                    <span className="material-symbols-outlined text-[16px]">upload</span>
+                    Choisir un fichier
+                    <input type="file" accept="image/*" className="hidden" onChange={e => setFacecamLogoFile(e.target.files?.[0] || null)} />
+                  </label>
+                  {facecamLogoFile && <span className="ml-2 text-[11px] text-slate-500">{facecamLogoFile.name}</span>}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-300 mb-2">Couleur d'accent</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="color"
+                      value={facecamAccentColor}
+                      onChange={e => setFacecamAccentColor(e.target.value)}
+                      className="w-10 h-10 rounded-lg border border-[var(--border)] bg-transparent cursor-pointer flex-shrink-0"
+                    />
+                    <input
+                      type="text"
+                      value={facecamAccentColor}
+                      onChange={e => setFacecamAccentColor(e.target.value)}
+                      className="flex-1 bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-3 py-2 text-sm text-white"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-300 mb-2">Police</label>
+                  <select
+                    value={facecamFontFamily}
+                    onChange={e => setFacecamFontFamily(e.target.value)}
+                    className="w-full bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-3 py-2.5 text-sm text-white"
+                  >
+                    {['DejaVu Sans', 'Arial', 'Georgia', 'Roboto', 'Montserrat', 'Poppins'].map(f => (
+                      <option key={f} value={f}>{f}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 border-t border-[var(--border-soft)] px-6 py-4">
+              <button
+                onClick={createFacecamChannel}
+                disabled={facecamCreatingChannel || !facecamNewChannelName.trim()}
+                className="flex-1 px-5 py-2.5 bg-[#00c2ff] hover:bg-[#38d0ff] disabled:opacity-50 text-slate-950 font-bold text-sm rounded-xl transition-colors"
+              >
+                {facecamCreatingChannel ? 'Création…' : 'Créer la chaîne'}
+              </button>
+              <button
+                onClick={() => setFacecamCreateModalOpen(false)}
+                className="px-4 py-2.5 text-slate-400 hover:text-white text-sm font-bold rounded-xl transition-colors"
+              >
+                Annuler
+              </button>
             </div>
           </div>
         </div>
