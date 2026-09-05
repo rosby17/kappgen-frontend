@@ -7256,6 +7256,13 @@ export default function App() {
   // or back/forward navigation (URL -> state).
   const findChannelBySlug = (slug) => channels.find((c) => slugifyChannelName(c.name) === slug);
   const editingChannel = editingChannelId ? channels.find((c) => c.id === editingChannelId) : null;
+  // The content type belongs to the persisted channel, not to the transient
+  // wizard state. Reading it here prevents a refresh from briefly (or, when
+  // session state was restored, permanently) reopening a music channel in
+  // the legacy narration wizard.
+  const effectiveWizardContentType = wizardMode === 'edit' && editingChannel
+    ? (editingChannel.content_type === 'music' ? 'music' : 'narration')
+    : wizardContentType;
   const urlHydratedRef = useRef(false);
 
   const pathForState = () => {
@@ -7342,6 +7349,7 @@ export default function App() {
           openEditWizard(chan, null, loadWizardStep(chan.id) || 1);
         } else {
           setActiveChannel(chan);
+          setWizardContentType(chan.content_type === 'music' ? 'music' : 'narration');
         }
       } else if (channelsLoaded) {
         navigate('/channels'); // unknown slug once channels are known
@@ -14047,7 +14055,7 @@ export default function App() {
             )}
 
             {/* VIEW 5: CHANNEL WIZARD (CREATE / EDIT) */}
-            {view === 'wizard' && wizardContentType === 'music' && (
+            {view === 'wizard' && effectiveWizardContentType === 'music' && (
               <MusicChannelWizard
                 key={editingChannelId || 'new'}
                 authFetch={authFetch}
@@ -14064,7 +14072,7 @@ export default function App() {
               />
             )}
 
-            {view === 'wizard' && wizardContentType !== 'music' && (
+            {view === 'wizard' && effectiveWizardContentType !== 'music' && (
               <div className="max-w-[1240px] mx-auto bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-3xl p-4 sm:p-8 shadow-2xl space-y-6 sm:space-y-8">
                 {/* Wizard Header Stepper */}
                 <div className="flex items-start justify-between gap-3 border-b border-[var(--border-soft)] pb-4 sm:pb-6">
