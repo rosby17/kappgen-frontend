@@ -1963,7 +1963,9 @@ function buildMusicChannelForm(channel) {
     // visual only, no images at all) — see queue_runner.py's own "auto"
     // resolution, which mirrors this frontend default exactly.
     image_count: cfg.image_count ?? 'auto',
-    target_duration_minutes: cfg.target_duration_minutes ?? 10,
+    // Seconds are the source of truth. Older channels only have minutes, so
+    // they retain their current duration until the creator changes it.
+    target_duration_seconds: cfg.target_duration_seconds ?? ((cfg.target_duration_minutes ?? 10) * 60),
     automation_mode: channel?.automation_mode || 'manual', // 'manual' | 'auto'
     videos_per_day: channel?.videos_per_day ?? 1,
     script_generation_hour: channel?.script_generation_hour ?? 9,
@@ -2125,12 +2127,16 @@ function MusicChannelWizard({ authFetch, showToast, onCreated, onBack, editingCh
         content_type: 'music',
         automation_mode: form.automation_mode,
         videos_per_day: form.videos_per_day,
+        script_generation_hour: form.script_generation_hour,
+        script_generation_minute: form.script_generation_minute,
+        script_generation_days: form.script_generation_days,
         music_channel_config: {
           style_prompt: form.style_prompt.trim(),
           title_examples: form.title_examples,
           edit_mode: form.edit_mode,
           image_count: form.image_count,
-          target_duration_minutes: form.target_duration_minutes,
+          target_duration_seconds: form.target_duration_seconds,
+          target_duration_minutes: Math.round(form.target_duration_seconds / 60),
           music_source_mode: form.music_source_mode,
           subtitle_text: form.subtitle_text,
         },
@@ -2474,9 +2480,9 @@ function MusicChannelWizard({ authFetch, showToast, onCreated, onBack, editingCh
     }
   };
 
-  const createChannel = async () => {
+  const createChannel = async (saveDraft = false) => {
     if (!form.name.trim()) return showToast('Donne un nom à ta chaîne.', 'error');
-    if (form.music_source_mode === 'ai_generate' && !form.style_prompt.trim()) return showToast('Décris le style musical voulu.', 'error');
+    if (!saveDraft && form.music_source_mode === 'ai_generate' && !form.style_prompt.trim()) return showToast('Décris le style musical voulu.', 'error');
     setCreating(true);
     try {
       const logoXY = presetXY(form.logo_corner, form.logo_size_percent);
@@ -2506,7 +2512,8 @@ function MusicChannelWizard({ authFetch, showToast, onCreated, onBack, editingCh
           title_examples: form.title_examples,
           edit_mode: form.edit_mode,
           image_count: form.image_count,
-          target_duration_minutes: form.target_duration_minutes,
+          target_duration_seconds: form.target_duration_seconds,
+          target_duration_minutes: Math.round(form.target_duration_seconds / 60),
           music_source_mode: form.music_source_mode,
           subtitle_text: form.subtitle_text,
         },
@@ -2559,7 +2566,7 @@ function MusicChannelWizard({ authFetch, showToast, onCreated, onBack, editingCh
         logoForm.append('file', logoFile);
         await authFetch(`${API_BASE}/channels/${channel.id}/logo`, { method: 'POST', body: logoForm });
       }
-      showToast(createdChannelId ? 'Chaîne musicale mise à jour.' : 'Chaîne musicale créée.', 'success');
+      showToast(saveDraft ? 'Brouillon enregistré.' : (createdChannelId ? 'Chaîne musicale mise à jour.' : 'Chaîne musicale créée.'), 'success');
       onCreated(channel);
     } catch (err) {
       showToast(err.message, 'error');
@@ -2584,7 +2591,7 @@ function MusicChannelWizard({ authFetch, showToast, onCreated, onBack, editingCh
               <span className="material-symbols-outlined text-[#00c2ff] text-[20px]">library_music</span>
               {editingChannel ? `Modifier « ${editingChannel.name || 'la chaîne musicale'} »` : 'Nouvelle Chaîne Musicale'}
             </h2>
-            <p className="text-xs text-slate-400 mt-1">Étape {step} sur {MUSIC_WIZARD_STEPS.length} — pas de script, pas de voix off, le contenu c'est la musique elle-même.</p>
+            <div className="mt-2 flex items-center gap-2 text-xs text-slate-400"><span className="rounded-md border border-[#00c2ff]/30 bg-[#00c2ff]/10 px-2 py-0.5 font-bold text-[#56d9ff]">{MUSIC_WIZARD_STEPS[step - 1]}</span><span>Étape {step} sur {MUSIC_WIZARD_STEPS.length} · pas de script ni de voix off.</span></div>
           </div>
           <button onClick={onBack} className="text-slate-400 hover:text-white p-2 shrink-0">
             <span className="material-symbols-outlined">close</span>
@@ -3126,18 +3133,28 @@ function MusicChannelWizard({ authFetch, showToast, onCreated, onBack, editingCh
             </div>
             <div>
               <label className="block text-xs font-bold text-slate-300 mb-2">Durée cible</label>
-              <div className="flex items-center gap-2 bg-[var(--bg-input)] border border-[var(--border-subtle)] rounded-xl px-3 py-2.5">
+              <div className="flex flex-wrap items-center gap-2 bg-[var(--bg-input)] border border-[var(--border-subtle)] rounded-xl px-3 py-2.5">
                 <span className="material-symbols-outlined text-[16px] text-slate-500 shrink-0">schedule</span>
-                <span className="text-[11px] text-slate-400 flex-1">Minutes</span>
+                <span className="text-[11px] text-slate-400">Minutes</span>
                 <input
                   type="number"
-                  min={1}
+                  min={0}
                   max={180}
-                  value={form.target_duration_minutes}
-                  onChange={e => setForm({ ...form, target_duration_minutes: Math.max(1, Math.min(180, parseInt(e.target.value) || 1)) })}
+                  value={Math.floor(form.target_duration_seconds / 60)}
+                  onChange={e => { const minutes = Math.max(0, Math.min(180, parseInt(e.target.value) || 0)); const seconds = form.target_duration_seconds % 60; setForm({ ...form, target_duration_seconds: Math.max(30, Math.min(10800, minutes * 60 + seconds)) }); }}
+                  className="w-16 text-center bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-lg py-1 text-xs font-bold text-white focus:border-[#00c2ff] outline-none"
+                />
+                <span className="text-[11px] text-slate-400">Secondes</span>
+                <input
+                  type="number"
+                  min={0}
+                  max={59}
+                  value={form.target_duration_seconds % 60}
+                  onChange={e => { const seconds = Math.max(0, Math.min(59, parseInt(e.target.value) || 0)); const minutes = Math.floor(form.target_duration_seconds / 60); setForm({ ...form, target_duration_seconds: Math.max(30, Math.min(10800, minutes * 60 + seconds)) }); }}
                   className="w-16 text-center bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-lg py-1 text-xs font-bold text-white focus:border-[#00c2ff] outline-none"
                 />
               </div>
+              <p className="mt-1.5 px-1 text-[10px] text-slate-500">Chaque rendu varie légèrement autour de cette durée pour obtenir un montage naturel, sans sorties systématiquement rondes.</p>
             </div>
           </div>
         )}
@@ -3345,24 +3362,34 @@ function MusicChannelWizard({ authFetch, showToast, onCreated, onBack, editingCh
             </button>
           ) : <div></div>}
 
-          {step < MUSIC_WIZARD_STEPS.length ? (
+          <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
             <button
-              onClick={goNext}
-              className="px-6 py-2.5 rounded-xl bg-[#00c2ff] text-slate-950 font-bold text-xs hover:bg-[#38d0ff] transition-all flex items-center gap-2 shadow-md"
+              onClick={() => createChannel(true)}
+              disabled={creating || !form.name.trim()}
+              className="px-4 py-2.5 rounded-xl border border-[#00c2ff]/40 text-[#56d9ff] font-bold text-xs hover:bg-[#00c2ff]/10 transition-all flex items-center gap-2 disabled:opacity-50"
             >
-              Suivant
-              <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
+              <span className="material-symbols-outlined text-[17px]">save</span>
+              {creating ? 'Enregistrement...' : 'Enregistrer et quitter'}
             </button>
-          ) : (
+            {step < MUSIC_WIZARD_STEPS.length ? (
+              <button
+                onClick={goNext}
+                className="px-6 py-2.5 rounded-xl bg-[#00c2ff] text-slate-950 font-bold text-xs hover:bg-[#38d0ff] transition-all flex items-center gap-2 shadow-md"
+              >
+                Suivant
+                <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
+              </button>
+            ) : (
             <button
-              onClick={createChannel}
+              onClick={() => createChannel(false)}
               disabled={creating}
               className="px-8 py-3 rounded-xl bg-emerald-500 text-slate-950 font-bold text-xs hover:bg-emerald-400 transition-all flex items-center gap-2 shadow-lg shadow-emerald-500/20 disabled:opacity-50"
             >
               <span className="material-symbols-outlined text-[18px]">check</span>
               {creating ? (createdChannelId ? 'Enregistrement...' : 'Création...') : (createdChannelId ? 'Enregistrer les modifications' : 'Créer la chaîne musicale')}
             </button>
-          )}
+            )}
+          </div>
         </div>
       </div>
     </div>
