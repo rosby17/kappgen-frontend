@@ -21284,7 +21284,7 @@ export default function App() {
 
       {downloadModalVideo && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/90 p-4 backdrop-blur-md sm:p-6" onClick={() => { if (!downloadingQuality) setDownloadModalVideo(null); }}>
-          <div className="w-full max-w-[500px] overflow-hidden rounded-3xl border border-[#00c2ff]/20 bg-[var(--bg-surface)] shadow-[0_32px_100px_rgba(0,0,0,.55)]" onClick={event => event.stopPropagation()}>
+          <div className="w-full max-w-[820px] overflow-hidden rounded-3xl border border-[#00c2ff]/20 bg-[var(--bg-surface)] shadow-[0_32px_100px_rgba(0,0,0,.55)]" onClick={event => event.stopPropagation()}>
             <div className="relative overflow-hidden border-b border-[var(--border-soft)] px-5 pb-5 pt-6 sm:px-6">
               <div className="pointer-events-none absolute -right-12 -top-16 h-40 w-40 rounded-full bg-[#00c2ff]/15 blur-3xl" />
               <div className="relative flex items-start justify-between gap-4">
@@ -21309,54 +21309,81 @@ export default function App() {
               <p className="relative mt-4 truncate text-xs font-medium text-slate-300">{downloadModalVideo.title || 'Vidéo KappGen'}</p>
             </div>
 
-            <div className="space-y-3 p-5 sm:p-6">
-              <div className="flex items-center justify-between px-0.5">
-                <p className="text-[11px] font-bold text-slate-300">Choisir le format vidéo</p>
-                <span className="text-[10px] text-slate-500">MP4 uniquement</span>
+            {/* Two columns, split by a vertical divider — vidéo à gauche
+                (aperçu + les 3 formats), miniature à droite (aperçu + son
+                propre bouton) — plutôt que tout empilé en une seule colonne,
+                pour qu'on voie ce qu'on télécharge avant de cliquer. */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 sm:divide-x sm:divide-[var(--border-soft)]">
+              <div className="space-y-3 p-5 sm:p-6">
+                <div className="aspect-video w-full overflow-hidden rounded-2xl border border-[var(--border-soft)] bg-slate-950">
+                  <video
+                    src={getVideoUrl(downloadModalVideo.output_path)}
+                    poster={getVideoThumbnailUrl(downloadModalVideo)}
+                    className="h-full w-full object-cover"
+                    preload="metadata"
+                  />
+                </div>
+                <div className="flex items-center justify-between px-0.5">
+                  <p className="text-[11px] font-bold text-slate-300">Choisir le format vidéo</p>
+                  <span className="text-[10px] text-slate-500">MP4</span>
+                </div>
+                {[
+                  { key: 'sd', label: 'Version légère', format: 'SD · 854×480', detail: 'Plus rapide à partager et à envoyer', icon: 'bolt', recommended: false },
+                  { key: 'hd', label: 'Haute définition', format: 'HD · 1920×1080', detail: 'Qualité native du rendu', icon: 'high_quality', recommended: true },
+                  { key: '4k', label: 'Ultra haute définition', format: '4K · 3840×2160', detail: 'Upscale premium · 5 000 crédits', icon: '4k', recommended: false },
+                ].map(opt => (
+                  <button
+                    key={opt.key}
+                    disabled={!!downloadingQuality}
+                    onClick={() => runDownload(downloadModalVideo, opt.key)}
+                    className={`group relative flex w-full items-center justify-between overflow-hidden rounded-2xl border p-4 text-left transition-all disabled:opacity-50 ${opt.recommended ? 'border-[#00c2ff]/45 bg-[#00c2ff]/[.08] hover:border-[#00c2ff] hover:bg-[#00c2ff]/[.13]' : 'border-[var(--border)] bg-[var(--bg-surface-alt)] hover:border-slate-500 hover:bg-[var(--border-soft)]'}`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${opt.recommended ? 'bg-[#00c2ff] text-slate-950' : 'bg-slate-800 text-slate-300'}`}>
+                        <span className="material-symbols-outlined text-[20px]">{opt.icon}</span>
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2"><span className="text-xs font-extrabold text-white">{opt.label}</span>{opt.recommended && <span className="rounded-full bg-[#00c2ff] px-1.5 py-0.5 text-[8px] font-extrabold uppercase tracking-wide text-slate-950">Recommandé</span>}</div>
+                        <div className="mt-0.5 text-[10px] font-medium text-slate-400">{opt.format} · {opt.detail}</div>
+                      </div>
+                    </div>
+                    {downloadingQuality === opt.key ? (
+                      <span className="material-symbols-outlined text-[18px] text-[#00c2ff] animate-spin">progress_activity</span>
+                    ) : (
+                      <span className="material-symbols-outlined text-[20px] text-[#63dcff] transition-transform group-hover:translate-y-0.5">download</span>
+                    )}
+                  </button>
+                ))}
               </div>
-              {[
-                { key: 'hd', label: 'Haute définition', format: 'HD · 1920×1080', detail: 'Qualité native du rendu', icon: 'high_quality', recommended: true },
-                { key: 'sd', label: 'Version légère', format: 'SD · 854×480', detail: 'Plus rapide à partager et à envoyer', icon: 'bolt', recommended: false },
-                { key: '4k', label: 'Ultra haute définition', format: '4K · 3840×2160', detail: 'Upscale premium · 5 000 crédits', icon: '4k', recommended: false },
-              ].map(opt => (
+
+              <div className="space-y-3 border-t border-[var(--border-soft)] p-5 sm:border-t-0 sm:p-6">
+                <div className="aspect-video w-full overflow-hidden rounded-2xl border border-[var(--border-soft)] bg-slate-950">
+                  <img
+                    src={getVideoThumbnailUrl(downloadModalVideo)}
+                    alt="Miniature"
+                    className="h-full w-full object-cover"
+                  />
+                </div>
+                <div className="flex items-center justify-between px-0.5">
+                  <p className="text-[11px] font-bold text-slate-300">Miniature</p>
+                  <span className="text-[10px] text-slate-500">JPG</span>
+                </div>
                 <button
-                  key={opt.key}
                   disabled={!!downloadingQuality}
-                  onClick={() => runDownload(downloadModalVideo, opt.key)}
-                  className={`group relative flex w-full items-center justify-between overflow-hidden rounded-2xl border p-4 text-left transition-all disabled:opacity-50 ${opt.recommended ? 'border-[#00c2ff]/45 bg-[#00c2ff]/[.08] hover:border-[#00c2ff] hover:bg-[#00c2ff]/[.13]' : 'border-[var(--border)] bg-[var(--bg-surface-alt)] hover:border-slate-500 hover:bg-[var(--border-soft)]'}`}
+                  onClick={() => runThumbnailDownload(downloadModalVideo)}
+                  className="group flex w-full items-center justify-between rounded-2xl border border-dashed border-[#00c2ff]/35 bg-[#00c2ff]/[.035] p-4 text-left transition-all hover:border-[#00c2ff]/70 hover:bg-[#00c2ff]/[.08] disabled:opacity-50"
                 >
                   <div className="flex items-center gap-3">
-                    <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${opt.recommended ? 'bg-[#00c2ff] text-slate-950' : 'bg-slate-800 text-slate-300'}`}>
-                      <span className="material-symbols-outlined text-[20px]">{opt.icon}</span>
-                    </div>
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#00c2ff]/15 text-[#63dcff]"><span className="material-symbols-outlined text-[20px]">add_photo_alternate</span></div>
                     <div>
-                      <div className="flex items-center gap-2"><span className="text-xs font-extrabold text-white">{opt.label}</span>{opt.recommended && <span className="rounded-full bg-[#00c2ff] px-1.5 py-0.5 text-[8px] font-extrabold uppercase tracking-wide text-slate-950">Recommandé</span>}</div>
-                      <div className="mt-0.5 text-[10px] font-medium text-slate-400">{opt.format} · {opt.detail}</div>
+                      <div className="text-xs font-extrabold text-white">Télécharger la miniature</div>
+                      <div className="mt-0.5 text-[10px] font-medium text-slate-400">Prête pour YouTube ou un autre réseau</div>
                     </div>
                   </div>
-                  {downloadingQuality === opt.key ? (
-                    <span className="material-symbols-outlined text-[18px] text-[#00c2ff] animate-spin">progress_activity</span>
-                  ) : (
-                    <span className="material-symbols-outlined text-[20px] text-[#63dcff] transition-transform group-hover:translate-y-0.5">download</span>
-                  )}
+                  <span className="material-symbols-outlined text-[20px] text-[#63dcff] transition-transform group-hover:translate-y-0.5">download</span>
                 </button>
-              ))}
-              <div className="my-4 flex items-center gap-3"><div className="h-px flex-1 bg-[var(--border-soft)]" /><span className="text-[9px] font-bold uppercase tracking-[.12em] text-slate-600">ou séparément</span><div className="h-px flex-1 bg-[var(--border-soft)]" /></div>
-              <button
-                disabled={!!downloadingQuality}
-                onClick={() => runThumbnailDownload(downloadModalVideo)}
-                className="group flex w-full items-center justify-between rounded-2xl border border-dashed border-[#00c2ff]/35 bg-[#00c2ff]/[.035] p-4 text-left transition-all hover:border-[#00c2ff]/70 hover:bg-[#00c2ff]/[.08] disabled:opacity-50"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#00c2ff]/15 text-[#63dcff]"><span className="material-symbols-outlined text-[20px]">add_photo_alternate</span></div>
-                  <div>
-                    <div className="text-xs font-extrabold text-white">Miniature uniquement</div>
-                    <div className="mt-0.5 text-[10px] font-medium text-slate-400">JPG · prête pour YouTube ou un autre réseau</div>
-                  </div>
-                </div>
-                <span className="material-symbols-outlined text-[20px] text-[#63dcff] transition-transform group-hover:translate-y-0.5">download</span>
-              </button>
-              <p className="pt-1 text-center text-[10px] leading-relaxed text-slate-500">La miniature JPG se télécharge séparément via le bouton dédié.</p>
+                <p className="pt-1 text-center text-[10px] leading-relaxed text-slate-500">Se télécharge séparément de la vidéo.</p>
+              </div>
             </div>
           </div>
         </div>
