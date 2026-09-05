@@ -1989,7 +1989,9 @@ function buildMusicChannelForm(channel) {
       library_image_count: 0,
       image_count_mode: 'auto',
       max_unique_images: null,
-      share_with_community: false,
+      // Opt-out, not opt-in (Sept 2026 product decision) — see the matching
+      // backend default in models/project.py's ImageStyle.
+      share_with_community: true,
       ...(channel?.image_style || {}),
     },
     // The text actually shown on screen (title or full lyrics) lives in
@@ -6910,6 +6912,11 @@ export default function App() {
       broll_count: 0,
       media_mode: 'images'
       ,generate_thumbnail_with_ai: false
+      // Opt-out, not opt-in (product decision, Sept 2026): a channel's own
+      // library feeds its niche's shared community library by default so the
+      // platform library grows over time. See ImageStyle.share_with_community
+      // in backend/src/models/project.py.
+      ,share_with_community: true
     },
     thumbnail_style: null,
     effects_config: {
