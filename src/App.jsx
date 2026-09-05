@@ -1955,6 +1955,11 @@ function buildMusicChannelForm(channel) {
     description: channel?.description || '',
     style_prompt: cfg.style_prompt || '',
     title_examples: cfg.title_examples || '',
+    // 'instrumental' (default — no vocals, matches how AI music generation
+    // always worked here until now) or 'vocals', in which case `lyrics` is
+    // sent as real song lyrics instead of just a style description.
+    vocal_mode: cfg.lyrics ? 'vocals' : 'instrumental',
+    lyrics: cfg.lyrics || '',
     music_source_mode: cfg.music_source_mode || 'ai_generate', // 'ai_generate' | 'library'; Izivoice powers AI generation.
     edit_mode: cfg.edit_mode || 'loop', // 'loop' | 'compilation'
     // 'auto' (KappGen picks a count that scales with target_duration_minutes,
@@ -2142,6 +2147,7 @@ function MusicChannelWizard({ authFetch, showToast, onCreated, onBack, editingCh
           target_duration_minutes: Math.round(form.target_duration_seconds / 60),
           music_source_mode: form.music_source_mode,
           subtitle_text: form.subtitle_text,
+          lyrics: form.vocal_mode === 'vocals' ? form.lyrics.trim() : '',
         },
       }),
     });
@@ -2520,6 +2526,7 @@ function MusicChannelWizard({ authFetch, showToast, onCreated, onBack, editingCh
           target_duration_minutes: Math.round(form.target_duration_seconds / 60),
           music_source_mode: form.music_source_mode,
           subtitle_text: form.subtitle_text,
+          lyrics: form.vocal_mode === 'vocals' ? form.lyrics.trim() : '',
         },
         branding: brandingPatch,
         image_style: form.image_style,
@@ -2992,6 +2999,37 @@ function MusicChannelWizard({ authFetch, showToast, onCreated, onBack, editingCh
               {previewUrl && (
                 <div className="mt-2">
                   <ServerAudioPreview src={previewUrl} name="Aperçu généré" />
+                </div>
+              )}
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-300 mb-2">Voix</label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setForm({ ...form, vocal_mode: 'instrumental' })}
+                  className={`rounded-xl border px-3 py-2.5 text-center text-xs font-bold transition-colors ${form.vocal_mode === 'instrumental' ? 'border-[#00c2ff] bg-[#00c2ff]/10 text-[#5cddff]' : 'border-[var(--border)] bg-[var(--bg-input)] text-slate-400 hover:border-slate-500'}`}
+                >
+                  Instrumental (sans paroles)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setForm({ ...form, vocal_mode: 'vocals' })}
+                  className={`rounded-xl border px-3 py-2.5 text-center text-xs font-bold transition-colors ${form.vocal_mode === 'vocals' ? 'border-[#00c2ff] bg-[#00c2ff]/10 text-[#5cddff]' : 'border-[var(--border)] bg-[var(--bg-input)] text-slate-400 hover:border-slate-500'}`}
+                >
+                  Avec paroles (chanson)
+                </button>
+              </div>
+              {form.vocal_mode === 'vocals' && (
+                <div className="mt-3">
+                  <textarea
+                    rows={6}
+                    value={form.lyrics}
+                    onChange={e => setForm({ ...form, lyrics: e.target.value })}
+                    placeholder={"Colle tes propres paroles ici (une ligne par vers)…\nSi tu n'as pas encore de paroles, laisse ce champ vide et décris juste l'ambiance dans \"Style musical\" ci-dessus — la musique restera alors instrumentale."}
+                    className="w-full bg-[var(--bg-input)] border border-[var(--border)] rounded-xl px-3 py-2.5 text-xs text-white focus:border-[#00c2ff] outline-none resize-none"
+                  />
+                  <p className="text-[10px] text-slate-500 mt-1.5">Chaque génération chantera ces mêmes paroles — pense à varier le style musical pour des versions différentes de la même chanson.</p>
                 </div>
               )}
             </div>
