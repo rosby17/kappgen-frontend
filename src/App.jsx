@@ -13183,12 +13183,13 @@ export default function App() {
                       <div className="order-1">
                         <h4 className="text-xs font-bold text-white mb-2">1. Sources visuelles</h4>
                         {/* 3 columns: Option A, Option B, and Option C+D stacked
-                            together as the third column. Option B's dropzone/textarea
-                            content makes its card much taller than Option C/D's short
-                            2-line descriptions — items-start (not items-stretch) keeps
-                            every column sized to its own content instead of every card
-                            stretching to match Option B's height. */}
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
+                            together as the third column. items-stretch (all 3 columns
+                            match Option B's height, the tallest) for a balanced row —
+                            Option A and B already use justify-between internally so
+                            their own content redistributes with the extra height; the
+                            C+D column does the same (see its own justify-between+h-full
+                            below) instead of just leaving blank space under one card. */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-stretch">
                         
                         {/* OPTION A: DOSSIER IMAGES LOCALES */}
                         <div 
@@ -13428,7 +13429,7 @@ export default function App() {
                           </div>
                         </div>
 
-                      <div className="flex flex-col gap-4">
+                      <div className="flex h-full flex-col justify-between gap-4">
                       {(() => {
                         const nicheSet = (newChannel.niche || '').trim();
                         const available = communityLibraryAvailability?.available;
