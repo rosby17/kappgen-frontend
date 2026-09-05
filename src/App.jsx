@@ -21091,7 +21091,7 @@ export default function App() {
           {/* Was max-w-[1100px] with no height cap: on a laptop the 16:9
               preview alone pushed the header — and its close button — off
               screen, with nothing scrollable to get back to it. */}
-          <div className="bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-3xl p-5 max-w-[680px] w-full max-h-[88vh] overflow-y-auto shadow-2xl space-y-4" onClick={e => e.stopPropagation()}>
+          <div className="bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-3xl p-5 max-w-[920px] w-full max-h-[92vh] overflow-y-auto shadow-2xl space-y-4" onClick={e => e.stopPropagation()}>
             <div className="sticky top-0 -mt-1 pt-1 pb-2 bg-[var(--bg-surface)] flex justify-between items-center z-10">
               <h3 className="text-sm font-bold text-white flex items-center gap-2">
                 <span className="material-symbols-outlined text-[18px] text-[#00c2ff]">photo_camera</span> Miniature
@@ -21100,16 +21100,68 @@ export default function App() {
                 <span className="material-symbols-outlined">close</span>
               </button>
             </div>
-            <div className="rounded-2xl overflow-hidden border border-[var(--border)] bg-[var(--bg-input)] relative">
+            {(() => {
+              // Slide index 0 = current live thumbnail, 1..n = history
+              // (oldest-to-newest order already matches thumbnailHistory).
+              // Same array drives the big preview, the arrow buttons, the
+              // swipe gesture, and the small grid below, so all four stay
+              // in sync with a single source of truth.
+              const currentSlideIndex = previewedThumbnailItem
+                ? thumbnailHistory.findIndex(item => item.filename === previewedThumbnailItem.filename) + 1
+                : 0;
+              const goToSlide = (idx) => {
+                const clamped = Math.max(0, Math.min(thumbnailHistory.length, idx));
+                setPreviewedThumbnailItem(clamped === 0 ? null : thumbnailHistory[clamped - 1]);
+              };
+              return (
+            <div
+              className="group relative rounded-2xl overflow-hidden border border-[var(--border)] bg-[var(--bg-input)] touch-pan-y select-none"
+              onPointerDown={e => { e.currentTarget.dataset.swipeStartX = String(e.clientX); }}
+              onPointerUp={e => {
+                const startX = Number(e.currentTarget.dataset.swipeStartX || e.clientX);
+                const deltaX = e.clientX - startX;
+                if (Math.abs(deltaX) > 40) goToSlide(currentSlideIndex + (deltaX < 0 ? 1 : -1));
+              }}
+            >
               <img
                 src={previewedThumbnailItem ? `${API_BASE.replace(/\/api$/, '')}${previewedThumbnailItem.url}` : getVideoThumbnailUrl(thumbnailModalVideo, thumbnailBust[thumbnailModalVideo.id])}
                 alt="Miniature"
+                draggable={false}
                 className="w-full aspect-video object-cover"
               />
               {previewedThumbnailItem && (
                 <span className="absolute top-2 left-2 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wide bg-amber-950/90 text-amber-300 border border-amber-700/80">Aperçu — pas encore appliqué</span>
               )}
+              {thumbnailHistory.length > 0 && (
+                <>
+                  {currentSlideIndex > 0 && (
+                    <button
+                      onClick={() => goToSlide(currentSlideIndex - 1)}
+                      className="absolute left-2 top-1/2 -translate-y-1/2 flex h-9 w-9 items-center justify-center rounded-full bg-slate-950/70 text-white opacity-0 transition-opacity hover:bg-slate-950/90 group-hover:opacity-100"
+                      aria-label="Miniature précédente"
+                    >
+                      <span className="material-symbols-outlined text-[20px]">chevron_left</span>
+                    </button>
+                  )}
+                  {currentSlideIndex < thumbnailHistory.length && (
+                    <button
+                      onClick={() => goToSlide(currentSlideIndex + 1)}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 flex h-9 w-9 items-center justify-center rounded-full bg-slate-950/70 text-white opacity-0 transition-opacity hover:bg-slate-950/90 group-hover:opacity-100"
+                      aria-label="Miniature suivante"
+                    >
+                      <span className="material-symbols-outlined text-[20px]">chevron_right</span>
+                    </button>
+                  )}
+                  <div className="absolute bottom-2 left-1/2 flex -translate-x-1/2 gap-1.5">
+                    {Array.from({ length: thumbnailHistory.length + 1 }).map((_, idx) => (
+                      <span key={idx} className={`h-1.5 w-1.5 rounded-full transition-colors ${idx === currentSlideIndex ? 'bg-[#00c2ff]' : 'bg-white/40'}`} />
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
+              );
+            })()}
             {previewedThumbnailItem && (
               <button
                 onClick={() => restoreThumbnailVersion(previewedThumbnailItem)}
