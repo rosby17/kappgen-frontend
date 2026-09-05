@@ -19239,7 +19239,7 @@ export default function App() {
                       const selected = rank !== -1;
                       const health = (adminProviders || []).find(p => p.id === id);
                       const dotColor = health?.status === 'ok' ? 'bg-emerald-500' : health?.status === 'quota_exhausted' ? 'bg-rose-500' : id === 'huggingface' ? 'bg-emerald-500' : 'bg-slate-600';
-                      const label = { huggingface: 'Hugging Face (gratuit)', fal: 'fal.ai', izivoice: 'Moteur KappGen', gemini: 'Google Gemini (gratuit)' }[id] || id;
+                      const label = { huggingface: 'Hugging Face (gratuit)', fal: 'fal.ai', izivoice: 'Moteur KappGen', gemini: 'Google Gemini (gratuit)', ai33pro: 'ai33.pro' }[id] || id;
                       return (
                         <button
                           key={id}
