@@ -15163,8 +15163,30 @@ export default function App() {
                       >
                         <div className="flex items-center justify-between border-b border-white/10 pb-2">
                           <h4 className="text-xs font-bold text-white">3. Générer une miniature IA</h4>
-                          <span className="text-[10px] font-medium text-slate-500">{THUMBNAIL_GENERATION_CREDITS.toLocaleString()} crédits / miniature</span>
+                          {!newChannel.thumbnail_style?.disabled && (
+                            <span className="text-[10px] font-medium text-slate-500">{THUMBNAIL_GENERATION_CREDITS.toLocaleString()} crédits / miniature</span>
+                          )}
                         </div>
+
+                        <label className="flex items-center gap-2 cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            checked={!!newChannel.thumbnail_style?.disabled}
+                            onChange={e => setNewChannel({
+                              ...newChannel,
+                              thumbnail_style: { ...newChannel.thumbnail_style, disabled: e.target.checked },
+                            })}
+                          />
+                          <span className="text-[11px] font-bold text-slate-300">Je ne veux pas de miniature générée par IA</span>
+                        </label>
+
+                        {newChannel.thumbnail_style?.disabled ? (
+                          <p className="text-[10px] text-slate-500">
+                            Aucune miniature ne sera générée ni facturée pour cette chaîne — la vignette affichée dans
+                            l'app sera automatiquement une image tirée de la vidéo montée elle-même.
+                          </p>
+                        ) : (
+                        <>
                         <input
                           ref={thumbnailStyleInputRef}
                           type="file"
@@ -15369,6 +15391,8 @@ export default function App() {
                         )}
                         {(newChannel.thumbnail_style?.reference_image_paths || []).length === 0 && !editingChannelId && (
                           <p className="text-[10px] text-amber-400/80">Enregistre d'abord la chaîne pour pouvoir ajouter des images de référence de miniature.</p>
+                        )}
+                        </>
                         )}
                       </div>
                     </div>
