@@ -10196,6 +10196,15 @@ export default function App() {
   };
 
   const openStudio = async (vid) => {
+    // Facecam videos use the branded Editing OS inspired studio. Keep the
+    // entry point identical to Faceless: every video card can open its own
+    // editor from the kebab menu.
+    if (vid?.input_type === 'facecam' || vid?.content_type === 'facecam') {
+      setActiveProduct('facecam');
+      setFacecamEditorId(vid.id);
+      setOpenVideoMenuId(null);
+      return;
+    }
     setStudioVideo(vid);
     setSelectedVideo(null);
     setStudioLoading(true);
@@ -11773,7 +11782,11 @@ export default function App() {
                             )}
                             {/* Video Poster Frame — click opens the big preview player directly */}
                             <div
-                              onClick={(e) => { if (videoSelectionMode) { e.stopPropagation(); toggleVideoSelected(vid.id); return; } vid.status === 'done' && setSelectedVideo(vid); }}
+                              onClick={(e) => {
+                                if (videoSelectionMode) { e.stopPropagation(); toggleVideoSelected(vid.id); return; }
+                                if (vid.status === 'done' && (vid.input_type === 'facecam' || vid.content_type === 'facecam')) { e.stopPropagation(); openStudio(vid); return; }
+                                vid.status === 'done' && setSelectedVideo(vid);
+                              }}
                               className={`aspect-[16/9] bg-slate-950 rounded-xl relative overflow-hidden border border-[var(--border)] flex items-center justify-center ${vid.status === 'done' ? 'cursor-pointer group' : ''}`}
                             >
                               {regeneratingCardThumbnailIds.has(vid.id) && (
@@ -11918,7 +11931,7 @@ export default function App() {
                                     <button onClick={(e) => openThumbnailModal(vid, e)} className="w-full text-left px-3 py-1.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium"><span className="material-symbols-outlined text-[14px] text-[#00c2ff]">photo_library</span> Historique des miniatures</button>
                                     </>
                                   )}
-                                  {vid.status === 'done' && vid.editable && (
+                                  {vid.status === 'done' && (vid.editable || vid.input_type === 'facecam' || vid.content_type === 'facecam') && (
                                     <button onClick={(e) => { e.stopPropagation(); setOpenVideoMenuId(null); openStudio(vid); }} className="w-full text-left px-3 py-1.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium">
                                       <span className="material-symbols-outlined text-[14px] text-[#00c2ff]">movie_edit</span> Éditer la vidéo
                                     </button>
