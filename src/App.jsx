@@ -13182,12 +13182,13 @@ export default function App() {
                       {/* 2 CARDS SELECTION GRID WITH CHECKBOXES */}
                       <div className="order-1">
                         <h4 className="text-xs font-bold text-white mb-2">1. Sources visuelles</h4>
-                        {/* 2 columns, not 3: Option A's dropzone/textarea content makes
-                            its card much taller than Option C/D's short 2-line
-                            descriptions, so C and D now share A's former column,
-                            stacked — items-start (not items-stretch) still applies so
-                            neither one gets stretched to match A's height either. */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
+                        {/* 3 columns: Option A, Option B, and Option C+D stacked
+                            together as the third column. Option B's dropzone/textarea
+                            content makes its card much taller than Option C/D's short
+                            2-line descriptions — items-start (not items-stretch) keeps
+                            every column sized to its own content instead of every card
+                            stretching to match Option B's height. */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
                         
                         {/* OPTION A: DOSSIER IMAGES LOCALES */}
                         <div 
