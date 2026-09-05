@@ -10919,14 +10919,16 @@ export default function App() {
     }, 600);
   };
 
-  // Partage direct : le lien de stockage (B2/R2 ou /storage local) est déjà
-  // public et sans authentification (voir GET /videos/{id}/download côté
-  // backend) — pas besoin que le destinataire télécharge le fichier ou passe
-  // par YouTube, il ouvre juste le lien. navigator.share (mobile) propose
-  // WhatsApp nativement dans la feuille de partage système ; sur desktop,
-  // fallback : lien copié dans le presse-papiers + ouverture de wa.me.
+  // Partage direct : on passe par notre propre API (api.kappgen.com), pas
+  // par l'URL brute du bucket B2/R2 (s3.us-west-002.backblazeb2.com/...) —
+  // pas rassurant à envoyer à un client, voir /videos/{id}/download côté
+  // backend qui proxy déjà le stream sans jamais rediriger vers B2.
+  // share=1 → Content-Disposition: inline, pour que ça joue directement au
+  // lieu de forcer un téléchargement. Endpoint intentionnellement sans
+  // authentification (video_id est un UUID opaque), donc le destinataire n'a
+  // ni compte ni fichier à récupérer avant de regarder.
   const handleShareVideo = async (vid) => {
-    const shareUrl = getVideoUrl(vid.output_path);
+    const shareUrl = `${API_BASE}/videos/${vid.id}/download?quality=hd&share=1`;
     const shareText = vid.title || 'Voici ma vidéo';
 
     if (navigator.share) {
