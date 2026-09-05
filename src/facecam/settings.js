@@ -1,0 +1,15 @@
+export const DEFAULT_SETTINGS = {
+  review_before_render: true,
+  silences: true,
+  mistakes: true,
+  captions: true,
+  motion: true,
+  broll: false,
+  format: "original",
+  quality: "draft",
+  card_style: "minimal",
+  accent_color: "#00c2ff",
+  font_family: "DejaVu Sans",
+  caption_position: "bottom",
+  words_per_line: 5,
+};

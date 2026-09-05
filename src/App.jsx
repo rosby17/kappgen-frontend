@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef, useMemo, useId } from 'react';
 import { createPortal } from 'react-dom';
 import { Navigate, useNavigate, useLocation, useParams } from 'react-router-dom';
 import freedomSunrise from './assets/dashboard/freedom-sunrise.png';
+import FacecamStudio, { FacecamHome, FacecamGallery } from './facecam/FacecamStudio';
+import { DEFAULT_SETTINGS } from './facecam/settings';
 
 const getOrigin = () => (typeof window !== 'undefined' ? window.location.origin : '');
 const isLocalhost = getOrigin().includes('localhost') || getOrigin().includes('127.0.0.1');
@@ -4250,37 +4252,6 @@ function SkeletonGrid({ count = 6, cardClassName = "min-h-[220px]" }) {
   );
 }
 
-// Mirrors the stage names facecam_editor.py actually writes to
-// video.progress_stage (backend/src/pipeline/facecam_editor.py) — French
-// labels here, matched loosely so a backend rename doesn't just go blank.
-const FACECAM_STAGES = [
-  { key: 'transcription', label: 'Transcription' },
-  { key: 'cuts', label: 'Coupes (silences, erreurs)' },
-  { key: 'verification', label: 'Vérification' },
-  { key: 'broll_and_cards', label: 'B-roll & cartes' },
-  { key: 'final_mux', label: 'Assemblage final' },
-];
-
-function FacecamStageStepper({ stage }) {
-  const activeIdx = FACECAM_STAGES.findIndex(s => stage && stage.startsWith(s.key));
-  return (
-    <div className="flex items-center gap-1.5 mt-1.5">
-      {FACECAM_STAGES.map((s, idx) => (
-        <div
-          key={s.key}
-          title={s.label}
-          className={`h-1.5 flex-1 rounded-full transition-colors ${
-            idx < activeIdx ? 'bg-[#00c2ff]' : idx === activeIdx ? 'bg-[#00c2ff] animate-pulse' : 'bg-[var(--border-soft)]'
-          }`}
-        />
-      ))}
-      <span className="text-xs font-bold text-[#00c2ff] ml-2 whitespace-nowrap">
-        {activeIdx >= 0 ? FACECAM_STAGES[activeIdx].label : (stage || 'Montage en cours…')}
-      </span>
-    </div>
-  );
-}
-
 // Table-row shimmer for admin lists still loading — same animate-pulse
 // language as SkeletonGrid above, just shaped like table rows instead of
 // cards, so every admin page reads as "loading" instead of flashing a
@@ -4562,6 +4533,8 @@ export default function App() {
   const [facecamFiles, setFacecamFiles] = useState([]);
   const [facecamCloudLink, setFacecamCloudLink] = useState('');
   const [facecamTitle, setFacecamTitle] = useState('');
+  const [facecamSettings, setFacecamSettings] = useState(DEFAULT_SETTINGS);
+  const [facecamEditorId, setFacecamEditorId] = useState(null);
   const [facecamUploading, setFacecamUploading] = useState(false);
   const [facecamUploadError, setFacecamUploadError] = useState('');
   // Facecam has no channel-creation wizard of its own (the big multi-step
@@ -4573,7 +4546,6 @@ export default function App() {
   const [facecamCreateModalOpen, setFacecamCreateModalOpen] = useState(false);
   const [facecamNewChannelName, setFacecamNewChannelName] = useState('');
   const [facecamCreatingChannel, setFacecamCreatingChannel] = useState(false);
-  const [facecamDragOver, setFacecamDragOver] = useState(false);
   // "Charte graphique" — the per-channel repeatable branding (logo, accent
   // color, font) applied to every future video's title cards, as opposed
   // to what's configured per-upload (the raw file itself, the title).
@@ -4946,6 +4918,8 @@ export default function App() {
     try {
       const form = new FormData();
       form.append('channel_id', facecamChannelId);
+      const branding = channels.find(c => c.id === facecamChannelId)?.branding || {};
+      form.append('editing_settings', JSON.stringify({ ...facecamSettings, accent_color: /^#[0-9a-fA-F]{6}$/.test(branding.accent_color || '') ? branding.accent_color : '#00c2ff', font_family: ['DejaVu Sans', 'Arial', 'Inter', 'Montserrat', 'Roboto', 'Poppins'].includes(branding.font_family) ? branding.font_family : 'DejaVu Sans' }));
       if (facecamTitle.trim()) form.append('title', facecamTitle.trim());
       // Appended in array order — the order the creator arranged them in,
       // matching the order they were actually recorded — so the backend
@@ -4957,7 +4931,7 @@ export default function App() {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.detail || 'Échec de l\'envoi de la vidéo.');
       }
-      showToast('Vidéo facecam envoyée — le montage automatique va démarrer.');
+      showToast(facecamSettings.review_before_render ? 'Rushs importés — les propositions de montage seront bientôt prêtes.' : 'Vidéo envoyée — le montage démarre.');
       const channelId = facecamChannelId;
       setFacecamFiles([]);
       setFacecamCloudLink('');
@@ -11099,227 +11073,20 @@ export default function App() {
           </div>
         )}
 
-        {activeProduct === 'facecam' && view === 'home' && (
-          <div className="absolute inset-0 z-30 bg-[var(--bg-input-alt)] overflow-y-auto">
-            <div className="min-h-full flex flex-col lg:flex-row-reverse items-stretch">
-              {/* Left: the submission form — warm, human copy instead of a bare
-                  utility form, since this is the very first thing a Facecam
-                  creator sees. */}
-              <div className="flex-1 flex flex-col items-center p-8">
-            <div className="w-full max-w-lg space-y-5 py-8">
-              <div className="text-center space-y-2">
-                <div className="w-16 h-16 mx-auto rounded-2xl bg-[#ff9d5c]/10 flex items-center justify-center">
-                  <span className="material-symbols-outlined text-[32px] text-[#ff9d5c]">videocam</span>
-                </div>
-                <h2 className="text-2xl font-extrabold text-white">Salut, prêt à monter ta prochaine vidéo ?</h2>
-                <p className="text-sm text-slate-400">
-                  Dépose ton enregistrement brut (webcam ou écran) — on coupe les silences et les erreurs,
-                  on vérifie chaque coupe, et on ajoute cartes de titre et b-roll automatiquement.
-                </p>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-300 mb-2">Chaîne</label>
-                <div className="flex gap-2">
-                  <select
-                    value={facecamChannelId}
-                    onChange={e => setFacecamChannelId(e.target.value)}
-                    className="flex-1 bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-3 py-2.5 text-sm text-white"
-                  >
-                    <option value="">Choisir une chaîne…</option>
-                    {productChannels.map(c => (
-                      <option key={c.id} value={c.id}>{c.name}</option>
-                    ))}
-                  </select>
-                  <button
-                    type="button"
-                    onClick={openFacecamCreateModal}
-                    className="px-3 py-2.5 bg-[var(--bg-surface-alt)] border border-[var(--border)] hover:border-[#00c2ff]/50 text-slate-300 hover:text-white text-xs font-bold rounded-xl transition-colors whitespace-nowrap"
-                  >
-                    + Nouvelle
-                  </button>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-300 mb-2">Titre (optionnel)</label>
-                <input
-                  type="text"
-                  value={facecamTitle}
-                  onChange={e => setFacecamTitle(e.target.value)}
-                  placeholder="Titre de la vidéo"
-                  className="w-full bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-3 py-2.5 text-sm text-white"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-300 mb-2">Fichiers vidéo bruts (rushs)</label>
-                <label
-                  onDragOver={e => { e.preventDefault(); setFacecamDragOver(true); }}
-                  onDragLeave={e => { e.preventDefault(); setFacecamDragOver(false); }}
-                  onDrop={e => {
-                    e.preventDefault();
-                    setFacecamDragOver(false);
-                    const files = Array.from(e.dataTransfer.files || []);
-                    if (files.length) setFacecamFiles(prev => [...prev, ...files]);
-                  }}
-                  className={`flex flex-col items-center justify-center gap-2 border-2 border-dashed rounded-xl px-4 py-8 cursor-pointer transition-colors text-center ${facecamDragOver ? 'border-[#00c2ff] bg-[#00c2ff]/5' : 'border-[var(--border)] hover:border-[#00c2ff]'}`}
-                >
-                  <span className="material-symbols-outlined text-[28px] text-slate-400">upload_file</span>
-                  <span className="text-xs text-slate-400">
-                    Glisse un ou plusieurs fichiers ici, ou clique pour parcourir (MP4, MOV, MKV, WEBM)
-                  </span>
-                  <input
-                    type="file"
-                    accept=".mp4,.mov,.mkv,.webm"
-                    multiple
-                    className="hidden"
-                    onChange={e => {
-                      const files = Array.from(e.target.files || []);
-                      if (files.length) setFacecamFiles(prev => [...prev, ...files]);
-                      e.target.value = '';
-                    }}
-                  />
-                </label>
-
-                {facecamFiles.length > 0 && (
-                  <div className="mt-3 space-y-1.5">
-                    <p className="text-[10px] text-slate-500">
-                      {facecamFiles.length > 1
-                        ? "Ordre d'enregistrement — réordonne si besoin, ils seront assemblés dans cet ordre avant le montage."
-                        : '1 fichier prêt.'}
-                    </p>
-                    {facecamFiles.map((f, idx) => (
-                      <div key={`${f.name}-${idx}`} className="flex items-center gap-2 bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-lg px-3 py-2">
-                        <span className="text-[10px] font-bold text-slate-500 w-4 text-center flex-shrink-0">{idx + 1}</span>
-                        <span className="text-xs text-white truncate flex-1">{f.name}</span>
-                        <button
-                          type="button"
-                          onClick={() => setFacecamFiles(prev => { const next = [...prev]; if (idx > 0) [next[idx - 1], next[idx]] = [next[idx], next[idx - 1]]; return next; })}
-                          disabled={idx === 0}
-                          className="w-6 h-6 flex items-center justify-center rounded text-slate-400 hover:text-white disabled:opacity-25 flex-shrink-0"
-                          title="Monter"
-                        >
-                          <span className="material-symbols-outlined text-[16px]">arrow_upward</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setFacecamFiles(prev => { const next = [...prev]; if (idx < next.length - 1) [next[idx + 1], next[idx]] = [next[idx], next[idx + 1]]; return next; })}
-                          disabled={idx === facecamFiles.length - 1}
-                          className="w-6 h-6 flex items-center justify-center rounded text-slate-400 hover:text-white disabled:opacity-25 flex-shrink-0"
-                          title="Descendre"
-                        >
-                          <span className="material-symbols-outlined text-[16px]">arrow_downward</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setFacecamFiles(prev => prev.filter((_, i) => i !== idx))}
-                          className="w-6 h-6 flex items-center justify-center rounded text-slate-500 hover:text-red-400 flex-shrink-0"
-                          title="Retirer"
-                        >
-                          <span className="material-symbols-outlined text-[16px]">close</span>
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <div className="flex items-center gap-3">
-                <div className="flex-1 h-px bg-[var(--border-subtle)]" />
-                <span className="text-[10px] font-bold text-slate-500 uppercase">ou</span>
-                <div className="flex-1 h-px bg-[var(--border-subtle)]" />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-300 mb-2">Lien cloud (Drive / Dropbox)</label>
-                <input
-                  type="text"
-                  value={facecamCloudLink}
-                  onChange={e => setFacecamCloudLink(e.target.value)}
-                  placeholder="https://drive.google.com/file/d/…"
-                  className="w-full bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-3 py-2.5 text-sm text-white"
-                />
-                <p className="text-[10px] text-slate-500 mt-1">Le lien doit être partagé publiquement ("Toute personne disposant du lien").</p>
-              </div>
-
-              {facecamUploadError && (
-                <p className="text-xs font-bold text-red-400">{facecamUploadError}</p>
-              )}
-
-              <button
-                onClick={submitFacecamVideo}
-                disabled={facecamUploading}
-                className="w-full px-5 py-3 bg-[#00c2ff] hover:bg-[#38d0ff] disabled:opacity-50 text-slate-950 font-bold text-sm rounded-xl transition-colors"
-              >
-                {facecamUploading ? 'Envoi en cours…' : 'Lancer le montage automatique'}
-              </button>
-            </div>
-              </div>
-
-              {/* Right: a warm "editing bay waiting for footage" illustration —
-                  purely decorative, hidden below lg where the form already
-                  fills the width. */}
-              <div className="hidden lg:flex flex-1 items-center justify-center bg-gradient-to-br from-[#2a1d14] via-[#1c1712] to-[#12100e] relative overflow-hidden p-10">
-                <div className="absolute inset-0 opacity-40" style={{ backgroundImage: 'radial-gradient(circle at 30% 20%, rgba(255,157,92,0.18), transparent 55%), radial-gradient(circle at 75% 75%, rgba(0,194,255,0.12), transparent 50%)' }} />
-                <div className="relative z-10 max-w-sm w-full">
-                  <svg viewBox="0 0 360 320" className="w-full h-auto drop-shadow-2xl">
-                    {/* Monitor frame with a paused talking-head preview */}
-                    <rect x="30" y="20" width="300" height="180" rx="16" fill="#2c241d" stroke="#ff9d5c" strokeOpacity="0.25" strokeWidth="2" />
-                    <rect x="46" y="36" width="268" height="148" rx="10" fill="#181310" />
-                    {/* Faint silhouette so the frame doesn't read as an empty box */}
-                    <circle cx="180" cy="92" r="22" fill="#ff9d5c" opacity="0.12" />
-                    <path d="M148 156 q32 -34 64 0 z" fill="#ff9d5c" opacity="0.12" />
-                    <circle cx="180" cy="110" r="46" fill="none" stroke="#ff9d5c" strokeWidth="3" strokeDasharray="6 8" opacity="0.7">
-                      <animateTransform attributeName="transform" type="rotate" from="0 180 110" to="360 180 110" dur="8s" repeatCount="indefinite" />
-                    </circle>
-                    <path d="M165 92 l30 18 -30 18 z" fill="#ff9d5c" opacity="0.9" />
-                    <circle cx="180" cy="110" r="3" fill="#ff9d5c">
-                      <animate attributeName="opacity" values="1;0.2;1" dur="1.6s" repeatCount="indefinite" />
-                    </circle>
-
-                    {/* Audio waveform under the preview */}
-                    {[4, 11, 7, 16, 9, 5, 13, 8, 15, 6, 10, 4, 12, 7, 9].map((h, i) => (
-                      <rect key={i} x={54 + i * 16} y={168 - h} width="6" height={h} rx="3" fill="#00c2ff" opacity="0.55">
-                        <animate attributeName="height" values={`${h};${Math.max(3, h - 6)};${h}`} dur={`${1.2 + (i % 4) * 0.3}s`} repeatCount="indefinite" />
-                        <animate attributeName="y" values={`${168 - h};${168 - Math.max(3, h - 6)};${168 - h}`} dur={`${1.2 + (i % 4) * 0.3}s`} repeatCount="indefinite" />
-                      </rect>
-                    ))}
-
-                    {/* Rush clips lined up on a timeline, waiting to be cut */}
-                    {[0, 1, 2, 3].map(i => (
-                      <rect key={i} x={30 + i * 76} y="224" width="68" height="44" rx="8" fill={i === 1 ? '#3a322a' : '#241d17'} stroke="#ff9d5c" strokeOpacity={i === 1 ? 0.6 : 0.2} strokeWidth="1.5" />
-                    ))}
-                    <path d="M40 246 l8 -6 v12 z" fill="#ff9d5c" opacity="0.6" />
-                    <path d="M116 246 l8 -6 v12 z" fill="#ff9d5c" opacity="0.4" />
-                    <path d="M192 246 l8 -6 v12 z" fill="#ff9d5c" opacity="0.4" />
-                    <path d="M268 246 l8 -6 v12 z" fill="#ff9d5c" opacity="0.4" />
-                    <rect x="30" y="224" width="272" height="44" rx="8" fill="none" stroke="#00c2ff" strokeWidth="1.5" strokeDasharray="5 5" opacity="0.5">
-                      <animate attributeName="opacity" values="0.2;0.6;0.2" dur="2.4s" repeatCount="indefinite" />
-                    </rect>
-
-                    {/* Scissors + card icons floating nearby, hinting at the automated cuts/cards step */}
-                    <g transform="translate(322 60)" opacity="0.5">
-                      <circle r="16" fill="#181310" stroke="#ff9d5c" strokeWidth="1.5" />
-                      <path d="M-5 -5 L5 5 M5 -5 L-5 5" stroke="#ff9d5c" strokeWidth="1.6" strokeLinecap="round" />
-                    </g>
-                    <g transform="translate(14 240)" opacity="0.45">
-                      <rect x="-14" y="-9" width="28" height="18" rx="3" fill="#181310" stroke="#00c2ff" strokeWidth="1.5" />
-                      <rect x="-8" y="-3" width="16" height="3" rx="1.5" fill="#00c2ff" />
-                    </g>
-                  </svg>
-                  <div className="text-center mt-6 space-y-1.5">
-                    <p className="text-sm font-bold text-white/90">La table de montage t'attend</p>
-                    <p className="text-xs text-white/50 max-w-xs mx-auto">
-                      Dès que tes rushs arrivent, le montage automatique démarre : silences coupés, vérification, b-roll et cartes ajoutées.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
+        {activeProduct === 'facecam' && (view === 'home' || facecamEditorId) && (
+          <div className="absolute inset-0 top-14 md:top-0 z-30 bg-[var(--bg-input-alt)] overflow-y-auto">
+            {facecamEditorId ? <FacecamStudio key={facecamEditorId} videoId={facecamEditorId} apiBase={API_BASE} authFetch={authFetch}
+              onBack={() => { setFacecamEditorId(null); fetchAllVideos(); if (activeChannel) fetchChannelVideos(activeChannel.id); }}
+              onChanged={() => { fetchAllVideos(); if (activeChannel) fetchChannelVideos(activeChannel.id); }} /> :
+              <FacecamHome channels={productChannels} channelId={facecamChannelId} setChannelId={setFacecamChannelId}
+                title={facecamTitle} setTitle={setFacecamTitle} files={facecamFiles} setFiles={setFacecamFiles}
+                cloudLink={facecamCloudLink} setCloudLink={setFacecamCloudLink} onCreateChannel={openFacecamCreateModal}
+                onSubmit={submitFacecamVideo} uploading={facecamUploading} error={facecamUploadError}
+                videos={allVideos.filter(v => v.input_type === 'facecam')} onOpen={v => setFacecamEditorId(v.id)}
+                thumbnail={getVideoThumbnailUrl} settings={facecamSettings} setSettings={setFacecamSettings} />}
           </div>
         )}
-        
+
         {/* Top Header Bar */}
         <div className="relative z-30 hidden md:flex justify-between items-center px-8 py-5 border-b border-[var(--border-subtle)] bg-[var(--bg-surface-soft)]/60 backdrop-blur-md">
           {/* Only views whose own content doesn't already show a title go
@@ -13424,52 +13191,7 @@ export default function App() {
                   Nouvelle vidéo pour cette chaîne
                 </button>
 
-                <div className="space-y-3">
-                  {channelVideos.length === 0 ? (
-                    <div className="text-center py-16 text-slate-500 text-sm">Aucune vidéo montée pour l'instant.</div>
-                  ) : (
-                    channelVideos.map(vid => (
-                      <div key={vid.id} className="flex items-center gap-4 bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-2xl p-4">
-                        <div className="w-24 h-14 rounded-lg bg-black/30 flex-shrink-0 overflow-hidden flex items-center justify-center">
-                          {vid.status === 'done' ? (
-                            <img src={getVideoThumbnailUrl(vid)} alt="" className="w-full h-full object-cover" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
-                          ) : (
-                            <span className="material-symbols-outlined text-slate-600 text-[24px]">movie</span>
-                          )}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="text-sm font-bold text-white truncate">{vid.title || 'Sans titre'}</div>
-                          {vid.status === 'rendering' ? (
-                            <FacecamStageStepper stage={vid.progress_stage} />
-                          ) : (
-                            <div className="text-xs text-slate-400 mt-0.5">
-                              {vid.status === 'done' && 'Prête'}
-                              {vid.status === 'queued' && 'En attente'}
-                              {vid.status === 'failed' && (vid.error_message || 'Échec du montage')}
-                            </div>
-                          )}
-                        </div>
-                        {vid.status === 'done' && vid.output_path && (
-                          <button
-                            type="button"
-                            onClick={(e) => handleDownloadVideo(vid, e)}
-                            className="px-3 py-2 bg-[var(--bg-surface-alt)] border border-[var(--border)] hover:border-[#00c2ff]/50 text-slate-300 hover:text-white text-xs font-bold rounded-xl transition-colors flex-shrink-0"
-                          >
-                            Télécharger
-                          </button>
-                        )}
-                        <button
-                          type="button"
-                          onClick={(e) => handleDeleteVideo(vid.id, e)}
-                          className="w-9 h-9 flex items-center justify-center rounded-xl text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-colors flex-shrink-0"
-                          title="Supprimer"
-                        >
-                          <span className="material-symbols-outlined text-[18px]">delete</span>
-                        </button>
-                      </div>
-                    ))
-                  )}
-                </div>
+                <FacecamGallery videos={channelVideos} onOpen={v => setFacecamEditorId(v.id)} thumbnail={getVideoThumbnailUrl} />
               </div>
             )}
 
