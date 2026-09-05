@@ -9140,6 +9140,8 @@ export default function App() {
   const [thumbnailProviderModeSaving, setThumbnailProviderModeSaving] = useState(false);
   const [voiceoverProviderMode, setVoiceoverProviderModeState] = useState(null);
   const [voiceoverProviderModeSaving, setVoiceoverProviderModeSaving] = useState(false);
+  const [musicProviderMode, setMusicProviderModeState] = useState(null);
+  const [musicProviderModeSaving, setMusicProviderModeSaving] = useState(false);
   const [renderConcurrency, setRenderConcurrencyState] = useState(null);
   const [renderConcurrencySaving, setRenderConcurrencySaving] = useState(false);
   const [aiTextProvider, setAiTextProviderState] = useState(null);
@@ -9794,7 +9796,7 @@ export default function App() {
   };
 
   useEffect(() => {
-    if (view === 'admin' && currentUser?.is_admin && adminTab === 'resources') { fetchAdminProviders(); fetchThumbnailProviderMode(); fetchVoiceoverProviderMode(); fetchAiTextProvider(); fetchRenderConcurrency(); }
+    if (view === 'admin' && currentUser?.is_admin && adminTab === 'resources') { fetchAdminProviders(); fetchThumbnailProviderMode(); fetchVoiceoverProviderMode(); fetchMusicProviderMode(); fetchAiTextProvider(); fetchRenderConcurrency(); }
   }, [view, currentUser?.is_admin, adminTab]);
 
   useEffect(() => {
@@ -9885,6 +9887,36 @@ export default function App() {
       showToast('Échec de la mise à jour.', 'error');
     } finally {
       setVoiceoverProviderModeSaving(false);
+    }
+  };
+
+  const fetchMusicProviderMode = async () => {
+    try {
+      const res = await authFetch(`${API_BASE}/admin/settings/music-provider-mode`);
+      if (res.ok) setMusicProviderModeState(await res.json());
+    } catch (err) {
+      console.error("Erreur chargement du mode musique:", err);
+    }
+  };
+
+  const toggleMusicProvider = async (id) => {
+    const current = musicProviderMode?.order || [];
+    const nextOrder = current.includes(id) ? current.filter(p => p !== id) : [...current, id];
+    setMusicProviderModeSaving(true);
+    try {
+      const res = await authFetch(`${API_BASE}/admin/settings/music-provider-mode`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ order: nextOrder }),
+      });
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      setMusicProviderModeState(prev => ({ ...prev, order: data.order }));
+      const labels = { izivoice: 'Moteur KappGen', ai33pro: 'ai33.pro' };
+      showToast(nextOrder.includes(id) ? `${labels[id] || id} ajouté à la priorité.` : `${labels[id] || id} retiré de la priorité.`, 'success');
+    } catch {
+      showToast('Échec de la mise à jour.', 'error');
+    } finally {
+      setMusicProviderModeSaving(false);
     }
   };
 
@@ -19222,6 +19254,43 @@ export default function App() {
                       );
                     })}
                     {voiceoverProviderModeSaving && <span className="material-symbols-outlined text-[16px] text-slate-500 animate-spin">progress_activity</span>}
+                  </div>
+                )}
+              </div>
+
+              <div className="pt-6 border-t border-[var(--border-soft)] space-y-3">
+                <div>
+                  <h4 className="text-sm font-bold text-white">Musique de fond</h4>
+                </div>
+                {!musicProviderMode ? (
+                  <div className="text-center text-slate-500 text-xs py-4">Chargement...</div>
+                ) : (
+                  <div className="flex flex-wrap items-center gap-2">
+                    {(musicProviderMode.available || []).map(id => {
+                      const rank = (musicProviderMode.order || []).indexOf(id);
+                      const selected = rank !== -1;
+                      const health = (adminProviders || []).find(p => p.id === id);
+                      const dotColor = health?.status === 'ok' ? 'bg-emerald-500' : health?.status === 'quota_exhausted' ? 'bg-rose-500' : 'bg-slate-600';
+                      const label = { izivoice: 'Moteur KappGen', ai33pro: 'ai33.pro' }[id] || id;
+                      return (
+                        <button
+                          key={id}
+                          type="button"
+                          onClick={() => toggleMusicProvider(id)}
+                          disabled={musicProviderModeSaving}
+                          className={`px-4 py-2 rounded-xl text-xs font-bold border transition-colors disabled:opacity-50 ${
+                            selected
+                              ? 'bg-[#00c2ff]/10 text-[#00c2ff] border-[#00c2ff]/60'
+                              : 'bg-[var(--bg-surface-alt)] text-slate-400 border-[var(--border)] hover:border-slate-500'
+                          }`}
+                        >
+                          <span className={`inline-block w-1.5 h-1.5 rounded-full mr-1.5 align-middle ${dotColor}`} />
+                          {label}
+                          {selected && <span className="ml-1.5 inline-flex items-center justify-center w-4 h-4 rounded-full bg-[#00c2ff] text-[#04121a] text-[10px] font-black align-middle">{rank + 1}</span>}
+                        </button>
+                      );
+                    })}
+                    {musicProviderModeSaving && <span className="material-symbols-outlined text-[16px] text-slate-500 animate-spin">progress_activity</span>}
                   </div>
                 )}
               </div>
