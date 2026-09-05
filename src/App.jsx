@@ -2094,6 +2094,45 @@ function MusicChannelWizard({ authFetch, showToast, onCreated, onBack }) {
   const toggleCommunity = () => setEnabledImageSources(isCommunityChecked ? enabledImageSources.filter(s => s !== 'community') : [...enabledImageSources, 'community']);
   const toggleGoogleSearch = () => setEnabledImageSources(isGoogleSearchChecked ? enabledImageSources.filter(s => s !== 'google_search') : [...enabledImageSources, 'google_search']);
 
+  // "Importer mes propres pistes" (music_source_mode 'library') — reuses the
+  // exact same /music upload endpoint as a faceless channel's background
+  // music library (channel.music_preference.tracks); the render worker picks
+  // one at random per video instead of calling Izivoice at all, so there's
+  // no AI-generation wait for these channels.
+  const musicTrackInputRef = useRef(null);
+  const [ownMusicTracks, setOwnMusicTracks] = useState([]);
+  const [musicTrackUploading, setMusicTrackUploading] = useState(false);
+  const handleAddMusicTracks = async (e) => {
+    const files = Array.from(e.target.files || []);
+    e.target.value = '';
+    if (!files.length) return;
+    setMusicTrackUploading(true);
+    try {
+      const channelId = await ensureChannelCreated();
+      const formData = new FormData();
+      files.forEach(f => formData.append('files', f));
+      const res = await authFetch(`${API_BASE}/channels/${channelId}/music`, { method: 'POST', body: formData });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || "Envoi impossible.");
+      setOwnMusicTracks(data.music_preference?.tracks || []);
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setMusicTrackUploading(false);
+    }
+  };
+  const handleDeleteMusicTrack = async (trackPath) => {
+    if (!createdChannelId) return;
+    try {
+      const res = await authFetch(`${API_BASE}/channels/${createdChannelId}/music?track_path=${encodeURIComponent(trackPath)}`, { method: 'DELETE' });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || 'Suppression impossible.');
+      setOwnMusicTracks(data.music_preference?.tracks || []);
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  };
+
   const generatePreview = async () => {
     if (!form.style_prompt.trim()) return showToast('Décris le style musical voulu.', 'error');
     setPreviewing(true);
@@ -16860,6 +16899,24 @@ export default function App() {
                           )}
                         </td>
                         <td className="px-4 py-2.5 text-slate-400">{v.owner_email || '—'}</td>
+                        <td className="px-4 py-2.5">
+                          {(() => {
+                            // The pipeline this video actually went through — a
+                            // music-channel video, a facecam edit, or the default
+                            // faceless narration render (image/stock-illustrated).
+                            const kind = v.channel_content_type === 'music'
+                              ? { label: 'Musique', icon: 'music_note', cls: 'bg-fuchsia-950/60 text-fuchsia-300' }
+                              : v.input_type === 'facecam'
+                                ? { label: 'Facecam', icon: 'videocam', cls: 'bg-sky-950/60 text-sky-300' }
+                                : { label: 'Faceless', icon: 'auto_awesome', cls: 'bg-slate-800/80 text-slate-300' };
+                            return (
+                              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold inline-flex items-center gap-1 ${kind.cls}`}>
+                                <span className="material-symbols-outlined text-[11px]">{kind.icon}</span>
+                                {kind.label}
+                              </span>
+                            );
+                          })()}
+                        </td>
                         <td className="px-4 py-2.5 cursor-pointer" onClick={() => openAdminVideoDetail(v.id)}>
                           <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold inline-flex items-center gap-1 ${
                             v.status === 'done' ? 'bg-emerald-950/60 text-emerald-400' :
