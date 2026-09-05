@@ -976,7 +976,7 @@ function mapCatalogVoice(v) {
     gender: v.gender || null,
     accent: v.accent || null,
     usage: v.usage_character_count_1y || v.usage_count || 0,
-    desc: [v.language, v.gender, v.accent].filter(Boolean).join(' · ') || 'Voix Izivoice',
+    desc: [v.language, v.gender, v.accent].filter(Boolean).join(' · ') || 'Voix KappGen',
     preview_url: previewUrl,
   };
 }
@@ -1375,7 +1375,7 @@ function VoiceLibraryModal({
         {addByIdOpen && (
           <div className="px-5 pt-3">
             <div className="bg-[#0b0f16] border border-[var(--border-subtle)] rounded-xl p-3 space-y-2">
-              <p className="text-[11px] text-slate-400">Tu as déjà une voix clonée directement sur Izivoice ? Colle son identifiant (voice_id) pour l'utiliser ici sans la recloner.</p>
+              <p className="text-[11px] text-slate-400">Tu as déjà une voix clonée ? Colle son identifiant (voice_id) pour l'utiliser ici sans la recloner.</p>
               <div className="flex items-center gap-2">
                 <input
                   autoFocus
@@ -2616,7 +2616,7 @@ function MusicChannelWizard({ authFetch, showToast, onCreated, onBack, editingCh
         })}
       </div>
       {form.automation_mode === 'auto' && <div className="rounded-xl border border-[#00c2ff]/25 bg-[#00c2ff]/[.05] p-3 space-y-3">
-        <div className="flex items-center gap-2"><span className="material-symbols-outlined text-[18px] text-[#00c2ff]">schedule</span><div><div className="text-xs font-bold text-white">Programme de création</div><p className="text-[10px] text-slate-400">Cadence de génération via Izivoice.</p></div></div>
+        <div className="flex items-center gap-2"><span className="material-symbols-outlined text-[18px] text-[#00c2ff]">schedule</span><div><div className="text-xs font-bold text-white">Programme de création</div><p className="text-[10px] text-slate-400">Cadence de génération KappGen.</p></div></div>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
           <label><span className="mb-1 block text-[10px] font-bold text-slate-400">Vidéos / jour</span><input type="number" min={1} max={20} value={form.videos_per_day} onChange={e => setForm({ ...form, videos_per_day: Math.max(1, Math.min(20, Number(e.target.value) || 1)) })} className="w-full rounded-lg border border-[var(--border)] bg-[var(--bg-input)] px-2.5 py-2 text-xs text-white outline-none focus:border-[#00c2ff]" /></label>
           <label><span className="mb-1 block text-[10px] font-bold text-slate-400">Lancement</span><input type="time" value={`${String(form.script_generation_hour).padStart(2, '0')}:${String(form.script_generation_minute).padStart(2, '0')}`} onChange={e => { const [hour, minute] = e.target.value.split(':').map(Number); setForm({ ...form, script_generation_hour: hour, script_generation_minute: minute }); }} className="w-full rounded-lg border border-[var(--border)] bg-[var(--bg-input)] px-2.5 py-2 text-xs text-white outline-none focus:border-[#00c2ff]" /></label>
@@ -2873,7 +2873,7 @@ function MusicChannelWizard({ authFetch, showToast, onCreated, onBack, editingCh
                   className={`p-3 rounded-xl border-2 text-left transition-colors ${form.music_source_mode === 'ai_generate' ? 'border-[#00c2ff] bg-[#00c2ff]/5' : 'border-[var(--border)] hover:border-slate-500'}`}
                 >
                   <div className="text-xs font-bold text-white flex items-center gap-1.5"><span className="material-symbols-outlined text-[16px]">auto_awesome</span> Générer par IA</div>
-                  <div className="text-[10px] text-slate-500 mt-0.5">Décris un style, Izivoice compose une piste originale à chaque vidéo.</div>
+                  <div className="text-[10px] text-slate-500 mt-0.5">Décris un style, KappGen compose une piste originale à chaque vidéo.</div>
                 </button>
                 <button
                   type="button"
@@ -7702,22 +7702,22 @@ export default function App() {
         body: JSON.stringify({ user_id: currentUser.id, api_key: izivoiceApiKey.trim() })
       });
       const body = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(body.detail || 'Connexion Izivoice impossible.');
+      if (!res.ok) throw new Error(body.detail || 'Connexion au moteur vocal impossible.');
       setIzivoiceConnection(body);
       setIzivoiceApiKey('');
-      showToast('Compte Izivoice synchronisé avec KappGen.', 'success');
+      showToast('Moteur vocal personnel synchronisé avec KappGen.', 'success');
     } catch (err) { showToast(err.message, 'error'); }
     finally { setIzivoiceConnecting(false); }
   };
 
   const handleDisconnectIzivoice = async () => {
-    const ok = await askConfirm("KappGen repassera sur son moteur vocal par défaut. Tes vidéos et tes chaînes restent intactes.", { title: 'Déconnecter Izivoice ?' });
+    const ok = await askConfirm("KappGen repassera sur son moteur vocal par défaut. Tes vidéos et tes chaînes restent intactes.", { title: 'Déconnecter le moteur vocal ?' });
     if (!ok) return;
     const res = await authFetch(`${API_BASE}/channels/izivoice/connect?user_id=${encodeURIComponent(currentUser.id)}`, { method: 'DELETE' });
     if (res.ok) {
       setIzivoiceConnection(await res.json());
       setAvailableVoices(VOICE_MODELS);
-      showToast('Izivoice déconnecté. Le moteur KappGen prend le relais.', 'success');
+      showToast('Moteur vocal personnel déconnecté. KappGen prend le relais.', 'success');
     }
   };
 
@@ -9095,7 +9095,7 @@ export default function App() {
   // mechanism (rotate through multiple keys, skip exhausted ones) is the
   // same for all three, just scoped by this tab.
   const [hfAccountsProvider, setHfAccountsProvider] = useState('huggingface');
-  const IMAGE_KEY_PROVIDER_LABELS = { huggingface: 'Hugging Face', fal: 'fal.ai', izivoice: 'Izivoice', gemini: 'Google Gemini (gratuit)' };
+  const IMAGE_KEY_PROVIDER_LABELS = { huggingface: 'Hugging Face', fal: 'fal.ai', izivoice: 'Moteur KappGen', gemini: 'Google Gemini (gratuit)' };
   const [hfAccountBusy, setHfAccountBusy] = useState(false);
   const [hfAccountChecking, setHfAccountChecking] = useState(null);
   const [editingHfLabelId, setEditingHfLabelId] = useState(null);
@@ -9793,7 +9793,7 @@ export default function App() {
       if (!res.ok) throw new Error();
       const data = await res.json();
       setThumbnailProviderModeState(prev => ({ ...prev, order: data.order }));
-      const labels = { huggingface: 'Hugging Face', fal: 'fal.ai', izivoice: 'Izivoice', gemini: 'Google Gemini' };
+      const labels = { huggingface: 'Hugging Face', fal: 'fal.ai', izivoice: 'Moteur KappGen', gemini: 'Google Gemini' };
       showToast(nextOrder.includes(id) ? `${labels[id] || id} ajouté à la priorité.` : `${labels[id] || id} retiré de la priorité.`, 'success');
     } catch {
       showToast('Échec de la mise à jour.', 'error');
@@ -9823,7 +9823,7 @@ export default function App() {
       if (!res.ok) throw new Error();
       const data = await res.json();
       setVoiceoverProviderModeState(prev => ({ ...prev, order: data.order }));
-      const labels = { izivoice: 'Izivoice', ai33pro: 'ai33.pro' };
+      const labels = { izivoice: 'Moteur KappGen', ai33pro: 'ai33.pro' };
       showToast(nextOrder.includes(id) ? `${labels[id] || id} ajouté à la priorité.` : `${labels[id] || id} retiré de la priorité.`, 'success');
     } catch {
       showToast('Échec de la mise à jour.', 'error');
@@ -10169,7 +10169,7 @@ export default function App() {
       setIzivoiceStatus(body);
       setShowIzivoiceKeyModal(false);
       setIzivoiceKeyDraft('');
-      showToast('Clé Izivoice connectée — tes voix clonées et ton historique sont maintenant synchronisés.', 'success');
+      showToast('Clé vocale connectée — tes voix clonées et ton historique sont maintenant synchronisés.', 'success');
     } catch (err) {
       showToast(err.message, 'error');
     } finally {
@@ -10184,7 +10184,7 @@ export default function App() {
       if (!res.ok) throw new Error();
       setIzivoiceStatus({ connected: false, key_prefix: null, mode: 'nichecut' });
       setShowIzivoiceKeyModal(false);
-      showToast('Clé Izivoice déconnectée — retour au compte KappGen par défaut.', 'success');
+      showToast('Clé vocale déconnectée — retour au moteur KappGen par défaut.', 'success');
     } catch {
       showToast('Impossible de déconnecter la clé.', 'error');
     }
@@ -10208,7 +10208,7 @@ export default function App() {
     const res = await authFetch(`${API_BASE}/channels/voice/lookup/${encodeURIComponent(voiceId)}`);
     const body = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(body.detail || 'Identifiant introuvable.');
-    const voice = { id: body.voice_id, name: body.name, language: body.language, gender: body.gender, desc: 'Voix personnelle (Izivoice)', cloned: true };
+    const voice = { id: body.voice_id, name: body.name, language: body.language, gender: body.gender, desc: 'Voix personnelle', cloned: true };
     setAvailableVoices(prev => [voice, ...prev.filter(v => v.id !== voice.id)]);
     setSelectedVoice(voice.id);
     setClonedVoiceIds(prev => {
@@ -15721,7 +15721,7 @@ export default function App() {
                             <span className="material-symbols-outlined text-[#00c2ff] text-[24px]">auto_awesome</span>
                             <h4 className="font-bold text-white text-xs">Générer avec l'IA</h4>
                           </div>
-                          <p className="text-[11px] text-slate-400">KappGen écrit le prompt à partir de la niche (et du script), puis IziVoice génère la musique — {MUSIC_GENERATION_CREDITS.toLocaleString()} crédits par génération.</p>
+                          <p className="text-[11px] text-slate-400">KappGen écrit le prompt à partir de la niche et du script, puis génère la musique — {MUSIC_GENERATION_CREDITS.toLocaleString()} crédits par génération.</p>
                           {!canGenerateAIMusic && (
                             <button
                               type="button"
@@ -18382,7 +18382,7 @@ export default function App() {
                           {(v.total_credits ?? 0).toLocaleString()}
                           {(v.total_credits ?? 0) === 0 && v.owner_has_own_izivoice_key && (
                             <span
-                              title="0 crédit facturé : ce créateur utilise sa propre clé Izivoice, il paie directement Izivoice pour cet appel — pas un rendu gratuit non facturé."
+                              title="0 crédit facturé : ce créateur utilise sa propre clé de moteur vocal et paie directement ce service pour cet appel."
                               className="ml-1.5 align-middle px-1.5 py-0.5 rounded-md bg-slate-800/80 text-slate-400 text-[9px] font-bold uppercase tracking-wide border border-slate-700/60"
                             >
                               clé perso
@@ -19146,7 +19146,7 @@ export default function App() {
                       const selected = rank !== -1;
                       const health = (adminProviders || []).find(p => p.id === id);
                       const dotColor = health?.status === 'ok' ? 'bg-emerald-500' : health?.status === 'quota_exhausted' ? 'bg-rose-500' : 'bg-slate-600';
-                      const label = { izivoice: 'Izivoice', ai33pro: 'ai33.pro' }[id] || id;
+                      const label = { izivoice: 'Moteur KappGen', ai33pro: 'ai33.pro' }[id] || id;
                       return (
                         <button
                           key={id}
@@ -19183,7 +19183,7 @@ export default function App() {
                       const selected = rank !== -1;
                       const health = (adminProviders || []).find(p => p.id === id);
                       const dotColor = health?.status === 'ok' ? 'bg-emerald-500' : health?.status === 'quota_exhausted' ? 'bg-rose-500' : id === 'huggingface' ? 'bg-emerald-500' : 'bg-slate-600';
-                      const label = { huggingface: 'Hugging Face (gratuit)', fal: 'fal.ai', izivoice: 'Izivoice', gemini: 'Google Gemini (gratuit)' }[id] || id;
+                      const label = { huggingface: 'Hugging Face (gratuit)', fal: 'fal.ai', izivoice: 'Moteur KappGen', gemini: 'Google Gemini (gratuit)' }[id] || id;
                       return (
                         <button
                           key={id}
@@ -20759,13 +20759,13 @@ export default function App() {
         <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-[60] flex items-center justify-center p-6">
           <div className="bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-3xl p-6 max-w-[440px] w-full shadow-2xl space-y-4">
             <div className="flex justify-between items-center">
-              <h3 className="text-sm font-bold text-white">Connecter ta clé Izivoice</h3>
+              <h3 className="text-sm font-bold text-white">Connecter une clé vocale</h3>
               <button onClick={() => setShowIzivoiceKeyModal(false)} className="text-slate-400 hover:text-white">
                 <span className="material-symbols-outlined">close</span>
               </button>
             </div>
             <p className="text-xs text-slate-400">
-              Colle ta clé API Izivoice personnelle pour retrouver ici tes voix clonées et ton historique de doublage — au lieu d'utiliser le compte partagé KappGen.
+              Colle ta clé API vocale personnelle pour retrouver tes voix clonées et ton historique de doublage dans KappGen.
             </p>
             {izivoiceStatus?.connected && (
               <div className="bg-emerald-950/40 border border-emerald-800 rounded-xl px-3 py-2 text-[11px] text-emerald-300">
@@ -20776,7 +20776,7 @@ export default function App() {
               type="password"
               value={izivoiceKeyDraft}
               onChange={e => setIzivoiceKeyDraft(e.target.value)}
-              placeholder="Clé API Izivoice"
+              placeholder="Clé API vocale"
               className="w-full bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-3 py-2.5 text-sm text-white focus:border-[#00c2ff] outline-none"
             />
             <div className="flex gap-3">
