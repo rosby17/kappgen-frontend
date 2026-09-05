@@ -4549,13 +4549,24 @@ export default function App() {
   const [facecamNewChannelName, setFacecamNewChannelName] = useState('');
   const [facecamCreatingChannel, setFacecamCreatingChannel] = useState(false);
   // "Charte graphique" — the per-channel repeatable branding (logo, accent
-  // color, font) applied to every future video's title cards, as opposed
-  // to what's configured per-upload (the raw file itself, the title).
+  // color, font, niche, editing style/format) applied to every future
+  // video's title cards and default montage settings, as opposed to what's
+  // configured per-upload (the raw file itself, the title).
   const [facecamBrandingOpen, setFacecamBrandingOpen] = useState(false);
   const [facecamLogoFile, setFacecamLogoFile] = useState(null);
   const [facecamAccentColor, setFacecamAccentColor] = useState('#00c2ff');
   const [facecamFontFamily, setFacecamFontFamily] = useState('DejaVu Sans');
+  const [facecamNiche, setFacecamNiche] = useState('');
+  const [facecamEditingStyle, setFacecamEditingStyle] = useState('kappgen');
+  const [facecamFormatTemplate, setFacecamFormatTemplate] = useState('facecam');
   const [facecamSavingBranding, setFacecamSavingBranding] = useState(false);
+  const FACECAM_EDITING_STYLES = ['kappgen', 'vox', 'kallaway', 'keynote', 'atlas', 'terminal', 'data', 'optimist'];
+  const FACECAM_FORMAT_TEMPLATES = [
+    { id: 'facecam', label: 'Facecam plein cadre' },
+    { id: 'split', label: 'Écran partagé' },
+    { id: 'before-after', label: 'Avant / après' },
+    { id: 'tutorial', label: 'Tutoriel' },
+  ];
   const [channelsLoaded, setChannelsLoaded] = useState(false);
   const [videosLoaded, setVideosLoaded] = useState(false);
   const [channelsLoadError, setChannelsLoadError] = useState('');
@@ -4864,6 +4875,9 @@ export default function App() {
     setFacecamLogoFile(null);
     setFacecamAccentColor('#00c2ff');
     setFacecamFontFamily('DejaVu Sans');
+    setFacecamNiche('');
+    setFacecamEditingStyle('kappgen');
+    setFacecamFormatTemplate('facecam');
     setFacecamCreateModalOpen(true);
   };
 
@@ -4875,7 +4889,7 @@ export default function App() {
       const res = await authFetch(`${API_BASE}/channels`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, content_type: 'facecam' }),
+        body: JSON.stringify({ name, content_type: 'facecam', niche: facecamNiche || '' }),
       });
       if (!res.ok) {
         const detail = await res.json().catch(() => ({}));
@@ -4890,7 +4904,14 @@ export default function App() {
       const brandRes = await authFetch(`${API_BASE}/channels/${created.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ branding: { accent_color: facecamAccentColor, font_family: facecamFontFamily } }),
+        body: JSON.stringify({
+          branding: {
+            accent_color: facecamAccentColor,
+            font_family: facecamFontFamily,
+            facecam_default_style: facecamEditingStyle,
+            facecam_default_format: facecamFormatTemplate,
+          },
+        }),
       });
       const finalChannel = brandRes.ok ? await brandRes.json() : created;
       await fetchChannels();
@@ -4973,7 +4994,14 @@ export default function App() {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          branding: { ...(channel.branding || {}), accent_color: facecamAccentColor, font_family: facecamFontFamily },
+          niche: facecamNiche || channel.niche || '',
+          branding: {
+            ...(channel.branding || {}),
+            accent_color: facecamAccentColor,
+            font_family: facecamFontFamily,
+            facecam_default_style: facecamEditingStyle,
+            facecam_default_format: facecamFormatTemplate,
+          },
         }),
       });
       if (!res.ok) throw new Error();
@@ -13072,6 +13100,9 @@ export default function App() {
                     onClick={() => {
                       setFacecamAccentColor(activeChannel.branding?.accent_color || '#00c2ff');
                       setFacecamFontFamily(activeChannel.branding?.font_family || 'DejaVu Sans');
+                      setFacecamNiche(activeChannel.niche || '');
+                      setFacecamEditingStyle(activeChannel.branding?.facecam_default_style || 'kappgen');
+                      setFacecamFormatTemplate(activeChannel.branding?.facecam_default_format || 'facecam');
                       setFacecamLogoFile(null);
                       setFacecamBrandingOpen(v => !v);
                     }}
@@ -13163,20 +13194,7 @@ export default function App() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
                         <label className="block text-xs font-bold text-slate-300 mb-2">Couleur d'accent (cartes de titre)</label>
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="color"
-                            value={facecamAccentColor}
-                            onChange={e => setFacecamAccentColor(e.target.value)}
-                            className="w-10 h-10 rounded-lg border border-[var(--border)] bg-transparent cursor-pointer flex-shrink-0"
-                          />
-                          <input
-                            type="text"
-                            value={facecamAccentColor}
-                            onChange={e => setFacecamAccentColor(e.target.value)}
-                            className="flex-1 bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-3 py-2 text-sm text-white"
-                          />
-                        </div>
+                        <ColorPickerButton value={facecamAccentColor} onChange={setFacecamAccentColor} label="" />
                       </div>
                       <div>
                         <label className="block text-xs font-bold text-slate-300 mb-2">Police (cartes de titre)</label>
@@ -13189,6 +13207,72 @@ export default function App() {
                             <option key={f} value={f}>{f}</option>
                           ))}
                         </select>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-300 mb-2">Niche de contenu</label>
+                      <div className="flex flex-wrap gap-x-2 gap-y-2">
+                        {nicheOptions.map(n => (
+                          <button
+                            key={n}
+                            type="button"
+                            onClick={() => setFacecamNiche(n)}
+                            className={`shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold border transition-colors ${
+                              facecamNiche === n
+                                ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]'
+                                : 'bg-[var(--bg-surface-alt)] border-[var(--border)] text-slate-300 hover:border-slate-500'
+                            }`}
+                          >
+                            {n}
+                          </button>
+                        ))}
+                      </div>
+                      <input
+                        value={facecamNiche}
+                        onChange={e => setFacecamNiche(e.target.value)}
+                        className="w-full mt-3 bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-3 py-2 text-xs text-white focus:border-[#00c2ff] outline-none"
+                        placeholder="Écris ta propre niche..."
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-300 mb-2">Style de montage</label>
+                      <div className="flex flex-wrap gap-2">
+                        {FACECAM_EDITING_STYLES.map(s => (
+                          <button
+                            key={s}
+                            type="button"
+                            onClick={() => setFacecamEditingStyle(s)}
+                            className={`shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold border capitalize transition-colors ${
+                              facecamEditingStyle === s
+                                ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]'
+                                : 'bg-[var(--bg-surface-alt)] border-[var(--border)] text-slate-300 hover:border-slate-500'
+                            }`}
+                          >
+                            {s}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-300 mb-2">Format d'affichage par défaut</label>
+                      <div className="flex flex-wrap gap-2">
+                        {FACECAM_FORMAT_TEMPLATES.map(f => (
+                          <button
+                            key={f.id}
+                            type="button"
+                            onClick={() => setFacecamFormatTemplate(f.id)}
+                            className={`shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold border transition-colors ${
+                              facecamFormatTemplate === f.id
+                                ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]'
+                                : 'bg-[var(--bg-surface-alt)] border-[var(--border)] text-slate-300 hover:border-slate-500'
+                            }`}
+                          >
+                            {f.label}
+                          </button>
+                        ))}
                       </div>
                     </div>
 
@@ -18850,7 +18934,7 @@ export default function App() {
               </button>
             </div>
 
-            <div className="p-6 space-y-5">
+            <div className="p-6 space-y-5 max-h-[65vh] overflow-y-auto">
               <div>
                 <label className="block text-xs font-bold text-slate-300 mb-2">Nom de la chaîne *</label>
                 <input
@@ -18886,20 +18970,7 @@ export default function App() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold text-slate-300 mb-2">Couleur d'accent</label>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="color"
-                      value={facecamAccentColor}
-                      onChange={e => setFacecamAccentColor(e.target.value)}
-                      className="w-10 h-10 rounded-lg border border-[var(--border)] bg-transparent cursor-pointer flex-shrink-0"
-                    />
-                    <input
-                      type="text"
-                      value={facecamAccentColor}
-                      onChange={e => setFacecamAccentColor(e.target.value)}
-                      className="flex-1 bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-3 py-2 text-sm text-white"
-                    />
-                  </div>
+                  <ColorPickerButton value={facecamAccentColor} onChange={setFacecamAccentColor} label="" />
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-300 mb-2">Police</label>
@@ -18912,6 +18983,72 @@ export default function App() {
                       <option key={f} value={f}>{f}</option>
                     ))}
                   </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-300 mb-2">Niche de contenu</label>
+                <div className="flex flex-wrap gap-x-2 gap-y-2">
+                  {nicheOptions.map(n => (
+                    <button
+                      key={n}
+                      type="button"
+                      onClick={() => setFacecamNiche(n)}
+                      className={`shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold border transition-colors ${
+                        facecamNiche === n
+                          ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]'
+                          : 'bg-[var(--bg-surface-alt)] border-[var(--border)] text-slate-300 hover:border-slate-500'
+                      }`}
+                    >
+                      {n}
+                    </button>
+                  ))}
+                </div>
+                <input
+                  value={facecamNiche}
+                  onChange={e => setFacecamNiche(e.target.value)}
+                  className="w-full mt-3 bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-3 py-2 text-xs text-white focus:border-[#00c2ff] outline-none"
+                  placeholder="Écris ta propre niche..."
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-300 mb-2">Style de montage</label>
+                <div className="flex flex-wrap gap-2">
+                  {FACECAM_EDITING_STYLES.map(s => (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => setFacecamEditingStyle(s)}
+                      className={`shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold border capitalize transition-colors ${
+                        facecamEditingStyle === s
+                          ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]'
+                          : 'bg-[var(--bg-surface-alt)] border-[var(--border)] text-slate-300 hover:border-slate-500'
+                      }`}
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-300 mb-2">Format d'affichage par défaut</label>
+                <div className="flex flex-wrap gap-2">
+                  {FACECAM_FORMAT_TEMPLATES.map(f => (
+                    <button
+                      key={f.id}
+                      type="button"
+                      onClick={() => setFacecamFormatTemplate(f.id)}
+                      className={`shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold border transition-colors ${
+                        facecamFormatTemplate === f.id
+                          ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]'
+                          : 'bg-[var(--bg-surface-alt)] border-[var(--border)] text-slate-300 hover:border-slate-500'
+                      }`}
+                    >
+                      {f.label}
+                    </button>
+                  ))}
                 </div>
               </div>
             </div>
