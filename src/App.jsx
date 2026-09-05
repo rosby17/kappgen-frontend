@@ -2584,13 +2584,36 @@ function MusicChannelWizard({ authFetch, showToast, onCreated, onBack, editingCh
   const ProductionMode = () => (
     <section className="rounded-2xl border border-[#00c2ff]/20 bg-[#00c2ff]/[.035] p-4 space-y-3">
       <div><div className="text-xs font-bold text-white">Mode de production</div><p className="mt-0.5 text-[10px] text-slate-400">Définis comment cette identité musicale produit ses prochaines vidéos.</p></div>
-      <div className="grid grid-cols-2 gap-3">
-        <button type="button" onClick={() => setForm({ ...form, automation_mode: 'manual' })} className={`p-3 rounded-xl border-2 text-left transition-colors ${form.automation_mode === 'manual' ? 'border-[#00c2ff] bg-[#00c2ff]/5' : 'border-[var(--border)] hover:border-slate-500'}`}>
-          <div className="flex items-center gap-1.5 text-xs font-bold text-white"><span className="material-symbols-outlined text-[16px]">touch_app</span>Manuel</div><div className="mt-0.5 text-[10px] text-slate-500">Tu déclenches chaque vidéo.</div>
-        </button>
-        <button type="button" onClick={() => setForm({ ...form, automation_mode: 'auto' })} className={`p-3 rounded-xl border-2 text-left transition-colors ${form.automation_mode === 'auto' ? 'border-[#00c2ff] bg-[#00c2ff]/5' : 'border-[var(--border)] hover:border-slate-500'}`}>
-          <div className="flex items-center gap-1.5 text-xs font-bold text-white"><span className="material-symbols-outlined text-[16px]">auto_awesome</span>Automatique</div><div className="mt-0.5 text-[10px] text-slate-500">Izivoice prépare les vidéos.</div>
-        </button>
+      <div role="radiogroup" aria-label="Mode de production" className="grid grid-cols-2 gap-3">
+        {[
+          { value: 'manual', icon: 'touch_app', label: 'Manuel', description: 'Tu déclenches chaque vidéo.' },
+          { value: 'auto', icon: 'auto_awesome', label: 'Automatique', description: 'Izivoice prépare les vidéos.' },
+        ].map(option => {
+          const selected = form.automation_mode === option.value;
+          return (
+            <label
+              key={option.value}
+              className={`relative cursor-pointer rounded-xl border-2 p-3 text-left transition-all ${selected ? 'border-[#00c2ff] bg-[#00c2ff]/10 shadow-[0_0_0_1px_rgba(0,194,255,.15)]' : 'border-[var(--border)] hover:border-slate-500 hover:bg-white/[.02]'}`}
+            >
+              <input
+                type="radio"
+                name="music-production-mode"
+                value={option.value}
+                checked={selected}
+                onChange={() => setForm(current => ({ ...current, automation_mode: option.value }))}
+                className="sr-only"
+              />
+              <div className="flex items-center gap-1.5 text-xs font-bold text-white">
+                <span className={`material-symbols-outlined text-[16px] ${selected ? 'text-[#00c2ff]' : 'text-slate-400'}`}>{option.icon}</span>
+                {option.label}
+                <span className={`ml-auto flex h-4 w-4 items-center justify-center rounded-full border ${selected ? 'border-[#00c2ff] bg-[#00c2ff] text-slate-950' : 'border-slate-500'}`}>
+                  {selected && <span className="material-symbols-outlined text-[12px]">check</span>}
+                </span>
+              </div>
+              <div className={`mt-0.5 text-[10px] ${selected ? 'text-slate-300' : 'text-slate-500'}`}>{option.description}</div>
+            </label>
+          );
+        })}
       </div>
       {form.automation_mode === 'auto' && <div className="rounded-xl border border-[#00c2ff]/25 bg-[#00c2ff]/[.05] p-3 space-y-3">
         <div className="flex items-center gap-2"><span className="material-symbols-outlined text-[18px] text-[#00c2ff]">schedule</span><div><div className="text-xs font-bold text-white">Programme de création</div><p className="text-[10px] text-slate-400">Cadence de génération via Izivoice.</p></div></div>
