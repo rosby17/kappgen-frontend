@@ -11307,18 +11307,22 @@ export default function App() {
                 <div className="flex items-start justify-between gap-4 flex-wrap">
                   <div>
                     <h2 className="text-xl font-extrabold text-white">Mes Chaînes</h2>
-                    <p className="text-xs text-slate-400 mt-1">Configurez l'identité, les sous-titres et les effets de vos chaînes automatiques.</p>
+                    <p className="text-xs text-slate-400 mt-1">
+                      {activeProduct === 'facecam' ? 'Organisez vos montages Facecam par chaîne.' : "Configurez l'identité, les sous-titres et les effets de vos chaînes automatiques."}
+                    </p>
                   </div>
                   <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => { setPipelineRedeemCode(''); setPipelineRedeemOpen(true); }}
-                      title="Importer le pipeline d'une chaîne qu'un autre créateur a partagé avec toi"
-                      className="bg-[var(--bg-surface-alt)] border border-[var(--border)] hover:border-slate-500 rounded-xl px-3 py-2 text-xs font-bold text-white transition-colors flex items-center gap-1.5"
-                    >
-                      <span className="material-symbols-outlined text-[16px] text-[#00c2ff]">redeem</span>
-                      Importer un pipeline
-                    </button>
+                    {activeProduct !== 'facecam' && (
+                      <button
+                        type="button"
+                        onClick={() => { setPipelineRedeemCode(''); setPipelineRedeemOpen(true); }}
+                        title="Importer le pipeline d'une chaîne qu'un autre créateur a partagé avec toi"
+                        className="bg-[var(--bg-surface-alt)] border border-[var(--border)] hover:border-slate-500 rounded-xl px-3 py-2 text-xs font-bold text-white transition-colors flex items-center gap-1.5"
+                      >
+                        <span className="material-symbols-outlined text-[16px] text-[#00c2ff]">redeem</span>
+                        Importer un pipeline
+                      </button>
+                    )}
                     {productChannels.length > 1 && (
                       <select
                         value={channelSortBy}
@@ -11348,15 +11352,58 @@ export default function App() {
                   <div className="bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-2xl p-12 text-center">
                     <span className="material-symbols-outlined text-[54px] text-slate-500 mb-4">video_settings</span>
                     <h3 className="text-lg font-bold text-white mb-2">Aucune chaîne trouvée</h3>
-                    <p className="text-sm text-slate-400 mb-6 max-w-md mx-auto">
-                      Configurez votre premier pipeline vidéo (sous-titres karaoké, logo, musique de fond, images) et générez sans limite.
-                    </p>
-                    <button 
-                      onClick={() => openCreateWizard(activeProductContentType)}
-                      className="bg-[#00c2ff] text-slate-950 px-6 py-3 rounded-xl font-bold text-sm hover:bg-[#38d0ff] transition-all shadow-lg inline-flex items-center gap-2"
-                    >
-                      <span className="material-symbols-outlined">add</span> Créer un Pipeline de Chaîne
-                    </button>
+                    {activeProduct === 'facecam' ? (
+                      <>
+                        <p className="text-sm text-slate-400 mb-6 max-w-md mx-auto">
+                          Une chaîne Facecam, c'est juste un nom pour organiser tes montages — pas de pipeline à configurer, chaque vidéo est montée à l'upload.
+                        </p>
+                        {!facecamShowNewChannel ? (
+                          <button
+                            onClick={() => setFacecamShowNewChannel(true)}
+                            className="bg-[#00c2ff] text-slate-950 px-6 py-3 rounded-xl font-bold text-sm hover:bg-[#38d0ff] transition-all shadow-lg inline-flex items-center gap-2"
+                          >
+                            <span className="material-symbols-outlined">add</span> Créer une chaîne
+                          </button>
+                        ) : (
+                          <div className="flex items-center justify-center gap-2 max-w-sm mx-auto">
+                            <input
+                              type="text"
+                              autoFocus
+                              value={facecamNewChannelName}
+                              onChange={e => setFacecamNewChannelName(e.target.value)}
+                              onKeyDown={e => { if (e.key === 'Enter') createFacecamChannel(); }}
+                              placeholder="Nom de la chaîne"
+                              className="flex-1 bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-3 py-2.5 text-sm text-white focus:border-[#00c2ff] outline-none"
+                            />
+                            <button
+                              onClick={createFacecamChannel}
+                              disabled={facecamCreatingChannel || !facecamNewChannelName.trim()}
+                              className="bg-[#00c2ff] text-slate-950 px-4 py-2.5 rounded-xl font-bold text-sm hover:bg-[#38d0ff] transition-all disabled:opacity-50"
+                            >
+                              {facecamCreatingChannel ? '…' : 'Créer'}
+                            </button>
+                            <button
+                              onClick={() => { setFacecamShowNewChannel(false); setFacecamNewChannelName(''); }}
+                              className="bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-4 py-2.5 text-sm text-slate-300"
+                            >
+                              Annuler
+                            </button>
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-sm text-slate-400 mb-6 max-w-md mx-auto">
+                          Configurez votre premier pipeline vidéo (sous-titres karaoké, logo, musique de fond, images) et générez sans limite.
+                        </p>
+                        <button
+                          onClick={() => openCreateWizard(activeProductContentType)}
+                          className="bg-[#00c2ff] text-slate-950 px-6 py-3 rounded-xl font-bold text-sm hover:bg-[#38d0ff] transition-all shadow-lg inline-flex items-center gap-2"
+                        >
+                          <span className="material-symbols-outlined">add</span> Créer un Pipeline de Chaîne
+                        </button>
+                      </>
+                    )}
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -11367,15 +11414,56 @@ export default function App() {
                         this used to be pinned to a tall min-h-[220px], which (being a
                         grid sibling) stretched every card in its row to match, undoing
                         the height reduction on the two/three cards next to it. */}
-                    <button
-                      onClick={() => openCreateWizard(activeProductContentType)}
-                      className="rounded-2xl p-5 border-2 border-dashed border-[var(--border)] hover:border-[#00c2ff] hover:bg-[var(--bg-surface)] transition-all flex items-center justify-center gap-2.5 text-slate-400 hover:text-[#00c2ff] group"
-                    >
-                      <div className="w-8 h-8 rounded-full bg-[var(--bg-surface-alt)] group-hover:bg-[#00c2ff]/10 flex items-center justify-center transition-colors shrink-0">
-                        <span className="material-symbols-outlined text-[18px]">add</span>
-                      </div>
-                      <span className="font-bold text-sm">Ajouter une Chaîne</span>
-                    </button>
+                    {activeProduct === 'facecam' ? (
+                      !facecamShowNewChannel ? (
+                        <button
+                          onClick={() => setFacecamShowNewChannel(true)}
+                          className="rounded-2xl p-5 border-2 border-dashed border-[var(--border)] hover:border-[#00c2ff] hover:bg-[var(--bg-surface)] transition-all flex items-center justify-center gap-2.5 text-slate-400 hover:text-[#00c2ff] group"
+                        >
+                          <div className="w-8 h-8 rounded-full bg-[var(--bg-surface-alt)] group-hover:bg-[#00c2ff]/10 flex items-center justify-center transition-colors shrink-0">
+                            <span className="material-symbols-outlined text-[18px]">add</span>
+                          </div>
+                          <span className="font-bold text-sm">Ajouter une Chaîne</span>
+                        </button>
+                      ) : (
+                        <div className="rounded-2xl p-5 border-2 border-dashed border-[#00c2ff]/60 bg-[var(--bg-surface)] flex flex-col gap-2 justify-center">
+                          <input
+                            type="text"
+                            autoFocus
+                            value={facecamNewChannelName}
+                            onChange={e => setFacecamNewChannelName(e.target.value)}
+                            onKeyDown={e => { if (e.key === 'Enter') createFacecamChannel(); }}
+                            placeholder="Nom de la chaîne"
+                            className="bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-3 py-2 text-sm text-white focus:border-[#00c2ff] outline-none"
+                          />
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={createFacecamChannel}
+                              disabled={facecamCreatingChannel || !facecamNewChannelName.trim()}
+                              className="flex-1 bg-[#00c2ff] text-slate-950 px-3 py-2 rounded-xl font-bold text-xs hover:bg-[#38d0ff] transition-all disabled:opacity-50"
+                            >
+                              {facecamCreatingChannel ? '…' : 'Créer'}
+                            </button>
+                            <button
+                              onClick={() => { setFacecamShowNewChannel(false); setFacecamNewChannelName(''); }}
+                              className="bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-3 py-2 text-xs text-slate-300"
+                            >
+                              Annuler
+                            </button>
+                          </div>
+                        </div>
+                      )
+                    ) : (
+                      <button
+                        onClick={() => openCreateWizard(activeProductContentType)}
+                        className="rounded-2xl p-5 border-2 border-dashed border-[var(--border)] hover:border-[#00c2ff] hover:bg-[var(--bg-surface)] transition-all flex items-center justify-center gap-2.5 text-slate-400 hover:text-[#00c2ff] group"
+                      >
+                        <div className="w-8 h-8 rounded-full bg-[var(--bg-surface-alt)] group-hover:bg-[#00c2ff]/10 flex items-center justify-center transition-colors shrink-0">
+                          <span className="material-symbols-outlined text-[18px]">add</span>
+                        </div>
+                        <span className="font-bold text-sm">Ajouter une Chaîne</span>
+                      </button>
+                    )}
 
                     {sortedFilteredChannels.map(chan => {
                       const logoUrl = getChannelLogoUrl(chan);
