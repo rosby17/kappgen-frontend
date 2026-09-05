@@ -4574,6 +4574,14 @@ export default function App() {
   const [facecamNewChannelName, setFacecamNewChannelName] = useState('');
   const [facecamCreatingChannel, setFacecamCreatingChannel] = useState(false);
   const [facecamDragOver, setFacecamDragOver] = useState(false);
+  // "Charte graphique" — the per-channel repeatable branding (logo, accent
+  // color, font) applied to every future video's title cards, as opposed
+  // to what's configured per-upload (the raw file itself, the title).
+  const [facecamBrandingOpen, setFacecamBrandingOpen] = useState(false);
+  const [facecamLogoFile, setFacecamLogoFile] = useState(null);
+  const [facecamAccentColor, setFacecamAccentColor] = useState('#00c2ff');
+  const [facecamFontFamily, setFacecamFontFamily] = useState('DejaVu Sans');
+  const [facecamSavingBranding, setFacecamSavingBranding] = useState(false);
   const [channelsLoaded, setChannelsLoaded] = useState(false);
   const [videosLoaded, setVideosLoaded] = useState(false);
   const [channelsLoadError, setChannelsLoadError] = useState('');
@@ -4944,6 +4952,40 @@ export default function App() {
       setFacecamUploadError(err.message || 'Échec de l\'envoi de la vidéo.');
     } finally {
       setFacecamUploading(false);
+    }
+  };
+
+  // Saves the channel-level "charte graphique" — the elements that stay
+  // the same across every video on this channel (logo, accent color,
+  // font), as opposed to the per-upload form (raw file, title). Reuses
+  // the same logo endpoint the Faceless wizard uses; color/font live in
+  // the same generic Channel.branding JSON blob.
+  const saveFacecamBranding = async (channel) => {
+    setFacecamSavingBranding(true);
+    try {
+      if (facecamLogoFile) {
+        const logoForm = new FormData();
+        logoForm.append('file', facecamLogoFile);
+        const logoRes = await authFetch(`${API_BASE}/channels/${channel.id}/logo`, { method: 'POST', body: logoForm });
+        if (!logoRes.ok) throw new Error('Échec de l\'envoi du logo.');
+      }
+      const res = await authFetch(`${API_BASE}/channels/${channel.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          branding: { ...(channel.branding || {}), accent_color: facecamAccentColor, font_family: facecamFontFamily },
+        }),
+      });
+      if (!res.ok) throw new Error();
+      const updated = await res.json();
+      setChannels(prev => prev.map(c => c.id === updated.id ? { ...c, ...updated } : c));
+      setActiveChannel(prev => ({ ...prev, ...updated }));
+      setFacecamLogoFile(null);
+      showToast('Charte graphique enregistrée.', 'success');
+    } catch (err) {
+      showToast(err.message || 'Impossible d\'enregistrer la charte graphique.', 'error');
+    } finally {
+      setFacecamSavingBranding(false);
     }
   };
 
@@ -13242,6 +13284,21 @@ export default function App() {
                   </div>
                   <button
                     type="button"
+                    onClick={() => {
+                      setFacecamAccentColor(activeChannel.branding?.accent_color || '#00c2ff');
+                      setFacecamFontFamily(activeChannel.branding?.font_family || 'DejaVu Sans');
+                      setFacecamLogoFile(null);
+                      setFacecamBrandingOpen(v => !v);
+                    }}
+                    className={`px-3 py-2 border text-xs font-bold rounded-xl transition-colors flex items-center gap-1.5 flex-shrink-0 ${
+                      facecamBrandingOpen ? 'bg-[#00c2ff]/10 text-[#00c2ff] border-[#00c2ff]/50' : 'bg-[var(--bg-surface-alt)] border-[var(--border)] text-slate-300 hover:text-white hover:border-slate-500'
+                    }`}
+                  >
+                    <span className="material-symbols-outlined text-[16px]">palette</span>
+                    Charte graphique
+                  </button>
+                  <button
+                    type="button"
                     onClick={async () => {
                       const name = window.prompt('Renommer la chaîne', activeChannel.name);
                       if (!name || !name.trim() || name.trim() === activeChannel.name) return;
@@ -13286,6 +13343,89 @@ export default function App() {
                     <span className="material-symbols-outlined text-[18px]">delete</span>
                   </button>
                 </div>
+
+                {facecamBrandingOpen && (
+                  <div className="bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-2xl p-5 space-y-5">
+                    <div>
+                      <h3 className="text-sm font-bold text-white">Charte graphique de la chaîne</h3>
+                      <p className="text-xs text-slate-400 mt-1">
+                        Ce qui reste identique d'une vidéo à l'autre sur cette chaîne — logo, couleur, police —
+                        appliqué automatiquement à chaque montage. Le fichier brut et le titre restent propres à chaque vidéo.
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-4">
+                      <div className="w-16 h-16 rounded-xl bg-[var(--bg-surface-alt)] border border-[var(--border)] flex items-center justify-center overflow-hidden flex-shrink-0">
+                        {facecamLogoFile ? (
+                          <img src={URL.createObjectURL(facecamLogoFile)} alt="" className="w-full h-full object-contain" />
+                        ) : activeChannel.branding?.logo_path ? (
+                          <img src={getVideoUrl(activeChannel.branding.logo_path)} alt="" className="w-full h-full object-contain" />
+                        ) : (
+                          <span className="material-symbols-outlined text-slate-600 text-[24px]">image</span>
+                        )}
+                      </div>
+                      <div className="flex-1">
+                        <label className="block text-xs font-bold text-slate-300 mb-2">Logo de la chaîne</label>
+                        <label className="inline-flex items-center gap-1.5 px-3 py-2 bg-[var(--bg-surface-alt)] border border-[var(--border)] hover:border-[#00c2ff]/50 text-slate-300 hover:text-white text-xs font-bold rounded-xl cursor-pointer transition-colors">
+                          <span className="material-symbols-outlined text-[16px]">upload</span>
+                          Choisir un fichier
+                          <input type="file" accept="image/*" className="hidden" onChange={e => setFacecamLogoFile(e.target.files?.[0] || null)} />
+                        </label>
+                        {facecamLogoFile && <span className="ml-2 text-[11px] text-slate-500">{facecamLogoFile.name}</span>}
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-300 mb-2">Couleur d'accent (cartes de titre)</label>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="color"
+                            value={facecamAccentColor}
+                            onChange={e => setFacecamAccentColor(e.target.value)}
+                            className="w-10 h-10 rounded-lg border border-[var(--border)] bg-transparent cursor-pointer flex-shrink-0"
+                          />
+                          <input
+                            type="text"
+                            value={facecamAccentColor}
+                            onChange={e => setFacecamAccentColor(e.target.value)}
+                            className="flex-1 bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-3 py-2 text-sm text-white"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-300 mb-2">Police (cartes de titre)</label>
+                        <select
+                          value={facecamFontFamily}
+                          onChange={e => setFacecamFontFamily(e.target.value)}
+                          className="w-full bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-3 py-2.5 text-sm text-white"
+                        >
+                          {['DejaVu Sans', 'Arial', 'Georgia', 'Roboto', 'Montserrat', 'Poppins'].map(f => (
+                            <option key={f} value={f}>{f}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => saveFacecamBranding(activeChannel)}
+                        disabled={facecamSavingBranding}
+                        className="px-5 py-2.5 bg-[#00c2ff] hover:bg-[#38d0ff] disabled:opacity-50 text-slate-950 font-bold text-sm rounded-xl transition-colors"
+                      >
+                        {facecamSavingBranding ? 'Enregistrement…' : 'Enregistrer'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setFacecamBrandingOpen(false)}
+                        className="px-4 py-2.5 text-slate-400 hover:text-white text-sm font-bold rounded-xl transition-colors"
+                      >
+                        Fermer
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 <button
                   type="button"
