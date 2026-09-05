@@ -1764,7 +1764,14 @@ function VoiceCloneModal({ onClose, onSubmit, submitting }) {
 // wizard's own look exactly (same card shell, step-pill header, per-step
 // "N. Titre" heading, Retour/Suivant footer) so it doesn't feel like a
 // bolted-on plain form next to Montage Simple.
-const MUSIC_WIZARD_STEPS = ['Identité', 'Style & Musique', 'Montage', 'Publication'];
+// Same overall shape as the faceless wizard (Identité → Visuels → Sous-titres
+// → Effets → Publication → Aperçu) — a music channel is a faceless channel
+// with music-specific content, not a different product, so it gets a
+// dedicated wizard component (own isolated `form` state, see
+// MusicChannelWizard below) rather than being crammed into the giant
+// narration wizard's branches. Only Script/Voix Off are dropped: there's no
+// spoken narration to write or voice.
+const MUSIC_WIZARD_STEPS = ['Identité', 'Style & Musique', 'Visuels', 'Sous-titres', 'Effets', 'Publication', 'Aperçu'];
 
 // Ready-made styles for creators with zero music vocabulary — clicking one
 // fills the field completely instead of staring at a blank textarea with
@@ -1784,8 +1791,10 @@ function MusicChannelWizard({ authFetch, showToast, onCreated, onBack }) {
   const [step, setStep] = useState(1);
   const [form, setForm] = useState({
     name: '',
+    description: '',
     style_prompt: '',
     title_examples: '',
+    music_source_mode: 'ai_generate', // 'ai_generate' | 'library' — see STEP 2
     edit_mode: 'loop', // 'loop' | 'compilation'
     image_count: 1, // 0-N — creator's choice, no fixed montage complexity
     target_duration_minutes: 10,
@@ -1795,7 +1804,70 @@ function MusicChannelWizard({ authFetch, showToast, onCreated, onBack }) {
     logo_corner: 'top-right',
     logo_shape: 'rectangle',
     logo_size_percent: 10,
+    // Same shape as the faceless wizard's image_style (channels.py's
+    // resolve_enabled_image_sources reads `sources`/`style_prompt`/
+    // `library_path` regardless of channel content_type) — only images are
+    // supported for music videos (no video/B-roll montage mode), so
+    // media_mode is deliberately not part of this shape at all.
+    image_style: {
+      sources: ['ai_generated'],
+      style_prompt: '',
+      library_path: '',
+      library_image_count: 0,
+      image_count_mode: 'auto',
+      max_unique_images: null,
+      share_with_community: false,
+    },
+    // The text actually shown on screen (title or full lyrics) lives in
+    // music_channel_config (a raw dict — see backend/src/models/project.py)
+    // rather than on subtitle_style below: SubtitleStyle is a typed Pydantic
+    // model with no `text` field, and any field it doesn't declare is
+    // silently dropped on every save (see ImageStyle's own comment on the
+    // same behavior) — this would otherwise vanish the instant the channel
+    // is saved.
+    subtitle_text: '',
+    // Same field names as the faceless wizard's subtitle_style, trimmed to
+    // what a static title/lyrics display actually needs — no karaoke/word-
+    // highlight modes, since there's no timed narration transcript to
+    // highlight against. Every other SubtitleStyle field not set here just
+    // keeps its Pydantic default.
+    subtitle_style: {
+      enabled: false,
+      font: 'Inter',
+      size: 44,
+      base_color: '#FFFFFF',
+      outline_color: '#000000',
+      outline_width: 3,
+      position: 'bottom',
+      box_color: 'transparent',
+      bold: true,
+    },
+    effects_config: {
+      overlay_effects: ['grain'],
+      zoom_min_pct: 1.0,
+      zoom_max_pct: 1.12,
+    },
+    // Full parity with the faceless wizard's Publication step.
+    publish_mode: 'manual',
+    youtube_privacy_status: 'public',
+    active_days: null,
+    publish_time_mode: 'range',
+    publish_schedule_hour: 8,
+    automation_window_start_hour: 7,
+    automation_window_end_hour: 11,
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Africa/Douala',
+    youtube_category_id: '10', // Music
+    youtube_default_description: '',
+    youtube_default_tags: [],
+    youtube_made_for_kids: false,
   });
+  // Overlays (Abonne-toi button, bell icon, mascot...) live on the channel's
+  // own `branding.overlays` server-side the moment they're uploaded (see
+  // handleAddOverlayFile below) — this local array just mirrors the latest
+  // server response so the UI can render/reorder/reposition them.
+  const [overlays, setOverlays] = useState([]);
+  const [overlayUploading, setOverlayUploading] = useState(false);
+  const overlayInputRef = useRef(null);
   const [previewing, setPreviewing] = useState(false);
   const [previewUrl, setPreviewUrl] = useState(null);
   const [creating, setCreating] = useState(false);
@@ -1845,6 +1917,7 @@ function MusicChannelWizard({ authFetch, showToast, onCreated, onBack }) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         name: form.name.trim() || 'Nouvelle chaîne musicale',
+        description: form.description,
         niche: 'Musique',
         content_type: 'music',
         automation_mode: form.automation_mode,
@@ -1855,6 +1928,8 @@ function MusicChannelWizard({ authFetch, showToast, onCreated, onBack }) {
           edit_mode: form.edit_mode,
           image_count: form.image_count,
           target_duration_minutes: form.target_duration_minutes,
+          music_source_mode: form.music_source_mode,
+          subtitle_text: form.subtitle_text,
         },
       }),
     });
@@ -1864,6 +1939,7 @@ function MusicChannelWizard({ authFetch, showToast, onCreated, onBack }) {
     }
     const channel = await res.json();
     setCreatedChannelId(channel.id);
+    setOverlays(channel.branding?.overlays || []);
     return channel.id;
   };
 
@@ -1919,6 +1995,105 @@ function MusicChannelWizard({ authFetch, showToast, onCreated, onBack }) {
     }
   };
 
+  // Same as the faceless wizard's overlay flow (App.jsx's handleAddOverlayFile
+  // etc.) but gated behind ensureChannelCreated instead of an existing
+  // editingChannelId, since this wizard creates the channel lazily. Position/
+  // size edits below are local-only (see handleUpdateOverlayField) and are
+  // only ever persisted as part of the final branding save, exactly like the
+  // faceless wizard.
+  const handleAddOverlayFile = async (e) => {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = '';
+    if (!file) return;
+    if (overlays.length >= 6) { showToast('Maximum de 6 incrustations par chaîne.', 'error'); return; }
+    setOverlayUploading(true);
+    try {
+      const channelId = await ensureChannelCreated();
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await authFetch(`${API_BASE}/channels/${channelId}/overlays`, { method: 'POST', body: formData });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || "Ajout de l'incrustation impossible.");
+      setOverlays(data.branding?.overlays || []);
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setOverlayUploading(false);
+    }
+  };
+
+  const handleDeleteOverlay = async (overlayId) => {
+    if (!createdChannelId) return;
+    try {
+      const res = await authFetch(`${API_BASE}/channels/${createdChannelId}/overlays/${overlayId}`, { method: 'DELETE' });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || 'Suppression impossible.');
+      setOverlays(data.branding?.overlays || []);
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  };
+
+  const handleUpdateOverlayField = (overlayId, field, value) => {
+    setOverlays(prev => prev.map(o => o.id === overlayId ? { ...o, [field]: value } : o));
+  };
+
+  // Option A: local folder — reuses the direct (non-staging) upload endpoint,
+  // available the moment ensureChannelCreated has run once (via any earlier
+  // action — YouTube connect, an overlay, or this upload itself).
+  const localFolderInputRef = useRef(null);
+  const [localFolderUploading, setLocalFolderUploading] = useState(false);
+  const handleLocalFolderSelect = async (e) => {
+    const files = Array.from(e.target.files || []).filter(f => LOCAL_IMAGE_EXTENSIONS_RE.test(f.name));
+    e.target.value = '';
+    if (!files.length) return;
+    setLocalFolderUploading(true);
+    try {
+      const channelId = await ensureChannelCreated();
+      const formData = new FormData();
+      files.forEach(f => formData.append('files', f));
+      formData.append('share_with_community', form.image_style.share_with_community ? 'true' : 'false');
+      const res = await authFetch(`${API_BASE}/channels/${channelId}/library-images`, { method: 'POST', body: formData });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || "Importation impossible.");
+      setForm(f => ({ ...f, image_style: { ...f.image_style, library_image_count: data.library_image_count || files.length, library_path: `channels/${channelId}/library` } }));
+      showToast(`${data.library_image_count || files.length} image(s) importée(s).`, 'success');
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setLocalFolderUploading(false);
+    }
+  };
+
+  // Community library availability — niche is always fixed to "Musique" for
+  // this content type (see ensureChannelCreated), so this only needs to run
+  // once, unlike the faceless wizard's version which re-checks on every
+  // niche change.
+  const [communityLibraryAvailability, setCommunityLibraryAvailability] = useState(null);
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`${API_BASE}/channels/community-library/availability?niche=${encodeURIComponent('Musique')}`)
+      .then(res => res.ok ? res.json() : null)
+      .then(data => { if (!cancelled) setCommunityLibraryAvailability(data); })
+      .catch(() => { if (!cancelled) setCommunityLibraryAvailability(null); });
+    return () => { cancelled = true; };
+  }, []);
+
+  const enabledImageSources = resolveEnabledImageSources(form.image_style);
+  const isOptionAChecked = enabledImageSources.includes('library');
+  const isOptionBChecked = enabledImageSources.includes('ai_generated');
+  const isCommunityChecked = enabledImageSources.includes('community');
+  const isGoogleSearchChecked = enabledImageSources.includes('google_search');
+  const setEnabledImageSources = (next) => {
+    const cleaned = IMAGE_SOURCE_PRIORITY.filter(s => next.includes(s));
+    const sources = cleaned.length ? cleaned : ['ai_generated'];
+    setForm(f => ({ ...f, image_style: { ...f.image_style, sources } }));
+  };
+  const toggleOptionA = () => setEnabledImageSources(isOptionAChecked ? enabledImageSources.filter(s => s !== 'library') : [...enabledImageSources, 'library']);
+  const toggleOptionB = () => setEnabledImageSources(isOptionBChecked ? enabledImageSources.filter(s => s !== 'ai_generated') : [...enabledImageSources, 'ai_generated']);
+  const toggleCommunity = () => setEnabledImageSources(isCommunityChecked ? enabledImageSources.filter(s => s !== 'community') : [...enabledImageSources, 'community']);
+  const toggleGoogleSearch = () => setEnabledImageSources(isGoogleSearchChecked ? enabledImageSources.filter(s => s !== 'google_search') : [...enabledImageSources, 'google_search']);
+
   const generatePreview = async () => {
     if (!form.style_prompt.trim()) return showToast('Décris le style musical voulu.', 'error');
     setPreviewing(true);
@@ -1967,27 +2142,52 @@ function MusicChannelWizard({ authFetch, showToast, onCreated, onBack }) {
         logo_size_percent: form.logo_size_percent,
         logo_x_percent: logoXY.x,
         logo_y_percent: logoXY.y,
+        // Overlays are already persisted server-side the moment each one is
+        // uploaded/deleted (see handleAddOverlayFile/handleDeleteOverlay) —
+        // included here too only so a local position/size edit made after
+        // upload (handleUpdateOverlayField, local-state-only) is saved.
+        overlays,
+      };
+      const sharedPayload = {
+        name: form.name.trim(),
+        description: form.description,
+        automation_mode: form.automation_mode,
+        videos_per_day: form.videos_per_day,
+        music_channel_config: {
+          style_prompt: form.style_prompt.trim(),
+          title_examples: form.title_examples,
+          edit_mode: form.edit_mode,
+          image_count: form.image_count,
+          target_duration_minutes: form.target_duration_minutes,
+          music_source_mode: form.music_source_mode,
+          subtitle_text: form.subtitle_text,
+        },
+        branding: brandingPatch,
+        image_style: form.image_style,
+        subtitle_style: form.subtitle_style,
+        effects_config: form.effects_config,
+        publish_mode: form.publish_mode,
+        youtube_privacy_status: form.youtube_privacy_status,
+        active_days: form.active_days,
+        publish_time_mode: form.publish_time_mode,
+        publish_schedule_hour: form.publish_schedule_hour,
+        automation_window_start_hour: form.automation_window_start_hour,
+        automation_window_end_hour: form.automation_window_end_hour,
+        timezone: form.timezone,
+        youtube_category_id: form.youtube_category_id,
+        youtube_default_description: form.youtube_default_description,
+        youtube_default_tags: form.youtube_default_tags,
+        youtube_made_for_kids: form.youtube_made_for_kids,
       };
       let channel;
       if (createdChannelId) {
-        // Already exists (created early by "Connecter YouTube") — update it
-        // in place instead of creating a duplicate channel.
+        // Already exists (created early by "Connecter YouTube", an overlay,
+        // or a local-folder upload) — update it in place instead of
+        // creating a duplicate channel.
         const res = await authFetch(`${API_BASE}/channels/${createdChannelId}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name: form.name.trim(),
-            automation_mode: form.automation_mode,
-            videos_per_day: form.videos_per_day,
-            music_channel_config: {
-              style_prompt: form.style_prompt.trim(),
-              title_examples: form.title_examples,
-              edit_mode: form.edit_mode,
-              image_count: form.image_count,
-              target_duration_minutes: form.target_duration_minutes,
-            },
-            branding: brandingPatch,
-          }),
+          body: JSON.stringify(sharedPayload),
         });
         if (!res.ok) {
           const err = await res.json().catch(() => ({}));
@@ -1998,21 +2198,7 @@ function MusicChannelWizard({ authFetch, showToast, onCreated, onBack }) {
         const res = await authFetch(`${API_BASE}/channels`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name: form.name.trim(),
-            niche: 'Musique',
-            content_type: 'music',
-            automation_mode: form.automation_mode,
-            videos_per_day: form.videos_per_day,
-            music_channel_config: {
-              style_prompt: form.style_prompt.trim(),
-              title_examples: form.title_examples,
-              edit_mode: form.edit_mode,
-              image_count: form.image_count,
-              target_duration_minutes: form.target_duration_minutes,
-            },
-            branding: brandingPatch,
-          }),
+          body: JSON.stringify({ ...sharedPayload, niche: 'Musique', content_type: 'music' }),
         });
         if (!res.ok) {
           const err = await res.json().catch(() => ({}));
@@ -2158,6 +2344,67 @@ function MusicChannelWizard({ authFetch, showToast, onCreated, onBack }) {
                 <MiniSlider label="Taille" value={form.logo_size_percent} min={3} max={35} onChange={v => setForm({ ...form, logo_size_percent: v })} />
               </div>
             )}
+
+            <div>
+              <label className="block text-xs font-bold text-slate-300 mb-2">Description de la chaîne</label>
+              <textarea
+                rows={2}
+                value={form.description}
+                onChange={e => setForm({ ...form, description: e.target.value })}
+                placeholder="De quoi parle ta chaîne ? (ambiance, style musical, public visé...)"
+                className="w-full bg-[var(--bg-input)] border border-[var(--border)] rounded-xl px-3 py-2.5 text-xs text-white focus:border-[#00c2ff] outline-none resize-none"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-300 mb-2">Incrustations d'images</label>
+              <p className="text-[10px] text-slate-500 mb-2">Ajoute n'importe quelle image à superposer sur la vidéo (bouton « Abonne-toi », cloche de notification, mascotte, sticker...), placée au coin de ton choix, taille réglable.</p>
+              <input type="file" ref={overlayInputRef} accept="image/*" onChange={handleAddOverlayFile} className="hidden" />
+              <div className="flex flex-wrap gap-3">
+                {overlays.map(ov => (
+                  <div key={ov.id} className="w-40 rounded-xl border border-[var(--border)] bg-[var(--bg-input)] p-2.5 space-y-2">
+                    <div className="relative aspect-video rounded-lg overflow-hidden bg-[var(--bg-surface-alt)]">
+                      <img src={`${STORAGE_BASE}/${ov.image_path}`} alt="" className="w-full h-full object-contain" />
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteOverlay(ov.id)}
+                        className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/70 text-white flex items-center justify-center hover:bg-rose-600"
+                        title="Supprimer"
+                      >
+                        <span className="material-symbols-outlined text-[13px]">close</span>
+                      </button>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      {[
+                        { id: 'top-left', icon: 'north_west' }, { id: 'top-right', icon: 'north_east' },
+                        { id: 'bottom-left', icon: 'south_west' }, { id: 'bottom-right', icon: 'south_east' },
+                      ].map(c => (
+                        <button
+                          key={c.id}
+                          type="button"
+                          onClick={() => handleUpdateOverlayField(ov.id, 'corner', c.id)}
+                          className={`flex-1 h-6 flex items-center justify-center rounded border transition-colors ${(ov.corner || 'top-right') === c.id ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#38d0ff]' : 'bg-[var(--bg-surface-alt)] border-[var(--border)] text-slate-400'}`}
+                        >
+                          <span className="material-symbols-outlined text-[12px]">{c.icon}</span>
+                        </button>
+                      ))}
+                    </div>
+                    <MiniSlider label="Taille" value={ov.size_percent ?? 10} min={3} max={30} onChange={v => handleUpdateOverlayField(ov.id, 'size_percent', v)} />
+                  </div>
+                ))}
+                {overlays.length < 6 && (
+                  <button
+                    type="button"
+                    onClick={() => overlayInputRef.current?.click()}
+                    disabled={overlayUploading}
+                    className="w-40 aspect-video rounded-xl border-2 border-dashed border-[var(--border)] hover:border-[#00c2ff] text-slate-400 hover:text-[#00c2ff] flex flex-col items-center justify-center gap-1 transition-colors disabled:opacity-50"
+                  >
+                    <span className={`material-symbols-outlined text-[22px] ${overlayUploading ? 'animate-spin' : ''}`}>{overlayUploading ? 'progress_activity' : 'add_photo_alternate'}</span>
+                    <span className="text-[10px] font-bold">Ajouter</span>
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
         )}
 
@@ -2167,6 +2414,55 @@ function MusicChannelWizard({ authFetch, showToast, onCreated, onBack }) {
             <h3 className="text-base font-bold text-white">2. Style & Musique</h3>
 
             <div>
+              <label className="block text-xs font-bold text-slate-300 mb-2">Origine de la musique</label>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setForm({ ...form, music_source_mode: 'ai_generate' })}
+                  className={`p-3 rounded-xl border-2 text-left transition-colors ${form.music_source_mode === 'ai_generate' ? 'border-[#00c2ff] bg-[#00c2ff]/5' : 'border-[var(--border)] hover:border-slate-500'}`}
+                >
+                  <div className="text-xs font-bold text-white flex items-center gap-1.5"><span className="material-symbols-outlined text-[16px]">auto_awesome</span> Générer par IA</div>
+                  <div className="text-[10px] text-slate-500 mt-0.5">Décris un style, KappGen compose une piste originale à chaque vidéo.</div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setForm({ ...form, music_source_mode: 'library' })}
+                  className={`p-3 rounded-xl border-2 text-left transition-colors ${form.music_source_mode === 'library' ? 'border-[#00c2ff] bg-[#00c2ff]/5' : 'border-[var(--border)] hover:border-slate-500'}`}
+                >
+                  <div className="text-xs font-bold text-white flex items-center gap-1.5"><span className="material-symbols-outlined text-[16px]">upload_file</span> Importer mes propres pistes</div>
+                  <div className="text-[10px] text-slate-500 mt-0.5">Tes propres fichiers audio — rendu quasi instantané, pas d'attente de génération IA.</div>
+                </button>
+              </div>
+            </div>
+
+            {form.music_source_mode === 'library' && (
+              <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-input)] p-4 space-y-3">
+                <label className="block text-xs font-bold text-slate-300">Tes pistes audio</label>
+                <p className="text-[10px] text-slate-500">Une piste est choisie au hasard pour chaque vidéo, puis répétée ou enchaînée selon le mode de montage ci-dessous.</p>
+                <input type="file" ref={musicTrackInputRef} accept="audio/*" multiple onChange={handleAddMusicTracks} className="hidden" />
+                <div className="space-y-2">
+                  {ownMusicTracks.map((path, i) => (
+                    <div key={path} className="flex items-center justify-between gap-2 bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-lg px-3 py-2">
+                      <span className="text-[11px] text-slate-300 truncate">{path.split('/').pop()}</span>
+                      <button type="button" onClick={() => handleDeleteMusicTrack(path)} className="text-slate-400 hover:text-rose-400 shrink-0">
+                        <span className="material-symbols-outlined text-[16px]">delete</span>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => musicTrackInputRef.current?.click()}
+                  disabled={musicTrackUploading}
+                  className="w-full py-2.5 rounded-xl border-2 border-dashed border-[var(--border)] hover:border-[#00c2ff] text-xs font-bold text-slate-400 hover:text-[#00c2ff] transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5"
+                >
+                  <span className={`material-symbols-outlined text-[16px] ${musicTrackUploading ? 'animate-spin' : ''}`}>{musicTrackUploading ? 'progress_activity' : 'add'}</span>
+                  {musicTrackUploading ? 'Envoi…' : 'Ajouter des pistes'}
+                </button>
+              </div>
+            )}
+
+            <div className={form.music_source_mode === 'library' ? 'opacity-40 pointer-events-none' : ''}>
               <div className="flex items-center justify-between mb-2">
                 <label className="text-xs font-bold text-slate-300">Aucune idée du style musical ? Choisis un point de départ</label>
               </div>
@@ -2185,7 +2481,7 @@ function MusicChannelWizard({ authFetch, showToast, onCreated, onBack }) {
               </div>
             </div>
 
-            <div>
+            <div className={form.music_source_mode === 'library' ? 'opacity-40 pointer-events-none' : ''}>
               <div className="flex items-center justify-between mb-2">
                 <label className="block text-xs font-bold text-slate-300">Style musical</label>
                 <button
@@ -3981,6 +4277,15 @@ export default function App() {
   const [facecamTitle, setFacecamTitle] = useState('');
   const [facecamUploading, setFacecamUploading] = useState(false);
   const [facecamUploadError, setFacecamUploadError] = useState('');
+  // Facecam has no channel-creation wizard of its own (the big multi-step
+  // one is built around narration/music-specific config — voice, script,
+  // image style — none of which a raw-upload facecam channel needs), so a
+  // channel here only ever needed a name. Kept inline rather than routing
+  // through openCreateWizard('facecam'), which would show all that
+  // irrelevant configuration.
+  const [facecamShowNewChannel, setFacecamShowNewChannel] = useState(false);
+  const [facecamNewChannelName, setFacecamNewChannelName] = useState('');
+  const [facecamCreatingChannel, setFacecamCreatingChannel] = useState(false);
   const [channelsLoaded, setChannelsLoaded] = useState(false);
   const [videosLoaded, setVideosLoaded] = useState(false);
   const [channelsLoadError, setChannelsLoadError] = useState('');
@@ -4278,6 +4583,33 @@ export default function App() {
 
   const showToast = (message, type = 'success') => {
     setToast({ message: type === 'error' ? friendlyErrorMessage(message) : message, type });
+  };
+
+  const createFacecamChannel = async () => {
+    const name = facecamNewChannelName.trim();
+    if (!name) return;
+    setFacecamCreatingChannel(true);
+    try {
+      const res = await authFetch(`${API_BASE}/channels`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, content_type: 'facecam' }),
+      });
+      if (!res.ok) {
+        const detail = await res.json().catch(() => ({}));
+        throw new Error(detail.detail || 'Impossible de créer la chaîne.');
+      }
+      const created = await res.json();
+      await fetchChannels();
+      setFacecamChannelId(created.id);
+      setFacecamNewChannelName('');
+      setFacecamShowNewChannel(false);
+      showToast('Chaîne créée.', 'success');
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setFacecamCreatingChannel(false);
+    }
   };
 
   const submitFacecamVideo = async () => {
@@ -10022,7 +10354,7 @@ export default function App() {
   // fundamentally different from a narration one's, so mixing them in the
   // same list would show configuration that doesn't apply. Home stays
   // unscoped (global totals across every product) since it's just an overview.
-  const activeProductContentType = activeProduct === 'music' ? 'music' : 'narration';
+  const activeProductContentType = (activeProduct === 'music' || activeProduct === 'facecam' || activeProduct === 'avatar') ? activeProduct : 'narration';
   const productChannels = channels.filter(c => (c.content_type || 'narration') === activeProductContentType);
   const productChannelIds = new Set(productChannels.map(c => c.id));
   const filteredChannels = productChannels.filter(c =>
@@ -10389,16 +10721,54 @@ export default function App() {
 
               <div>
                 <label className="block text-xs font-bold text-slate-300 mb-2">Chaîne</label>
-                <select
-                  value={facecamChannelId}
-                  onChange={e => setFacecamChannelId(e.target.value)}
-                  className="w-full bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-3 py-2.5 text-sm text-white"
-                >
-                  <option value="">Choisir une chaîne…</option>
-                  {productChannels.map(c => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
-                  ))}
-                </select>
+                {!facecamShowNewChannel ? (
+                  <div className="flex gap-2">
+                    <select
+                      value={facecamChannelId}
+                      onChange={e => setFacecamChannelId(e.target.value)}
+                      className="flex-1 bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-3 py-2.5 text-sm text-white"
+                    >
+                      <option value="">Choisir une chaîne…</option>
+                      {productChannels.map(c => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() => setFacecamShowNewChannel(true)}
+                      className="px-3 py-2.5 bg-[var(--bg-surface-alt)] border border-[var(--border)] hover:border-[#00c2ff]/50 text-slate-300 hover:text-white text-xs font-bold rounded-xl transition-colors whitespace-nowrap"
+                    >
+                      + Nouvelle
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      autoFocus
+                      value={facecamNewChannelName}
+                      onChange={e => setFacecamNewChannelName(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') createFacecamChannel(); }}
+                      placeholder="Nom de la chaîne"
+                      className="flex-1 bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-3 py-2.5 text-sm text-white"
+                    />
+                    <button
+                      type="button"
+                      onClick={createFacecamChannel}
+                      disabled={facecamCreatingChannel || !facecamNewChannelName.trim()}
+                      className="px-4 py-2.5 bg-[#00c2ff] hover:bg-[#38d0ff] disabled:opacity-50 text-slate-950 text-xs font-bold rounded-xl transition-colors whitespace-nowrap"
+                    >
+                      {facecamCreatingChannel ? '…' : 'Créer'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setFacecamShowNewChannel(false); setFacecamNewChannelName(''); }}
+                      className="px-3 py-2.5 text-slate-400 hover:text-white text-xs font-bold rounded-xl transition-colors"
+                    >
+                      Annuler
+                    </button>
+                  </div>
+                )}
               </div>
 
               <div>
@@ -16453,6 +16823,7 @@ export default function App() {
                       <th className="px-4 py-2.5 font-bold">Titre</th>
                       <th className="px-4 py-2.5 font-bold">Chaîne</th>
                       <th className="px-4 py-2.5 font-bold">Propriétaire</th>
+                      <th className="px-4 py-2.5 font-bold">Type</th>
                       <th className="px-4 py-2.5 font-bold">Statut</th>
                       <th className="px-4 py-2.5 font-bold">Coût (crédits)</th>
                       <th className="px-4 py-2.5 font-bold">Créée le</th>
@@ -16461,9 +16832,9 @@ export default function App() {
                   </thead>
                   <tbody>
                     {adminVideosLoading ? (
-                      <AdminSkeletonRows cols={7} />
+                      <AdminSkeletonRows cols={8} />
                     ) : adminVideos.length === 0 ? (
-                      <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-500">Aucune vidéo.</td></tr>
+                      <tr><td colSpan={8} className="px-4 py-8 text-center text-slate-500">Aucune vidéo.</td></tr>
                     ) : adminVideos.map(v => (
                       <tr key={v.id} className="border-b border-[var(--border-subtle)] hover:bg-[var(--bg-surface-alt)]/60">
                         <td className="px-4 py-2.5 max-w-[280px] truncate cursor-pointer" onClick={() => openAdminVideoDetail(v.id)}>
