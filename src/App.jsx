@@ -1925,23 +1925,31 @@ const MUSIC_STYLE_PRESETS = [
   { id: 'meditation', icon: 'self_improvement', label: 'Méditation', prompt: 'musique méditative minimaliste, bols tibétains et nappes très douces, tempo extrêmement lent, silence habité, ambiance spirituelle et sereine', titles: 'Musique pour méditer profondément\n10 minutes de pleine conscience\nCalme intérieur en musique' },
 ];
 
-function MusicChannelWizard({ authFetch, showToast, onCreated, onBack }) {
-  const [step, setStep] = useState(1);
-  const [form, setForm] = useState({
-    name: '',
-    description: '',
-    style_prompt: '',
-    title_examples: '',
-    music_source_mode: 'ai_generate', // 'ai_generate' | 'library' — see STEP 2
-    edit_mode: 'loop', // 'loop' | 'compilation'
-    image_count: 1, // 0-N — creator's choice, no fixed montage complexity
-    target_duration_minutes: 10,
-    automation_mode: 'manual', // 'manual' | 'auto'
-    videos_per_day: 1,
-    logo_enabled: true,
-    logo_corner: 'top-right',
-    logo_shape: 'rectangle',
-    logo_size_percent: 10,
+// Builds the wizard's form shape either from scratch (no channel) or by
+// merging an existing music channel's saved fields on top of the same
+// defaults — the exact inverse of createChannel's sharedPayload below, so
+// opening an existing channel doesn't just reset every field to "Nouvelle
+// Chaîne Musicale" (it used to: this component never accepted the channel
+// being edited at all, so every "Modifier" click behaved like starting a
+// brand new one, right down to failing the "Donne un nom à ta chaîne" check
+// on a channel that already had a name).
+function buildMusicChannelForm(channel) {
+  const cfg = channel?.music_channel_config || {};
+  return {
+    name: channel?.name || channel?.youtube_channel_title || '',
+    description: channel?.description || '',
+    style_prompt: cfg.style_prompt || '',
+    title_examples: cfg.title_examples || '',
+    music_source_mode: cfg.music_source_mode || 'ai_generate', // 'ai_generate' | 'library' — see STEP 2
+    edit_mode: cfg.edit_mode || 'loop', // 'loop' | 'compilation'
+    image_count: cfg.image_count ?? 1, // 0-N — creator's choice, no fixed montage complexity
+    target_duration_minutes: cfg.target_duration_minutes ?? 10,
+    automation_mode: channel?.automation_mode || 'manual', // 'manual' | 'auto'
+    videos_per_day: channel?.videos_per_day ?? 1,
+    logo_enabled: channel?.branding?.logo_enabled ?? true,
+    logo_corner: channel?.branding?.logo_corner || 'top-right',
+    logo_shape: channel?.branding?.logo_shape || 'rectangle',
+    logo_size_percent: channel?.branding?.logo_size_percent ?? 10,
     // Same shape as the faceless wizard's image_style (channels.py's
     // resolve_enabled_image_sources reads `sources`/`style_prompt`/
     // `library_path` regardless of channel content_type) — only images are
@@ -1955,6 +1963,7 @@ function MusicChannelWizard({ authFetch, showToast, onCreated, onBack }) {
       image_count_mode: 'auto',
       max_unique_images: null,
       share_with_community: false,
+      ...(channel?.image_style || {}),
     },
     // The text actually shown on screen (title or full lyrics) lives in
     // music_channel_config (a raw dict — see backend/src/models/project.py)
@@ -1963,7 +1972,7 @@ function MusicChannelWizard({ authFetch, showToast, onCreated, onBack }) {
     // silently dropped on every save (see ImageStyle's own comment on the
     // same behavior) — this would otherwise vanish the instant the channel
     // is saved.
-    subtitle_text: '',
+    subtitle_text: cfg.subtitle_text || '',
     // Same field names as the faceless wizard's subtitle_style, trimmed to
     // what a static title/lyrics display actually needs — no karaoke/word-
     // highlight modes, since there's no timed narration transcript to
@@ -1979,31 +1988,38 @@ function MusicChannelWizard({ authFetch, showToast, onCreated, onBack }) {
       position: 'bottom',
       box_color: 'transparent',
       bold: true,
+      ...(channel?.subtitle_style || {}),
     },
     effects_config: {
       overlay_effects: ['grain'],
       zoom_min_pct: 1.0,
       zoom_max_pct: 1.12,
+      ...(channel?.effects_config || {}),
     },
     // Full parity with the faceless wizard's Publication step.
-    publish_mode: 'manual',
-    youtube_privacy_status: 'public',
-    active_days: null,
-    publish_time_mode: 'range',
-    publish_schedule_hour: 8,
-    automation_window_start_hour: 7,
-    automation_window_end_hour: 11,
-    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Africa/Douala',
-    youtube_category_id: '10', // Music
-    youtube_default_description: '',
-    youtube_default_tags: [],
-    youtube_made_for_kids: false,
-  });
+    publish_mode: channel?.publish_mode || 'manual',
+    youtube_privacy_status: channel?.youtube_privacy_status || 'public',
+    active_days: channel?.active_days || null,
+    publish_time_mode: channel?.publish_time_mode || 'range',
+    publish_schedule_hour: channel?.publish_schedule_hour ?? 8,
+    automation_window_start_hour: channel?.automation_window_start_hour ?? 7,
+    automation_window_end_hour: channel?.automation_window_end_hour ?? 11,
+    timezone: channel?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'Africa/Douala',
+    youtube_category_id: channel?.youtube_category_id || '10', // Music
+    youtube_default_description: channel?.youtube_default_description || '',
+    youtube_default_tags: channel?.youtube_default_tags || [],
+    youtube_made_for_kids: !!channel?.youtube_made_for_kids,
+  };
+}
+
+function MusicChannelWizard({ authFetch, showToast, onCreated, onBack, editingChannel, initialLogoUrl }) {
+  const [step, setStep] = useState(1);
+  const [form, setForm] = useState(() => buildMusicChannelForm(editingChannel));
   // Overlays (Abonne-toi button, bell icon, mascot...) live on the channel's
   // own `branding.overlays` server-side the moment they're uploaded (see
   // handleAddOverlayFile below) — this local array just mirrors the latest
   // server response so the UI can render/reorder/reposition them.
-  const [overlays, setOverlays] = useState([]);
+  const [overlays, setOverlays] = useState(editingChannel?.branding?.overlays || []);
   const [overlayUploading, setOverlayUploading] = useState(false);
   const overlayInputRef = useRef(null);
   const [previewing, setPreviewing] = useState(false);
@@ -2029,7 +2045,7 @@ function MusicChannelWizard({ authFetch, showToast, onCreated, onBack }) {
 
   const logoInputRef = useRef(null);
   const [logoFile, setLogoFile] = useState(null);
-  const [logoPreviewUrl, setLogoPreviewUrl] = useState(null);
+  const [logoPreviewUrl, setLogoPreviewUrl] = useState(initialLogoUrl || null);
   const handleLogoFileSelect = (e) => {
     const file = e.target.files && e.target.files[0];
     e.target.value = '';
@@ -2038,12 +2054,14 @@ function MusicChannelWizard({ authFetch, showToast, onCreated, onBack }) {
     try { setLogoPreviewUrl(URL.createObjectURL(file)); } catch { setLogoPreviewUrl(null); }
   };
 
-  // Created lazily — either by "Connecter YouTube" (needs a real channel id
-  // to attach OAuth credentials to) or by the final "Créer la chaîne
-  // musicale" submit, whichever happens first. Once set, submit switches
-  // from POST (create) to PUT (update the same channel) so connecting
-  // YouTube mid-wizard doesn't leave a duplicate channel behind.
-  const [createdChannelId, setCreatedChannelId] = useState(null);
+  // Created lazily — either by an existing channel being edited (passed in
+  // as editingChannel), by "Connecter YouTube" (needs a real channel id to
+  // attach OAuth credentials to), or by the final "Créer la chaîne musicale"
+  // submit, whichever happens first. Once set, submit switches from POST
+  // (create) to PUT (update the same channel) so connecting YouTube
+  // mid-wizard — or just opening an existing channel to edit it — never
+  // leaves a duplicate channel behind.
+  const [createdChannelId, setCreatedChannelId] = useState(editingChannel?.id || null);
   const [youtubeConnected, setYoutubeConnected] = useState(false);
   const [youtubeChannelTitle, setYoutubeChannelTitle] = useState(null);
   const [connectingYoutube, setConnectingYoutube] = useState(false);
@@ -2411,7 +2429,7 @@ function MusicChannelWizard({ authFetch, showToast, onCreated, onBack }) {
           <div className="min-w-0">
             <h2 className="text-base sm:text-xl font-extrabold text-white flex items-center gap-2.5">
               <span className="material-symbols-outlined text-[#00c2ff] text-[20px]">library_music</span>
-              Nouvelle Chaîne Musicale
+              {editingChannel ? `Modifier « ${editingChannel.name || 'la chaîne musicale'} »` : 'Nouvelle Chaîne Musicale'}
             </h2>
             <p className="text-xs text-slate-400 mt-1">Étape {step} sur {MUSIC_WIZARD_STEPS.length} — pas de script, pas de voix off, le contenu c'est la musique elle-même.</p>
           </div>
@@ -3052,7 +3070,7 @@ function MusicChannelWizard({ authFetch, showToast, onCreated, onBack }) {
               className="px-8 py-3 rounded-xl bg-emerald-500 text-slate-950 font-bold text-xs hover:bg-emerald-400 transition-all flex items-center gap-2 shadow-lg shadow-emerald-500/20 disabled:opacity-50"
             >
               <span className="material-symbols-outlined text-[18px]">check</span>
-              {creating ? 'Création...' : 'Créer la chaîne musicale'}
+              {creating ? (createdChannelId ? 'Enregistrement...' : 'Création...') : (createdChannelId ? 'Enregistrer les modifications' : 'Créer la chaîne musicale')}
             </button>
           )}
         </div>
@@ -13682,11 +13700,16 @@ export default function App() {
             {/* VIEW 5: CHANNEL WIZARD (CREATE / EDIT) */}
             {view === 'wizard' && wizardContentType === 'music' && (
               <MusicChannelWizard
+                key={editingChannelId || 'new'}
                 authFetch={authFetch}
                 showToast={showToast}
-                onBack={() => setView(wizardOpenedFromAdmin ? 'admin' : 'channels')}
+                editingChannel={wizardMode === 'edit' ? editingChannel : null}
+                initialLogoUrl={wizardMode === 'edit' && editingChannel && getChannelLogoUrl(editingChannel) !== "/assets/logo/logo-kappgen.png" ? getChannelLogoUrl(editingChannel) : null}
+                onBack={() => setView(wizardOpenedFromAdmin ? 'admin' : (wizardMode === 'edit' && editingChannelId ? 'channel_detail' : 'channels'))}
                 onCreated={(channel) => {
-                  setChannels(prev => [channel, ...prev]);
+                  setChannels(prev => wizardMode === 'edit'
+                    ? prev.map(c => c.id === channel.id ? channel : c)
+                    : [channel, ...prev]);
                   setView(wizardOpenedFromAdmin ? 'admin' : 'channels');
                 }}
               />
