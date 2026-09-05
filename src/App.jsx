@@ -2587,7 +2587,7 @@ function MusicChannelWizard({ authFetch, showToast, onCreated, onBack, editingCh
       <div role="radiogroup" aria-label="Mode de production" className="grid grid-cols-2 gap-3">
         {[
           { value: 'manual', icon: 'touch_app', label: 'Manuel', description: 'Tu déclenches chaque vidéo.' },
-          { value: 'auto', icon: 'auto_awesome', label: 'Automatique', description: 'Izivoice prépare les vidéos.' },
+          { value: 'auto', icon: 'auto_awesome', label: 'Automatique', description: 'KappGen prépare les vidéos.' },
         ].map(option => {
           const selected = form.automation_mode === option.value;
           return (
