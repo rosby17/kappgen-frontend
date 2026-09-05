@@ -7199,17 +7199,36 @@ export default function App() {
     }
   };
 
-  // Facecam has no client-side render step to watch (it's all server-side
-  // ffmpeg/whisper work) — polling channelVideos is the only way this page
-  // reflects progress_stage moving from transcription -> cuts -> ... live,
-  // instead of the creator having to manually refresh to see each step.
+  // Polls while anything on this channel's page is still moving: queued/
+  // rendering (facecam has no client-side render step to watch — its own
+  // progress_stage, e.g. transcription -> cuts -> ..., only ever updates via
+  // this poll), or "done" but not yet actually showable — status flips to
+  // done as soon as the render finishes, well before queue_runner.py's
+  // _finalize_output_storage has uploaded to B2 and set output_path
+  // (deliberately, so "Vidéo prête" doesn't wait on SD-variant/thumbnail/
+  // metadata post-processing). Without this covering that gap too, a video
+  // that finished mid-finalization just sat there until a manual refresh —
+  // nothing was polling any more once status left queued/rendering.
   useEffect(() => {
-    if (view !== 'channel_detail' || !activeChannel || activeChannel.content_type !== 'facecam') return;
-    const hasActiveRender = channelVideos.some(v => v.status === 'queued' || v.status === 'rendering');
-    if (!hasActiveRender) return;
+    if (view !== 'channel_detail' || !activeChannel) return;
+    const needsPoll = channelVideos.some(v =>
+      v.status === 'queued' || v.status === 'rendering' || (v.status === 'done' && !v.output_path && !v.purged_at)
+    );
+    if (!needsPoll) return;
     const id = setInterval(() => fetchChannelVideos(activeChannel.id), 4000);
     return () => clearInterval(id);
-  }, [view, activeChannel?.id, activeChannel?.content_type, channelVideos]);
+  }, [view, activeChannel?.id, channelVideos]);
+
+  // Same "done but not finalized yet" gap, for the global Mes Vidéos list.
+  useEffect(() => {
+    if (view !== 'videos') return;
+    const needsPoll = allVideos.some(v =>
+      v.status === 'queued' || v.status === 'rendering' || (v.status === 'done' && !v.output_path && !v.purged_at)
+    );
+    if (!needsPoll) return;
+    const id = setInterval(() => fetchAllVideos(), 4000);
+    return () => clearInterval(id);
+  }, [view, allVideos]);
 
   // URL <-> app-state routing. The app keeps its existing `view`/`activeChannel`/
   // `wizardMode` state machine; these two effects just keep the browser URL in
@@ -12481,11 +12500,24 @@ export default function App() {
                                     {(vid.error_message || 'Erreur inconnue').split('\n')[0]}
                                   </div>
                                 </div>
-                              ) : vid.status === 'done' ? (
+                              ) : vid.status === 'done' && vid.purged_at ? (
                                 <div className="absolute inset-0 flex flex-col items-center justify-center text-center space-y-2 @lg:space-y-3">
                                   <span className="material-symbols-outlined text-[36px] @lg:text-[56px] text-slate-500">inventory_2</span>
                                   <div className="text-[11px] @lg:text-base font-bold font-mono text-slate-400">Fichier expiré</div>
                                   <div className="text-[9px] @lg:text-xs text-slate-500">Rendu terminé, fichier purgé après la période de rétention.</div>
+                                </div>
+                              ) : vid.status === 'done' ? (
+                                // status flips to "done" as soon as the render itself finishes, well
+                                // before _finalize_output_storage (queue_runner.py) has uploaded to B2
+                                // and set output_path — deliberately, so "Vidéo prête" shows without
+                                // waiting on SD-variant/thumbnail/metadata post-processing. A poll
+                                // landing in that window used to render the exact same "Fichier expiré"
+                                // card as a genuinely purged video, which read as broken/scary. This is
+                                // a normal, brief, self-resolving state — not a failure.
+                                <div className="absolute inset-0 flex flex-col items-center justify-center text-center space-y-2 @lg:space-y-3">
+                                  <span className="material-symbols-outlined text-[36px] @lg:text-[56px] text-[#00c2ff] animate-pulse">cloud_sync</span>
+                                  <div className="text-[11px] @lg:text-base font-bold font-mono text-[#00c2ff]">Finalisation…</div>
+                                  <div className="text-[9px] @lg:text-xs text-slate-500">La vidéo est prête, dernières étapes en cours.</div>
                                 </div>
                               ) : (
                                 <div className="absolute inset-0 flex flex-col items-center justify-center text-center space-y-2 @lg:space-y-3">
@@ -13466,10 +13498,17 @@ export default function App() {
                                   {(vid.error_message || 'Erreur inconnue').split('\n')[0]}
                                 </div>
                               </div>
-                            ) : vid.status === 'done' ? (
+                            ) : vid.status === 'done' && vid.purged_at ? (
                               <div className="absolute inset-0 flex flex-col items-center justify-center text-center space-y-2 @lg:space-y-3">
                                 <span className="material-symbols-outlined text-[36px] @lg:text-[56px] text-slate-500">inventory_2</span>
                                 <div className="text-[11px] @lg:text-base font-bold font-mono text-slate-400">Fichier expiré</div>
+                              </div>
+                            ) : vid.status === 'done' ? (
+                              // See the equivalent branch above (Mes Vidéos card) — "done" without
+                              // output_path yet just means storage finalization is still running.
+                              <div className="absolute inset-0 flex flex-col items-center justify-center text-center space-y-2 @lg:space-y-3">
+                                <span className="material-symbols-outlined text-[36px] @lg:text-[56px] text-[#00c2ff] animate-pulse">cloud_sync</span>
+                                <div className="text-[11px] @lg:text-base font-bold font-mono text-[#00c2ff]">Finalisation…</div>
                               </div>
                             ) : (
                               <div className="absolute inset-0 flex flex-col items-center justify-center text-center space-y-2 @lg:space-y-3">
@@ -18144,13 +18183,21 @@ export default function App() {
                           >
                             {v.status === 'done' && v.output_path ? (
                               <img src={getVideoThumbnailUrl(v)} alt="" className="w-full h-full object-cover" loading="lazy" />
-                            ) : v.status === 'done' ? (
+                            ) : v.status === 'done' && v.purged_at ? (
                               // Rendu terminé mais fichier purgé du serveur (rétention) —
                               // ce n'est pas une vidéo en attente, il ne faut pas réutiliser
                               // le sablier qui laisse croire qu'elle va encore être générée.
                               <div className="w-full h-full flex flex-col items-center justify-center gap-1">
                                 <span className="material-symbols-outlined text-[28px] text-slate-500">inventory_2</span>
                                 <span className="text-[9px] text-slate-500">Fichier expiré</span>
+                              </div>
+                            ) : v.status === 'done' ? (
+                              // "done" without output_path yet and not purged: storage
+                              // finalization (B2 upload) is still running in the background —
+                              // a normal, brief, self-resolving state, not a failure.
+                              <div className="w-full h-full flex flex-col items-center justify-center gap-1">
+                                <span className="material-symbols-outlined text-[28px] text-[#00c2ff] animate-pulse">cloud_sync</span>
+                                <span className="text-[9px] text-[#00c2ff]">Finalisation…</span>
                               </div>
                             ) : (
                               <div className="w-full h-full flex items-center justify-center">
