@@ -9773,7 +9773,7 @@ export default function App() {
       if (!res.ok) throw new Error();
       const data = await res.json();
       setVoiceoverProviderModeState(prev => ({ ...prev, order: data.order }));
-      const labels = { izivoice: 'Izivoice' };
+      const labels = { izivoice: 'Izivoice', ai33pro: 'ai33.pro' };
       showToast(nextOrder.includes(id) ? `${labels[id] || id} ajouté à la priorité.` : `${labels[id] || id} retiré de la priorité.`, 'success');
     } catch {
       showToast('Échec de la mise à jour.', 'error');
@@ -19096,7 +19096,7 @@ export default function App() {
                       const selected = rank !== -1;
                       const health = (adminProviders || []).find(p => p.id === id);
                       const dotColor = health?.status === 'ok' ? 'bg-emerald-500' : health?.status === 'quota_exhausted' ? 'bg-rose-500' : 'bg-slate-600';
-                      const label = { izivoice: 'Izivoice' }[id] || id;
+                      const label = { izivoice: 'Izivoice', ai33pro: 'ai33.pro' }[id] || id;
                       return (
                         <button
                           key={id}
