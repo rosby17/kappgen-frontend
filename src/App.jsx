@@ -17658,21 +17658,30 @@ export default function App() {
                 )}
 
                 {['queued', 'rendering'].includes(adminVideoDetail.status) && (
-                  <div className="bg-[var(--bg-input)] border border-[#00c2ff]/30 rounded-2xl p-4 space-y-2">
+                  <div className="bg-[var(--bg-input)] border border-[#00c2ff]/30 rounded-2xl p-4 space-y-3">
                     <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <div className="text-[10px] font-bold text-[#00c2ff] uppercase tracking-wider">Rendu en cours</div>
-                        <div className="text-xs text-white mt-0.5">
-                          {adminVideoDetail.status === 'queued' && adminVideoDetail.queue_position
-                            ? `Position ${adminVideoDetail.queue_position} sur ${adminVideoDetail.queue_total} dans la file prioritaire`
-                            : (adminVideoDetail.progress_stage || 'Traitement en cours')}
-                        </div>
-                      </div>
+                      <div className="text-[10px] font-bold text-[#00c2ff] uppercase tracking-wider">Rendu en cours</div>
                       <div className="text-sm font-extrabold text-[#00c2ff]">{adminVideoDetail.progress_percent || 0}%</div>
                     </div>
-                    <div className="h-2 rounded-full bg-slate-800 overflow-hidden">
-                      <div className="h-full bg-[#00c2ff] transition-all duration-500" style={{ width: `${Math.max(2, adminVideoDetail.progress_percent || 0)}%` }} />
-                    </div>
+                    {adminVideoDetail.status === 'queued' && adminVideoDetail.queue_position ? (
+                      <div className="text-xs text-white">{`Position ${adminVideoDetail.queue_position} sur ${adminVideoDetail.queue_total} dans la file prioritaire`}</div>
+                    ) : (
+                      <>
+                        {/* Same clickable step-by-step tracker as the creator's own
+                            "Mes Vidéos" view — clicking a step opens the identical
+                            "Suivi" modal (scenes/visuals gallery, audio preview,
+                            script, subtitles), reusing openProductionInspector as-is
+                            since _get_owned_video already lets an admin fetch any
+                            creator's production-progress. */}
+                        <PipelineStepper
+                          stage={adminVideoDetail.progress_stage}
+                          percent={adminVideoDetail.progress_percent}
+                          source={adminVideoDetail.creation_source || (adminVideoDetail.input_type === 'audio' ? 'audio' : 'script')}
+                          onStepClick={(step) => openProductionInspector(adminVideoDetail, step)}
+                        />
+                        <div className="text-xs text-white">{adminVideoDetail.progress_stage || 'Traitement en cours'}</div>
+                      </>
+                    )}
                     <div className="text-[10px] text-slate-500">Actualisation automatique toutes les deux secondes.</div>
                   </div>
                 )}
