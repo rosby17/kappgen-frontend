@@ -2581,6 +2581,29 @@ function MusicChannelWizard({ authFetch, showToast, onCreated, onBack, editingCh
     setStep(s => Math.min(MUSIC_WIZARD_STEPS.length, s + 1));
   };
 
+  const ProductionMode = () => (
+    <section className="rounded-2xl border border-[#00c2ff]/20 bg-[#00c2ff]/[.035] p-4 space-y-3">
+      <div><div className="text-xs font-bold text-white">Mode de production</div><p className="mt-0.5 text-[10px] text-slate-400">Définis comment cette identité musicale produit ses prochaines vidéos.</p></div>
+      <div className="grid grid-cols-2 gap-3">
+        <button type="button" onClick={() => setForm({ ...form, automation_mode: 'manual' })} className={`p-3 rounded-xl border-2 text-left transition-colors ${form.automation_mode === 'manual' ? 'border-[#00c2ff] bg-[#00c2ff]/5' : 'border-[var(--border)] hover:border-slate-500'}`}>
+          <div className="flex items-center gap-1.5 text-xs font-bold text-white"><span className="material-symbols-outlined text-[16px]">touch_app</span>Manuel</div><div className="mt-0.5 text-[10px] text-slate-500">Tu déclenches chaque vidéo.</div>
+        </button>
+        <button type="button" onClick={() => setForm({ ...form, automation_mode: 'auto' })} className={`p-3 rounded-xl border-2 text-left transition-colors ${form.automation_mode === 'auto' ? 'border-[#00c2ff] bg-[#00c2ff]/5' : 'border-[var(--border)] hover:border-slate-500'}`}>
+          <div className="flex items-center gap-1.5 text-xs font-bold text-white"><span className="material-symbols-outlined text-[16px]">auto_awesome</span>Automatique</div><div className="mt-0.5 text-[10px] text-slate-500">Izivoice prépare les vidéos.</div>
+        </button>
+      </div>
+      {form.automation_mode === 'auto' && <div className="rounded-xl border border-[#00c2ff]/25 bg-[#00c2ff]/[.05] p-3 space-y-3">
+        <div className="flex items-center gap-2"><span className="material-symbols-outlined text-[18px] text-[#00c2ff]">schedule</span><div><div className="text-xs font-bold text-white">Programme de création</div><p className="text-[10px] text-slate-400">Cadence de génération via Izivoice.</p></div></div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          <label><span className="mb-1 block text-[10px] font-bold text-slate-400">Vidéos / jour</span><input type="number" min={1} max={20} value={form.videos_per_day} onChange={e => setForm({ ...form, videos_per_day: Math.max(1, Math.min(20, Number(e.target.value) || 1)) })} className="w-full rounded-lg border border-[var(--border)] bg-[var(--bg-input)] px-2.5 py-2 text-xs text-white outline-none focus:border-[#00c2ff]" /></label>
+          <label><span className="mb-1 block text-[10px] font-bold text-slate-400">Lancement</span><input type="time" value={`${String(form.script_generation_hour).padStart(2, '0')}:${String(form.script_generation_minute).padStart(2, '0')}`} onChange={e => { const [hour, minute] = e.target.value.split(':').map(Number); setForm({ ...form, script_generation_hour: hour, script_generation_minute: minute }); }} className="w-full rounded-lg border border-[var(--border)] bg-[var(--bg-input)] px-2.5 py-2 text-xs text-white outline-none focus:border-[#00c2ff]" /></label>
+          <div><span className="mb-1 block text-[10px] font-bold text-slate-400">Fuseau horaire</span><div className="rounded-lg border border-[var(--border)] bg-[var(--bg-input)] px-2.5 py-2 text-xs text-slate-300">{form.timezone}</div></div>
+        </div>
+        <div className="flex items-center gap-2"><span className="shrink-0 text-[10px] font-bold text-slate-400">Jours</span><div className="flex flex-wrap gap-1">{['L','M','M','J','V','S','D'].map((label, day) => { const days = form.script_generation_days?.length ? form.script_generation_days : [0,1,2,3,4,5,6]; const selected = days.includes(day); return <button key={day} type="button" onClick={() => { const next = selected ? days.filter(d => d !== day) : [...days, day].sort(); setForm({ ...form, script_generation_days: next.length === 7 ? [] : next }); }} className={`flex h-7 w-7 items-center justify-center rounded-md border text-[10px] font-bold ${selected ? 'border-[#00c2ff] bg-[#00c2ff] text-slate-950' : 'border-[var(--border)] text-slate-400 hover:border-[#00c2ff]/60'}`}>{label}</button>; })}</div></div>
+      </div>}
+    </section>
+  );
+
   return (
     <div className="max-w-[1240px] mx-auto p-4 sm:p-8">
       <div className="bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-3xl p-4 sm:p-8 shadow-2xl space-y-6 sm:space-y-8">
@@ -2955,6 +2978,7 @@ function MusicChannelWizard({ authFetch, showToast, onCreated, onBack, editingCh
                 className="w-full bg-[var(--bg-input)] border border-[var(--border)] rounded-xl px-3 py-2.5 text-xs text-white focus:border-[#00c2ff] outline-none resize-none"
               />
             </div>
+            <ProductionMode />
           </div>
         )}
 
@@ -3241,37 +3265,6 @@ function MusicChannelWizard({ authFetch, showToast, onCreated, onBack, editingCh
         {step === 6 && (
           <div className="space-y-6">
             <h3 className="text-base font-bold text-white">6. Publication</h3>
-            <div>
-              <label className="block text-xs font-bold text-slate-300 mb-2">Mode de production</label>
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  type="button"
-                  onClick={() => setForm({ ...form, automation_mode: 'manual' })}
-                  className={`p-3 rounded-xl border-2 text-left transition-colors ${form.automation_mode === 'manual' ? 'border-[#00c2ff] bg-[#00c2ff]/5' : 'border-[var(--border)] hover:border-slate-500'}`}
-                >
-                  <div className="text-xs font-bold text-white flex items-center gap-1.5"><span className="material-symbols-outlined text-[16px]">touch_app</span> Manuel</div>
-                  <div className="text-[10px] text-slate-500 mt-0.5">Tu déclenches chaque vidéo toi-même.</div>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setForm({ ...form, automation_mode: 'auto' })}
-                  className={`p-3 rounded-xl border-2 text-left transition-colors ${form.automation_mode === 'auto' ? 'border-[#00c2ff] bg-[#00c2ff]/5' : 'border-[var(--border)] hover:border-slate-500'}`}
-                >
-                  <div className="text-xs font-bold text-white flex items-center gap-1.5"><span className="material-symbols-outlined text-[16px]">auto_awesome</span> Automatique</div>
-                  <div className="text-[10px] text-slate-500 mt-0.5">L'IA génère seule, chaque jour.</div>
-                </button>
-              </div>
-              {form.automation_mode === 'auto' && <div className="mt-4 rounded-xl border border-[#00c2ff]/25 bg-[#00c2ff]/[.05] p-4 space-y-4">
-                <div className="flex items-center gap-2"><span className="material-symbols-outlined text-[#00c2ff]">schedule</span><div><div className="text-xs font-bold text-white">Programme de création musicale</div><p className="text-[10px] text-slate-400 mt-0.5">KappGen prépare et lance les vidéos musicales à cette cadence via Izivoice.</p></div></div>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <label className="block"><span className="block text-[10px] font-bold text-slate-400 mb-1.5">Musiques par jour</span><input type="number" min={1} max={20} value={form.videos_per_day} onChange={e => setForm({ ...form, videos_per_day: Math.max(1, Math.min(20, Number(e.target.value) || 1)) })} className="w-full bg-[var(--bg-input)] border border-[var(--border)] rounded-xl px-3 py-2.5 text-xs text-white focus:border-[#00c2ff] outline-none" /></label>
-                  <label className="block"><span className="block text-[10px] font-bold text-slate-400 mb-1.5">Heure de lancement</span><input type="time" value={`${String(form.script_generation_hour).padStart(2, '0')}:${String(form.script_generation_minute).padStart(2, '0')}`} onChange={e => { const [hour, minute] = e.target.value.split(':').map(Number); setForm({ ...form, script_generation_hour: hour, script_generation_minute: minute }); }} className="w-full bg-[var(--bg-input)] border border-[var(--border)] rounded-xl px-3 py-2.5 text-xs text-white focus:border-[#00c2ff] outline-none" /></label>
-                  <div><span className="block text-[10px] font-bold text-slate-400 mb-1.5">Fuseau horaire</span><div className="rounded-xl border border-[var(--border)] bg-[var(--bg-input)] px-3 py-2.5 text-xs text-slate-300 truncate">{form.timezone}</div></div>
-                </div>
-                <div><span className="block text-[10px] font-bold text-slate-400 mb-1.5">Jours de création</span><div className="grid grid-cols-7 gap-1.5">{['L','M','M','J','V','S','D'].map((label, day) => { const days = form.script_generation_days?.length ? form.script_generation_days : [0,1,2,3,4,5,6]; const selected = days.includes(day); return <button key={day} type="button" onClick={() => { const next = selected ? days.filter(d => d !== day) : [...days, day].sort(); setForm({ ...form, script_generation_days: next.length === 7 ? [] : next }); }} className={`aspect-square rounded-lg border text-[10px] font-bold ${selected ? 'border-[#00c2ff] bg-[#00c2ff] text-slate-950' : 'border-[var(--border)] text-slate-400 hover:border-[#00c2ff]/60'}`}>{label}</button>; })}</div></div>
-              </div>}
-            </div>
-
             <div>
               <label className="block text-xs font-bold text-slate-300 mb-2">Publication YouTube</label>
               <div className="grid grid-cols-2 gap-3">
