@@ -2637,7 +2637,6 @@ function MusicChannelWizard({ authFetch, showToast, onCreated, onBack, editingCh
               <span className="material-symbols-outlined text-[#00c2ff] text-[20px]">library_music</span>
               {editingChannel ? `Modifier « ${editingChannel.name || 'la chaîne musicale'} »` : 'Nouvelle Chaîne Musicale'}
             </h2>
-            <div className="mt-2 flex items-center gap-2 text-xs text-slate-400"><span className="rounded-md border border-[#00c2ff]/30 bg-[#00c2ff]/10 px-2 py-0.5 font-bold text-[#56d9ff]">{MUSIC_WIZARD_STEPS[step - 1]}</span><span>Étape {step} sur {MUSIC_WIZARD_STEPS.length} · pas de script ni de voix off.</span></div>
           </div>
           <button onClick={onBack} className="text-slate-400 hover:text-white p-2 shrink-0">
             <span className="material-symbols-outlined">close</span>
