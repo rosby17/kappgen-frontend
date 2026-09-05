@@ -12025,11 +12025,11 @@ export default function App() {
 
                 {libraryLoading ? (
                   <SkeletonGrid count={3} cardClassName="min-h-[100px]" />
-                ) : !libraryOverview || libraryOverview.length === 0 ? (
+                ) : scopedLibraryOverview.length === 0 ? (
                   <div className="text-center py-16 text-slate-500 text-sm">Aucune chaîne pour le moment.</div>
                 ) : (
                   <div className="space-y-3">
-                    {libraryOverview
+                    {scopedLibraryOverview
                       .filter(c => c.channel_name.toLowerCase().includes(librarySearch.trim().toLowerCase()))
                         .filter(c => libraryContentFilter === 'all' || (libraryContentFilter === 'filled' ? c.image_count > 0 || c.music_track_count > 0 || c.broll_count > 0 : c.image_count === 0 && c.music_track_count === 0 && !c.broll_count))
                       .length === 0 && (
@@ -12039,7 +12039,7 @@ export default function App() {
                           <p className="mt-1 text-[11px] text-slate-500">Essaie un autre nom ou modifie le filtre sélectionné.</p>
                         </div>
                       )}
-                    {libraryOverview
+                    {scopedLibraryOverview
                       .filter(c => c.channel_name.toLowerCase().includes(librarySearch.trim().toLowerCase()))
                       .filter(c => libraryContentFilter === 'all' || (libraryContentFilter === 'filled' ? c.image_count > 0 || c.music_track_count > 0 || c.broll_count > 0 : c.image_count === 0 && c.music_track_count === 0 && !c.broll_count))
                       .sort((a, b) => ((b.image_count || 0) + (b.music_track_count || 0) + (b.broll_count || 0)) - ((a.image_count || 0) + (a.music_track_count || 0) + (a.broll_count || 0)))
