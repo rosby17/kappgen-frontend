@@ -286,383 +286,518 @@ const getVideoThumbnailUrl = (vid, bustKey) => {
 };
 
 // Preset Subtitle Styles
+// Each preset is a real, distinct *technique* (font + words-per-line +
+// highlight strategy + case + box), not just a recolored copy of the same
+// look — a picker where every tile only swapped hue taught nothing about how
+// the finished video will actually read. `words_per_line` and `highlight_mode`
+// ("word" = one active word lit up at a time, "line" = whole chunk in the
+// accent color, "none" = plain, no accent ever used) are real
+// generate_ass_subtitles() params (src/pipeline/subtitles.py), so the picker
+// preview below can render the exact technique instead of a static label.
 const SUBTITLE_PRESETS = [
   {
     id: 'hormozi',
     name: 'Hormozi Gold 🔥',
-    font: 'Inter',
-    size: 46,
+    technique: '1 mot à la fois · surligné',
+    font: 'Bebas Neue',
+    size: 50,
     color: '#FFD700',
+    base_color: '#FFFFFF',
     outline_color: '#000000',
-    outline_width: 4,
+    outline_width: 5,
     position: 'bottom',
-    karaoke: true,
+    highlight_mode: 'word',
+    words_per_line: 1,
+    text_case: 'upper',
+    bold: true,
     box_color: 'transparent'
   },
   {
     id: 'tiktok_glow',
     name: 'TikTok Neon Cyan ⚡',
-    font: 'Inter',
-    size: 44,
+    technique: '3 mots · surlignage mot par mot · bandeau',
+    font: 'Sora',
+    size: 42,
     color: '#00FFFF',
+    base_color: '#FFFFFF',
     outline_color: '#003b46',
-    outline_width: 3,
+    outline_width: 2,
     position: 'bottom',
-    karaoke: true,
-    box_color: 'rgba(0,0,0,0.6)'
+    highlight_mode: 'word',
+    words_per_line: 3,
+    box_color: 'rgba(0,0,0,0.6)',
+    box_padding_x: 14, box_padding_y: 8, box_radius: 10
+  },
+  {
+    id: 'mrbeast_bold',
+    name: 'MrBeast Impact 💥',
+    technique: '2 mots · MAJUSCULES · sans surlignage',
+    font: 'Liberation Sans',
+    size: 56,
+    color: '#FFFFFF',
+    base_color: '#FFFFFF',
+    outline_color: '#000000',
+    outline_width: 7,
+    position: 'center',
+    highlight_mode: 'none',
+    words_per_line: 2,
+    text_case: 'upper',
+    bold: true,
+    box_color: 'transparent'
   },
   {
     id: 'cinematic_dark',
     name: 'Cinématique Épuré 🎬',
+    technique: 'phrase longue · aucun surlignage · discret',
     font: 'Inter',
-    size: 40,
+    size: 34,
     color: '#FFFFFF',
+    base_color: '#E5E7EB',
     outline_color: '#111111',
-    outline_width: 2,
+    outline_width: 1,
     position: 'bottom',
-    karaoke: true,
+    highlight_mode: 'none',
+    words_per_line: 7,
     box_color: 'transparent'
   },
   {
     id: 'classic_stoic',
     name: 'Stoïcien Vintage 📜',
-    font: 'Bebas Neue',
-    size: 50,
-    color: '#F5EBE0',
+    technique: 'phrase · surlignage ligne entière · parchemin',
+    font: 'Cinzel',
+    size: 44,
+    color: '#F4D58D',
+    base_color: '#F5EBE0',
     outline_color: '#2B1E16',
-    outline_width: 3,
-    position: 'bottom',
-    karaoke: false,
-    box_color: 'rgba(20,15,10,0.7)'
-  },
-  {
-    id: 'mrbeast_bold',
-    name: 'MrBeast Impact 💥',
-    font: 'Liberation Sans',
-    size: 52,
-    color: '#FFFFFF',
-    outline_color: '#000000',
-    outline_width: 6,
-    position: 'center',
-    karaoke: true,
-    box_color: 'transparent'
-  },
-  {
-    id: 'soft_pastel',
-    name: 'Pastel Doux 🌸',
-    font: 'Comfortaa',
-    size: 40,
-    color: '#FFD6EC',
-    outline_color: '#5B2A4A',
     outline_width: 2,
     position: 'bottom',
-    karaoke: true,
-    box_color: 'rgba(40,15,35,0.5)'
-  },
-  {
-    id: 'editorial_clean',
-    name: 'Éditorial Minimal ✒️',
-    font: 'Open Sans',
-    size: 38,
-    color: '#FFFFFF',
-    outline_color: '#000000',
-    outline_width: 1,
-    position: 'bottom',
-    karaoke: false,
-    box_color: 'rgba(0,0,0,0.75)'
-  },
-  {
-    id: 'lime_pop',
-    name: 'Lime Pop 🍋',
-    font: 'Inter',
-    size: 46,
-    color: '#CCFF00',
-    outline_color: '#0a1a00',
-    outline_width: 4,
-    position: 'bottom',
-    karaoke: true,
-    box_color: 'transparent'
-  },
-  {
-    id: 'royal_purple',
-    name: 'Violet Royal 👑',
-    font: 'Cabin',
-    size: 44,
-    color: '#D8B4FE',
-    outline_color: '#2E1065',
-    outline_width: 3,
-    position: 'top',
-    karaoke: true,
-    box_color: 'transparent'
-  },
-  {
-    id: 'true_crime',
-    name: 'True Crime Rouge 🩸',
-    font: 'Bebas Neue',
-    size: 48,
-    color: '#FF3B3B',
-    outline_color: '#1a0000',
-    outline_width: 4,
-    position: 'bottom',
-    karaoke: true,
-    box_color: 'rgba(10,0,0,0.6)'
-  },
-  {
-    id: 'comic_fun',
-    name: 'Comique Ludique 🎈',
-    font: 'Comic Neue',
-    size: 46,
-    color: '#FFA500',
-    outline_color: '#3D1F00',
-    outline_width: 4,
-    position: 'bottom',
-    karaoke: true,
-    box_color: 'transparent'
+    highlight_mode: 'line',
+    words_per_line: 5,
+    letter_spacing: 2,
+    box_color: 'rgba(20,15,10,0.7)',
+    box_padding_x: 16, box_padding_y: 10
   },
   {
     id: 'news_lower_third',
     name: 'JT Bandeau 📰',
+    technique: 'phrase · bandeau plein · aucun surlignage',
     font: 'Roboto',
-    size: 36,
+    size: 34,
     color: '#FFFFFF',
+    base_color: '#FFFFFF',
     outline_color: '#000000',
-    outline_width: 1,
+    outline_width: 0,
     position: 'bottom',
-    karaoke: false,
-    box_color: 'rgba(180,0,0,0.85)'
+    highlight_mode: 'none',
+    words_per_line: 6,
+    box_color: 'rgba(180,0,0,0.9)',
+    box_padding_x: 14, box_padding_y: 7
   },
   {
     id: 'motivation_gold',
     name: 'Motivation Or ⭐',
-    font: 'Inter',
-    size: 48,
+    technique: '1 mot · MAJUSCULES · centré, très gros',
+    font: 'League Spartan',
+    size: 52,
     color: '#FFC700',
+    base_color: '#FFFFFF',
     outline_color: '#3a2600',
     outline_width: 5,
     position: 'center',
-    karaoke: true,
+    highlight_mode: 'word',
+    words_per_line: 1,
+    text_case: 'upper',
     box_color: 'transparent'
-  },
-  // Box/pill-background presets — text sits on a solid rounded rectangle
-  // instead of relying on an outline for contrast (the "caption bubble" look).
-  {
-    id: 'white_pill',
-    name: 'Bulle Blanche ⬜',
-    font: 'Inter',
-    size: 40,
-    color: '#0A0A0A',
-    outline_color: '#FFFFFF',
-    outline_width: 0,
-    position: 'bottom',
-    karaoke: false,
-    box_color: '#FFFFFF'
   },
   {
     id: 'black_pill',
     name: 'Bulle Noire ⬛',
+    technique: '3 mots · bulle arrondie · surlignage mot',
     font: 'Inter',
-    size: 40,
-    color: '#FFFFFF',
+    size: 38,
+    color: '#FFD700',
+    base_color: '#FFFFFF',
     outline_color: '#000000',
     outline_width: 0,
     position: 'bottom',
-    karaoke: true,
-    box_color: '#000000'
+    highlight_mode: 'word',
+    words_per_line: 3,
+    bold: true,
+    box_color: '#000000',
+    box_padding_x: 14, box_padding_y: 9, box_radius: 16
   },
   {
     id: 'sunny_yellow_box',
     name: 'Boîte Jaune Soleil 🌞',
-    font: 'Poppins',
-    size: 42,
+    technique: '4 mots · bulle carrée · surlignage ligne',
+    font: 'Dosis',
+    size: 38,
     color: '#1A1400',
+    base_color: '#1A1400',
     outline_color: '#1A1400',
     outline_width: 0,
     position: 'bottom',
-    karaoke: true,
-    box_color: '#FFD400'
+    highlight_mode: 'none',
+    words_per_line: 4,
+    bold: true,
+    box_color: '#FFD400',
+    box_padding_x: 12, box_padding_y: 8
   },
   {
-    id: 'coral_box',
-    name: 'Boîte Corail 🪸',
-    font: 'Poppins',
-    size: 40,
-    color: '#FFFFFF',
-    outline_color: '#7A1E00',
-    outline_width: 0,
+    id: 'true_crime',
+    name: 'True Crime Rouge 🩸',
+    technique: '3 mots · surlignage ligne · sombre',
+    font: 'Bebas Neue',
+    size: 46,
+    color: '#FF3B3B',
+    base_color: '#E8E8E8',
+    outline_color: '#1a0000',
+    outline_width: 3,
     position: 'bottom',
-    karaoke: true,
-    box_color: '#FF6B4A'
+    highlight_mode: 'line',
+    words_per_line: 3,
+    box_color: 'rgba(10,0,0,0.6)',
+    box_padding_x: 12, box_padding_y: 8
   },
   {
-    id: 'mint_box',
-    name: 'Boîte Menthe 🌿',
-    font: 'Comfortaa',
-    size: 38,
-    color: '#043D2E',
-    outline_color: '#043D2E',
-    outline_width: 0,
-    position: 'bottom',
-    karaoke: false,
-    box_color: '#8FF0C6'
-  },
-  {
-    id: 'gold_box',
-    name: 'Boîte Dorée 🏆',
-    font: 'Inter',
-    size: 42,
-    color: '#231600',
-    outline_color: '#231600',
-    outline_width: 0,
+    id: 'comic_fun',
+    name: 'Comique Ludique 🎈',
+    technique: '2 mots · rebond visuel · rose vif',
+    font: 'Comic Neue',
+    size: 46,
+    color: '#FF4FA3',
+    base_color: '#FFFFFF',
+    outline_color: '#4C1D95',
+    outline_width: 5,
     position: 'center',
-    karaoke: true,
-    box_color: '#F2C94C'
-  },
-  // More outline-only styles, extra font/color variety
-  {
-    id: 'ice_blue',
-    name: 'Bleu Glacé ❄️',
-    font: 'Poppins',
-    size: 44,
-    color: '#E0F7FF',
-    outline_color: '#053B4D',
-    outline_width: 3,
-    position: 'bottom',
-    karaoke: true,
-    box_color: 'transparent'
+    highlight_mode: 'word',
+    words_per_line: 2,
+    box_color: '#FDE68A',
+    box_padding_x: 12, box_padding_y: 8, box_radius: 20
   },
   {
-    id: 'forest_green',
-    name: 'Vert Forêt 🌲',
-    font: 'Cabin',
-    size: 44,
-    color: '#B7F0B1',
-    outline_color: '#0C2B0A',
-    outline_width: 3,
-    position: 'bottom',
-    karaoke: true,
-    box_color: 'transparent'
-  },
-  {
-    id: 'hot_pink',
-    name: 'Rose Vif 💗',
-    font: 'Poppins',
-    size: 44,
-    color: '#FF3D9A',
-    outline_color: '#3A001C',
-    outline_width: 4,
-    position: 'bottom',
-    karaoke: true,
-    box_color: 'transparent'
-  },
-  {
-    id: 'noir_serif',
-    name: 'Noir Élégant 🎩',
-    font: 'Georgia',
+    id: 'documentary_gold',
+    name: 'Documentaire Or 🎬',
+    technique: 'phrase · surlignage ligne · ombre portée',
+    font: 'Playfair Display',
     size: 42,
-    color: '#F5F5F5',
-    outline_color: '#000000',
+    color: '#F7C948',
+    base_color: '#FFFFFF',
+    outline_color: '#111111',
+    outline_width: 2,
+    position: 'center',
+    highlight_mode: 'line',
+    words_per_line: 5,
+    shadow: true,
+    box_color: 'rgba(0,0,0,0.45)',
+    box_padding_x: 14, box_padding_y: 10
+  },
+  {
+    id: 'history_parchment',
+    name: 'Histoire Parchemin 📜',
+    technique: 'phrase · italique · parchemin',
+    font: 'EB Garamond',
+    size: 44,
+    color: '#F4D58D',
+    base_color: '#FFF8E7',
+    outline_color: '#3C2415',
     outline_width: 2,
     position: 'bottom',
-    karaoke: false,
-    box_color: 'transparent'
+    highlight_mode: 'line',
+    words_per_line: 5,
+    italic: true,
+    box_color: 'rgba(48,31,20,0.55)',
+    box_padding_x: 14, box_padding_y: 9
   },
   {
-    id: 'sunset_orange',
-    name: 'Coucher de Soleil 🌅',
-    font: 'Bebas Neue',
-    size: 50,
-    color: '#FF7A29',
-    outline_color: '#4A1900',
-    outline_width: 4,
+    id: 'finance_lime',
+    name: 'Finance Premium 📈',
+    technique: '2 mots · MAJUSCULES · surlignage mot',
+    font: 'Manrope',
+    size: 42,
+    color: '#A3FF12',
+    base_color: '#FFFFFF',
+    outline_color: '#071A0D',
+    outline_width: 3,
+    position: 'center',
+    highlight_mode: 'word',
+    words_per_line: 2,
+    text_case: 'upper',
+    bold: true,
+    box_color: 'rgba(0,0,0,0.5)',
+    box_padding_x: 12, box_padding_y: 8
+  },
+  {
+    id: 'truecrime_stamp',
+    name: 'Dossier Crime 🔍',
+    technique: 'machine à écrire · 1 mot à la fois',
+    font: 'Courier Prime',
+    size: 40,
+    color: '#FF3B30',
+    base_color: '#E5E7EB',
+    outline_color: '#120000',
+    outline_width: 2,
     position: 'bottom',
-    karaoke: true,
+    highlight_mode: 'word',
+    words_per_line: 1,
+    letter_spacing: 2,
+    box_color: 'rgba(15,15,15,0.75)',
+    box_padding_x: 10, box_padding_y: 7
+  },
+  {
+    id: 'sport_score',
+    name: 'Sport Impact 🏆',
+    technique: '1 mot · italique · MAJUSCULES',
+    font: 'Bebas Neue',
+    size: 54,
+    color: '#FDE047',
+    base_color: '#FFFFFF',
+    outline_color: '#061B3A',
+    outline_width: 5,
+    position: 'center',
+    highlight_mode: 'word',
+    words_per_line: 1,
+    text_case: 'upper',
+    bold: true,
+    italic: true,
     box_color: 'transparent'
   },
   {
-    id: 'electric_blue',
-    name: 'Bleu Électrique ⚡',
-    font: 'Inter',
+    id: 'luxury_serif',
+    name: 'Luxe Éditorial ✨',
+    technique: 'phrase · espacement large · aucun surlignage',
+    font: 'Vollkorn',
+    size: 40,
+    color: '#D6B36A',
+    base_color: '#F8F5EC',
+    outline_color: '#19150D',
+    outline_width: 1,
+    position: 'bottom',
+    highlight_mode: 'none',
+    words_per_line: 6,
+    letter_spacing: 3,
+    box_color: 'rgba(0,0,0,0.38)',
+    box_padding_x: 14, box_padding_y: 9
+  },
+  {
+    id: 'meditation_soft',
+    name: 'Méditation Douce 🕊️',
+    technique: 'phrase lente · surlignage ligne · centré',
+    font: 'Quicksand',
+    size: 40,
+    color: '#CFFAFE',
+    base_color: '#FFFFFF',
+    outline_color: '#164E63',
+    outline_width: 1,
+    position: 'center',
+    highlight_mode: 'line',
+    words_per_line: 6,
+    shadow: true,
+    box_color: 'rgba(8,47,73,0.45)',
+    box_padding_x: 14, box_padding_y: 10
+  },
+  {
+    id: 'kids_bubble',
+    name: 'Kids Pop 🎈',
+    technique: '2 mots · bulle très arrondie · surlignage mot',
+    font: 'Comic Neue',
     size: 46,
-    color: '#3DA9FF',
-    outline_color: '#00142E',
+    color: '#FF4FA3',
+    base_color: '#FFFFFF',
+    outline_color: '#4C1D95',
     outline_width: 4,
+    position: 'center',
+    highlight_mode: 'word',
+    words_per_line: 2,
+    box_color: '#FDE68A',
+    box_padding_x: 14, box_padding_y: 10, box_radius: 24,
+    shadow: true
+  },
+  {
+    id: 'tech_neon',
+    name: 'Tech Néon 🤖',
+    technique: '3 mots · espacement large · surlignage mot',
+    font: 'Jura',
+    size: 40,
+    color: '#22D3EE',
+    base_color: '#E0F2FE',
+    outline_color: '#082F49',
+    outline_width: 2,
     position: 'bottom',
-    karaoke: true,
+    highlight_mode: 'word',
+    words_per_line: 3,
+    letter_spacing: 3,
+    box_color: 'rgba(2,6,23,0.68)',
+    box_padding_x: 12, box_padding_y: 8
+  },
+  {
+    id: 'prayer_light',
+    name: 'Prière Lumière 🙏',
+    technique: 'phrase · surlignage ligne · sans bulle',
+    font: 'Cardo',
+    size: 44,
+    color: '#FFF1A8',
+    base_color: '#FFFFFF',
+    outline_color: '#3F2B00',
+    outline_width: 2,
+    position: 'center',
+    highlight_mode: 'line',
+    words_per_line: 5,
+    shadow: true,
+    shadow_distance: 4,
     box_color: 'transparent'
   },
   {
-    id: 'blood_moon',
-    name: 'Lune de Sang 🌑',
-    font: 'Bebas Neue',
-    size: 48,
-    color: '#E8E8E8',
-    outline_color: '#5C0000',
-    outline_width: 4,
+    id: 'minimal_caps',
+    name: 'Minimal Capitales ◻️',
+    technique: '4 mots · MAJUSCULES · espacement large',
+    font: 'Inter',
+    size: 36,
+    color: '#FFFFFF',
+    base_color: '#CBD5E1',
+    outline_color: '#000000',
+    outline_width: 0,
     position: 'bottom',
-    karaoke: true,
-    box_color: 'transparent'
-  },
-  {
-    id: 'documentary_gold', name: 'Documentaire Or 🎬', font: 'League Spartan', size: 48,
-    color: '#F7C948', base_color: '#FFFFFF', outline_color: '#111111', outline_width: 4,
-    position: 'center', karaoke: true, box_color: 'rgba(0,0,0,0.45)', box_padding: 12, shadow: true
-  },
-  {
-    id: 'clean_news', name: 'Actualité Pro 📰', font: 'Roboto', size: 42,
-    color: '#FFFFFF', base_color: '#FFFFFF', outline_color: '#0B2239', outline_width: 2,
-    position: 'bottom', karaoke: false, box_color: '#0B5ED7', box_padding: 10
-  },
-  {
-    id: 'meditation_soft', name: 'Méditation Douce 🕊️', font: 'Quicksand', size: 42,
-    color: '#CFFAFE', base_color: '#FFFFFF', outline_color: '#164E63', outline_width: 2,
-    position: 'center', karaoke: true, box_color: 'rgba(8,47,73,0.45)', box_padding: 14, shadow: true
-  },
-  {
-    id: 'history_parchment', name: 'Histoire Parchemin 📜', font: 'EB Garamond', size: 48,
-    color: '#F4D58D', base_color: '#FFF8E7', outline_color: '#3C2415', outline_width: 3,
-    position: 'bottom', karaoke: true, box_color: 'rgba(48,31,20,0.55)', box_padding: 12
-  },
-  {
-    id: 'finance_lime', name: 'Finance Premium 📈', font: 'Manrope', size: 44,
-    color: '#A3FF12', base_color: '#FFFFFF', outline_color: '#071A0D', outline_width: 4,
-    position: 'center', karaoke: true, box_color: 'rgba(0,0,0,0.5)', box_padding: 10
-  },
-  {
-    id: 'truecrime_stamp', name: 'Dossier Crime 🔍', font: 'Courier Prime', size: 42,
-    color: '#FF3B30', base_color: '#E5E7EB', outline_color: '#120000', outline_width: 4,
-    position: 'bottom', karaoke: true, box_color: 'rgba(15,15,15,0.72)', box_padding: 11, letter_spacing: 1
-  },
-  {
-    id: 'sport_score', name: 'Sport Impact 🏆', font: 'Bebas Neue', size: 54,
-    color: '#FDE047', base_color: '#FFFFFF', outline_color: '#061B3A', outline_width: 5,
-    position: 'center', karaoke: true, box_color: 'transparent', bold: true, italic: true
-  },
-  {
-    id: 'luxury_serif', name: 'Luxe Éditorial ✨', font: 'Vollkorn', size: 44,
-    color: '#D6B36A', base_color: '#F8F5EC', outline_color: '#19150D', outline_width: 2,
-    position: 'bottom', karaoke: false, box_color: 'rgba(0,0,0,0.38)', box_padding: 12, letter_spacing: 2
-  },
-  {
-    id: 'kids_bubble', name: 'Kids Pop 🎈', font: 'Comic Neue', size: 48,
-    color: '#FF4FA3', base_color: '#FFFFFF', outline_color: '#4C1D95', outline_width: 5,
-    position: 'center', karaoke: true, box_color: '#FDE68A', box_padding: 12, shadow: true
-  },
-  {
-    id: 'tech_neon', name: 'Tech Néon 🤖', font: 'Jura', size: 46,
-    color: '#22D3EE', base_color: '#E0F2FE', outline_color: '#082F49', outline_width: 4,
-    position: 'bottom', karaoke: true, box_color: 'rgba(2,6,23,0.68)', box_padding: 10, letter_spacing: 2
-  },
-  {
-    id: 'prayer_light', name: 'Prière Lumière 🙏', font: 'Cardo', size: 46,
-    color: '#FFF1A8', base_color: '#FFFFFF', outline_color: '#3F2B00', outline_width: 3,
-    position: 'center', karaoke: true, box_color: 'transparent', shadow: true, shadow_distance: 4
-  },
-  {
-    id: 'minimal_caps', name: 'Minimal Capitales ◻️', font: 'Inter', size: 40,
-    color: '#FFFFFF', base_color: '#CBD5E1', outline_color: '#000000', outline_width: 1,
-    position: 'bottom', karaoke: true, box_color: 'rgba(0,0,0,0.62)', box_padding: 9, text_case: 'upper', letter_spacing: 3
+    highlight_mode: 'word',
+    words_per_line: 4,
+    text_case: 'upper',
+    letter_spacing: 3,
+    box_color: 'rgba(0,0,0,0.62)',
+    box_padding_x: 10, box_padding_y: 7
   }
 ];
+
+// Sample narration the live preset preview cycles through — chosen to read
+// naturally in French regardless of how many words a given preset groups
+// per line (1 to 7), rather than a generic "ABC123" label that a channel
+// owner has no way to relate to their own videos.
+const SUBTITLE_PREVIEW_WORDS = ['Voici', 'comment', 'changer', 'ta', 'vie', 'dès', 'aujourd’hui', 'sans', 'attendre', 'demain'];
+
+// Renders a preset's *actual technique* — words grouped exactly as
+// words_per_line dictates, the accent color applied exactly as highlight_mode
+// dictates (word-by-word, whole line, or never), text_case applied — cycling
+// automatically so the picker shows motion instead of a frozen label. This is
+// the same logic generate_ass_subtitles() (src/pipeline/subtitles.py) uses to
+// burn the real file, just replayed in CSS instead of libass.
+function SubtitlePresetPreview({ preset, big = false }) {
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    const interval = setInterval(() => setTick(t => t + 1), 650);
+    return () => clearInterval(interval);
+  }, []);
+
+  const perLine = Math.max(1, preset.words_per_line || (preset.karaoke === false ? 6 : 3));
+  const chunks = [];
+  for (let i = 0; i < SUBTITLE_PREVIEW_WORDS.length; i += perLine) chunks.push(SUBTITLE_PREVIEW_WORDS.slice(i, i + perLine));
+  const highlightMode = preset.highlight_mode || (preset.karaoke === false ? 'line' : 'word');
+  const chunkIndex = Math.floor(tick / (highlightMode === 'word' ? perLine : 1)) % chunks.length;
+  const chunk = chunks[chunkIndex];
+  const activeWordIndex = highlightMode === 'word' ? tick % perLine : -1;
+
+  const applyCase = (w) => {
+    if (preset.text_case === 'upper') return w.toUpperCase();
+    if (preset.text_case === 'lower') return w.toLowerCase();
+    return w;
+  };
+
+  const baseColor = preset.base_color || '#FFFFFF';
+  const accentColor = preset.color || '#FFD700';
+  const fontSizePx = big ? Math.round((preset.size || 44) * 0.62) : Math.max(11, Math.round((preset.size || 44) * 0.28));
+  const hasBox = preset.box_color && preset.box_color !== 'transparent';
+
+  return (
+    <div
+      className={`w-full ${big ? 'aspect-video' : 'aspect-square'} rounded-xl flex items-center justify-center overflow-hidden relative`}
+      style={{
+        background: 'linear-gradient(155deg, #1b2433 0%, #0b0f16 55%, #05070b 100%)',
+      }}
+    >
+      {/* Faint horizon + vignette so the tile reads as "a video frame", not a swatch */}
+      <div className="absolute inset-0 opacity-40" style={{ backgroundImage: 'radial-gradient(circle at 30% 25%, rgba(255,255,255,0.08), transparent 55%)' }} />
+      <div
+        className="relative flex flex-wrap items-center justify-center gap-x-2 gap-y-1 px-3 text-center"
+        style={{
+          fontFamily: preset.font,
+          fontSize: `${fontSizePx}px`,
+          letterSpacing: preset.letter_spacing ? `${Math.min(preset.letter_spacing, big ? 4 : 2)}px` : undefined,
+          fontStyle: preset.italic ? 'italic' : 'normal',
+          fontWeight: preset.bold ? 800 : 700,
+          ...(hasBox ? {
+            backgroundColor: preset.box_color,
+            borderRadius: `${Math.min(preset.box_radius ?? 6, big ? 18 : 10)}px`,
+            padding: big ? '10px 18px' : '4px 8px',
+          } : {}),
+        }}
+      >
+        {chunk.map((word, i) => {
+          const isActiveWord = highlightMode === 'word' && i === activeWordIndex;
+          const color = isActiveWord || highlightMode === 'line' ? accentColor : baseColor;
+          return (
+            <span
+              key={i}
+              style={{
+                color,
+                WebkitTextStroke: hasBox ? undefined : `${Math.min(big ? 2.5 : 1.4, (preset.outline_width || 3) / (big ? 1.8 : 2.6))}px ${preset.outline_color || '#000000'}`,
+                paintOrder: 'stroke fill',
+                textShadow: preset.shadow ? `0 ${big ? 3 : 1.5}px ${big ? 6 : 3}px rgba(0,0,0,0.65)` : undefined,
+                transition: 'color 150ms ease',
+              }}
+            >
+              {applyCase(word)}
+            </span>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// Approximates HyperFrames' 3 motion-design card templates (backend/src/pipeline/facecam_cards.py
+// TEMPLATES / _TEMPLATE_CSS) in CSS so a channel owner can see what "Titres animés" actually
+// inserts before turning it on — the real render uses GSAP inside headless Chrome, this replays
+// the same pop-in/hold/fade-out beats with a CSS keyframe loop instead. #00c2ff matches
+// DEFAULT_ACCENT_COLOR there; the real render uses the channel's own branding accent instead.
+const MOTION_CARD_TEMPLATES = [
+  { id: 'kicker_headline', name: 'Kicker + Titre', text: 'Le vrai secret ?', kicker: '•  SECTION SUIVANTE' },
+  { id: 'stat_bold', name: 'Statistique', text: '87 %' },
+  { id: 'lower_third', name: 'Bandeau bas', text: 'Ce que personne ne te dit' },
+];
+function MotionCardTemplatePreview({ template }) {
+  const accent = '#00c2ff';
+  return (
+    <div className="w-full aspect-video rounded-xl overflow-hidden relative" style={{ background: 'linear-gradient(155deg, #1b2433 0%, #0b0f16 55%, #05070b 100%)' }}>
+      <div className="absolute inset-0 opacity-40" style={{ backgroundImage: 'radial-gradient(circle at 30% 25%, rgba(255,255,255,0.08), transparent 55%)' }} />
+      <div className="motion-card-pop absolute inset-0">
+        {template.id === 'kicker_headline' && (
+          <div className="absolute" style={{ left: '6%', top: '62%' }}>
+            <div style={{ color: accent, fontWeight: 800, fontSize: '9px', letterSpacing: '1px' }}>{template.kicker}</div>
+            <div style={{ color: '#fff', fontWeight: 800, fontSize: '17px', marginTop: '4px', maxWidth: '90%' }}>{template.text}</div>
+          </div>
+        )}
+        {template.id === 'stat_bold' && (
+          <div className="absolute inset-x-0 text-center" style={{ top: '32%' }}>
+            <div style={{ color: accent, fontWeight: 900, fontSize: '30px' }}>{template.text}</div>
+          </div>
+        )}
+        {template.id === 'lower_third' && (
+          <div className="absolute inset-x-0" style={{ top: '76%' }}>
+            <div style={{ position: 'absolute', inset: 0, background: 'rgba(10,15,25,0.75)' }} />
+            <div style={{ position: 'relative', color: '#fff', fontWeight: 800, fontSize: '13px', padding: '8px 5%' }}>{template.text}</div>
+          </div>
+        )}
+      </div>
+      <style>{`
+        @keyframes motionCardPop {
+          0% { opacity: 0; transform: translateY(10px) scale(0.9); }
+          12% { opacity: 1; transform: translateY(0) scale(1); }
+          78% { opacity: 1; transform: translateY(0) scale(1); }
+          100% { opacity: 0; transform: translateY(0) scale(1); }
+        }
+        .motion-card-pop { animation: motionCardPop 2.9s ease-in-out infinite; }
+      `}</style>
+    </div>
+  );
+}
 
 // Fonts actually installed on the render server (see Dockerfile) — what you pick here
 // is exactly what libass will use to burn the subtitles into the final video.
@@ -4560,6 +4695,15 @@ export default function App() {
   const [facecamEditingStyle, setFacecamEditingStyle] = useState('kappgen');
   const [facecamFormatTemplate, setFacecamFormatTemplate] = useState('facecam');
   const [facecamSavingBranding, setFacecamSavingBranding] = useState(false);
+  const [connectingFacecamYouTube, setConnectingFacecamYouTube] = useState(false);
+  // Overlay upload state, kept separate from the main wizard's
+  // overlayInputRef/replacingOverlayId — those write to `newChannel`, while
+  // Facecam edits `activeChannel` directly (no draft-then-save wizard step
+  // here, saveFacecamBranding already persists on click).
+  const facecamOverlayInputRef = useRef(null);
+  const facecamReplaceOverlayInputRef = useRef(null);
+  const [facecamOverlayUploading, setFacecamOverlayUploading] = useState(false);
+  const [facecamReplacingOverlayId, setFacecamReplacingOverlayId] = useState(null);
   const FACECAM_EDITING_STYLES = ['kappgen', 'vox', 'kallaway', 'keynote', 'atlas', 'terminal', 'data', 'optimist'];
   const FACECAM_FORMAT_TEMPLATES = [
     { id: 'facecam', label: 'Facecam plein cadre' },
@@ -5017,6 +5161,130 @@ export default function App() {
     }
   };
 
+  // Same OAuth endpoint as the main wizard's handleConnectYouTubeFromWizard,
+  // but simpler: a Facecam channel always already exists by the time this
+  // panel is open (no "create it first" branch, no wizard-step breadcrumb).
+  const connectFacecamYouTube = async (channel) => {
+    setConnectingFacecamYouTube(true);
+    try {
+      const authRes = await authFetch(`${API_BASE}/channels/${channel.id}/youtube/auth-url`);
+      if (!authRes.ok) {
+        const detail = await authRes.json().catch(() => ({}));
+        throw new Error(detail.detail || 'Connexion YouTube indisponible.');
+      }
+      const data = await authRes.json();
+      window.location.href = data.auth_url;
+    } catch (err) {
+      showToast(err.message, 'error');
+      setConnectingFacecamYouTube(false);
+    }
+  };
+
+  // Same /channels/{id}/overlays endpoints as the main wizard's
+  // handleUploadOverlay/handleReplaceOverlayFile/handleDeleteOverlay, adapted
+  // to write into activeChannel/channels instead of newChannel (Facecam has
+  // no separate draft state — the channel already exists when this panel opens).
+  const handleFacecamUploadOverlay = async (e) => {
+    const file = (e.target.files || [])[0];
+    e.target.value = '';
+    if (!file || !activeChannel) return;
+    setFacecamOverlayUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await authFetch(`${API_BASE}/channels/${activeChannel.id}/overlays`, { method: 'POST', body: formData });
+      if (!res.ok) {
+        const detail = await res.json().catch(() => ({}));
+        throw new Error(detail.detail || "Ajout de l'incrustation impossible.");
+      }
+      const data = await res.json();
+      setActiveChannel(prev => ({ ...prev, branding: data.branding }));
+      setChannels(prev => prev.map(c => c.id === data.id ? data : c));
+      showToast('Incrustation ajoutée.', 'success');
+    } catch (err) {
+      showToast(err.message || "Erreur lors de l'ajout de l'incrustation.", 'error');
+    } finally {
+      setFacecamOverlayUploading(false);
+    }
+  };
+
+  const handleFacecamReplaceOverlayFile = async (e) => {
+    const file = (e.target.files || [])[0];
+    e.target.value = '';
+    const overlayId = facecamReplacingOverlayId;
+    if (!file || !overlayId || !activeChannel) { setFacecamReplacingOverlayId(null); return; }
+    const old = (activeChannel.branding.overlays || []).find(o => o.id === overlayId);
+    setFacecamOverlayUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('replace_id', overlayId);
+      const res = await authFetch(`${API_BASE}/channels/${activeChannel.id}/overlays`, { method: 'POST', body: formData });
+      if (!res.ok) {
+        const detail = await res.json().catch(() => ({}));
+        throw new Error(detail.detail || 'Remplacement impossible.');
+      }
+      const data = await res.json();
+      let overlays = data.branding?.overlays || [];
+      const newest = overlays[overlays.length - 1];
+      if (old && newest) {
+        overlays = overlays.map(o => o.id === newest.id ? { ...o, corner: old.corner, x_percent: old.x_percent, y_percent: old.y_percent, size_percent: old.size_percent, opacity: old.opacity, shape: old.shape, enabled: old.enabled } : o);
+      }
+      const delRes = await authFetch(`${API_BASE}/channels/${activeChannel.id}/overlays/${overlayId}`, { method: 'DELETE' });
+      if (delRes.ok) {
+        const delData = await delRes.json();
+        overlays = (delData.branding?.overlays || []).map(o => o.id === newest?.id ? overlays.find(x => x.id === newest.id) || o : o);
+      }
+      setActiveChannel(prev => ({ ...prev, branding: { ...prev.branding, overlays } }));
+      setChannels(prev => prev.map(c => c.id === data.id ? { ...data, branding: { ...data.branding, overlays } } : c));
+      showToast('Image remplacée.', 'success');
+    } catch (err) {
+      showToast(err.message || 'Erreur lors du remplacement.', 'error');
+    } finally {
+      setFacecamOverlayUploading(false);
+      setFacecamReplacingOverlayId(null);
+    }
+  };
+
+  const handleFacecamDeleteOverlay = async (overlayId) => {
+    if (!activeChannel) return;
+    try {
+      const res = await authFetch(`${API_BASE}/channels/${activeChannel.id}/overlays/${overlayId}`, { method: 'DELETE' });
+      if (res.status === 404) {
+        setActiveChannel(prev => ({ ...prev, branding: { ...prev.branding, overlays: (prev.branding.overlays || []).filter(o => o.id !== overlayId) } }));
+        return;
+      }
+      if (!res.ok) {
+        const detail = await res.json().catch(() => ({}));
+        throw new Error(detail.detail || `Suppression impossible (${res.status}).`);
+      }
+      const data = await res.json();
+      setActiveChannel(prev => ({ ...prev, branding: data.branding }));
+      setChannels(prev => prev.map(c => c.id === data.id ? data : c));
+    } catch (err) {
+      showToast(err.message || 'Erreur lors de la suppression.', 'error');
+    }
+  };
+
+  // Corner/size/shape/enabled changes are saved immediately via the same PUT
+  // saveFacecamBranding already uses (no separate draft step to reconcile).
+  // Accepts either a single {field, value} or a {patch: {...}} of several
+  // fields at once (corner presets need to set corner + x/y together).
+  const updateFacecamOverlayField = (overlayId, fieldOrPatch, value) => {
+    const patch = typeof fieldOrPatch === 'object' ? fieldOrPatch : { [fieldOrPatch]: value };
+    setActiveChannel(prev => {
+      const branding = { ...prev.branding, overlays: (prev.branding.overlays || []).map(o => o.id === overlayId ? { ...o, ...patch } : o) };
+      authFetch(`${API_BASE}/channels/${prev.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ branding }),
+      }).then(res => res.ok && res.json()).then(data => {
+        if (data) setChannels(prevChannels => prevChannels.map(c => c.id === data.id ? data : c));
+      });
+      return { ...prev, branding };
+    });
+  };
+
   const loadProductionProgress = async (videoId, { quiet = false } = {}) => {
     if (!videoId || String(videoId).startsWith('pending-')) return;
     if (!quiet) setProductionProgressLoading(true);
@@ -5353,6 +5621,7 @@ export default function App() {
   const [fontPickerOpen, setFontPickerOpen] = useState(false);
   const [fontSearchQuery, setFontSearchQuery] = useState('');
   const [subtitleTab, setSubtitleTab] = useState('customize');
+  const [zoomedSubtitlePresetId, setZoomedSubtitlePresetId] = useState(null);
   const [nicheMode, setNicheMode] = useState('preset');
   const [styleAnalyzing, setStyleAnalyzing] = useState(false);
   const [musicFiles, setMusicFiles] = useState([]);
@@ -13162,12 +13431,28 @@ export default function App() {
 
                 {facecamBrandingOpen && (
                   <div className="bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-2xl p-5 space-y-5">
-                    <div>
-                      <h3 className="text-sm font-bold text-white">Charte graphique de la chaîne</h3>
-                      <p className="text-xs text-slate-400 mt-1">
-                        Ce qui reste identique d'une vidéo à l'autre sur cette chaîne — logo, couleur, police —
-                        appliqué automatiquement à chaque montage. Le fichier brut et le titre restent propres à chaque vidéo.
-                      </p>
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <h3 className="text-sm font-bold text-white">Charte graphique de la chaîne</h3>
+                        <p className="text-xs text-slate-400 mt-1">
+                          Ce qui reste identique d'une vidéo à l'autre sur cette chaîne — logo, couleur, police —
+                          appliqué automatiquement à chaque montage. Le fichier brut et le titre restent propres à chaque vidéo.
+                        </p>
+                      </div>
+                      {activeChannel.youtube_connected ? (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wide bg-emerald-950/80 text-emerald-300 border border-emerald-700/60 shrink-0">
+                          <YouTubeIcon className="w-3.5 h-2.5" /> {activeChannel.youtube_channel_title || 'Connectée'}
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          disabled={connectingFacecamYouTube}
+                          onClick={() => connectFacecamYouTube(activeChannel)}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wide bg-slate-800/80 text-slate-300 border border-slate-700/60 hover:bg-slate-700/80 hover:text-white transition-colors disabled:opacity-50 shrink-0"
+                        >
+                          <YouTubeIcon className="w-3.5 h-2.5" /> {connectingFacecamYouTube ? 'Connexion…' : 'Connecter YouTube'}
+                        </button>
+                      )}
                     </div>
 
                     <div className="flex items-center gap-4">
@@ -13189,6 +13474,91 @@ export default function App() {
                         </label>
                         {facecamLogoFile && <span className="ml-2 text-[11px] text-slate-500">{facecamLogoFile.name}</span>}
                       </div>
+                    </div>
+
+                    <div className="bg-[var(--bg-input)] border border-[var(--border-subtle)] rounded-xl p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <label className="block text-xs font-bold text-slate-300">Incrustations d'images supplémentaires</label>
+                        <button
+                          type="button"
+                          onClick={() => facecamOverlayInputRef.current?.click()}
+                          disabled={facecamOverlayUploading || (activeChannel.branding.overlays || []).length >= 6}
+                          className="px-3 py-1.5 rounded-lg text-[11px] font-bold bg-[#00c2ff]/10 text-[#00c2ff] border border-[#00c2ff]/40 hover:bg-[#00c2ff]/20 transition-colors disabled:opacity-50 flex items-center gap-1.5"
+                        >
+                          <span className="material-symbols-outlined text-[14px]">{facecamOverlayUploading ? 'progress_activity' : 'add_photo_alternate'}</span>
+                          {facecamOverlayUploading ? 'Ajout…' : 'Ajouter'}
+                        </button>
+                        <input type="file" ref={facecamOverlayInputRef} accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml" onChange={handleFacecamUploadOverlay} className="hidden" />
+                        <input type="file" ref={facecamReplaceOverlayInputRef} accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml" onChange={handleFacecamReplaceOverlayFile} className="hidden" />
+                      </div>
+                      {(activeChannel.branding.overlays || []).length === 0 ? (
+                        <p className="text-[11px] text-slate-500">Aucune incrustation — ajoute n'importe quelle image à superposer sur la vidéo (bouton « Abonne-toi », cloche de notification, mascotte, sticker...), placée au coin de ton choix, taille réglable.</p>
+                      ) : (
+                        <div className="space-y-2.5">
+                          {(activeChannel.branding.overlays || []).map(ov => {
+                            const ovSize = ov.size_percent ?? 10;
+                            const xy = presetXY(ov.corner, ovSize);
+                            const xPercent = ov.x_percent ?? xy.x;
+                            const yPercent = ov.y_percent ?? xy.y;
+                            return (
+                            <div key={ov.id} className="bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl p-2.5 space-y-2">
+                              <div className="flex items-center gap-3">
+                                <button
+                                  type="button"
+                                  onClick={() => { setFacecamReplacingOverlayId(ov.id); facecamReplaceOverlayInputRef.current?.click(); }}
+                                  disabled={facecamOverlayUploading}
+                                  title="Cliquer pour remplacer l'image"
+                                  className="w-9 h-9 rounded-lg bg-slate-950/40 flex-shrink-0 relative overflow-hidden group/thumb disabled:opacity-50"
+                                >
+                                  <img src={getVideoUrl(ov.image_path)} alt="" className="w-full h-full object-contain" />
+                                  <span className="absolute inset-0 flex items-center justify-center bg-slate-950/0 group-hover/thumb:bg-slate-950/60 transition-colors">
+                                    <span className="material-symbols-outlined text-[14px] text-white opacity-0 group-hover/thumb:opacity-100 transition-opacity">{facecamOverlayUploading && facecamReplacingOverlayId === ov.id ? 'progress_activity' : 'sync'}</span>
+                                  </span>
+                                </button>
+                                <div className="flex items-center gap-1 flex-shrink-0" title="Positions rapides">
+                                  {[
+                                    { id: 'top-left', label: 'Haut gauche', icon: 'north_west' },
+                                    { id: 'top-right', label: 'Haut droite', icon: 'north_east' },
+                                    { id: 'bottom-left', label: 'Bas gauche', icon: 'south_west' },
+                                    { id: 'bottom-right', label: 'Bas droite', icon: 'south_east' },
+                                  ].map(c => {
+                                    const target = presetXY(c.id, ovSize);
+                                    return (
+                                      <button
+                                        key={c.id}
+                                        type="button"
+                                        title={c.label}
+                                        onClick={() => updateFacecamOverlayField(ov.id, { corner: c.id, x_percent: target.x, y_percent: target.y })}
+                                        className={`w-6 h-6 flex items-center justify-center rounded-md border transition-colors ${
+                                          Math.round(xPercent) === Math.round(target.x) && Math.round(yPercent) === Math.round(target.y)
+                                            ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]'
+                                            : 'bg-[var(--bg-input)] border-[var(--border)] text-slate-500 hover:border-slate-500'
+                                        }`}
+                                      >
+                                        <span className="material-symbols-outlined text-[12px]">{c.icon}</span>
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                                <ShapePicker value={ov.shape || 'rectangle'} onChange={v => updateFacecamOverlayField(ov.id, 'shape', v)} />
+                                <button
+                                  type="button"
+                                  onClick={() => handleFacecamDeleteOverlay(ov.id)}
+                                  title="Supprimer"
+                                  className="w-7 h-7 flex items-center justify-center rounded-lg text-rose-400 hover:bg-rose-950/40 flex-shrink-0 ml-auto"
+                                >
+                                  <span className="material-symbols-outlined text-[16px]">close</span>
+                                </button>
+                              </div>
+                              <div className="grid grid-cols-3 gap-2.5 pl-1">
+                                <MiniSlider label="Taille" value={ovSize} min={4} max={35} onChange={v => updateFacecamOverlayField(ov.id, 'size_percent', v)} />
+                                <MiniSlider label="Position X" value={xPercent} min={-20} max={120} onChange={v => updateFacecamOverlayField(ov.id, 'x_percent', v)} />
+                                <MiniSlider label="Position Y" value={yPercent} min={-20} max={120} onChange={v => updateFacecamOverlayField(ov.id, 'y_percent', v)} />
+                              </div>
+                            </div>
+                          );})}
+                        </div>
+                      )}
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -15205,81 +15575,101 @@ export default function App() {
                           </button>
                         </div>
 
-                        {/* Presets Grid — CapCut-style: a square tile rendering the actual
-                            style ("ABC123") so you pick by look, with the name below it. */}
+                        {/* Presets Grid — each tile plays the preset's actual technique
+                            (live word-by-word/line highlight, real font, real grouping)
+                            on a video-frame-like background, not a frozen "ABC123" label,
+                            so you pick by how it will really look and animate. */}
                         {subtitleTab === 'presets' && (
                         <div>
                           <label className="block text-xs font-bold text-slate-300 mb-2">Presets de style sous-titre recommandés</label>
-                          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
+                          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                             {SUBTITLE_PRESETS.map(preset => {
                               const isActive = newChannel.subtitle_style.font === preset.font
                                 && newChannel.subtitle_style.color === preset.color
                                 && newChannel.subtitle_style.size === preset.size;
+                              const applyPreset = () => {
+                                setNewChannel(prev => ({
+                                  ...prev,
+                                  subtitle_style: {
+                                    ...prev.subtitle_style,
+                                    ...preset,
+                                    id: undefined,
+                                    name: undefined,
+                                    technique: undefined,
+                                    // A preset is a visual skin, never a placement reset.
+                                    // Preserve every positioning/flow decision the creator
+                                    // already made before browsing visual designs.
+                                    position: prev.subtitle_style.position,
+                                    align: prev.subtitle_style.align,
+                                    x_offset: prev.subtitle_style.x_offset,
+                                    y_offset: prev.subtitle_style.y_offset,
+                                    rotation: prev.subtitle_style.rotation,
+                                    subtitle_mode: prev.subtitle_style.subtitle_mode,
+                                    paragraph_duration_seconds: prev.subtitle_style.paragraph_duration_seconds,
+                                    paragraph_max_words: prev.subtitle_style.paragraph_max_words,
+                                    paragraph_words_per_line: prev.subtitle_style.paragraph_words_per_line,
+                                  }
+                                }));
+                              };
                               return (
-                                <button
-                                  key={preset.id}
-                                  type="button"
-                                  onClick={() => {
-                                    setNewChannel(prev => ({
-                                      ...prev,
-                                      subtitle_style: {
-                                        ...prev.subtitle_style,
-                                        ...preset,
-                                        id: undefined,
-                                        name: undefined,
-                                        // A preset is a visual skin, never a placement reset.
-                                        // Preserve every positioning/flow decision the creator
-                                        // already made before browsing visual designs.
-                                        position: prev.subtitle_style.position,
-                                        align: prev.subtitle_style.align,
-                                        x_offset: prev.subtitle_style.x_offset,
-                                        y_offset: prev.subtitle_style.y_offset,
-                                        rotation: prev.subtitle_style.rotation,
-                                        subtitle_mode: prev.subtitle_style.subtitle_mode,
-                                        paragraph_duration_seconds: prev.subtitle_style.paragraph_duration_seconds,
-                                        paragraph_max_words: prev.subtitle_style.paragraph_max_words,
-                                        paragraph_words_per_line: prev.subtitle_style.paragraph_words_per_line,
-                                      }
-                                    }));
-                                  }}
-                                  className="group text-center"
-                                  title={preset.name}
-                                >
-                                  <div
-                                    className={`aspect-square rounded-xl flex items-center justify-center overflow-hidden bg-[#12161f] border-2 transition-all ${
-                                      isActive ? 'border-[#00c2ff] shadow-lg shadow-[#00c2ff]/20' : 'border-[var(--border)] group-hover:border-slate-500'
-                                    }`}
-                                    style={{
-                                      backgroundImage: 'radial-gradient(circle at center, rgba(255,255,255,0.06), transparent 70%)'
-                                    }}
-                                  >
-                                    <span
-                                      style={{
-                                        fontFamily: preset.font,
-                                        color: preset.color,
-                                        WebkitTextStroke: `${Math.min(1.5, (preset.outline_width || 3) / 2.5)}px ${preset.outline_color || '#000000'}`,
-                                        paintOrder: 'stroke fill',
-                                        fontSize: '15px',
-                                        ...(preset.box_color && preset.box_color !== 'transparent' ? {
-                                          backgroundColor: preset.box_color,
-                                          padding: '3px 6px',
-                                          borderRadius: '4px'
-                                        } : {})
-                                      }}
-                                      className="font-black"
+                                <div key={preset.id} className="group text-center relative">
+                                  <button type="button" onClick={applyPreset} className="w-full" title={preset.name}>
+                                    <div
+                                      className={`rounded-xl overflow-hidden border-2 transition-all ${
+                                        isActive ? 'border-[#00c2ff] shadow-lg shadow-[#00c2ff]/20' : 'border-[var(--border)] group-hover:border-slate-500'
+                                      }`}
                                     >
-                                      ABC123
-                                    </span>
-                                  </div>
+                                      <SubtitlePresetPreview preset={preset} />
+                                    </div>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => { e.stopPropagation(); setZoomedSubtitlePresetId(preset.id); }}
+                                    title="Agrandir l'aperçu"
+                                    className="absolute top-1.5 right-1.5 w-6 h-6 flex items-center justify-center rounded-lg bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/80"
+                                  >
+                                    <span className="material-symbols-outlined text-[14px]">zoom_in</span>
+                                  </button>
                                   <div className={`text-[10px] font-semibold mt-1.5 truncate ${isActive ? 'text-[#00c2ff]' : 'text-slate-300'}`}>
                                     {preset.name}
                                   </div>
-                                </button>
+                                  <div className="text-[9px] text-slate-500 truncate">{preset.technique}</div>
+                                </div>
                               );
                             })}
                           </div>
                         </div>
                         )}
+
+                        {/* Zoom modal — the same live technique preview, larger and with
+                            its full description, so "agrandir" actually reveals more
+                            detail instead of just scaling up a blurry static label. */}
+                        {zoomedSubtitlePresetId && (() => {
+                          const preset = SUBTITLE_PRESETS.find(p => p.id === zoomedSubtitlePresetId);
+                          if (!preset) return null;
+                          return (
+                            <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/80 p-6" onClick={() => setZoomedSubtitlePresetId(null)}>
+                              <div className="w-full max-w-xl" onClick={(e) => e.stopPropagation()}>
+                                <div className="rounded-2xl overflow-hidden border-2 border-[#00c2ff] shadow-2xl">
+                                  <SubtitlePresetPreview preset={preset} big />
+                                </div>
+                                <div className="mt-3 flex items-start justify-between gap-3">
+                                  <div>
+                                    <div className="text-sm font-bold text-white">{preset.name}</div>
+                                    <div className="text-xs text-slate-400 mt-0.5">{preset.technique} · police {preset.font}</div>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => setZoomedSubtitlePresetId(null)}
+                                    className="shrink-0 w-8 h-8 flex items-center justify-center rounded-lg bg-[var(--bg-surface-alt)] text-slate-300 hover:text-white"
+                                  >
+                                    <span className="material-symbols-outlined text-[16px]">close</span>
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })()}
 
                         {/* Custom Controls */}
                         {subtitleTab === 'customize' && (
@@ -16018,8 +16408,23 @@ export default function App() {
 
                           {/* Motion design (titres animés) — nouveau, gourmand en temps de
                               rendu (Node/Chrome headless, ~15-25s par carte), donc explicitement
-                              opt-in plutôt qu'activé par défaut comme les autres effets. */}
-                          <label className="mt-4 flex cursor-pointer items-start gap-2.5 rounded-xl border border-white/10 bg-black/10 px-3 py-2.5">
+                              opt-in plutôt qu'activé par défaut comme les autres effets. Une
+                              galerie d'aperçu précède le simple interrupteur, pour qu'on sache
+                              vraiment à quoi ressemblent les cartes avant de les activer — les
+                              3 styles sont insérés automatiquement selon le contenu du script
+                              (statistique détectée, changement de section...), pas au choix. */}
+                          <div className="mt-4 rounded-xl border border-white/10 bg-black/10 px-3 py-2.5">
+                            <span className="block text-[10px] font-bold text-slate-300 mb-2">3 styles de cartes utilisés automatiquement</span>
+                            <div className="grid grid-cols-3 gap-2">
+                              {MOTION_CARD_TEMPLATES.map(template => (
+                                <div key={template.id}>
+                                  <MotionCardTemplatePreview template={template} />
+                                  <div className="text-[9px] text-slate-500 text-center mt-1 truncate">{template.name}</div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                          <label className="mt-2 flex cursor-pointer items-start gap-2.5 rounded-xl border border-white/10 bg-black/10 px-3 py-2.5">
                             <input
                               type="checkbox"
                               checked={!!newChannel.effects_config.motion_cards_enabled}
