@@ -15104,13 +15104,20 @@ export default function App() {
                             are any — instead of a separate preview mockup + dropzone +
                             caption + list all stacked and saturating the space. */}
                         {(newChannel.thumbnail_style?.reference_image_paths || []).length > 0 ? (
-                          <div className={`flex min-h-36 flex-wrap content-start gap-2 rounded-xl border-2 border-dashed p-3 transition-colors ${thumbnailDragOver ? 'border-[#00c2ff] bg-[#00c2ff]/10' : 'border-slate-700'}`}>
+                          <div
+                            className={`grid min-h-36 content-start gap-2 rounded-xl border-2 border-dashed p-3 transition-colors ${thumbnailDragOver ? 'border-[#00c2ff] bg-[#00c2ff]/10' : 'border-slate-700'}`}
+                            style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(64px, 1fr))' }}
+                          >
+                            {/* auto-fit + 1fr: a couple of references fill the whole zone
+                                (big tiles) instead of sitting tiny and left-aligned with a
+                                huge dead area beside them; as more get added, columns pack
+                                in and each tile naturally shrinks back toward 64px. */}
                             {newChannel.thumbnail_style.reference_image_paths.map((path) => (
-                              <div key={path} className="relative group w-16 h-16 shrink-0">
+                              <div key={path} className="relative group aspect-square">
                                 <img
                                   src={`${STORAGE_BASE}/${path}`}
                                   alt="Référence miniature"
-                                  className="w-16 h-16 rounded-lg object-cover border border-[var(--border)]"
+                                  className="w-full h-full rounded-lg object-cover border border-[var(--border)]"
                                 />
                                 <button
                                   type="button"
@@ -15128,7 +15135,7 @@ export default function App() {
                               onClick={() => !thumbnailStyleAnalyzing && editingChannelId && thumbnailStyleInputRef.current?.click()}
                               disabled={thumbnailStyleAnalyzing}
                               title="Ajouter d'autres images"
-                              className="w-16 h-16 shrink-0 rounded-lg border-2 border-dashed border-slate-600 text-slate-400 hover:border-[#00c2ff] hover:text-[#00c2ff] flex items-center justify-center disabled:opacity-50"
+                              className="aspect-square rounded-lg border-2 border-dashed border-slate-600 text-slate-400 hover:border-[#00c2ff] hover:text-[#00c2ff] flex items-center justify-center disabled:opacity-50"
                             >
                               <span className={`material-symbols-outlined text-xl ${thumbnailStyleAnalyzing ? 'animate-spin' : ''}`}>{thumbnailStyleAnalyzing ? 'progress_activity' : 'add'}</span>
                             </button>
