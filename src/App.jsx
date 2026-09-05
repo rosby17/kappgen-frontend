@@ -4525,6 +4525,7 @@ export default function App() {
   const [facecamShowNewChannel, setFacecamShowNewChannel] = useState(false);
   const [facecamNewChannelName, setFacecamNewChannelName] = useState('');
   const [facecamCreatingChannel, setFacecamCreatingChannel] = useState(false);
+  const [facecamDragOver, setFacecamDragOver] = useState(false);
   const [channelsLoaded, setChannelsLoaded] = useState(false);
   const [videosLoaded, setVideosLoaded] = useState(false);
   const [channelsLoadError, setChannelsLoadError] = useState('');
@@ -11023,7 +11024,17 @@ export default function App() {
 
               <div>
                 <label className="block text-xs font-bold text-slate-300 mb-2">Fichier vidéo brut</label>
-                <label className="flex flex-col items-center justify-center gap-2 border-2 border-dashed border-[var(--border)] rounded-xl px-4 py-8 cursor-pointer hover:border-[#00c2ff] transition-colors text-center">
+                <label
+                  onDragOver={e => { e.preventDefault(); setFacecamDragOver(true); }}
+                  onDragLeave={e => { e.preventDefault(); setFacecamDragOver(false); }}
+                  onDrop={e => {
+                    e.preventDefault();
+                    setFacecamDragOver(false);
+                    const file = e.dataTransfer.files?.[0];
+                    if (file) setFacecamFile(file);
+                  }}
+                  className={`flex flex-col items-center justify-center gap-2 border-2 border-dashed rounded-xl px-4 py-8 cursor-pointer transition-colors text-center ${facecamDragOver ? 'border-[#00c2ff] bg-[#00c2ff]/5' : 'border-[var(--border)] hover:border-[#00c2ff]'}`}
+                >
                   <span className="material-symbols-outlined text-[28px] text-slate-400">upload_file</span>
                   <span className="text-xs text-slate-400">
                     {facecamFile ? facecamFile.name : 'Glisse ton fichier ici ou clique pour parcourir (MP4, MOV, MKV, WEBM)'}
@@ -11947,7 +11958,13 @@ export default function App() {
             )}
 
             {/* VIEW 3.5: BIBLIOTHÈQUE (uploaded images + music per channel, with delete) */}
-            {view === 'library' && (
+            {view === 'library' && (() => {
+              // Scoped to the active product (Faceless/Facecam/Musique) like
+              // "Mes Chaînes" and "Mes Vidéos" already are — only "Ressources
+              // publiques" stays shared across all three, since that's a
+              // niche-wide pool, not tied to any one content type.
+              const scopedLibraryOverview = (libraryOverview || []).filter(c => productChannelIds.has(c.channel_id));
+              return (
               <section className="space-y-7">
                 <div className="relative overflow-hidden rounded-3xl border border-[var(--border-soft)] bg-[var(--bg-surface)] p-6 sm:p-8 shadow-[0_24px_70px_rgba(0,0,0,.14)]">
                   <div className="pointer-events-none absolute -right-20 -top-24 h-72 w-72 rounded-full bg-[#00c2ff]/10 blur-3xl" />
@@ -11963,10 +11980,10 @@ export default function App() {
                     </div>
                     <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3 xl:min-w-[560px]">
                       {[
-                        { icon: 'subscriptions', value: libraryOverview?.length || 0, label: 'Chaînes', color: 'text-violet-300', bg: 'bg-violet-500/10' },
-                        { icon: 'image', value: (libraryOverview || []).reduce((sum, c) => sum + (c.image_count || 0), 0), label: 'Images', color: 'text-[#66dcff]', bg: 'bg-[#00c2ff]/10' },
-                        { icon: 'music_note', value: (libraryOverview || []).reduce((sum, c) => sum + (c.music_track_count || 0), 0), label: 'Musiques', color: 'text-emerald-300', bg: 'bg-emerald-500/10' },
-                        { icon: 'movie', value: (libraryOverview || []).reduce((sum, c) => sum + (c.broll_count || 0), 0), label: 'Vidéos B-roll', color: 'text-violet-300', bg: 'bg-violet-500/10' },
+                        { icon: 'subscriptions', value: scopedLibraryOverview.length || 0, label: 'Chaînes', color: 'text-violet-300', bg: 'bg-violet-500/10' },
+                        { icon: 'image', value: scopedLibraryOverview.reduce((sum, c) => sum + (c.image_count || 0), 0), label: 'Images', color: 'text-[#66dcff]', bg: 'bg-[#00c2ff]/10' },
+                        { icon: 'music_note', value: scopedLibraryOverview.reduce((sum, c) => sum + (c.music_track_count || 0), 0), label: 'Musiques', color: 'text-emerald-300', bg: 'bg-emerald-500/10' },
+                        { icon: 'movie', value: scopedLibraryOverview.reduce((sum, c) => sum + (c.broll_count || 0), 0), label: 'Vidéos B-roll', color: 'text-violet-300', bg: 'bg-violet-500/10' },
                       ].map(stat => (
                         <div key={stat.label} className="rounded-2xl border border-white/[.06] bg-black/10 p-3.5 backdrop-blur-sm">
                           <span className={`material-symbols-outlined mb-2 inline-flex h-7 w-7 items-center justify-center rounded-lg text-[16px] ${stat.color} ${stat.bg}`}>{stat.icon}</span>
@@ -12176,7 +12193,8 @@ export default function App() {
                   </div>
                 )}
               </section>
-            )}
+              );
+            })()}
 
             {/* VIEW 3.6: Public resources — Pexels plus creator-approved
                 community media, always separate from private libraries. */}
@@ -12276,7 +12294,7 @@ export default function App() {
             )}
 
             {/* VIEW 4: CHANNEL DETAIL VIEW */}
-            {view === 'channel_detail' && activeChannel && (
+            {view === 'channel_detail' && activeChannel && activeChannel.content_type !== 'facecam' && (
               <div className="space-y-8">
                 <section className="relative overflow-hidden bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-3xl p-6 sm:p-8 shadow-[0_24px_70px_rgba(0,0,0,.10)]">
                   <div className="absolute -top-24 -left-16 w-72 h-72 rounded-full bg-[#00c2ff]/[.055] blur-3xl pointer-events-none" />
@@ -12908,6 +12926,129 @@ export default function App() {
                 </section>
                   );
                 })()}
+              </div>
+            )}
+
+            {/* Facecam channel detail — deliberately NOT the generic
+                channel_detail above: a facecam channel is just a name (no
+                automation/voice/script config, it's not a pipeline — see
+                commit history), so it gets its own minimal page: rename,
+                delete, upload a new video, and the history of everything
+                edited under it. */}
+            {view === 'channel_detail' && activeChannel && activeChannel.content_type === 'facecam' && (
+              <div className="space-y-6">
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setView('channels')}
+                    className="w-9 h-9 flex items-center justify-center rounded-xl bg-[var(--bg-surface-alt)] border border-[var(--border)] hover:border-slate-500 text-slate-300 hover:text-white transition-colors flex-shrink-0"
+                    title="Retour à Mes Chaînes"
+                  >
+                    <span className="material-symbols-outlined text-[18px]">arrow_back</span>
+                  </button>
+                  <div className="min-w-0 flex-1">
+                    <h1 className="text-xl sm:text-2xl font-extrabold text-white truncate">{activeChannel.name}</h1>
+                    <p className="text-xs text-slate-400 mt-0.5">{channelVideos.length} vidéo{channelVideos.length !== 1 ? 's' : ''} montée{channelVideos.length !== 1 ? 's' : ''}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const name = window.prompt('Renommer la chaîne', activeChannel.name);
+                      if (!name || !name.trim() || name.trim() === activeChannel.name) return;
+                      try {
+                        const res = await authFetch(`${API_BASE}/channels/${activeChannel.id}`, {
+                          method: 'PUT',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ name: name.trim() }),
+                        });
+                        if (!res.ok) throw new Error();
+                        const updated = await res.json();
+                        setChannels(prev => prev.map(c => c.id === updated.id ? { ...c, ...updated } : c));
+                        setActiveChannel(prev => ({ ...prev, ...updated }));
+                        showToast('Chaîne renommée.', 'success');
+                      } catch {
+                        showToast('Impossible de renommer la chaîne.', 'error');
+                      }
+                    }}
+                    className="px-3 py-2 bg-[var(--bg-surface-alt)] border border-[var(--border)] hover:border-slate-500 text-slate-300 hover:text-white text-xs font-bold rounded-xl transition-colors flex items-center gap-1.5 flex-shrink-0"
+                  >
+                    <span className="material-symbols-outlined text-[16px]">edit</span>
+                    Renommer
+                  </button>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const ok = await askConfirm(`Supprimer la chaîne "${activeChannel.name}" ? Toutes ses vidéos montées (${channelVideos.length}) seront supprimées aussi. Cette action est définitive.`, { title: 'Supprimer cette chaîne ?', danger: true });
+                      if (!ok) return;
+                      try {
+                        const res = await authFetch(`${API_BASE}/channels/${activeChannel.id}`, { method: 'DELETE' });
+                        if (!res.ok) throw new Error();
+                        setChannels(prev => prev.filter(c => c.id !== activeChannel.id));
+                        setView('channels');
+                        showToast('Chaîne supprimée.', 'success');
+                      } catch {
+                        showToast('Impossible de supprimer la chaîne.', 'error');
+                      }
+                    }}
+                    className="w-9 h-9 flex items-center justify-center rounded-xl bg-[var(--bg-surface-alt)] border border-[var(--border)] hover:border-red-500/50 text-slate-400 hover:text-red-400 transition-colors flex-shrink-0"
+                    title="Supprimer la chaîne"
+                  >
+                    <span className="material-symbols-outlined text-[18px]">delete</span>
+                  </button>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => { setFacecamChannelId(activeChannel.id); setActiveProduct('facecam'); setView('home'); }}
+                  className="w-full px-5 py-3 bg-[#00c2ff] hover:bg-[#38d0ff] text-slate-950 font-bold text-sm rounded-xl transition-colors flex items-center justify-center gap-2"
+                >
+                  <span className="material-symbols-outlined text-[18px]">add</span>
+                  Nouvelle vidéo pour cette chaîne
+                </button>
+
+                <div className="space-y-3">
+                  {channelVideos.length === 0 ? (
+                    <div className="text-center py-16 text-slate-500 text-sm">Aucune vidéo montée pour l'instant.</div>
+                  ) : (
+                    channelVideos.map(vid => (
+                      <div key={vid.id} className="flex items-center gap-4 bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-2xl p-4">
+                        <div className="w-24 h-14 rounded-lg bg-black/30 flex-shrink-0 overflow-hidden flex items-center justify-center">
+                          {vid.status === 'done' ? (
+                            <img src={getVideoThumbnailUrl(vid)} alt="" className="w-full h-full object-cover" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+                          ) : (
+                            <span className="material-symbols-outlined text-slate-600 text-[24px]">movie</span>
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="text-sm font-bold text-white truncate">{vid.title || 'Sans titre'}</div>
+                          <div className="text-xs text-slate-400 mt-0.5">
+                            {vid.status === 'done' && 'Prête'}
+                            {vid.status === 'rendering' && (vid.progress_stage || 'Montage en cours…')}
+                            {vid.status === 'queued' && 'En attente'}
+                            {vid.status === 'failed' && (vid.error_message || 'Échec du montage')}
+                          </div>
+                        </div>
+                        {vid.status === 'done' && vid.output_path && (
+                          <button
+                            type="button"
+                            onClick={(e) => handleDownloadVideo(vid, e)}
+                            className="px-3 py-2 bg-[var(--bg-surface-alt)] border border-[var(--border)] hover:border-[#00c2ff]/50 text-slate-300 hover:text-white text-xs font-bold rounded-xl transition-colors flex-shrink-0"
+                          >
+                            Télécharger
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={(e) => handleDeleteVideo(vid.id, e)}
+                          className="w-9 h-9 flex items-center justify-center rounded-xl text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-colors flex-shrink-0"
+                          title="Supprimer"
+                        >
+                          <span className="material-symbols-outlined text-[18px]">delete</span>
+                        </button>
+                      </div>
+                    ))
+                  )}
+                </div>
               </div>
             )}
 
