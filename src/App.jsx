@@ -14919,7 +14919,7 @@ export default function App() {
                           </div>
                         </div>
 
-                      <div className="flex h-full flex-col justify-between gap-4">
+                      <div className="flex h-full flex-col gap-4">
                       {(() => {
                         const nicheSet = (newChannel.niche || '').trim();
                         const available = communityLibraryAvailability?.available;
@@ -14931,7 +14931,7 @@ export default function App() {
                         return (
                           <div
                             onClick={() => { if (!disabled) toggleCommunity(); }}
-                            className={`p-5 rounded-2xl border-2 transition-all space-y-4 flex flex-col justify-between ${disabled ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'} ${
+                            className={`flex-1 p-5 rounded-2xl border-2 transition-all space-y-4 flex flex-col justify-between ${disabled ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'} ${
                               isCommunityChecked ? 'bg-[var(--bg-surface-alt)] border-[#00c2ff] shadow-lg shadow-[#00c2ff]/10' : 'bg-[var(--bg-surface-soft)] border-[var(--border-soft)] hover:border-slate-500 opacity-60'
                             }`}
                           >
@@ -14966,13 +14966,16 @@ export default function App() {
                             people/places) via Google Image Search — a real photo
                             neither the AI generator (which is deliberately barred
                             from rendering text/logos) nor stock libraries can
-                            provide. Limited on purpose (backend caps it at 8
-                            distinct fetches per video) to protect the shared daily
-                            search quota, so this is a complement to the other
-                            sources, never meant to carry a whole video alone. */}
+                            provide. No fixed cap: bounded only by the channel's own
+                            "Nombre de visuels" setting, each image actually used
+                            billed in credits like a Pexels stock photo — see
+                            images.py's fetch_google_images. Still a complement to
+                            the other sources, not meant to carry a whole video
+                            alone (Google's shared search quota can fail over to
+                            the other checked sources at any time). */}
                         <div
                           onClick={toggleGoogleSearch}
-                          className={`p-5 rounded-2xl border-2 transition-all cursor-pointer space-y-2 flex flex-col justify-between ${
+                          className={`flex-1 p-5 rounded-2xl border-2 transition-all cursor-pointer space-y-2 flex flex-col justify-between ${
                             isGoogleSearchChecked
                               ? 'bg-[var(--bg-surface-alt)] border-[#00c2ff] shadow-lg shadow-[#00c2ff]/10'
                               : 'bg-[var(--bg-surface-soft)] border-[var(--border-soft)] hover:border-slate-500 opacity-60'
@@ -14985,7 +14988,7 @@ export default function App() {
                                 <h4 className="text-xs font-bold text-white">Option D : Recherche Google Images</h4>
                               </div>
                               <p className="mt-1 text-[11px] text-slate-400">
-                                Logos de marque, outils cités, captures d'écran réelles — pour ce que l'IA ne peut pas dessiner et que les banques d'images (Pexels) n'indexent pas. Usage limité par vidéo, en complément des autres sources.
+                                Logos de marque, outils cités, captures d'écran réelles — pour ce que l'IA ne peut pas dessiner et que les banques d'images (Pexels) n'indexent pas. Pas de limite fixe : chaque image utilisée est facturée en crédits, comme une photo Pexels, en complément des autres sources.
                               </p>
                             </div>
                             <input
