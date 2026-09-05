@@ -21327,20 +21327,30 @@ export default function App() {
                 pour qu'on voie ce qu'on télécharge avant de cliquer. */}
             {(() => {
               const qualityOptions = [
-                { key: 'sd', short: 'SD', label: 'Version légère', format: '854×480' },
-                { key: 'hd', short: 'HD', label: 'Haute définition', format: '1920×1080' },
-                { key: '4k', short: '4K', label: 'Ultra haute définition', format: '3840×2160 · 5 000 cr.' },
+                { key: 'sd', short: 'SD', label: 'Version légère', format: '854×480', cost: null },
+                { key: 'hd', short: 'HD', label: 'Haute définition', format: '1920×1080', cost: null },
+                { key: '4k', short: '4K', label: 'Ultra haute définition', format: '3840×2160', cost: '3 000 cr.' },
               ];
               const selectedOpt = qualityOptions.find(o => o.key === downloadModalSelectedQuality) || qualityOptions[1];
               return (
             <div className="grid grid-cols-1 sm:grid-cols-2 sm:divide-x sm:divide-[var(--border-soft)]">
               <div className="space-y-3 p-5 sm:p-6">
                 <div className="relative aspect-video w-full overflow-hidden rounded-2xl border border-[var(--border-soft)] bg-slate-950">
+                  {/* A real <img> instead of <video poster="…"> — the same
+                      exact thumbnail file rendered via the video element's
+                      poster compositor came out visibly softer than a plain
+                      <img> (confirmed: identical URL on both sides of this
+                      modal, only the tag differed). Faded out once playing
+                      instead of unmounted, so it's back instantly on pause. */}
+                  <img
+                    src={getVideoThumbnailUrl(downloadModalVideo)}
+                    alt=""
+                    className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-150 ${downloadModalPreviewPlaying ? 'opacity-0' : 'opacity-100'}`}
+                  />
                   <video
                     ref={downloadModalPreviewRef}
                     src={getVideoUrl(downloadModalVideo.output_path)}
-                    poster={getVideoThumbnailUrl(downloadModalVideo)}
-                    className="h-full w-full object-cover"
+                    className="absolute inset-0 h-full w-full object-cover"
                     preload="metadata"
                     controls={downloadModalPreviewPlaying}
                     onPlay={() => setDownloadModalPreviewPlaying(true)}
@@ -21354,16 +21364,17 @@ export default function App() {
                       className="absolute inset-0 flex items-center justify-center bg-black/25 transition-colors hover:bg-black/35"
                       aria-label="Lire l'aperçu"
                     >
-                      <span className="flex h-14 w-14 items-center justify-center rounded-full bg-white/90 text-slate-900 shadow-lg transition-transform hover:scale-105">
-                        <span className="material-symbols-outlined text-[30px]">play_arrow</span>
-                      </span>
+                      <PlayCircleIcon className="h-14 w-14 text-[#00c2ff] drop-shadow-lg transition-transform hover:scale-110" />
                     </button>
                   )}
                 </div>
 
                 <div className="flex items-center justify-between px-0.5">
                   <p className="text-[11px] font-bold text-slate-300">Format vidéo</p>
-                  <span className="text-[10px] text-slate-500">MP4 · {selectedOpt.format}</span>
+                  <span className="text-[10px] text-slate-500">
+                    MP4 · {selectedOpt.format}
+                    {selectedOpt.cost && <span className="font-bold text-[#00c2ff]"> · {selectedOpt.cost}</span>}
+                  </span>
                 </div>
                 <div className="grid grid-cols-3 gap-2">
                   {qualityOptions.map(opt => (
@@ -21397,10 +21408,10 @@ export default function App() {
                 </div>
                 <div className="flex items-center justify-between px-0.5">
                   <p className="text-[11px] font-bold text-slate-300">Miniature</p>
-                  <span className="text-[10px] text-slate-500">JPG · 1280×720</span>
+                  <span className="text-[10px] text-slate-500">JPG · 1920×1080</span>
                 </div>
                 <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-surface-alt)] px-3 py-2.5 text-center text-xs font-extrabold text-slate-300">
-                  Format YouTube
+                  Format YouTube · 1920×1080
                 </div>
                 <button
                   disabled={!!downloadingQuality}
