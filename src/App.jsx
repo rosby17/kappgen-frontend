@@ -2292,6 +2292,43 @@ function MusicChannelWizard({ authFetch, showToast, onCreated, onBack, editingCh
   const toggleCommunity = () => setEnabledImageSources(isCommunityChecked ? enabledImageSources.filter(s => s !== 'community') : [...enabledImageSources, 'community']);
   const toggleGoogleSearch = () => setEnabledImageSources(isGoogleSearchChecked ? enabledImageSources.filter(s => s !== 'google_search') : [...enabledImageSources, 'google_search']);
 
+  // Génération IA had a checkbox and one line of copy but no way to actually
+  // tell it what to draw — image_style.style_prompt (a real field this form
+  // already carries) stayed permanently empty, so render_music_video's
+  // prompt fell back to just the MUSIC's own style_prompt (blank in
+  // "library"/own-tracks mode) + niche, producing generic AI images with no
+  // real connection to the track's actual mood. Same reference-upload +
+  // complementary-prompt pattern as the faceless wizard's Option B
+  // (handleAnalyzeStyleImage in App.jsx), reusing the same channel-agnostic
+  // vision endpoint.
+  const musicStyleReferenceInputRef = useRef(null);
+  const [musicStyleReferenceNames, setMusicStyleReferenceNames] = useState([]);
+  const [musicStyleAnalyzing, setMusicStyleAnalyzing] = useState(false);
+  const handleAnalyzeMusicStyleImage = async (e) => {
+    const files = Array.from(e.target.files || []);
+    e.target.value = '';
+    if (!files.length) return;
+    setMusicStyleAnalyzing(true);
+    try {
+      const formData = new FormData();
+      files.forEach(file => formData.append('files', file));
+      formData.append('file', files[0]);
+      const res = await authFetch(`${API_BASE}/channels/analyze-style-image`, { method: 'POST', body: formData });
+      if (!res.ok) {
+        const detail = await res.json().catch(() => ({}));
+        throw new Error(detail.detail || "Analyse impossible.");
+      }
+      const data = await res.json();
+      setForm(f => ({ ...f, image_style: { ...f.image_style, style_prompt: data.style_prompt } }));
+      setMusicStyleReferenceNames(prev => [...prev, ...files.map(file => file.name)].slice(-10));
+      showToast(`${files.length} référence(s) analysée(s).`, "success");
+    } catch (err) {
+      showToast(err.message || "Erreur lors de l'analyse de l'image.", "error");
+    } finally {
+      setMusicStyleAnalyzing(false);
+    }
+  };
+
   // "Importer mes propres pistes" (music_source_mode 'library') — reuses the
   // exact same /music upload endpoint as a faceless channel's background
   // music library (channel.music_preference.tracks); the render worker picks
@@ -2854,7 +2891,29 @@ function MusicChannelWizard({ authFetch, showToast, onCreated, onBack, editingCh
                     <div className="flex items-center gap-1.5"><span className="material-symbols-outlined text-[18px] text-[#00c2ff]">auto_awesome</span><span className="text-xs font-bold text-white">Génération IA</span></div>
                     <input type="checkbox" checked={isOptionBChecked} onChange={toggleOptionB} onClick={e => e.stopPropagation()} className="kappgen-checkbox shrink-0" />
                   </div>
-                  <p className="mt-1 text-[10px] text-slate-500">Une image générée pour chaque scène, dans le style de la musique.</p>
+                  <p className="mt-1 text-[10px] text-slate-500">Une image générée pour chaque scène, dans l'ambiance décrite ci-dessous — sans description, l'IA n'a rien pour deviner le thème de la musique.</p>
+                  {isOptionBChecked && (
+                    <div className="mt-2.5 space-y-2" onClick={e => e.stopPropagation()}>
+                      <input ref={musicStyleReferenceInputRef} type="file" accept="image/png,image/jpeg,image/webp" multiple onChange={handleAnalyzeMusicStyleImage} className="hidden" />
+                      <button
+                        type="button"
+                        disabled={musicStyleAnalyzing}
+                        onClick={() => musicStyleReferenceInputRef.current?.click()}
+                        className="w-full flex items-center justify-center gap-1.5 rounded-lg border-2 border-dashed border-slate-600 py-2 text-[10px] font-bold text-slate-400 hover:border-[#00c2ff] hover:text-[#00c2ff] disabled:opacity-50"
+                      >
+                        <span className={`material-symbols-outlined text-[15px] ${musicStyleAnalyzing ? 'animate-spin' : ''}`}>{musicStyleAnalyzing ? 'progress_activity' : 'cloud_upload'}</span>
+                        {musicStyleAnalyzing ? 'Analyse…' : 'Importer une image de référence'}
+                      </button>
+                      {musicStyleReferenceNames.length > 0 && <p className="text-[9px] text-[#56d9ff]">{musicStyleReferenceNames.length} référence(s) analysée(s)</p>}
+                      <textarea
+                        rows={2}
+                        value={form.image_style.style_prompt}
+                        onChange={e => setForm({ ...form, image_style: { ...form.image_style, style_prompt: e.target.value } })}
+                        placeholder="Décris l'ambiance visuelle (ex : ville néon la nuit sous la pluie, forêt brumeuse au lever du jour...)"
+                        className="w-full bg-[var(--bg-input-alt)] border border-[var(--border)] rounded-lg p-2 text-[10px] text-white focus:border-[#00c2ff] outline-none placeholder-slate-500 resize-none"
+                      />
+                    </div>
+                  )}
                 </div>
                 <div onClick={toggleOptionA} className={`p-3.5 rounded-xl border-2 cursor-pointer transition-all ${isOptionAChecked ? 'bg-[#00c2ff]/5 border-[#00c2ff]' : 'border-[var(--border)] hover:border-slate-500 opacity-60'}`}>
                   <div className="flex items-start justify-between gap-2">
