@@ -3179,26 +3179,32 @@ function MusicChannelWizard({ authFetch, showToast, onCreated, onBack, editingCh
             </div>
             <div>
               <label className="block text-xs font-bold text-slate-300 mb-2">Durée cible</label>
-              <div className="flex flex-wrap items-center gap-2 bg-[var(--bg-input)] border border-[var(--border-subtle)] rounded-xl px-3 py-2.5">
-                <span className="material-symbols-outlined text-[16px] text-slate-500 shrink-0">schedule</span>
-                <span className="text-[11px] text-slate-400">Minutes</span>
-                <input
-                  type="number"
-                  min={0}
-                  max={180}
-                  value={Math.floor(form.target_duration_seconds / 60)}
-                  onChange={e => { const minutes = Math.max(0, Math.min(180, parseInt(e.target.value) || 0)); const seconds = form.target_duration_seconds % 60; setForm({ ...form, target_duration_seconds: Math.max(30, Math.min(10800, minutes * 60 + seconds)) }); }}
-                  className="w-16 text-center bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-lg py-1 text-xs font-bold text-white focus:border-[#00c2ff] outline-none"
-                />
-                <span className="text-[11px] text-slate-400">Secondes</span>
-                <input
-                  type="number"
-                  min={0}
-                  max={59}
-                  value={form.target_duration_seconds % 60}
-                  onChange={e => { const seconds = Math.max(0, Math.min(59, parseInt(e.target.value) || 0)); const minutes = Math.floor(form.target_duration_seconds / 60); setForm({ ...form, target_duration_seconds: Math.max(30, Math.min(10800, minutes * 60 + seconds)) }); }}
-                  className="w-16 text-center bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-lg py-1 text-xs font-bold text-white focus:border-[#00c2ff] outline-none"
-                />
+              <div className="flex items-center gap-2 bg-[var(--bg-input)] border border-[var(--border-subtle)] rounded-xl px-3 py-2.5">
+                <div className="flex items-center gap-2">
+                  <input
+                    aria-label="Minutes"
+                    type="number"
+                    min={0}
+                    max={180}
+                    value={Math.floor(form.target_duration_seconds / 60)}
+                    onChange={e => { const minutes = Math.max(0, Math.min(180, parseInt(e.target.value) || 0)); const seconds = form.target_duration_seconds % 60; setForm({ ...form, target_duration_seconds: Math.max(30, Math.min(10800, minutes * 60 + seconds)) }); }}
+                    className="w-16 text-center bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-lg py-1.5 text-xs font-bold text-white focus:border-[#00c2ff] outline-none"
+                  />
+                  <span className="text-[11px] font-medium text-slate-400">min</span>
+                </div>
+                <span aria-hidden="true" className="text-sm font-bold text-slate-500">:</span>
+                <div className="flex items-center gap-2">
+                  <input
+                    aria-label="Secondes"
+                    type="number"
+                    min={0}
+                    max={59}
+                    value={form.target_duration_seconds % 60}
+                    onChange={e => { const seconds = Math.max(0, Math.min(59, parseInt(e.target.value) || 0)); const minutes = Math.floor(form.target_duration_seconds / 60); setForm({ ...form, target_duration_seconds: Math.max(30, Math.min(10800, minutes * 60 + seconds)) }); }}
+                    className="w-16 text-center bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-lg py-1.5 text-xs font-bold text-white focus:border-[#00c2ff] outline-none"
+                  />
+                  <span className="text-[11px] font-medium text-slate-400">sec</span>
+                </div>
               </div>
               <p className="mt-1.5 px-1 text-[10px] text-slate-500">Chaque rendu varie légèrement autour de cette durée pour obtenir un montage naturel, sans sorties systématiquement rondes.</p>
             </div>
