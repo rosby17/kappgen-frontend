@@ -11035,7 +11035,7 @@ export default function App() {
 
         {activeProduct === 'facecam' && view === 'home' && (
           <div className="absolute inset-0 z-30 bg-[var(--bg-input-alt)] overflow-y-auto">
-            <div className="min-h-full flex flex-col lg:flex-row items-stretch">
+            <div className="min-h-full flex flex-col lg:flex-row-reverse items-stretch">
               {/* Left: the submission form — warm, human copy instead of a bare
                   utility form, since this is the very first thing a Facecam
                   creator sees. */}
@@ -11226,23 +11226,55 @@ export default function App() {
               <div className="hidden lg:flex flex-1 items-center justify-center bg-gradient-to-br from-[#2a1d14] via-[#1c1712] to-[#12100e] relative overflow-hidden p-10">
                 <div className="absolute inset-0 opacity-40" style={{ backgroundImage: 'radial-gradient(circle at 30% 20%, rgba(255,157,92,0.18), transparent 55%), radial-gradient(circle at 75% 75%, rgba(0,194,255,0.12), transparent 50%)' }} />
                 <div className="relative z-10 max-w-sm w-full">
-                  <svg viewBox="0 0 360 300" className="w-full h-auto drop-shadow-2xl">
-                    <rect x="30" y="40" width="300" height="180" rx="16" fill="#2c241d" stroke="#ff9d5c" strokeOpacity="0.25" strokeWidth="2" />
-                    <rect x="46" y="56" width="268" height="148" rx="10" fill="#181310" />
-                    <circle cx="180" cy="130" r="46" fill="none" stroke="#ff9d5c" strokeWidth="3" strokeDasharray="6 8" opacity="0.7">
-                      <animateTransform attributeName="transform" type="rotate" from="0 180 130" to="360 180 130" dur="8s" repeatCount="indefinite" />
+                  <svg viewBox="0 0 360 320" className="w-full h-auto drop-shadow-2xl">
+                    {/* Monitor frame with a paused talking-head preview */}
+                    <rect x="30" y="20" width="300" height="180" rx="16" fill="#2c241d" stroke="#ff9d5c" strokeOpacity="0.25" strokeWidth="2" />
+                    <rect x="46" y="36" width="268" height="148" rx="10" fill="#181310" />
+                    {/* Faint silhouette so the frame doesn't read as an empty box */}
+                    <circle cx="180" cy="92" r="22" fill="#ff9d5c" opacity="0.12" />
+                    <path d="M148 156 q32 -34 64 0 z" fill="#ff9d5c" opacity="0.12" />
+                    <circle cx="180" cy="110" r="46" fill="none" stroke="#ff9d5c" strokeWidth="3" strokeDasharray="6 8" opacity="0.7">
+                      <animateTransform attributeName="transform" type="rotate" from="0 180 110" to="360 180 110" dur="8s" repeatCount="indefinite" />
                     </circle>
-                    <path d="M165 112 l30 18 -30 18 z" fill="#ff9d5c" opacity="0.85" />
-                    <rect x="70" y="228" width="90" height="10" rx="5" fill="#ff9d5c" opacity="0.5" />
-                    <rect x="170" y="228" width="120" height="10" rx="5" fill="#3a322a" />
-                    <circle cx="180" cy="130" r="3" fill="#ff9d5c">
+                    <path d="M165 92 l30 18 -30 18 z" fill="#ff9d5c" opacity="0.9" />
+                    <circle cx="180" cy="110" r="3" fill="#ff9d5c">
                       <animate attributeName="opacity" values="1;0.2;1" dur="1.6s" repeatCount="indefinite" />
                     </circle>
+
+                    {/* Audio waveform under the preview */}
+                    {[4, 11, 7, 16, 9, 5, 13, 8, 15, 6, 10, 4, 12, 7, 9].map((h, i) => (
+                      <rect key={i} x={54 + i * 16} y={168 - h} width="6" height={h} rx="3" fill="#00c2ff" opacity="0.55">
+                        <animate attributeName="height" values={`${h};${Math.max(3, h - 6)};${h}`} dur={`${1.2 + (i % 4) * 0.3}s`} repeatCount="indefinite" />
+                        <animate attributeName="y" values={`${168 - h};${168 - Math.max(3, h - 6)};${168 - h}`} dur={`${1.2 + (i % 4) * 0.3}s`} repeatCount="indefinite" />
+                      </rect>
+                    ))}
+
+                    {/* Rush clips lined up on a timeline, waiting to be cut */}
+                    {[0, 1, 2, 3].map(i => (
+                      <rect key={i} x={30 + i * 76} y="224" width="68" height="44" rx="8" fill={i === 1 ? '#3a322a' : '#241d17'} stroke="#ff9d5c" strokeOpacity={i === 1 ? 0.6 : 0.2} strokeWidth="1.5" />
+                    ))}
+                    <path d="M40 246 l8 -6 v12 z" fill="#ff9d5c" opacity="0.6" />
+                    <path d="M116 246 l8 -6 v12 z" fill="#ff9d5c" opacity="0.4" />
+                    <path d="M192 246 l8 -6 v12 z" fill="#ff9d5c" opacity="0.4" />
+                    <path d="M268 246 l8 -6 v12 z" fill="#ff9d5c" opacity="0.4" />
+                    <rect x="30" y="224" width="272" height="44" rx="8" fill="none" stroke="#00c2ff" strokeWidth="1.5" strokeDasharray="5 5" opacity="0.5">
+                      <animate attributeName="opacity" values="0.2;0.6;0.2" dur="2.4s" repeatCount="indefinite" />
+                    </rect>
+
+                    {/* Scissors + card icons floating nearby, hinting at the automated cuts/cards step */}
+                    <g transform="translate(322 60)" opacity="0.5">
+                      <circle r="16" fill="#181310" stroke="#ff9d5c" strokeWidth="1.5" />
+                      <path d="M-5 -5 L5 5 M5 -5 L-5 5" stroke="#ff9d5c" strokeWidth="1.6" strokeLinecap="round" />
+                    </g>
+                    <g transform="translate(14 240)" opacity="0.45">
+                      <rect x="-14" y="-9" width="28" height="18" rx="3" fill="#181310" stroke="#00c2ff" strokeWidth="1.5" />
+                      <rect x="-8" y="-3" width="16" height="3" rx="1.5" fill="#00c2ff" />
+                    </g>
                   </svg>
                   <div className="text-center mt-6 space-y-1.5">
                     <p className="text-sm font-bold text-white/90">La table de montage t'attend</p>
                     <p className="text-xs text-white/50 max-w-xs mx-auto">
-                      Dès que ton fichier arrive, le montage automatique démarre : silences coupés, vérification, b-roll et cartes ajoutées.
+                      Dès que tes rushs arrivent, le montage automatique démarre : silences coupés, vérification, b-roll et cartes ajoutées.
                     </p>
                   </div>
                 </div>
