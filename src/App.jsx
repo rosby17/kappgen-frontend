@@ -7098,6 +7098,11 @@ export default function App() {
   const [newFolderName, setNewFolderName] = useState('');
   const [creatingFolder, setCreatingFolder] = useState(false);
   const [movingVideoId, setMovingVideoId] = useState(null);
+  // Groups the 3 YouTube-related kebab-menu actions (publier/republier,
+  // mettre à jour la miniature, voir sur YouTube) behind one expandable
+  // entry instead of each sitting as its own top-level row — same inline
+  // accordion pattern as "Déplacer vers…" below.
+  const [youtubeMenuOpenId, setYoutubeMenuOpenId] = useState(null);
   const [draggedVideoId, setDraggedVideoId] = useState(null);
   const [draggedFolderId, setDraggedFolderId] = useState(null);
   const [dragOverFolderId, setDragOverFolderId] = useState(null);
@@ -12788,17 +12793,31 @@ export default function App() {
                                       {vid.approved_for_publish ? 'Approuvée — annuler' : 'Approuver la publication'}
                                     </button>
                                   )}
-                                  {vid.status === 'done' && (
-                                    <button disabled={publishingVideoId === vid.id} onClick={(e) => handlePublishYouTube(vid, e)} className="w-full text-left px-3 py-1.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium disabled:opacity-50">
-                                      <span className="material-symbols-outlined text-[14px] text-[#00c2ff]">{vid.youtube_video_id ? 'open_in_new' : 'smart_display'}</span>
-                                      {vid.youtube_video_id ? 'Republier sur YouTube' : publishingVideoId === vid.id ? 'Publication…' : 'Publier sur YouTube'}
+                                  {vid.status === 'done' && (<>
+                                    <button onClick={(e) => { e.stopPropagation(); setYoutubeMenuOpenId(youtubeMenuOpenId === vid.id ? null : vid.id); }} className="w-full text-left px-3 py-1.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium">
+                                      <span className="material-symbols-outlined text-[14px] text-[#00c2ff]">smart_display</span> YouTube
+                                      <span className="material-symbols-outlined text-[14px] ml-auto">{youtubeMenuOpenId === vid.id ? 'expand_less' : 'expand_more'}</span>
                                     </button>
-                                  )}
-                                  {vid.status === 'done' && vid.youtube_video_id && (
-                                    <button disabled={resyncingThumbnailId === vid.id} onClick={(e) => handleResyncThumbnail(vid, e)} className="w-full text-left px-3 py-1.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium disabled:opacity-50">
-                                      <span className={`material-symbols-outlined text-[14px] text-[#00c2ff] ${resyncingThumbnailId === vid.id ? 'animate-spin' : ''}`}>{resyncingThumbnailId === vid.id ? 'progress_activity' : 'image'}</span>
-                                      {resyncingThumbnailId === vid.id ? 'Mise à jour…' : 'Mettre à jour la miniature sur YouTube'}
-                                    </button>
+                                    {youtubeMenuOpenId === vid.id && (
+                                      <div className="border-t border-[var(--border-dropdown)] mt-1 pt-1">
+                                        <button disabled={publishingVideoId === vid.id} onClick={(e) => handlePublishYouTube(vid, e)} className="w-full text-left pl-8 pr-3 py-1.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium disabled:opacity-50">
+                                          <span className="material-symbols-outlined text-[14px] text-[#00c2ff]">{vid.youtube_video_id ? 'open_in_new' : 'smart_display'}</span>
+                                          {vid.youtube_video_id ? 'Republier sur YouTube' : publishingVideoId === vid.id ? 'Publication…' : 'Publier sur YouTube'}
+                                        </button>
+                                        {vid.youtube_video_id && (
+                                          <button disabled={resyncingThumbnailId === vid.id} onClick={(e) => handleResyncThumbnail(vid, e)} className="w-full text-left pl-8 pr-3 py-1.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium disabled:opacity-50">
+                                            <span className={`material-symbols-outlined text-[14px] text-[#00c2ff] ${resyncingThumbnailId === vid.id ? 'animate-spin' : ''}`}>{resyncingThumbnailId === vid.id ? 'progress_activity' : 'image'}</span>
+                                            {resyncingThumbnailId === vid.id ? 'Mise à jour…' : 'Mettre à jour la miniature sur YouTube'}
+                                          </button>
+                                        )}
+                                        {vid.youtube_video_id && (
+                                          <a href={`https://www.youtube.com/watch?v=${vid.youtube_video_id}`} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} className="w-full text-left pl-8 pr-3 py-1.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium">
+                                            <span className="material-symbols-outlined text-[14px] text-[#00c2ff]">link</span> Voir sur YouTube
+                                          </a>
+                                        )}
+                                      </div>
+                                    )}
+                                    </>
                                   )}
                                   <div className="h-[1px] bg-[var(--border-dropdown)] my-1"></div>
                                   <button onClick={(e) => { e.stopPropagation(); setMovingVideoId(movingVideoId === vid.id ? null : vid.id); }} className="w-full text-left px-3 py-1.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium">
@@ -13775,17 +13794,31 @@ export default function App() {
                                     {vid.approved_for_publish ? 'Approuvée — annuler' : 'Approuver la publication'}
                                   </button>
                                 )}
-                                {vid.status === 'done' && (
-                                  <button disabled={publishingVideoId === vid.id} onClick={(e) => handlePublishYouTube(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium disabled:opacity-50">
-                                    <span className="material-symbols-outlined text-[16px] text-[#00c2ff]">{vid.youtube_video_id ? 'open_in_new' : 'smart_display'}</span>
-                                    {vid.youtube_video_id ? 'Republier sur YouTube' : publishingVideoId === vid.id ? 'Publication…' : 'Publier sur YouTube'}
+                                {vid.status === 'done' && (<>
+                                  <button onClick={(e) => { e.stopPropagation(); setYoutubeMenuOpenId(youtubeMenuOpenId === vid.id ? null : vid.id); }} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium">
+                                    <span className="material-symbols-outlined text-[16px] text-[#00c2ff]">smart_display</span> YouTube
+                                    <span className="material-symbols-outlined text-[16px] ml-auto">{youtubeMenuOpenId === vid.id ? 'expand_less' : 'expand_more'}</span>
                                   </button>
-                                )}
-                                {vid.status === 'done' && vid.youtube_video_id && (
-                                  <button disabled={resyncingThumbnailId === vid.id} onClick={(e) => handleResyncThumbnail(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium disabled:opacity-50">
-                                    <span className={`material-symbols-outlined text-[16px] text-[#00c2ff] ${resyncingThumbnailId === vid.id ? 'animate-spin' : ''}`}>{resyncingThumbnailId === vid.id ? 'progress_activity' : 'image'}</span>
-                                    {resyncingThumbnailId === vid.id ? 'Mise à jour…' : 'Mettre à jour la miniature sur YouTube'}
-                                  </button>
+                                  {youtubeMenuOpenId === vid.id && (
+                                    <div className="border-t border-[var(--border-dropdown)] mt-1 pt-1">
+                                      <button disabled={publishingVideoId === vid.id} onClick={(e) => handlePublishYouTube(vid, e)} className="w-full text-left pl-9 pr-4 py-2.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium disabled:opacity-50">
+                                        <span className="material-symbols-outlined text-[16px] text-[#00c2ff]">{vid.youtube_video_id ? 'open_in_new' : 'smart_display'}</span>
+                                        {vid.youtube_video_id ? 'Republier sur YouTube' : publishingVideoId === vid.id ? 'Publication…' : 'Publier sur YouTube'}
+                                      </button>
+                                      {vid.youtube_video_id && (
+                                        <button disabled={resyncingThumbnailId === vid.id} onClick={(e) => handleResyncThumbnail(vid, e)} className="w-full text-left pl-9 pr-4 py-2.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium disabled:opacity-50">
+                                          <span className={`material-symbols-outlined text-[16px] text-[#00c2ff] ${resyncingThumbnailId === vid.id ? 'animate-spin' : ''}`}>{resyncingThumbnailId === vid.id ? 'progress_activity' : 'image'}</span>
+                                          {resyncingThumbnailId === vid.id ? 'Mise à jour…' : 'Mettre à jour la miniature sur YouTube'}
+                                        </button>
+                                      )}
+                                      {vid.youtube_video_id && (
+                                        <a href={`https://www.youtube.com/watch?v=${vid.youtube_video_id}`} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} className="w-full text-left pl-9 pr-4 py-2.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium">
+                                          <span className="material-symbols-outlined text-[16px] text-[#00c2ff]">link</span> Voir sur YouTube
+                                        </a>
+                                      )}
+                                    </div>
+                                  )}
+                                  </>
                                 )}
                                 <div className="h-[1px] bg-[var(--border-dropdown)] my-1"></div>
                                 <button onClick={(e) => { e.stopPropagation(); setMovingVideoId(movingVideoId === vid.id ? null : vid.id); }} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium">
