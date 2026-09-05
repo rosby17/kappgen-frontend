@@ -7463,6 +7463,39 @@ export default function App() {
     setView('home');
   }, [location.pathname, channels]);
 
+  // Video-preview modal (selectedVideo) survives a refresh via a ?video= query
+  // param — reload used to silently close it and dump the user back on the bare
+  // list even though they never asked to leave it. Restore must run (and either
+  // find a match or give up) BEFORE the write-back effect below ever touches the
+  // URL, otherwise that effect fires first on mount with selectedVideo still
+  // null and wipes ?video= before this one gets a chance to read it.
+  const videoModalRestoreDoneRef = useRef(false);
+  useEffect(() => {
+    if (videoModalRestoreDoneRef.current) return;
+    const videoId = new URLSearchParams(location.search).get('video');
+    if (!videoId) { videoModalRestoreDoneRef.current = true; return; }
+    const pool = view === 'channel_detail' ? channelVideos : allVideos;
+    const match = pool.find(v => v.id === videoId);
+    if (match) {
+      setSelectedVideo(match);
+      videoModalRestoreDoneRef.current = true;
+    } else if (videosLoaded) {
+      // The relevant list has finished loading and still no match — the video
+      // was deleted/moved, or the id was bogus. Give up rather than wait forever.
+      videoModalRestoreDoneRef.current = true;
+    }
+  }, [allVideos, channelVideos, view, videosLoaded]);
+
+  useEffect(() => {
+    if (!videoModalRestoreDoneRef.current) return;
+    const params = new URLSearchParams(location.search);
+    const desired = selectedVideo?.id || null;
+    if (params.get('video') === desired) return;
+    if (desired) params.set('video', desired); else params.delete('video');
+    const search = params.toString();
+    navigate({ pathname: location.pathname, search: search ? `?${search}` : '' }, { replace: true });
+  }, [selectedVideo]);
+
   // Persist the current page/tab so a refresh (or the polling re-render below)
   // doesn't bounce the user back to Home.
   useEffect(() => {
