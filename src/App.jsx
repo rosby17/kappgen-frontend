@@ -4502,7 +4502,20 @@ export default function App() {
   // example titles, AI-generated tracks, then a lightweight loop/compilation
   // assembly with an audio-spectrum visual — distinct from music_preference,
   // which is just background music behind a narration video).
-  const [activeProduct, setActiveProduct] = useState('montage');
+  // Persisted across reloads — without this, F5 always dropped a creator
+  // back into Faceless no matter which space (Facecam, Musique) they were
+  // actually working in.
+  const [activeProduct, setActiveProduct] = useState(() => {
+    try {
+      const saved = localStorage.getItem('kappgen_active_product');
+      return ['montage', 'facecam', 'avatar', 'music'].includes(saved) ? saved : 'montage';
+    } catch {
+      return 'montage';
+    }
+  });
+  useEffect(() => {
+    try { localStorage.setItem('kappgen_active_product', activeProduct); } catch {}
+  }, [activeProduct]);
   const [productMenuOpen, setProductMenuOpen] = useState(false);
   const NICHECUT_PRODUCTS = [
     { id: 'montage', label: 'Faceless', icon: 'movie_edit', available: true },
