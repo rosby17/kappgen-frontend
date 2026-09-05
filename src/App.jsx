@@ -10919,6 +10919,35 @@ export default function App() {
     }, 600);
   };
 
+  // Partage direct : le lien de stockage (B2/R2 ou /storage local) est déjà
+  // public et sans authentification (voir GET /videos/{id}/download côté
+  // backend) — pas besoin que le destinataire télécharge le fichier ou passe
+  // par YouTube, il ouvre juste le lien. navigator.share (mobile) propose
+  // WhatsApp nativement dans la feuille de partage système ; sur desktop,
+  // fallback : lien copié dans le presse-papiers + ouverture de wa.me.
+  const handleShareVideo = async (vid) => {
+    const shareUrl = getVideoUrl(vid.output_path);
+    const shareText = vid.title || 'Voici ma vidéo';
+
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: shareText, url: shareUrl });
+        return;
+      } catch {
+        // Annulé par l'utilisateur ou API indisponible pour cette origine —
+        // on retombe sur le fallback desktop plutôt que de ne rien faire.
+      }
+    }
+
+    try {
+      await navigator.clipboard?.writeText(shareUrl);
+      showToast('Lien copié — colle-le où tu veux.', 'success');
+    } catch {
+      showToast(shareUrl, 'success');
+    }
+    window.open(`https://wa.me/?text=${encodeURIComponent(`${shareText} ${shareUrl}`)}`, '_blank', 'noopener');
+  };
+
   // KappGen Studio — post-render editor: swap a bad scene image without
   // redoing TTS/pacing/image-gen for the whole video.
   const [studioScenes, setStudioScenes] = useState([]);
@@ -20552,6 +20581,13 @@ export default function App() {
               >
                 <span className="material-symbols-outlined text-[18px]">{retryingVideoVisualsId === selectedVideo.id ? 'progress_activity' : 'image_search'}</span>
                 {retryingVideoVisualsId === selectedVideo.id ? 'Relance…' : 'Relancer le montage'}
+              </button>
+              <button
+                onClick={() => handleShareVideo(selectedVideo)}
+                title="Partager le lien (WhatsApp, etc.)"
+                className="flex-1 py-3 bg-[var(--bg-surface-alt)] text-white font-bold text-xs rounded-xl text-center hover:bg-[var(--border-soft)] transition-all flex items-center justify-center gap-2 border border-[var(--border)]"
+              >
+                <span className="material-symbols-outlined text-[18px]">share</span> Partager
               </button>
               <button
                 onClick={() => runDownload(selectedVideo, 'hd')}
