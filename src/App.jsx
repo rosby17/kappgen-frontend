@@ -13691,15 +13691,22 @@ export default function App() {
                         either screen shows up in both. Keeps old videos tucked away
                         without ever deleting them. */}
                     <div className="flex items-center gap-1.5 flex-wrap text-xs">
-                      <button
-                        onClick={() => openFolder(null)}
-                        className={`px-2 py-1 rounded-lg font-bold flex items-center gap-1 transition-colors ${currentFolderId === null ? 'text-white' : 'text-slate-400 hover:text-white'}`}
-                      >
-                        <span className="material-symbols-outlined text-[16px]">home</span>
-                      </button>
+                      {/* No "home" icon sitting here on its own at the root level any
+                          more — it only shows once actually inside a folder, where it's
+                          the one thing that can jump back to the root (the breadcrumb
+                          items themselves only ever link to their own ancestor folders,
+                          never to the root, so this can't just disappear outright). */}
+                      {currentFolderId !== null && (
+                        <button
+                          onClick={() => openFolder(null)}
+                          className="px-2 py-1 rounded-lg font-bold flex items-center gap-1 text-slate-400 hover:text-white transition-colors"
+                        >
+                          <span className="material-symbols-outlined text-[16px]">home</span>
+                        </button>
+                      )}
                       {folderPath.map((f, i) => (
                         <span key={f.id} className="flex items-center gap-1.5">
-                          <span className="material-symbols-outlined text-[14px] text-slate-600">chevron_right</span>
+                          {(i > 0 || currentFolderId !== null) && <span className="material-symbols-outlined text-[14px] text-slate-600">chevron_right</span>}
                           <button
                             onClick={() => openFolder(f.id)}
                             className={`px-2 py-1 rounded-lg font-bold transition-colors ${i === folderPath.length - 1 ? 'text-white' : 'text-slate-400 hover:text-white'}`}
