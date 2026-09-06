@@ -18620,7 +18620,7 @@ export default function App() {
                             )}
                             <div className="flex items-center justify-between text-[10px] text-slate-500">
                               <span>{v.owner_email || '—'}</span>
-                              <span className="text-[#00c2ff] font-bold">{(v.total_credits ?? 0).toLocaleString()} cr.</span>
+                              <span className="text-[#00c2ff] font-bold cursor-pointer hover:underline" onClick={() => openAdminVideoDetail(v.id)} title="Voir le détail des coûts">{(v.total_credits ?? 0).toLocaleString()} cr.</span>
                             </div>
                             <div className="flex items-center justify-between text-[10px] text-slate-500">
                               <span>{v.created_at ? new Date(v.created_at).toLocaleDateString('fr-FR') : '—'}</span>
@@ -18712,7 +18712,7 @@ export default function App() {
                               : v.status}
                           </span>
                         </td>
-                        <td className="px-4 py-2.5 text-[#00c2ff] font-bold">
+                        <td className="px-4 py-2.5 text-[#00c2ff] font-bold cursor-pointer hover:underline" onClick={() => openAdminVideoDetail(v.id)} title="Voir le détail des coûts">
                           {(v.total_credits ?? 0).toLocaleString()}
                           {(v.total_credits ?? 0) === 0 && v.owner_has_own_izivoice_key && (
                             <span
