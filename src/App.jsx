@@ -19986,13 +19986,28 @@ export default function App() {
                     <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Voix</div>
                     <div className="text-xs font-bold text-white truncate">{adminVideoDetail.voice_name || adminVideoDetail.voice_id || '—'}</div>
                   </div>
-                  <div className="bg-[var(--bg-input)] border border-[var(--border-subtle)] rounded-xl p-3">
+                  <div className={`bg-[var(--bg-input)] border border-[var(--border-subtle)] rounded-xl p-3 ${adminVideoDetail.music_preference?.enabled && adminVideoDetail.music_preference.mode !== 'ai_generate' && adminVideoDetail.music_preference.tracks?.[0] ? 'col-span-2' : ''}`}>
                     <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Musique</div>
                     <div className="text-xs font-bold text-white truncate">
                       {adminVideoDetail.music_preference?.enabled
                         ? (adminVideoDetail.music_preference.mode === 'ai_generate' ? 'Générée par IA' : (adminVideoDetail.music_preference.tracks?.[0]?.split('/').pop() || 'Piste importée'))
                         : 'Désactivée'}
                     </div>
+                    {/* Admin could only ever see the filename here, with no way to
+                        actually hear whether it's the right track — this panel is
+                        also the tool used to investigate a client's cost breakdown,
+                        so being able to listen to the music itself belongs here.
+                        Only shown for an imported track: an AI-generated track is
+                        mixed straight into the render, per-video, with no standalone
+                        file at the channel level to point at. */}
+                    {adminVideoDetail.music_preference?.enabled && adminVideoDetail.music_preference.mode !== 'ai_generate' && adminVideoDetail.music_preference.tracks?.[0] && (
+                      <div className="mt-2">
+                        <ServerAudioPreview
+                          src={getVideoUrl(adminVideoDetail.music_preference.tracks[0])}
+                          name={adminVideoDetail.music_preference.tracks[0].split('/').pop()}
+                        />
+                      </div>
+                    )}
                   </div>
                   <div className="bg-[var(--bg-input)] border border-[var(--border-subtle)] rounded-xl p-3 col-span-2">
                     <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Sous-titres</div>
