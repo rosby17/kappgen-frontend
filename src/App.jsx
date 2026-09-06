@@ -4903,28 +4903,116 @@ const resolveEffectiveTheme = (pref) => {
 // Dependency-free line chart for the admin overview — two series (new users,
 // new videos) over a day range, drawn as plain SVG paths so this doesn't need
 // a charting library for one dashboard graph.
-function AdminActivityChart({ series }) {
+// Real SaaS-style area chart: fixed pixel viewBox (not a stretched 100x40 —
+// that distorted stroke width and made the whole thing read as a debug
+// sparkline), gradient fill under each line, horizontal gridlines with Y-axis
+// values, and a hover crosshair + tooltip reading the exact point under the
+// cursor. Still zero charting library — plain SVG, consistent with the rest
+// of this app.
+function AdminActivityChart({ series, granularity = 'day' }) {
+  const [hoverIndex, setHoverIndex] = useState(null);
+  const svgRef = useRef(null);
+
   if (!series || series.length === 0) return <p className="text-xs text-slate-500 py-10 text-center">Aucune donnée.</p>;
 
-  const width = 100;
-  const height = 40;
-  const maxVal = Math.max(1, ...series.map(d => Math.max(d.new_users, d.new_videos)));
-  const stepX = series.length > 1 ? width / (series.length - 1) : 0;
-  const toPoints = (key) => series.map((d, i) => `${i * stepX},${height - (d[key] / maxVal) * height}`).join(' ');
+  const width = 760;
+  const height = 280;
+  const padding = { top: 16, right: 16, bottom: 28, left: 36 };
+  const innerW = width - padding.left - padding.right;
+  const innerH = height - padding.top - padding.bottom;
 
+  const maxVal = Math.max(1, ...series.map(d => Math.max(d.new_users, d.new_videos)));
+  const stepX = series.length > 1 ? innerW / (series.length - 1) : 0;
+  const xAt = (i) => padding.left + i * stepX;
+  const yAt = (v) => padding.top + innerH - (v / maxVal) * innerH;
+
+  const linePath = (key) => series.map((d, i) => `${i === 0 ? 'M' : 'L'} ${xAt(i)} ${yAt(d[key])}`).join(' ');
+  const areaPath = (key) => `${linePath(key)} L ${xAt(series.length - 1)} ${padding.top + innerH} L ${xAt(0)} ${padding.top + innerH} Z`;
+
+  const gridLines = 4;
   const labelEvery = Math.max(1, Math.ceil(series.length / 7));
+  const formatLabel = (d) => granularity === 'hour'
+    ? new Date(d.date).toLocaleTimeString('fr-FR', { hour: '2-digit' })
+    : new Date(d.date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' });
+
+  const handleMove = (e) => {
+    const rect = svgRef.current.getBoundingClientRect();
+    const relX = ((e.clientX - rect.left) / rect.width) * width;
+    const i = Math.round((relX - padding.left) / (stepX || 1));
+    setHoverIndex(Math.max(0, Math.min(series.length - 1, i)));
+  };
+
+  const hovered = hoverIndex != null ? series[hoverIndex] : null;
+  // Flip the tooltip to the left once we're past ~65% across, so it never
+  // runs off the right edge of the chart.
+  const tooltipLeft = hoverIndex != null && hoverIndex / series.length < 0.65;
 
   return (
     <div>
-      <svg viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" className="w-full h-40">
-        <polyline points={toPoints('new_videos')} fill="none" stroke="#00c2ff" strokeWidth="1" vectorEffect="non-scaling-stroke" />
-        <polyline points={toPoints('new_users')} fill="none" stroke="#f59e0b" strokeWidth="1" vectorEffect="non-scaling-stroke" />
-      </svg>
-      <div className="flex justify-between mt-2 text-[10px] text-slate-500">
+      <svg
+        ref={svgRef}
+        viewBox={`0 0 ${width} ${height}`}
+        className="w-full h-[280px] cursor-crosshair"
+        onMouseMove={handleMove}
+        onMouseLeave={() => setHoverIndex(null)}
+      >
+        <defs>
+          <linearGradient id="adminChartVideos" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#00c2ff" stopOpacity="0.35" />
+            <stop offset="100%" stopColor="#00c2ff" stopOpacity="0" />
+          </linearGradient>
+          <linearGradient id="adminChartUsers" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#f59e0b" stopOpacity="0.28" />
+            <stop offset="100%" stopColor="#f59e0b" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+
+        {Array.from({ length: gridLines + 1 }).map((_, i) => {
+          const v = Math.round((maxVal / gridLines) * (gridLines - i));
+          const y = padding.top + (innerH / gridLines) * i;
+          return (
+            <g key={i}>
+              <line x1={padding.left} y1={y} x2={width - padding.right} y2={y} stroke="var(--border-subtle)" strokeWidth="1" />
+              <text x={padding.left - 8} y={y + 3} textAnchor="end" fontSize="10" fill="var(--text-tertiary, #64748b)">{v}</text>
+            </g>
+          );
+        })}
+
+        <path d={areaPath('new_users')} fill="url(#adminChartUsers)" />
+        <path d={areaPath('new_videos')} fill="url(#adminChartVideos)" />
+        <path d={linePath('new_users')} fill="none" stroke="#f59e0b" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+        <path d={linePath('new_videos')} fill="none" stroke="#00c2ff" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+
+        {hovered && (
+          <>
+            <line x1={xAt(hoverIndex)} y1={padding.top} x2={xAt(hoverIndex)} y2={padding.top + innerH} stroke="var(--border-soft)" strokeWidth="1" strokeDasharray="3 3" />
+            <circle cx={xAt(hoverIndex)} cy={yAt(hovered.new_videos)} r="3.5" fill="#00c2ff" stroke="var(--bg-surface)" strokeWidth="1.5" />
+            <circle cx={xAt(hoverIndex)} cy={yAt(hovered.new_users)} r="3.5" fill="#f59e0b" stroke="var(--bg-surface)" strokeWidth="1.5" />
+          </>
+        )}
+
         {series.map((d, i) => (i % labelEvery === 0 || i === series.length - 1) ? (
-          <span key={d.date}>{new Date(d.date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}</span>
+          <text key={d.date} x={xAt(i)} y={height - 8} textAnchor="middle" fontSize="10" fill="var(--text-tertiary, #64748b)">{formatLabel(d)}</text>
         ) : null)}
-      </div>
+      </svg>
+
+      {hovered && (
+        <div
+          className="relative"
+          style={{ height: 0 }}
+        >
+          <div
+            className="absolute -top-[268px] pointer-events-none rounded-lg border border-[var(--border-soft)] bg-[var(--bg-dropdown)] px-3 py-2 shadow-xl text-[11px] whitespace-nowrap z-10"
+            style={tooltipLeft ? { left: `${(xAt(hoverIndex) / width) * 100}%` } : { right: `${100 - (xAt(hoverIndex) / width) * 100}%` }}
+          >
+            <div className="font-bold text-white mb-1">{new Date(hovered.date).toLocaleString('fr-FR', granularity === 'hour' ? { day: '2-digit', month: 'short', hour: '2-digit' } : { day: '2-digit', month: 'long' })}</div>
+            <div className="flex items-center gap-1.5 text-[#5cddff]"><span className="w-2 h-2 rounded-full bg-[#00c2ff]" /> {hovered.new_videos} vidéo{hovered.new_videos !== 1 ? 's' : ''}</div>
+            <div className="flex items-center gap-1.5 text-amber-300"><span className="w-2 h-2 rounded-full bg-amber-500" /> {hovered.new_users} utilisateur{hovered.new_users !== 1 ? 's' : ''}</div>
+            {hovered.revenue_fcfa > 0 && <div className="text-slate-400 mt-0.5">{hovered.revenue_fcfa.toLocaleString()} FCFA</div>}
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center gap-4 mt-3">
         <div className="flex items-center gap-1.5 text-[11px] text-slate-400"><span className="w-2.5 h-2.5 rounded-full bg-[#00c2ff]" />Nouvelles vidéos</div>
         <div className="flex items-center gap-1.5 text-[11px] text-slate-400"><span className="w-2.5 h-2.5 rounded-full bg-amber-500" />Nouveaux utilisateurs</div>
@@ -9153,6 +9241,27 @@ export default function App() {
   const [adminCreditBusy, setAdminCreditBusy] = useState(false);
   const [adminGranting, setAdminGranting] = useState(false);
   const [adminActivity, setAdminActivity] = useState(null);
+  const [adminActivityLoading, setAdminActivityLoading] = useState(false);
+  // '24h' | '7d' | '28d' | '90d' — drives /admin/activity's hours= or days=.
+  const [adminOverviewRange, setAdminOverviewRange] = useState('28d');
+  const ADMIN_OVERVIEW_RANGES = [
+    { id: '24h', label: '24 h', query: 'hours=24' },
+    { id: '7d', label: '7 j', query: 'days=7' },
+    { id: '28d', label: '28 j', query: 'days=28' },
+    { id: '90d', label: '90 j', query: 'days=90' },
+  ];
+  const fetchAdminActivity = async (range) => {
+    const cfg = ADMIN_OVERVIEW_RANGES.find(r => r.id === range) || ADMIN_OVERVIEW_RANGES[2];
+    setAdminActivityLoading(true);
+    try {
+      const res = await authFetch(`${API_BASE}/admin/activity?${cfg.query}`);
+      if (res.ok) setAdminActivity(await res.json());
+    } catch (err) {
+      console.error("Erreur chargement activité admin:", err);
+    } finally {
+      setAdminActivityLoading(false);
+    }
+  };
   const [adminVideos, setAdminVideos] = useState([]);
   const [adminVideosLoading, setAdminVideosLoading] = useState(false);
   const [adminVideosViewMode, setAdminVideosViewMode] = useState('list'); // 'list' | 'grid'
@@ -9402,11 +9511,12 @@ export default function App() {
   const fetchAdminData = async () => {
     setAdminUsersLoading(true);
     try {
+      const activityCfg = ADMIN_OVERVIEW_RANGES.find(r => r.id === adminOverviewRange) || ADMIN_OVERVIEW_RANGES[2];
       const [usersRes, plansRes, statsRes, activityRes] = await Promise.all([
         authFetch(`${API_BASE}/admin/users${adminSearch ? `?q=${encodeURIComponent(adminSearch)}` : ''}`),
         authFetch(`${API_BASE}/admin/plans`),
         authFetch(`${API_BASE}/admin/stats`),
-        authFetch(`${API_BASE}/admin/activity`),
+        authFetch(`${API_BASE}/admin/activity?${activityCfg.query}`),
       ]);
       if (usersRes.ok) setAdminUsers(await usersRes.json());
       if (plansRes.ok) setAdminPlans(await plansRes.json());
@@ -18393,18 +18503,51 @@ export default function App() {
             </p>
           </div>
 
-          {adminTab === 'overview' && (
+          {adminTab === 'overview' && (() => {
+            const period = adminActivity?.period;
+            const growthBadge = (current, prev) => {
+              if (current == null || prev == null) return null;
+              const pct = prev > 0 ? ((current - prev) / prev) * 100 : (current > 0 ? 100 : 0);
+              const up = pct >= 0;
+              return (
+                <span className={`inline-flex items-center gap-0.5 text-[10px] font-bold ${up ? 'text-emerald-400' : 'text-rose-400'}`}>
+                  <span className="material-symbols-outlined text-[12px]">{up ? 'trending_up' : 'trending_down'}</span>
+                  {Math.abs(pct).toFixed(0)}%
+                </span>
+              );
+            };
+            const rangeLabel = { '24h': 'les dernières 24h', '7d': 'les 7 derniers jours', '28d': 'les 28 derniers jours', '90d': 'les 90 derniers jours' }[adminOverviewRange];
+            return (
             <div className="space-y-6">
+              {/* Date-range filter — drives /admin/activity's bucketing (and
+                  the period-over-period deltas below) without refetching
+                  users/plans, same idiom as the Coûts tab's own range select. */}
+              <div className="flex items-center gap-2">
+                {ADMIN_OVERVIEW_RANGES.map(r => (
+                  <button
+                    key={r.id}
+                    onClick={() => { setAdminOverviewRange(r.id); fetchAdminActivity(r.id); }}
+                    className={`px-3.5 py-1.5 rounded-xl text-xs font-bold border transition-colors ${adminOverviewRange === r.id ? 'border-[#00c2ff] bg-[#00c2ff]/10 text-[#5cddff]' : 'border-[var(--border)] bg-[var(--bg-surface-alt)] text-slate-400 hover:border-slate-500'}`}
+                  >
+                    {r.label}
+                  </button>
+                ))}
+                {adminActivityLoading && <span className="material-symbols-outlined text-[16px] text-slate-500 animate-spin">progress_activity</span>}
+              </div>
+
               {adminStats && (
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   {[
-                    { label: 'Utilisateurs', value: adminStats.total_users, icon: 'group' },
+                    { label: 'Utilisateurs (total)', value: adminStats.total_users, icon: 'group', badge: period && growthBadge(period.users, period.users_prev) },
                     { label: 'Abonnements actifs', value: adminStats.active_subscriptions, icon: 'workspace_premium' },
-                    { label: 'Revenu total', value: `${adminStats.total_revenue_fcfa.toLocaleString()} FCFA`, icon: 'payments' },
-                    { label: 'Vidéos aujourd\'hui', value: `${adminStats.videos_today} / ${adminStats.total_videos}`, icon: 'movie' },
+                    { label: 'Revenu total', value: `${adminStats.total_revenue_fcfa.toLocaleString()} FCFA`, icon: 'payments', badge: period && growthBadge(period.revenue_fcfa, period.revenue_fcfa_prev) },
+                    { label: 'Vidéos (total)', value: adminStats.total_videos, icon: 'movie', badge: period && growthBadge(period.videos, period.videos_prev) },
                   ].map(s => (
                     <div key={s.label} className="bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-2xl p-4">
-                      <span className="material-symbols-outlined text-[#00c2ff] text-[20px]">{s.icon}</span>
+                      <div className="flex items-center justify-between">
+                        <span className="material-symbols-outlined text-[#00c2ff] text-[20px]">{s.icon}</span>
+                        {s.badge}
+                      </div>
                       <div className="text-xl font-extrabold text-white mt-2">{s.value}</div>
                       <div className="text-[11px] text-slate-400">{s.label}</div>
                     </div>
@@ -18414,12 +18557,15 @@ export default function App() {
 
               <div className="grid grid-cols-1 lg:grid-cols-[1fr_260px] gap-4">
                 <div className="bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-2xl p-5">
-                  <div className="text-sm font-bold text-white mb-1">Activité des 28 derniers jours</div>
-                  <div className="text-[11px] text-slate-500 mb-4">Nouveaux utilisateurs et vidéos générées, par jour.</div>
+                  <div className="text-sm font-bold text-white mb-1">Activité — {rangeLabel}</div>
+                  <div className="text-[11px] text-slate-500 mb-4">
+                    Nouveaux utilisateurs et vidéos générées, {adminOverviewRange === '24h' ? 'par heure' : 'par jour'}
+                    {period && <> · <span className="text-slate-300 font-bold">{period.videos}</span> vidéo{period.videos !== 1 ? 's' : ''} et <span className="text-slate-300 font-bold">{period.users}</span> nouvel{period.users !== 1 ? 's' : ''} utilisateur{period.users !== 1 ? 's' : ''} sur la période</>}.
+                  </div>
                   {adminActivity ? (
-                    <AdminActivityChart series={adminActivity.series} />
+                    <AdminActivityChart series={adminActivity.series} granularity={adminActivity.granularity} />
                   ) : (
-                    <div className="h-40 rounded-xl bg-[var(--border-soft)] animate-pulse" />
+                    <div className="h-[280px] rounded-xl bg-[var(--border-soft)] animate-pulse" />
                   )}
                 </div>
 
@@ -18439,7 +18585,8 @@ export default function App() {
                 </div>
               </div>
             </div>
-          )}
+            );
+          })()}
 
           {adminTab === 'users' && (
             <div className="bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-2xl overflow-hidden">
