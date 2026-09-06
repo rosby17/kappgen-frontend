@@ -19375,14 +19375,22 @@ export default function App() {
                         // Izivoice and ai33.pro are the same underlying account/spend
                         // to the person paying for it — ai33.pro is just the direct
                         // integration that bypasses Izivoice's own resale markup (see
-                        // ai33_provider.py). Merged under one label ONLY in this
-                        // spend breakdown, so it reads as one real cost instead of
-                        // looking like two separate bills; the provider-priority
-                        // toggles elsewhere in the admin panel still need to tell
-                        // them apart to actually route between them.
+                        // ai33_provider.py). Merged under the Izivoice name ONLY in
+                        // this spend breakdown (never flattened into one blanket row —
+                        // TTS/STT/image stay their own lines, since that split is
+                        // still useful information), so it reads as one real cost per
+                        // service instead of looking like separate providers; the
+                        // provider-priority toggles elsewhere in the admin panel still
+                        // need to tell them apart to actually route between them.
                         const merged = {};
                         for (const [provider, v] of Object.entries(adminCosts.by_provider)) {
-                          const label = /^(izivoice|ai33pro)/i.test(provider) ? 'Easy Voice' : provider.replace(/_/g, ' ');
+                          let label = provider.replace(/_/g, ' ');
+                          if (/^(izivoice|ai33pro)/i.test(provider)) {
+                            if (/_tts$/i.test(provider)) label = 'Izivoice TTS';
+                            else if (/_stt$/i.test(provider)) label = 'Izivoice STT';
+                            else if (/_image$/i.test(provider)) label = 'Izivoice Image';
+                            else label = 'Izivoice';
+                          }
                           merged[label] = merged[label] || { cost_usd: 0, calls: 0 };
                           merged[label].cost_usd += v.cost_usd;
                           merged[label].calls += v.calls;
