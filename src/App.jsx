@@ -5233,6 +5233,36 @@ export default function App() {
     });
     setOpenVideoMenuId(vidId);
   };
+  // The YouTube submenu is ALSO portaled to <body>, for the exact same
+  // reason as videoMenuAnchor just above: the parent dropdown scrolls
+  // internally (overflow-y: auto, capped maxHeight), so a plain CSS flyout
+  // nested inside it — even absolutely positioned, even with left-full —
+  // gets silently clipped by that ancestor's overflow instead of showing
+  // beside it. A portaled node also can't rely on CSS :hover/group-hover
+  // across the portal boundary (it's no longer a DOM descendant of the
+  // trigger), hence the small JS hover-intent timer below instead.
+  const [youtubeSubmenuAnchor, setYoutubeSubmenuAnchor] = useState(null);
+  const youtubeSubmenuCloseTimerRef = useRef(null);
+  const YOUTUBE_SUBMENU_WIDTH = 224;
+  const openYoutubeSubmenu = (vidId, e) => {
+    if (youtubeSubmenuCloseTimerRef.current) { clearTimeout(youtubeSubmenuCloseTimerRef.current); youtubeSubmenuCloseTimerRef.current = null; }
+    const rect = e.currentTarget.getBoundingClientRect();
+    const margin = 6;
+    const openLeft = window.innerWidth - rect.right < YOUTUBE_SUBMENU_WIDTH + margin;
+    setYoutubeSubmenuAnchor({
+      top: rect.top,
+      left: openLeft ? null : rect.right + margin,
+      right: openLeft ? window.innerWidth - rect.left + margin : null,
+    });
+    setYoutubeMenuOpenId(vidId);
+  };
+  const scheduleYoutubeSubmenuClose = () => {
+    if (youtubeSubmenuCloseTimerRef.current) clearTimeout(youtubeSubmenuCloseTimerRef.current);
+    youtubeSubmenuCloseTimerRef.current = setTimeout(() => setYoutubeMenuOpenId(null), 200);
+  };
+  const cancelYoutubeSubmenuClose = () => {
+    if (youtubeSubmenuCloseTimerRef.current) { clearTimeout(youtubeSubmenuCloseTimerRef.current); youtubeSubmenuCloseTimerRef.current = null; }
+  };
   const [publishingVideoId, setPublishingVideoId] = useState(null);
   const [publishReviewVideo, setPublishReviewVideo] = useState(null);
   const [publishReviewMode, setPublishReviewMode] = useState('publish');
@@ -12895,16 +12925,27 @@ export default function App() {
                                       {vid.approved_for_publish ? 'Approuvée — annuler' : 'Approuver la publication'}
                                     </button>
                                   )}
-                                  {vid.status === 'done' && (
-                                    <div className="relative group/yt">
-                                      <button onClick={(e) => { e.stopPropagation(); setYoutubeMenuOpenId(youtubeMenuOpenId === vid.id ? null : vid.id); }} onMouseEnter={() => setYoutubeMenuOpenId(vid.id)} className="w-full text-left px-3 py-1.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium">
-                                        <span className="material-symbols-outlined text-[14px] text-[#00c2ff]">smart_display</span> YouTube
-                                        <span className="material-symbols-outlined text-[14px] ml-auto">chevron_right</span>
-                                      </button>
-                                      {/* Flyout to the RIGHT, like a native nested context menu — this used to
-                                          expand downward accordion-style, which pushed every item below it
-                                          down the list on open instead of opening beside it. */}
-                                      <div className={`absolute left-full top-0 ml-1 w-52 bg-[var(--bg-dropdown)] border border-[var(--border-dropdown)] rounded-xl shadow-2xl py-1.5 z-[110] ${youtubeMenuOpenId === vid.id ? 'block' : 'hidden'} group-hover/yt:block`}>
+                                  {vid.status === 'done' && (<>
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); youtubeMenuOpenId === vid.id ? setYoutubeMenuOpenId(null) : openYoutubeSubmenu(vid.id, e); }}
+                                      onMouseEnter={(e) => openYoutubeSubmenu(vid.id, e)}
+                                      onMouseLeave={scheduleYoutubeSubmenuClose}
+                                      className="w-full text-left px-3 py-1.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium"
+                                    >
+                                      <span className="material-symbols-outlined text-[14px] text-[#00c2ff]">smart_display</span> YouTube
+                                      <span className="material-symbols-outlined text-[14px] ml-auto">chevron_right</span>
+                                    </button>
+                                    {/* Flyout beside the parent item, like a native nested context menu —
+                                        portaled to <body> (see youtubeSubmenuAnchor) since the parent
+                                        dropdown's own overflow-y:auto silently clips anything positioned
+                                        to poke out of it, absolute or not. */}
+                                    {youtubeMenuOpenId === vid.id && youtubeSubmenuAnchor && createPortal(
+                                      <div
+                                        onMouseEnter={cancelYoutubeSubmenuClose}
+                                        onMouseLeave={scheduleYoutubeSubmenuClose}
+                                        style={{ position: 'fixed', top: youtubeSubmenuAnchor.top, left: youtubeSubmenuAnchor.left ?? undefined, right: youtubeSubmenuAnchor.right ?? undefined }}
+                                        className="w-56 bg-[var(--bg-dropdown)] border border-[var(--border-dropdown)] rounded-xl shadow-2xl py-1.5 z-[110]"
+                                      >
                                         <button disabled={publishingVideoId === vid.id} onClick={(e) => handlePublishYouTube(vid, e)} className="w-full text-left px-3 py-1.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium disabled:opacity-50">
                                           <span className="material-symbols-outlined text-[14px] text-[#00c2ff]">{vid.youtube_video_id ? 'open_in_new' : 'smart_display'}</span>
                                           {vid.youtube_video_id ? 'Republier sur YouTube' : publishingVideoId === vid.id ? 'Publication…' : 'Publier sur YouTube'}
@@ -12920,9 +12961,10 @@ export default function App() {
                                             <span className="material-symbols-outlined text-[14px] text-[#00c2ff]">link</span> Voir sur YouTube
                                           </a>
                                         )}
-                                      </div>
-                                    </div>
-                                  )}
+                                      </div>,
+                                      document.body
+                                    )}
+                                  </>)}
                                   <div className="h-[1px] bg-[var(--border-dropdown)] my-1"></div>
                                   <button onClick={(e) => { e.stopPropagation(); setMovingVideoId(movingVideoId === vid.id ? null : vid.id); }} className="w-full text-left px-3 py-1.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium">
                                     <span className="material-symbols-outlined text-[14px] text-[#00c2ff]">drive_file_move</span> Déplacer vers…
@@ -13898,16 +13940,27 @@ export default function App() {
                                     {vid.approved_for_publish ? 'Approuvée — annuler' : 'Approuver la publication'}
                                   </button>
                                 )}
-                                {vid.status === 'done' && (
-                                  <div className="relative group/yt">
-                                    <button onClick={(e) => { e.stopPropagation(); setYoutubeMenuOpenId(youtubeMenuOpenId === vid.id ? null : vid.id); }} onMouseEnter={() => setYoutubeMenuOpenId(vid.id)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium">
-                                      <span className="material-symbols-outlined text-[16px] text-[#00c2ff]">smart_display</span> YouTube
-                                      <span className="material-symbols-outlined text-[16px] ml-auto">chevron_right</span>
-                                    </button>
-                                    {/* Flyout to the RIGHT, like a native nested context menu — this used to
-                                        expand downward accordion-style, which pushed every item below it
-                                        down the list on open instead of opening beside it. */}
-                                    <div className={`absolute left-full top-0 ml-1 w-60 bg-[var(--bg-dropdown)] border border-[var(--border-dropdown)] rounded-xl shadow-2xl py-1.5 z-[110] ${youtubeMenuOpenId === vid.id ? 'block' : 'hidden'} group-hover/yt:block`}>
+                                {vid.status === 'done' && (<>
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); youtubeMenuOpenId === vid.id ? setYoutubeMenuOpenId(null) : openYoutubeSubmenu(vid.id, e); }}
+                                    onMouseEnter={(e) => openYoutubeSubmenu(vid.id, e)}
+                                    onMouseLeave={scheduleYoutubeSubmenuClose}
+                                    className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium"
+                                  >
+                                    <span className="material-symbols-outlined text-[16px] text-[#00c2ff]">smart_display</span> YouTube
+                                    <span className="material-symbols-outlined text-[16px] ml-auto">chevron_right</span>
+                                  </button>
+                                  {/* Flyout beside the parent item, like a native nested context menu —
+                                      portaled to <body> (see youtubeSubmenuAnchor) since the parent
+                                      dropdown's own overflow-y:auto silently clips anything positioned
+                                      to poke out of it, absolute or not. */}
+                                  {youtubeMenuOpenId === vid.id && youtubeSubmenuAnchor && createPortal(
+                                    <div
+                                      onMouseEnter={cancelYoutubeSubmenuClose}
+                                      onMouseLeave={scheduleYoutubeSubmenuClose}
+                                      style={{ position: 'fixed', top: youtubeSubmenuAnchor.top, left: youtubeSubmenuAnchor.left ?? undefined, right: youtubeSubmenuAnchor.right ?? undefined }}
+                                      className="w-60 bg-[var(--bg-dropdown)] border border-[var(--border-dropdown)] rounded-xl shadow-2xl py-1.5 z-[110]"
+                                    >
                                       <button disabled={publishingVideoId === vid.id} onClick={(e) => handlePublishYouTube(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium disabled:opacity-50">
                                         <span className="material-symbols-outlined text-[16px] text-[#00c2ff]">{vid.youtube_video_id ? 'open_in_new' : 'smart_display'}</span>
                                         {vid.youtube_video_id ? 'Republier sur YouTube' : publishingVideoId === vid.id ? 'Publication…' : 'Publier sur YouTube'}
@@ -13923,9 +13976,10 @@ export default function App() {
                                           <span className="material-symbols-outlined text-[16px] text-[#00c2ff]">link</span> Voir sur YouTube
                                         </a>
                                       )}
-                                    </div>
-                                  </div>
-                                )}
+                                    </div>,
+                                    document.body
+                                  )}
+                                </>)}
                                 <div className="h-[1px] bg-[var(--border-dropdown)] my-1"></div>
                                 <button onClick={(e) => { e.stopPropagation(); setMovingVideoId(movingVideoId === vid.id ? null : vid.id); }} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium">
                                   <span className="material-symbols-outlined text-[16px] text-[#00c2ff]">drive_file_move</span> Déplacer vers…
