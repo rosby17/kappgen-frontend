@@ -19371,19 +19371,36 @@ export default function App() {
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
                     <div className="bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-2xl p-5">
                       <div className="text-xs font-bold text-white mb-3">Par fournisseur</div>
-                      {Object.keys(adminCosts.by_provider).length === 0 ? (
-                        <p className="text-xs text-slate-500">Aucune donnée pour cette période.</p>
-                      ) : (
-                        <div className="space-y-2.5">
-                          {Object.entries(adminCosts.by_provider).sort((a, b) => b[1].cost_usd - a[1].cost_usd).map(([provider, v]) => (
-                            <div key={provider} className="flex items-center justify-between text-xs">
-                              <span className="text-slate-300 capitalize">{provider.replace(/_/g, ' ')}</span>
-                              <span className="text-slate-500">{v.calls} appel(s)</span>
-                              <span className="text-white font-bold">${v.cost_usd.toFixed(4)}</span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
+                      {(() => {
+                        // Izivoice and ai33.pro are the same underlying account/spend
+                        // to the person paying for it — ai33.pro is just the direct
+                        // integration that bypasses Izivoice's own resale markup (see
+                        // ai33_provider.py). Merged under one label ONLY in this
+                        // spend breakdown, so it reads as one real cost instead of
+                        // looking like two separate bills; the provider-priority
+                        // toggles elsewhere in the admin panel still need to tell
+                        // them apart to actually route between them.
+                        const merged = {};
+                        for (const [provider, v] of Object.entries(adminCosts.by_provider)) {
+                          const label = /^(izivoice|ai33pro)/i.test(provider) ? 'Easy Voice' : provider.replace(/_/g, ' ');
+                          merged[label] = merged[label] || { cost_usd: 0, calls: 0 };
+                          merged[label].cost_usd += v.cost_usd;
+                          merged[label].calls += v.calls;
+                        }
+                        const entries = Object.entries(merged).sort((a, b) => b[1].cost_usd - a[1].cost_usd);
+                        if (entries.length === 0) return <p className="text-xs text-slate-500">Aucune donnée pour cette période.</p>;
+                        return (
+                          <div className="space-y-2.5">
+                            {entries.map(([label, v]) => (
+                              <div key={label} className="flex items-center justify-between text-xs">
+                                <span className="text-slate-300 capitalize">{label}</span>
+                                <span className="text-slate-500">{v.calls} appel(s)</span>
+                                <span className="text-white font-bold">${v.cost_usd.toFixed(4)}</span>
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      })()}
                     </div>
 
                     <div className="bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-2xl p-5">
