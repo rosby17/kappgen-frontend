@@ -19411,9 +19411,17 @@ export default function App() {
                     ) : (
                       <div className="space-y-2">
                         {adminCosts.top_videos.map(v => (
-                          <div key={v.video_id} className="flex items-center justify-between text-xs border-b border-[var(--border-subtle)] last:border-0 pb-2 last:pb-0">
-                            <span className="text-slate-300 truncate flex-1 mr-3">{v.title || v.video_id}</span>
-                            <span className="text-white font-bold">${v.cost_usd.toFixed(4)}</span>
+                          <div
+                            key={v.video_id}
+                            onClick={() => openAdminVideoDetail(v.video_id)}
+                            className="flex items-center justify-between text-xs border-b border-[var(--border-subtle)] last:border-0 pb-2 last:pb-0 cursor-pointer hover:bg-[var(--bg-surface-alt)]/60 -mx-1 px-1 rounded-lg transition-colors"
+                            title="Voir le détail des coûts"
+                          >
+                            <span className="min-w-0 flex-1 mr-3">
+                              <span className="block text-slate-200 font-medium truncate">{v.title || v.video_id}</span>
+                              <span className="block text-slate-500 text-[10px] truncate">{v.channel_name || 'Chaîne inconnue'}{v.owner_email ? ` · ${v.owner_email}` : ''}</span>
+                            </span>
+                            <span className="text-white font-bold shrink-0">${v.cost_usd.toFixed(4)}</span>
                           </div>
                         ))}
                       </div>
