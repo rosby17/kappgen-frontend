@@ -19409,21 +19409,34 @@ export default function App() {
                     {adminCosts.top_videos.length === 0 ? (
                       <p className="text-xs text-slate-500">Aucune donnée pour cette période.</p>
                     ) : (
-                      <div className="space-y-2">
-                        {adminCosts.top_videos.map(v => (
-                          <div
-                            key={v.video_id}
-                            onClick={() => openAdminVideoDetail(v.video_id)}
-                            className="flex items-center justify-between text-xs border-b border-[var(--border-subtle)] last:border-0 pb-2 last:pb-0 cursor-pointer hover:bg-[var(--bg-surface-alt)]/60 -mx-1 px-1 rounded-lg transition-colors"
-                            title="Voir le détail des coûts"
-                          >
-                            <span className="min-w-0 flex-1 mr-3">
-                              <span className="block text-slate-200 font-medium truncate">{v.title || v.video_id}</span>
-                              <span className="block text-slate-500 text-[10px] truncate">{v.channel_name || 'Chaîne inconnue'}{v.owner_email ? ` · ${v.owner_email}` : ''}</span>
-                            </span>
-                            <span className="text-white font-bold shrink-0">${v.cost_usd.toFixed(4)}</span>
-                          </div>
-                        ))}
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-xs">
+                          <thead>
+                            <tr className="text-left text-slate-500 border-b border-[var(--border-soft)]">
+                              <th className="px-3 py-2 font-bold">Titre</th>
+                              <th className="px-3 py-2 font-bold">Chaîne</th>
+                              <th className="px-3 py-2 font-bold">Propriétaire</th>
+                              <th className="px-3 py-2 font-bold text-right">Crédits</th>
+                              <th className="px-3 py-2 font-bold text-right">Montant</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {adminCosts.top_videos.map(v => (
+                              <tr
+                                key={v.video_id}
+                                onClick={() => openAdminVideoDetail(v.video_id)}
+                                className="border-b border-[var(--border-subtle)] last:border-0 cursor-pointer hover:bg-[var(--bg-surface-alt)]/60 transition-colors"
+                                title="Voir le détail des coûts"
+                              >
+                                <td className="px-3 py-2 max-w-[220px] truncate text-slate-200 font-medium">{v.title || v.video_id}</td>
+                                <td className="px-3 py-2 text-slate-300 truncate">{v.channel_name || '—'}</td>
+                                <td className="px-3 py-2 text-slate-400 truncate">{v.owner_email || '—'}</td>
+                                <td className="px-3 py-2 text-right text-[#00c2ff] font-bold whitespace-nowrap">{(v.total_credits ?? 0).toLocaleString()}</td>
+                                <td className="px-3 py-2 text-right text-white font-bold whitespace-nowrap">${v.cost_usd.toFixed(4)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
                       </div>
                     )}
                   </div>
