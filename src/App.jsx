@@ -5157,6 +5157,34 @@ export default function App() {
   const [channels, setChannels] = useState([]);
   const [nicheOptions, setNicheOptions] = useState(NICHE_OPTIONS);
   const [subtitleFonts, setSubtitleFonts] = useState(() => mergeFontCatalog());
+  // Only ~12 font families were ever actually loaded as web fonts (see
+  // index.html's hardcoded Google Fonts <link>) even though the subtitle
+  // picker offers all 178 fontconfig-installed families the real render
+  // (libass, server-side) can use. Every font outside that small list
+  // silently fell back to the browser's default sans-serif in the "Aperçu
+  // en direct" preview — same nominal Fontsize, but a different font's
+  // glyphs are a different apparent size/weight at that size, which is
+  // exactly the "preview doesn't match the final render" bug. Loads every
+  // catalog family for real (batched — Google Fonts' CSS2 endpoint accepts
+  // many &family= params per request, so this is a handful of requests, not
+  // 178) so the preview always renders the actual font the server will use.
+  useEffect(() => {
+    if (!subtitleFonts.length) return;
+    const CHUNK_SIZE = 40;
+    for (let i = 0; i < subtitleFonts.length; i += CHUNK_SIZE) {
+      const id = `subtitle-font-batch-${i}`;
+      if (document.getElementById(id)) continue;
+      const chunk = subtitleFonts.slice(i, i + CHUNK_SIZE);
+      const familyParams = chunk
+        .map(f => `family=${encodeURIComponent(f.value).replace(/%20/g, '+')}:wght@400;700`)
+        .join('&');
+      const link = document.createElement('link');
+      link.id = id;
+      link.rel = 'stylesheet';
+      link.href = `https://fonts.googleapis.com/css2?${familyParams}&display=swap`;
+      document.head.appendChild(link);
+    }
+  }, [subtitleFonts]);
   const [activeChannel, setActiveChannel] = useState(null);
   const [channelVideos, setChannelVideos] = useState([]);
   const [allVideos, setAllVideos] = useState([]);
