@@ -7492,6 +7492,7 @@ export default function App() {
   const [selectedFolderName, setSelectedFolderName] = useState('');
   const [isFolderDragging, setIsFolderDragging] = useState(false);
   const wizardFolderInputRef = useRef(null);
+  const wizardFilesInputRef = useRef(null);
   const channelSyncInputRef = useRef(null);
   const libraryUploadXhrRef = useRef(null);
 
@@ -16404,10 +16405,31 @@ export default function App() {
                               onChange={handleLocalFolderSelect}
                               className="hidden"
                             />
+                            {/* Individual-files fallback: on mobile, a folder picker
+                                shows a barren "choose files" sheet with no thumbnails,
+                                so people on phones need to pick images/videos one by one
+                                from their gallery instead — same accept types, same
+                                handler (it just filters by extension either way). */}
+                            <input
+                              type="file"
+                              ref={wizardFilesInputRef}
+                              accept="image/*,video/*"
+                              multiple
+                              onChange={handleLocalFolderSelect}
+                              className="hidden"
+                              onClick={(e) => e.stopPropagation()}
+                            />
                             <span className="material-symbols-outlined text-3xl">drive_folder_upload</span>
                             <span className="mt-2 font-bold">Glisse-dépose ton dossier de médias</span>
                             <span className="mt-0.5 text-slate-500">ou clique ici</span>
-                            
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); wizardFilesInputRef.current?.click(); }}
+                              className="mt-1.5 text-[10px] font-bold text-[#00c2ff] hover:underline"
+                            >
+                              ou sélectionne des images/vidéos une par une
+                            </button>
+
                             {localImageFiles.length > 0 && (
                               <div className="mt-3 px-2.5 py-1 bg-emerald-950 text-emerald-300 rounded-lg text-[10px] font-bold font-mono truncate">
                                 ✓ {selectedFolderName || 'Dossier'} : {localImageFiles.length} images sélectionnées
