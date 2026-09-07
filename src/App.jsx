@@ -3654,6 +3654,8 @@ function VideoPlayer({ src, autoPlay, className, onTimeUpdate, seekTo, onPlaying
         ref={videoRef}
         src={src}
         autoPlay={autoPlay}
+        playsInline
+        preload="auto"
         onClick={togglePlay}
         onTimeUpdate={(e) => { setCurrentTime(e.target.currentTime); setProgress(e.target.duration ? (e.target.currentTime / e.target.duration) * 100 : 0); onTimeUpdate?.(e.target.currentTime); }}
         onLoadedMetadata={(e) => setDuration(e.target.duration)}
@@ -7493,6 +7495,7 @@ export default function App() {
   const [isFolderDragging, setIsFolderDragging] = useState(false);
   const wizardFolderInputRef = useRef(null);
   const wizardFilesInputRef = useRef(null);
+  const [wizardLibraryGalleryOpen, setWizardLibraryGalleryOpen] = useState(false);
   const channelSyncInputRef = useRef(null);
   const libraryUploadXhrRef = useRef(null);
 
@@ -9283,6 +9286,30 @@ export default function App() {
     uploadLibraryWithProgress(files, folderName)
       .then(() => markLibrarySynced(channelKeyForSync))
       .catch(() => {});
+  };
+
+  // Undo a folder just imported into Option A — either a fresh local
+  // selection not yet attached to a saved channel (nothing to clean up
+  // server-side, the staging upload just gets discarded), or a real
+  // already-saved channel's whole library (needs the confirm + real
+  // delete, same as "Tout supprimer" in Ma bibliothèque). Without this,
+  // someone who picked the wrong folder had no way back except abandoning
+  // the wizard entirely.
+  const clearWizardLocalFolder = async () => {
+    const hasStoredLibraryNow = Number(newChannel.image_style.library_image_count || 0) > 0 && wizardMode === 'edit' && editingChannelId;
+    if (hasStoredLibraryNow) {
+      await deleteAllLibraryImages(editingChannelId);
+      setNewChannel(prev => ({ ...prev, image_style: { ...prev.image_style, library_image_count: 0, library_path: '' } }));
+      setWizardLibraryGalleryOpen(false);
+    }
+    setLocalImageFiles([]);
+    setSelectedFolderName('');
+    setStagedLibraryToken(null);
+    setLibraryUploadStatus(null);
+    setLibraryUploadMessage('');
+    setLibraryUploadProgress(0);
+    if (wizardFolderInputRef.current) wizardFolderInputRef.current.value = '';
+    if (wizardFilesInputRef.current) wizardFilesInputRef.current.value = '';
   };
 
   // A folder dropped/picked for "Importer un dossier local" can mix images
@@ -16431,13 +16458,77 @@ export default function App() {
                             </button>
 
                             {localImageFiles.length > 0 && (
-                              <div className="mt-3 px-2.5 py-1 bg-emerald-950 text-emerald-300 rounded-lg text-[10px] font-bold font-mono truncate">
-                                ✓ {selectedFolderName || 'Dossier'} : {localImageFiles.length} images sélectionnées
+                              <div className="mt-3 px-2.5 py-1.5 bg-emerald-950 text-emerald-300 rounded-lg text-[10px] font-bold font-mono flex items-center gap-2">
+                                <span className="truncate">✓ {selectedFolderName || 'Dossier'} : {localImageFiles.length} images sélectionnées</span>
+                                <button
+                                  type="button"
+                                  onClick={(e) => { e.stopPropagation(); clearWizardLocalFolder(); }}
+                                  title="Retirer ce dossier"
+                                  className="shrink-0 ml-auto text-rose-300 hover:text-rose-200"
+                                >
+                                  <span className="material-symbols-outlined text-[15px]">close</span>
+                                </button>
                               </div>
                             )}
                             {localImageFiles.length === 0 && !libraryUploadStatus && hasStoredLibrary && (
                               <div className="mt-3 px-3 py-2 bg-emerald-950/60 border border-emerald-700/60 text-emerald-300 rounded-lg text-[10px] font-bold">
-                                ✓ {newChannel.image_style.library_image_count} images déjà enregistrées sur le serveur — dossier présent et prêt. Choisis un autre dossier seulement pour remplacer.
+                                <div className="flex items-center gap-2">
+                                  <span className="truncate">✓ {newChannel.image_style.library_image_count} images déjà enregistrées sur le serveur — dossier présent et prêt.</span>
+                                </div>
+                                <div className="mt-1.5 flex items-center gap-3">
+                                  <button
+                                    type="button"
+                                    onClick={(e) => { e.stopPropagation(); setWizardLibraryGalleryOpen(o => !o); if (!wizardLibraryGalleryOpen && editingChannelId && !libraryImages[editingChannelId]) fetchChannelLibraryDetail(editingChannelId); }}
+                                    className="font-bold text-[#00c2ff] hover:text-[#38d0ff] flex items-center gap-1"
+                                  >
+                                    <span className="material-symbols-outlined text-[13px]">{wizardLibraryGalleryOpen ? 'visibility_off' : 'visibility'}</span>
+                                    {wizardLibraryGalleryOpen ? 'Masquer l’aperçu' : 'Voir / modifier les images'}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => { e.stopPropagation(); clearWizardLocalFolder(); }}
+                                    className="font-bold text-rose-400 hover:text-rose-300 flex items-center gap-1"
+                                  >
+                                    <span className="material-symbols-outlined text-[13px]">delete_sweep</span>
+                                    Effacer ce dossier
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                            {/* Live, editable preview of the folder already on the server —
+                                without this, once imported the creator had no way to check
+                                what actually went up (or fix a mistake) short of leaving the
+                                wizard for "Ma bibliothèque". Same delete-per-image affordance,
+                                inline. */}
+                            {wizardLibraryGalleryOpen && hasStoredLibrary && editingChannelId && (
+                              <div className="mt-3 w-full text-left" onClick={(e) => e.stopPropagation()}>
+                                {libraryImages[editingChannelId]?.loading ? (
+                                  <div className="text-center text-slate-500 text-[10px] py-4">Chargement…</div>
+                                ) : (
+                                  <div className="grid grid-cols-4 sm:grid-cols-6 gap-1.5 max-h-52 overflow-y-auto p-1.5 bg-black/20 rounded-lg border border-slate-700/60">
+                                    {(libraryImages[editingChannelId]?.filenames || []).map(name => {
+                                      const busy = libraryBusyKey === `${editingChannelId}:${name}`;
+                                      return (
+                                        <div key={name} className="relative group aspect-video rounded-md overflow-hidden bg-[var(--bg-surface-alt)]">
+                                          <img
+                                            src={`${API_BASE}/channels/${editingChannelId}/library/images/${encodeURIComponent(name)}`}
+                                            alt=""
+                                            className="w-full h-full object-cover"
+                                            loading="lazy"
+                                          />
+                                          <button
+                                            onClick={() => deleteLibraryImage(editingChannelId, name)}
+                                            disabled={busy}
+                                            title="Supprimer cette image"
+                                            className="absolute top-0.5 right-0.5 w-[18px] h-[18px] rounded bg-slate-950/80 text-rose-400 hover:text-rose-300 hover:bg-slate-950 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-50"
+                                          >
+                                            <span className="material-symbols-outlined text-[11px]">{busy ? 'progress_activity' : 'delete'}</span>
+                                          </button>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                )}
                               </div>
                             )}
                             {libraryUploadStatus && (
@@ -21084,11 +21175,26 @@ export default function App() {
             ) : (
               <>
                 {adminVideoDetail.output_path && (
-                  <video
-                    controls
-                    src={getVideoUrl(adminVideoDetail.output_path)}
-                    className="w-full rounded-2xl bg-black max-h-[320px]"
-                  />
+                  <div className="flex gap-3 items-start">
+                    <video
+                      controls
+                      src={getVideoUrl(adminVideoDetail.output_path)}
+                      className="flex-1 min-w-0 rounded-2xl bg-black max-h-[320px]"
+                    />
+                    {/* The exact thumbnail.jpg used for YouTube/the card grid —
+                        seeing it right here means knowing what will actually get
+                        published without having to scrub the player to a random
+                        frame first. */}
+                    <div className="shrink-0 w-28">
+                      <div className="text-[9px] font-bold text-slate-500 uppercase tracking-wider mb-1">Miniature</div>
+                      <img
+                        src={`${API_BASE}/videos/${adminVideoDetail.id}/thumbnail?t=${adminVideoDetail.thumbnail_updated_at || ''}`}
+                        alt="Miniature"
+                        className="w-28 aspect-video object-cover rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-input)]"
+                        onError={(e) => { e.target.style.visibility = 'hidden'; }}
+                      />
+                    </div>
+                  </div>
                 )}
 
                 {['queued', 'rendering'].includes(adminVideoDetail.status) && (
@@ -21138,13 +21244,49 @@ export default function App() {
                     <div className="text-xs font-bold text-white">{adminVideoDetail.status}</div>
                   </div>
                   <div className="bg-[var(--bg-input)] border border-[var(--border-subtle)] rounded-xl p-3">
-                    <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Coût total</div>
-                    <div className="text-xs font-bold text-[#00c2ff]">{(adminVideoDetail.total_credits ?? 0).toLocaleString()} crédits</div>
+                    {/* While queued/rendering, most per-feature debits (voix,
+                        images, transcription...) haven't happened yet — they're
+                        charged as each step completes — so total_credits reads
+                        as a misleading "0 crédits" even though the render is
+                        far from free. Fall back to the same upfront estimate
+                        the wizard itself uses to gate generation. */}
+                    {adminVideoDetail.total_credits > 0 ? (
+                      <>
+                        <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Coût total</div>
+                        <div className="text-xs font-bold text-[#00c2ff]">{adminVideoDetail.total_credits.toLocaleString()} crédits</div>
+                      </>
+                    ) : adminVideoDetail.estimated_credits ? (
+                      <>
+                        <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Coût estimé</div>
+                        <div className="text-xs font-bold text-[#00c2ff]">{adminVideoDetail.estimated_credits.total.toLocaleString()} crédits</div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Coût total</div>
+                        <div className="text-xs font-bold text-[#00c2ff]">0 crédit</div>
+                      </>
+                    )}
                   </div>
                   <div className="bg-[var(--bg-input)] border border-[var(--border-subtle)] rounded-xl p-3">
                     <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Voix</div>
                     <div className="text-xs font-bold text-white truncate">{adminVideoDetail.voice_name || adminVideoDetail.voice_id || '—'}</div>
                   </div>
+                  {/* Some videos are created from a client-submitted audio file
+                      (input_type "audio") instead of a text script — that file
+                      is a real client input and needs the same "can I actually
+                      listen to it" treatment as the music track below. */}
+                  {adminVideoDetail.audio_input_path && (
+                    <div className="bg-[var(--bg-input)] border border-[var(--border-subtle)] rounded-xl p-3 col-span-2">
+                      <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Audio soumis par le client</div>
+                      <div className="text-xs font-bold text-white truncate">{adminVideoDetail.audio_input_path.split('/').pop()}</div>
+                      <div className="mt-2">
+                        <ServerAudioPreview
+                          src={getVideoUrl(adminVideoDetail.audio_input_path)}
+                          name={adminVideoDetail.audio_input_path.split('/').pop()}
+                        />
+                      </div>
+                    </div>
+                  )}
                   <div className={`bg-[var(--bg-input)] border border-[var(--border-subtle)] rounded-xl p-3 ${adminVideoDetail.music_preference?.enabled && adminVideoDetail.music_preference.mode !== 'ai_generate' && adminVideoDetail.music_preference.tracks?.[0] ? 'col-span-2' : ''}`}>
                     <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Musique</div>
                     <div className="text-xs font-bold text-white truncate">
@@ -21187,7 +21329,7 @@ export default function App() {
                   </div>
                 )}
 
-                {adminVideoDetail.cost_items?.length > 0 && (
+                {adminVideoDetail.cost_items?.length > 0 ? (
                   <div>
                     <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Détail des coûts</div>
                     <div className="space-y-1">
@@ -21195,6 +21337,23 @@ export default function App() {
                         <div key={i} className="flex items-center justify-between text-[11px] bg-[var(--bg-input)] border border-[var(--border-subtle)] rounded-lg px-3 py-1.5">
                           <span className="text-slate-400 truncate">{item.description}</span>
                           <span className="text-[#00c2ff] font-bold shrink-0 ml-2">{item.credits.toLocaleString()}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : adminVideoDetail.estimated_credits && (
+                  <div>
+                    <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Détail du coût estimé (pas encore débité)</div>
+                    <div className="space-y-1">
+                      {[
+                        ['voiceover', 'Voix off'],
+                        ['transcription', 'Transcription'],
+                        ['images', adminVideoDetail.estimated_credits.images_count ? `${adminVideoDetail.estimated_credits.images_count} image(s) IA` : 'Images IA'],
+                        ['music', 'Musique IA'],
+                      ].filter(([key]) => adminVideoDetail.estimated_credits[key] > 0).map(([key, label]) => (
+                        <div key={key} className="flex items-center justify-between text-[11px] bg-[var(--bg-input)] border border-[var(--border-subtle)] rounded-lg px-3 py-1.5">
+                          <span className="text-slate-400 truncate">{label}</span>
+                          <span className="text-[#00c2ff] font-bold shrink-0 ml-2">{adminVideoDetail.estimated_credits[key].toLocaleString()}</span>
                         </div>
                       ))}
                     </div>
@@ -21945,8 +22104,8 @@ export default function App() {
 
       {/* VIDEO PLAYER MODAL */}
       {selectedVideo && (
-        <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-50 flex items-center justify-center p-6">
-          <div className="bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-3xl p-6 max-w-[min(1200px,92vw)] w-full shadow-2xl space-y-4">
+        <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-50 flex items-center justify-center p-3 sm:p-6">
+          <div className="bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-3xl p-4 sm:p-6 max-w-[min(1200px,92vw)] w-full shadow-2xl space-y-4 max-h-[92vh] overflow-y-auto">
             <div className="flex justify-between items-center">
               <h3 className="text-sm font-bold text-white">Aperçu Vidéo Rendu</h3>
               <button onClick={() => setSelectedVideo(null)} className="text-slate-400 hover:text-white">
@@ -21962,10 +22121,13 @@ export default function App() {
               />
             </div>
 
-            <div className="flex items-center gap-3 pt-2">
+            {/* 2x2 grid on narrow screens instead of 4 flex-1 buttons crammed
+                edge to edge (icon+label text was unreadable on a phone width) —
+                falls back to the original single row from sm up. */}
+            <div className="grid grid-cols-2 sm:flex sm:items-center gap-2 sm:gap-3 pt-2">
               <button
                 onClick={() => openStudio(selectedVideo)}
-                className="flex-1 py-3 bg-[var(--bg-surface-alt)] text-white font-bold text-xs rounded-xl text-center hover:bg-[var(--border-soft)] transition-all flex items-center justify-center gap-2 border border-[var(--border)]"
+                className="py-3 bg-[var(--bg-surface-alt)] text-white font-bold text-xs rounded-xl text-center hover:bg-[var(--border-soft)] transition-all flex items-center justify-center gap-2 border border-[var(--border)] sm:flex-1"
               >
                 <span className="material-symbols-outlined text-[18px]">edit</span> Éditer
               </button>
@@ -21978,7 +22140,7 @@ export default function App() {
                 onClick={() => handleRetryVideoVisuals(selectedVideo.id)}
                 disabled={retryingVideoVisualsId === selectedVideo.id}
                 title="Relancer le montage (garder la voix)"
-                className="flex-1 py-3 bg-[var(--bg-surface-alt)] text-white font-bold text-xs rounded-xl text-center hover:bg-[var(--border-soft)] transition-all flex items-center justify-center gap-2 border border-[var(--border)] disabled:opacity-50"
+                className="py-3 bg-[var(--bg-surface-alt)] text-white font-bold text-xs rounded-xl text-center hover:bg-[var(--border-soft)] transition-all flex items-center justify-center gap-2 border border-[var(--border)] disabled:opacity-50 sm:flex-1"
               >
                 <span className="material-symbols-outlined text-[18px]">{retryingVideoVisualsId === selectedVideo.id ? 'progress_activity' : 'image_search'}</span>
                 {retryingVideoVisualsId === selectedVideo.id ? 'Relance…' : 'Relancer le montage'}
@@ -21986,13 +22148,13 @@ export default function App() {
               <button
                 onClick={() => handleShareVideo(selectedVideo)}
                 title="Partager le lien (WhatsApp, etc.)"
-                className="flex-1 py-3 bg-[var(--bg-surface-alt)] text-white font-bold text-xs rounded-xl text-center hover:bg-[var(--border-soft)] transition-all flex items-center justify-center gap-2 border border-[var(--border)]"
+                className="py-3 bg-[var(--bg-surface-alt)] text-white font-bold text-xs rounded-xl text-center hover:bg-[var(--border-soft)] transition-all flex items-center justify-center gap-2 border border-[var(--border)] sm:flex-1"
               >
                 <span className="material-symbols-outlined text-[18px]">share</span> Partager
               </button>
               <button
                 onClick={() => runDownload(selectedVideo, 'hd')}
-                className="flex-1 py-3 bg-[#00c2ff] text-slate-950 font-bold text-xs rounded-xl text-center hover:bg-[#38d0ff] transition-all flex items-center justify-center gap-2"
+                className="py-3 bg-[#00c2ff] text-slate-950 font-bold text-xs rounded-xl text-center hover:bg-[#38d0ff] transition-all flex items-center justify-center gap-2 sm:flex-1"
               >
                 <span className="material-symbols-outlined text-[18px]">download</span> Télécharger MP4
               </button>
