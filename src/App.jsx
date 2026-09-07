@@ -9213,10 +9213,16 @@ export default function App() {
       // unresponsive session left the button reading "Lancement..."
       // forever with no error ever shown — indistinguishable, from the
       // creator's side, from the click having done nothing at all.
+      // 90s (was 30s): this request runs a real AI script-compliance check
+      // (evaluate_script_compliance, a Claude call) synchronously before
+      // responding — a longer script or a slow moment for Claude routinely
+      // pushed past 30s, aborting a submission that was actually working
+      // and showing a misleading "connexion expirée" error. Still comfortably
+      // under Cloudflare's own ~100s proxy timeout.
       const res = await authFetch(`${API_BASE}/videos`, {
         method: 'POST',
         body: formData,
-        timeoutMs: 30000,
+        timeoutMs: 90000,
       });
       if (res.ok) {
         setSingleScriptText('');
@@ -17219,7 +17225,6 @@ export default function App() {
                     cool: 'saturate(1.1) hue-rotate(-8deg) brightness(0.98)',
                     noir: 'grayscale(1) contrast(1.25)',
                     sepia: 'sepia(0.75) contrast(1.05)',
-                    vibrant: 'saturate(1.6) contrast(1.1)',
                     faded: 'contrast(0.82) brightness(1.08) saturate(0.85)',
                     cinematic: 'saturate(1.1) contrast(1.12) hue-rotate(-4deg)',
                     none: 'none',
@@ -17261,7 +17266,6 @@ export default function App() {
                                 { id: 'cool', label: 'Froid' },
                                 { id: 'noir', label: 'Noir & Blanc' },
                                 { id: 'sepia', label: 'Sépia' },
-                                { id: 'vibrant', label: 'Vibrant' },
                                 { id: 'faded', label: 'Délavé' },
                                 { id: 'cinematic', label: 'Cinéma' },
                               ].map(({ id, label }) => (
