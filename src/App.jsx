@@ -1496,33 +1496,40 @@ const nameFromFilename = (filename) => {
 // { text, included } — included:false still shows the line grayed out with
 // a red cross instead of a green check, since a check on an excluded
 // feature reads as "you have this."
-const PLAN_CHANNEL_COUNTS = { 'Starter': '1 chaîne', 'Creator': '2 chaînes', 'Standard': 'Jusqu’à 5 chaînes', 'Pro': 'Chaînes illimitées' };
+// Channels and cloned voices are the real per-tier scarcity levers (crescendo
+// with price) — matches src/utils/plan_catalog.py's PLAN_CATALOG exactly.
+// Video length tiering is unrelated/unchanged. Script/image generation and
+// transcription are deliberately NOT tier-gated any more (2026-09-07): every
+// use already draws down the credit balance per task, so blocking them by
+// plan on top would just double-charge the same usage — they're listed once,
+// included on every tier, instead of as a false differentiator.
+const PLAN_CHANNEL_COUNTS = { 'Starter': 'Jusqu’à 2 chaînes', 'Creator': 'Jusqu’à 5 chaînes', 'Standard': 'Jusqu’à 10 chaînes', 'Pro': 'Chaînes illimitées' };
 const PLAN_VIDEO_DURATIONS = { 'Starter': 'Vidéos jusqu’à 10 min', 'Creator': 'Vidéos jusqu’à 25 min', 'Standard': 'Vidéos jusqu’à 1h', 'Pro': 'Durée de vidéo illimitée' };
+const PLAN_CLONED_VOICES = { 'Starter': '1 voix clonée', 'Creator': 'Jusqu’à 2 voix clonées', 'Standard': 'Jusqu’à 5 voix clonées', 'Pro': 'Voix clonées illimitées' };
 // "Accès à ..." on purpose, not "Voix off incluse" — a checked line unlocks
 // the feature (you're allowed to use it), it doesn't make it free/unlimited:
 // every use still draws down the credit balance like any other generation.
-const buildPlanFeatures = (planName, { transcription, aiImages, aiScript, autoPublish, prioritySupport }) => [
+const buildPlanFeatures = (planName, { autoPublish, prioritySupport }) => [
   { text: 'Accès à la voix off', included: true },
   { text: PLAN_CHANNEL_COUNTS[planName], included: true },
   { text: PLAN_VIDEO_DURATIONS[planName], included: true },
-  { text: 'Accès à la transcription automatique', included: transcription },
-  { text: 'Accès à la génération d’images IA', included: aiImages },
-  { text: 'Accès au script automatique IA', included: aiScript },
+  { text: PLAN_CLONED_VOICES[planName], included: true },
+  { text: 'Script IA, images IA & transcription (facturés à l’usage)', included: true },
   { text: 'Accès à la publication automatique YouTube', included: autoPublish },
   { text: 'Support prioritaire', included: prioritySupport },
 ];
 const PLAN_DETAILS = {
   'Starter': { tagline: 'Pour tester la voix off sans engagement.', features: buildPlanFeatures('Starter', {
-    transcription: false, aiImages: false, aiScript: false, autoPublish: false, prioritySupport: false,
+    autoPublish: false, prioritySupport: false,
   }) },
   'Creator': { tagline: 'Pour créer régulièrement sans y penser.', features: buildPlanFeatures('Creator', {
-    transcription: true, aiImages: true, aiScript: true, autoPublish: false, prioritySupport: false,
+    autoPublish: false, prioritySupport: false,
   }) },
   'Standard': { tagline: 'Le meilleur rapport crédits / prix.', features: buildPlanFeatures('Standard', {
-    transcription: true, aiImages: true, aiScript: true, autoPublish: true, prioritySupport: false,
+    autoPublish: true, prioritySupport: false,
   }), featured: true, badgeText: 'Le plus populaire' },
   'Pro': { tagline: 'Pour un usage intensif et plusieurs chaînes.', features: buildPlanFeatures('Pro', {
-    transcription: true, aiImages: true, aiScript: true, autoPublish: true, prioritySupport: true,
+    autoPublish: true, prioritySupport: true,
   }) },
 };
 
@@ -1608,7 +1615,7 @@ function PricingModal({ onClose, plans, subscription, checkoutPlanId, onSelectPl
                     {p.credits ? (
                       <div className="text-[11px] text-[#00c2ff] font-bold mt-0.5">{p.credits.toLocaleString()} crédits</div>
                     ) : null}
-                    <div className="text-[11px] text-slate-500">{p.credits ? 'crédits à vie' : `/ ${p.duration_days} jours`}</div>
+                    <div className="text-[11px] text-slate-500">{p.credits ? 'crédits' : `/ ${p.duration_days} jours`}</div>
                   </div>
                   <ul className="space-y-1.5 flex-1">
                     {details.features.map(f => (
@@ -1697,7 +1704,7 @@ function PaymentModal({ plan, onClose, onCheckout, checkingOut }) {
           </div>
           <div className="text-right">
             <div className="text-lg font-extrabold text-white">{displayPrice.toLocaleString()} FCFA</div>
-            <div className="text-[10px] text-slate-400">{isCreditPack ? 'Crédits à vie' : `/ ${plan.duration_days} jours`}</div>
+            <div className="text-[10px] text-slate-400">{isCreditPack ? 'Crédits' : `/ ${plan.duration_days} jours`}</div>
           </div>
         </div>
 
@@ -19099,7 +19106,7 @@ export default function App() {
                                   {p.credits ? (
                                     <div className="text-[11px] text-[#00c2ff] font-bold mt-0.5">{p.credits.toLocaleString()} crédits</div>
                                   ) : null}
-                                  <div className="text-[11px] text-slate-500">{p.credits ? 'crédits à vie' : `/ ${p.duration_days} jours`}</div>
+                                  <div className="text-[11px] text-slate-500">{p.credits ? 'crédits' : `/ ${p.duration_days} jours`}</div>
                                 </div>
                                 <ul className="space-y-1.5 flex-1">
                                   {details.features.map(f => (
