@@ -19771,7 +19771,7 @@ export default function App() {
                       const selected = rank !== -1;
                       const health = (adminProviders || []).find(p => p.id === id);
                       const dotColor = health?.status === 'ok' ? 'bg-emerald-500' : health?.status === 'quota_exhausted' ? 'bg-rose-500' : 'bg-slate-600';
-                      const label = { izivoice: 'Moteur KappGen', ai33pro: 'ai33.pro' }[id] || id;
+                      const label = { izivoice: 'Moteur KappGen', ai33pro: 'ai33.pro', kie: 'Kie.ai (Suno)' }[id] || id;
                       return (
                         <button
                           key={id}
