@@ -4885,8 +4885,14 @@ function LibraryChannelAvatar({ channel }) {
 // account that isn't approved yet (see App's render, right after the
 // currentUser/auth-route redirects). Polls the account's own status so
 // approval takes effect within a few seconds, no manual refresh needed.
+// Public WhatsApp community-group invite, shown once right after approval
+// (see BetaGateScreen's justApproved screen below) — separate from the
+// personal +237655306425 contact link used while still pending.
+const BETA_WHATSAPP_GROUP_URL = 'https://chat.whatsapp.com/Dt1qqGiBxuLKZiXfJUB50z?s=sw&p=i&mlu=4&ilr=4';
+
 function BetaGateScreen({ currentUser, authFetch, onLogout, onApproved }) {
   const [checking, setChecking] = useState(false);
+  const [justApproved, setJustApproved] = useState(null); // the updated user, once approval is detected — held here one beat so the WhatsApp group link actually gets seen instead of the screen unmounting straight into the app
   const rejected = currentUser.beta_status === 'rejected';
 
   const checkStatus = async () => {
@@ -4896,7 +4902,7 @@ function BetaGateScreen({ currentUser, authFetch, onLogout, onApproved }) {
       if (res.ok) {
         const updated = await res.json();
         if (updated.beta_status === 'approved') {
-          onApproved(updated);
+          setJustApproved(updated);
           return;
         }
       }
@@ -4909,14 +4915,57 @@ function BetaGateScreen({ currentUser, authFetch, onLogout, onApproved }) {
   };
 
   useEffect(() => {
-    if (rejected) return; // no point polling a final decision
+    if (rejected || justApproved) return; // no point polling a final/settled decision
     const interval = setInterval(checkStatus, 20000);
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rejected]);
+  }, [rejected, justApproved]);
 
   const whatsappMessage = `Bonjour ! Je souhaite avoir des nouvelles de ma demande d'accès à la bêta KappGen.\n\nNom : ${currentUser.name || ''}\nEmail : ${currentUser.email || ''}\nInscrit le : ${currentUser.created_at ? new Date(currentUser.created_at).toLocaleDateString('fr-FR') : ''}`;
   const whatsappHref = `https://wa.me/237655306425?text=${encodeURIComponent(whatsappMessage)}`;
+
+  if (justApproved) {
+    return (
+      <div className="min-h-screen relative flex items-center justify-center bg-[#0a0e14] text-[#e5e8f0] p-6 overflow-hidden">
+        <div className="pointer-events-none absolute inset-0">
+          <div className="absolute -top-40 -left-32 w-[520px] h-[520px] rounded-full blur-[120px] opacity-25 bg-emerald-500" />
+          <div className="absolute -bottom-40 -right-32 w-[520px] h-[520px] rounded-full blur-[120px] opacity-20 bg-[#0088ff]" />
+        </div>
+        <div className="relative w-full max-w-md">
+          <div className="flex items-center justify-center gap-2 mb-6">
+            <img src="/assets/logo/logo-kappgen.png" alt="KappGen" className="w-8 h-8 rounded-lg object-cover" />
+            <span className="font-black text-white tracking-wide text-lg">KappGen</span>
+          </div>
+          <div className="bg-[var(--bg-surface)]/90 backdrop-blur-xl border border-[var(--border-soft)] rounded-3xl shadow-2xl p-8 text-center">
+            <div className="w-20 h-20 mx-auto mb-5 rounded-full bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center">
+              <span className="material-symbols-outlined text-[36px] text-emerald-400">celebration</span>
+            </div>
+            <h1 className="text-2xl font-extrabold text-white">Ton accès est validé !</h1>
+            <p className="text-sm text-slate-400 mt-3 leading-relaxed">
+              Bienvenue dans la bêta privée de KappGen. Rejoins le groupe WhatsApp des bêta-testeurs pour suivre les nouveautés et échanger avec les autres créateurs.
+            </p>
+            <div className="mt-6 flex flex-col gap-2.5">
+              <a
+                href={BETA_WHATSAPP_GROUP_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full py-3 bg-[#25D366] hover:bg-[#20bd5a] text-white font-bold text-sm rounded-xl transition-colors flex items-center justify-center gap-2 shadow-lg shadow-[#25D366]/20"
+              >
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.48 1.32 5l-1.4 5.12 5.24-1.38a9.9 9.9 0 004.75 1.21h.01c5.46 0 9.9-4.45 9.9-9.91 0-2.65-1.03-5.13-2.9-7C17.15 3.03 14.68 2 12.04 2zm0 18.1h-.01a8.2 8.2 0 01-4.19-1.15l-.3-.18-3.11.82.83-3.03-.2-.31a8.18 8.18 0 01-1.26-4.36c0-4.53 3.69-8.22 8.24-8.22 2.2 0 4.27.86 5.83 2.42a8.17 8.17 0 012.41 5.82c0 4.54-3.7 8.19-8.24 8.19zm4.52-6.16c-.25-.12-1.47-.72-1.69-.81-.23-.08-.39-.12-.56.13-.17.25-.64.81-.78.97-.14.17-.29.19-.54.06-.25-.12-1.04-.38-1.99-1.22-.73-.66-1.23-1.46-1.37-1.71-.14-.25-.02-.38.11-.51.11-.11.25-.29.37-.43.12-.15.16-.25.25-.42.08-.17.04-.31-.02-.43-.06-.13-.56-1.34-.76-1.84-.2-.48-.41-.42-.56-.42-.14 0-.31-.01-.47-.01-.17 0-.44.06-.67.31-.23.25-.87.85-.87 2.08 0 1.23.89 2.42 1.02 2.58.12.17 1.75 2.67 4.24 3.75.59.26 1.05.41 1.41.52.59.19 1.13.16 1.55.1.47-.07 1.47-.6 1.68-1.18.21-.58.21-1.08.14-1.18-.06-.11-.23-.17-.48-.29z"/></svg>
+                Rejoindre le groupe WhatsApp bêta
+              </a>
+              <button
+                onClick={() => onApproved(justApproved)}
+                className="w-full py-2.5 bg-[var(--bg-surface-alt)] border border-[var(--border)] hover:border-[#00c2ff]/50 text-slate-300 hover:text-white text-xs font-bold rounded-xl transition-colors"
+              >
+                Accéder à KappGen
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen relative flex items-center justify-center bg-[#0a0e14] text-[#e5e8f0] p-6 overflow-hidden">
