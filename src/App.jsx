@@ -18238,7 +18238,10 @@ export default function App() {
                       <div className="flex justify-between items-center">
                         <div>
                           <h3 className="text-base font-bold text-white">9. Aperçu Final du Layout & Design Vidéo</h3>
-                          <p className="text-xs text-slate-400 mt-0.5">Voici le rendu final simulé, au format vidéo longue durée YouTube (16:9).</p>
+                          <p className="text-xs text-slate-400 mt-0.5">
+                            Habillage simulé (couleur, logo, sous-titres, effets) au format vidéo longue durée YouTube (16:9) — identique au rendu final.
+                            <span className="block mt-0.5">L'image de fond est un exemple aléatoire de ta bibliothèque ; les vraies scènes sont choisies vidéo par vidéo.</span>
+                          </p>
                         </div>
                       </div>
 
