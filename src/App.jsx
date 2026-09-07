@@ -5519,6 +5519,13 @@ export default function App() {
   }, [showSubmitModal]);
 
   const [loading, setLoading] = useState(false);
+  // Distinct from `loading` — the audio file transfer to B2 can take
+  // several minutes on a slow/flaky connection, and just showing the same
+  // static "Lancement..." for that whole stretch looked identical to being
+  // stuck (which is exactly what prompted this). Set while
+  // uploadOneAudioDirect's onProgress is firing; cleared once that upload
+  // finishes and the (fast) final submit call takes over.
+  const [audioUploadProgress, setAudioUploadProgress] = useState(null); // {fileName, index, total, pct} | null
   const [connectingYouTubeFromWizard, setConnectingYouTubeFromWizard] = useState(false);
   const [timezoneMenuOpen, setTimezoneMenuOpen] = useState(false);
   const [visibilityMenuOpen, setVisibilityMenuOpen] = useState(false);
@@ -9355,16 +9362,22 @@ export default function App() {
       // (Starlink's satellite handoff, confirmed case) that killed it before).
       try {
         setLoading(true);
-        for (const file of audioFilesList) {
-          if (audioFilesList.length > 1) showToast(`Envoi de « ${file.name} »…`, 'success');
-          const objectKey = await uploadOneAudioDirect(file);
+        for (let i = 0; i < audioFilesList.length; i++) {
+          const file = audioFilesList[i];
+          setAudioUploadProgress({ fileName: file.name, index: i, total: audioFilesList.length, pct: 0 });
+          const objectKey = await uploadOneAudioDirect(file, (fraction) => {
+            setAudioUploadProgress({ fileName: file.name, index: i, total: audioFilesList.length, pct: Math.round(fraction * 100) });
+          });
           formData.append("audio_object_keys", objectKey);
           formData.append("audio_object_filenames", file.name);
         }
       } catch (err) {
         setLoading(false);
+        setAudioUploadProgress(null);
         showToast(err.message || "Échec de l'envoi du fichier audio.", 'error');
         return;
+      } finally {
+        setAudioUploadProgress(null);
       }
       // No separate opt-in: whenever subtitles are on, an accurate
       // transcription is what builds them, so it's not a real choice worth
@@ -21327,6 +21340,21 @@ export default function App() {
             </div>
 
             <div className="shrink-0 border-t border-[var(--border-soft)] px-8 py-5">
+              {audioUploadProgress && (
+                <div className="mb-4 space-y-1.5">
+                  <div className="flex items-center justify-between text-[11px] font-bold">
+                    <span className="text-slate-300 flex items-center gap-1.5">
+                      <span className="material-symbols-outlined text-[14px] text-[#00c2ff] animate-pulse">cloud_upload</span>
+                      Envoi du fichier{audioUploadProgress.total > 1 ? ` (${audioUploadProgress.index + 1}/${audioUploadProgress.total})` : ''} : {audioUploadProgress.fileName}
+                    </span>
+                    <span className="text-[#00c2ff]">{audioUploadProgress.pct}%</span>
+                  </div>
+                  <div className="h-1.5 w-full bg-[var(--bg-surface-alt)] rounded-full overflow-hidden">
+                    <div className="h-full bg-[#00c2ff] transition-all duration-300" style={{ width: `${audioUploadProgress.pct}%` }} />
+                  </div>
+                  <p className="text-[10px] text-slate-500">Le montage ne démarre qu'une fois l'envoi terminé — ça peut prendre plusieurs minutes selon la taille du fichier et ta connexion.</p>
+                </div>
+              )}
               {submitStep === 1 ? (
                 <button
                   onClick={() => {
@@ -21354,7 +21382,7 @@ export default function App() {
                     className="flex-1 py-3 bg-gradient-to-r from-[#00c2ff] to-[#0088ff] text-slate-950 font-bold text-sm rounded-xl hover:opacity-90 transition-all flex items-center justify-center gap-2 shadow-lg shadow-[#00c2ff]/25"
                   >
                     <span className="material-symbols-outlined text-[20px]">rocket_launch</span>
-                    {loading ? "Lancement..." : "Confirmer et Lancer"}
+                    {audioUploadProgress ? "Envoi en cours…" : loading ? "Lancement..." : "Confirmer et Lancer"}
                   </button>
                 </div>
               )}
