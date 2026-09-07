@@ -19037,7 +19037,6 @@ export default function App() {
                 { id: 'profile', label: 'Profil', icon: 'person' },
                 { id: 'appearance', label: 'Apparence', icon: 'palette' },
                 { id: 'security', label: 'Sécurité', icon: 'lock' },
-                { id: 'api', label: 'Clés API', icon: 'key' },
                 { id: 'billing', label: 'Abonnement', icon: 'workspace_premium' },
               ].map(tab => (
                 <button
@@ -19230,68 +19229,6 @@ export default function App() {
                         >
                           Gérer la sécurité Google <span className="material-symbols-outlined text-[14px]">open_in_new</span>
                         </a>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {settingsTab === 'api' && (
-                  <div className="space-y-5">
-                    <div>
-                      <h4 className="text-xs font-bold text-white mb-1">Clés API</h4>
-                      <p className="text-[11px] text-slate-400">Utilisez une clé API pour intégrer KappGen à vos propres outils (génération programmatique de vidéos).</p>
-                    </div>
-
-                    {justCreatedApiKey && (
-                      <div className="bg-emerald-950/40 border border-emerald-800 rounded-xl p-3 space-y-2">
-                        <p className="text-[11px] text-emerald-300 font-bold">Copiez cette clé maintenant — elle ne sera plus jamais affichée.</p>
-                        <div className="flex items-center gap-2">
-                          <code className="flex-1 text-[11px] font-mono text-white bg-black/40 rounded-lg p-2 overflow-x-auto whitespace-nowrap">{justCreatedApiKey.key}</code>
-                          <button
-                            type="button"
-                            onClick={() => { navigator.clipboard.writeText(justCreatedApiKey.key); showToast("Clé copiée.", "success"); }}
-                            className="p-2 bg-[var(--bg-surface-alt)] hover:bg-[var(--border-soft)] rounded-lg text-white flex-shrink-0"
-                          >
-                            <span className="material-symbols-outlined text-[16px]">content_copy</span>
-                          </button>
-                        </div>
-                      </div>
-                    )}
-
-                    <div className="flex items-center gap-2">
-                      <input
-                        value={newApiKeyName}
-                        onChange={e => setNewApiKeyName(e.target.value)}
-                        placeholder="Nom de la clé (ex: Zapier, Script perso...)"
-                        className="flex-1 bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl p-2.5 text-xs text-white focus:border-[#00c2ff] outline-none"
-                      />
-                      <button
-                        onClick={handleCreateApiKey}
-                        className="py-2.5 px-4 bg-[#00c2ff] text-slate-950 font-bold text-xs rounded-xl hover:bg-[#38d0ff] transition-all flex items-center gap-1.5 flex-shrink-0"
-                      >
-                        <span className="material-symbols-outlined text-[16px]">add</span> Créer
-                      </button>
-                    </div>
-
-                    <div className="space-y-2">
-                      {apiKeys.length === 0 ? (
-                        <p className="text-[11px] text-slate-500 text-center py-6">Aucune clé API créée pour le moment.</p>
-                      ) : (
-                        apiKeys.map(key => (
-                          <div key={key.id} className="flex items-center justify-between bg-[var(--bg-input)] border border-[var(--border-subtle)] rounded-xl p-3">
-                            <div>
-                              <p className="text-xs font-bold text-white">{key.name}</p>
-                              <p className="text-[10px] text-slate-500 font-mono mt-0.5">{key.key_prefix}••••••••••••••••••••</p>
-                            </div>
-                            <button
-                              onClick={() => handleRevokeApiKey(key.id)}
-                              className="text-rose-400 hover:text-rose-300 p-1.5"
-                              title="Révoquer"
-                            >
-                              <span className="material-symbols-outlined text-[16px]">delete</span>
-                            </button>
-                          </div>
-                        ))
                       )}
                     </div>
                   </div>
