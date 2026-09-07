@@ -6285,6 +6285,38 @@ export default function App() {
     }
   };
 
+  const [purchasingPriorityCardId, setPurchasingPriorityCardId] = useState(null);
+
+  // Card-menu entry point (kebab menu on a queued video's card in the main
+  // grid) — no live-quote panel is shown here, so quote and confirm happen
+  // in one step: fetch the current price, ask the creator to confirm it,
+  // then purchase immediately.
+  const handlePurchasePriorityFromCard = async (video) => {
+    if (!video?.id || purchasingPriorityCardId) return;
+    setPurchasingPriorityCardId(video.id);
+    try {
+      const quoteRes = await authFetch(`${API_BASE}/videos/${video.id}/priority-quote`);
+      const quote = await quoteRes.json().catch(() => ({}));
+      if (!quoteRes.ok || !quote.eligible) {
+        showToast(quote.detail || "Cette vidéo n'est plus éligible à la priorité.", 'error');
+        return;
+      }
+      const price = quote.price_credits;
+      if (!await askConfirm(`Ce rendu passera devant les vidéos actuellement en attente pour ${price.toLocaleString('fr-FR')} crédits.`, { title: 'Prioriser ce rendu ?', confirmLabel: 'Prioriser' })) return;
+      const res = await authFetch(`${API_BASE}/videos/${video.id}/priority`, { method: 'POST' });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || 'Impossible de prioriser ce rendu.');
+      setAllVideos(prev => prev.map(v => v.id === video.id ? { ...v, ...data } : v));
+      setChannelVideos(prev => prev.map(v => v.id === video.id ? { ...v, ...data } : v));
+      showToast('Rendu priorisé — il passe devant la file.', 'success');
+      authFetch(`${API_BASE}/billing/credits`).then(r => r.ok ? r.json() : null).then(d => { if (d) setCreditBalance(d.balance); }).catch(() => {});
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setPurchasingPriorityCardId(null);
+    }
+  };
+
   const handlePurchasePriority = async (videoId) => {
     if (!videoId || purchasingPriority) return;
     const price = priorityQuote?.price_credits;
@@ -13803,6 +13835,16 @@ export default function App() {
                                       document.body
                                     )}
                                   </>)}
+                                  {vid.status === 'queued' && (vid.priority_paid_at ? (
+                                    <div className="w-full px-3 py-1.5 text-xs text-amber-400 flex items-center gap-2 font-medium">
+                                      <span className="material-symbols-outlined text-[14px]">bolt</span> Rendu priorisé
+                                    </div>
+                                  ) : (
+                                    <button disabled={purchasingPriorityCardId === vid.id} onClick={(e) => { e.stopPropagation(); handlePurchasePriorityFromCard(vid); }} className="w-full text-left px-3 py-1.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium disabled:opacity-50">
+                                      <span className={`material-symbols-outlined text-[14px] text-amber-400 ${purchasingPriorityCardId === vid.id ? 'animate-spin' : ''}`}>{purchasingPriorityCardId === vid.id ? 'progress_activity' : 'bolt'}</span>
+                                      {purchasingPriorityCardId === vid.id ? 'Priorisation…' : 'Prioriser le rendu'}
+                                    </button>
+                                  ))}
                                   <div className="h-[1px] bg-[var(--border-dropdown)] my-1"></div>
                                   <button onClick={(e) => { e.stopPropagation(); setMovingVideoId(movingVideoId === vid.id ? null : vid.id); }} className="w-full text-left px-3 py-1.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium">
                                     <span className="material-symbols-outlined text-[14px] text-[#00c2ff]">drive_file_move</span> Déplacer vers…
@@ -14825,6 +14867,16 @@ export default function App() {
                                     document.body
                                   )}
                                 </>)}
+                                {vid.status === 'queued' && (vid.priority_paid_at ? (
+                                  <div className="w-full px-4 py-2.5 text-xs text-amber-400 flex items-center gap-2 font-medium">
+                                    <span className="material-symbols-outlined text-[16px]">bolt</span> Rendu priorisé
+                                  </div>
+                                ) : (
+                                  <button disabled={purchasingPriorityCardId === vid.id} onClick={(e) => { e.stopPropagation(); handlePurchasePriorityFromCard(vid); }} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium disabled:opacity-50">
+                                    <span className={`material-symbols-outlined text-[16px] text-amber-400 ${purchasingPriorityCardId === vid.id ? 'animate-spin' : ''}`}>{purchasingPriorityCardId === vid.id ? 'progress_activity' : 'bolt'}</span>
+                                    {purchasingPriorityCardId === vid.id ? 'Priorisation…' : 'Prioriser le rendu'}
+                                  </button>
+                                ))}
                                 <div className="h-[1px] bg-[var(--border-dropdown)] my-1"></div>
                                 <button onClick={(e) => { e.stopPropagation(); setMovingVideoId(movingVideoId === vid.id ? null : vid.id); }} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium">
                                   <span className="material-symbols-outlined text-[16px] text-[#00c2ff]">drive_file_move</span> Déplacer vers…
