@@ -21400,6 +21400,7 @@ export default function App() {
                     <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Détail du coût estimé (pas encore débité)</div>
                     <div className="space-y-1">
                       {[
+                        ['script', 'Écriture du script'],
                         ['voiceover', 'Voix off'],
                         ['transcription', 'Transcription'],
                         ['images', adminVideoDetail.estimated_credits.images_count ? `${adminVideoDetail.estimated_credits.images_count} image(s) IA` : 'Images IA'],
