@@ -4813,6 +4813,83 @@ function LibraryChannelAvatar({ channel }) {
   );
 }
 
+// Private beta gate — shown in place of the entire app for a signed-in
+// account that isn't approved yet (see App's render, right after the
+// currentUser/auth-route redirects). Polls the account's own status so
+// approval takes effect within a few seconds, no manual refresh needed.
+function BetaGateScreen({ currentUser, authFetch, onLogout, onApproved }) {
+  const [checking, setChecking] = useState(false);
+  const rejected = currentUser.beta_status === 'rejected';
+
+  const checkStatus = async () => {
+    setChecking(true);
+    try {
+      const res = await authFetch(`${API_BASE}/auth/me/${currentUser.id}`);
+      if (res.ok) {
+        const updated = await res.json();
+        if (updated.beta_status === 'approved') {
+          onApproved(updated);
+          return;
+        }
+      }
+    } catch {
+      // Silent — this is a background poll, a transient network hiccup
+      // shouldn't produce an error toast on a screen with no other action.
+    } finally {
+      setChecking(false);
+    }
+  };
+
+  useEffect(() => {
+    if (rejected) return; // no point polling a final decision
+    const interval = setInterval(checkStatus, 20000);
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rejected]);
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-[var(--bg-input-alt)] text-[#e5e8f0] p-6">
+      <div className="max-w-md w-full text-center space-y-5">
+        <div className={`w-16 h-16 mx-auto rounded-2xl flex items-center justify-center ${rejected ? 'bg-red-500/10' : 'bg-[#00c2ff]/10'}`}>
+          <span className={`material-symbols-outlined text-[32px] ${rejected ? 'text-red-400' : 'text-[#00c2ff]'}`}>
+            {rejected ? 'block' : 'hourglass_top'}
+          </span>
+        </div>
+        <div>
+          <h1 className="text-xl font-extrabold text-white">
+            {rejected ? "Accès non accordé" : "Ton accès est en attente d'approbation"}
+          </h1>
+          <p className="text-sm text-slate-400 mt-2">
+            {rejected
+              ? "Ta demande d'accès à la bêta privée de KappGen n'a pas été retenue pour l'instant."
+              : "KappGen est actuellement en bêta privée. Ton inscription a bien été reçue — un administrateur doit valider ton compte avant que tu puisses accéder à l'outil."}
+          </p>
+          {!rejected && (
+            <p className="text-xs text-slate-500 mt-3">Cette page se met à jour automatiquement dès que ton accès est validé.</p>
+          )}
+        </div>
+        <div className="flex items-center justify-center gap-2">
+          {!rejected && (
+            <button
+              onClick={checkStatus}
+              disabled={checking}
+              className="px-4 py-2.5 bg-[var(--bg-surface-alt)] border border-[var(--border)] hover:border-[#00c2ff]/50 text-slate-300 hover:text-white text-xs font-bold rounded-xl transition-colors disabled:opacity-50"
+            >
+              {checking ? 'Vérification…' : 'Vérifier maintenant'}
+            </button>
+          )}
+          <button
+            onClick={onLogout}
+            className="px-4 py-2.5 text-slate-400 hover:text-white text-xs font-bold rounded-xl transition-colors"
+          >
+            Se déconnecter
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function SkeletonGrid({ count = 6, cardClassName = "min-h-[220px]" }) {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -4883,7 +4960,7 @@ function viewFromPath(path) {
 // Each admin sidebar entry gets its own named route (/admin/resources, etc.)
 // so a page refresh stays on the current tab instead of bouncing back to
 // the overview.
-const ADMIN_TABS = ['overview', 'users', 'plans', 'videos', 'library', 'transactions', 'costs', 'resources'];
+const ADMIN_TABS = ['overview', 'beta', 'users', 'plans', 'videos', 'library', 'transactions', 'costs', 'resources'];
 const AI_TEXT_PROVIDER_LABELS = { anthropic: 'Claude (Anthropic)', kie: 'Claude via Kie.ai', deepseek: 'DeepSeek', fal: 'Claude via fal.ai', openai: 'OpenAI', groq: 'Groq (gratuit)', gemini: 'Google Gemini (gratuit)' };
 function adminTabFromPath(path) {
   const m = path.match(/^\/admin\/([a-z_]+)$/);
@@ -9448,6 +9525,56 @@ export default function App() {
   // the nav entry, it isn't itself a security boundary).
   const [adminUsers, setAdminUsers] = useState([]);
   const [adminUsersLoading, setAdminUsersLoading] = useState(false);
+  // Private beta approval queue (Admin → Demandes bêta).
+  const [betaRequests, setBetaRequests] = useState([]);
+  const [betaRequestsLoading, setBetaRequestsLoading] = useState(false);
+  const [betaFilter, setBetaFilter] = useState('pending'); // 'pending' | 'approved' | 'rejected'
+  const [betaDecidingId, setBetaDecidingId] = useState(null);
+  const [pendingBetaCount, setPendingBetaCount] = useState(0);
+
+  const fetchBetaRequests = async (statusFilter = betaFilter) => {
+    setBetaRequestsLoading(true);
+    try {
+      const res = await authFetch(`${API_BASE}/admin/beta-requests?status_filter=${statusFilter}`);
+      if (res.ok) {
+        const data = await res.json();
+        setBetaRequests(data);
+        if (statusFilter === 'pending') setPendingBetaCount(data.length);
+      }
+    } catch (e) {
+      console.error('Erreur chargement demandes bêta:', e);
+    } finally {
+      setBetaRequestsLoading(false);
+    }
+  };
+
+  // Sidebar-badge-only refresh — deliberately does NOT touch `betaRequests`,
+  // so a periodic background poll never clobbers whatever filter (pending/
+  // approved/rejected) the admin currently has open on the tab itself.
+  const refreshPendingBetaCount = async () => {
+    try {
+      const res = await authFetch(`${API_BASE}/admin/beta-requests?status_filter=pending`);
+      if (res.ok) setPendingBetaCount((await res.json()).length);
+    } catch { /* badge is best-effort */ }
+  };
+
+  const decideBetaRequest = async (userId, decision) => {
+    setBetaDecidingId(userId);
+    try {
+      const res = await authFetch(`${API_BASE}/admin/beta-requests/${userId}/${decision}`, { method: 'POST' });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || 'Action impossible.');
+      }
+      setBetaRequests(prev => prev.filter(u => u.id !== userId));
+      setPendingBetaCount(prev => Math.max(0, prev - 1));
+      showToast(decision === 'approve' ? 'Accès approuvé.' : 'Demande refusée.', 'success');
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setBetaDecidingId(null);
+    }
+  };
   const [adminSearch, setAdminSearch] = useState('');
   const [adminPlans, setAdminPlans] = useState([]);
   const [adminStats, setAdminStats] = useState(null);
@@ -10239,6 +10366,22 @@ export default function App() {
   useEffect(() => {
     if (view === 'admin' && currentUser?.is_admin && adminTab === 'resources') { fetchAdminProviders(); fetchThumbnailProviderMode(); fetchVoiceoverProviderMode(); fetchMusicProviderMode(); fetchAiTextProvider(); fetchRenderConcurrency(); fetchPaidApisKillSwitch(); }
   }, [view, currentUser?.is_admin, adminTab]);
+
+  useEffect(() => {
+    if (view === 'admin' && currentUser?.is_admin && adminTab === 'beta') fetchBetaRequests(betaFilter);
+  }, [view, currentUser?.is_admin, adminTab, betaFilter]);
+
+  // The sidebar badge (pending count) should stay current even while the
+  // admin is looking at a different tab, not just when "Demandes bêta" is
+  // actually open — otherwise a new signup is invisible until they happen
+  // to click in.
+  useEffect(() => {
+    if (view !== 'admin' || !currentUser?.is_admin) return;
+    refreshPendingBetaCount();
+    const interval = setInterval(refreshPendingBetaCount, 60000);
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, currentUser?.is_admin]);
 
   useEffect(() => {
     if (view === 'admin' && currentUser?.is_admin && adminTab === 'resources') fetchHfAccounts(hfAccountsProvider);
@@ -12047,6 +12190,17 @@ export default function App() {
     return <Navigate to={safeDestination} replace />;
   }
 
+  // Private beta gate: a signed-in account that isn't approved yet sees this
+  // instead of the app, full stop — no nav, no dashboard peeking through.
+  // Missing beta_status (a session cached before this field existed) reads
+  // as approved rather than locking out everyone already logged in; the
+  // backend itself already grandfathered every pre-existing account, so a
+  // fresh login/register response always carries the real value going
+  // forward. Admins are never gated by their own beta_status.
+  if (currentUser && !isAuthRoute && !currentUser.is_admin && currentUser.beta_status && currentUser.beta_status !== 'approved') {
+    return <BetaGateScreen currentUser={currentUser} authFetch={authFetch} onLogout={handleLogout} onApproved={(updated) => storeAuthSession(updated)} />;
+  }
+
   return (
     <div className="font-body-md antialiased overflow-hidden flex h-screen bg-[var(--bg-input-alt)] text-[#e5e8f0]">
       {!isAuthRoute && (<>
@@ -12261,6 +12415,7 @@ export default function App() {
 
               {[
                 { id: 'overview', label: "Vue d'ensemble", icon: 'dashboard' },
+                { id: 'beta', label: 'Demandes bêta', icon: 'how_to_reg', badge: pendingBetaCount || null },
                 { id: 'users', label: 'Utilisateurs', icon: 'group' },
                 { id: 'videos', label: 'Vidéos', icon: 'movie' },
                 { id: 'library', label: 'Bibliothèque collaborative', icon: 'diversity_3' },
@@ -12280,6 +12435,9 @@ export default function App() {
                 >
                   <span className="material-symbols-outlined w-5 shrink-0 text-center text-[20px]" style={{ fontVariationSettings: adminTab === t.id ? "'FILL' 1" : "'FILL' 0" }}>{t.icon}</span>
                   {!sidebarCollapsed && <span className="min-w-0 flex-1 text-left leading-tight">{t.label}</span>}
+                  {!sidebarCollapsed && t.badge && (
+                    <span className="shrink-0 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-black flex items-center justify-center">{t.badge}</span>
+                  )}
                 </button>
               ))}
             </div>
@@ -18926,16 +19084,20 @@ export default function App() {
           <div>
             <h2 className="text-xl font-extrabold text-white flex items-center gap-2">
               <span className="material-symbols-outlined text-[#00c2ff]">
-                {{ overview: 'dashboard', users: 'group', plans: 'sell', videos: 'movie', library: 'diversity_3', transactions: 'payments' }[adminTab]}
+                {{ overview: 'dashboard', beta: 'how_to_reg', users: 'group', plans: 'sell', videos: 'movie', library: 'diversity_3', transactions: 'payments' }[adminTab]}
               </span>
-              {{ overview: "Vue d'ensemble", users: 'Utilisateurs', plans: 'Offres', videos: 'Vidéos', library: 'Bibliothèque collaborative', transactions: 'Transactions', costs: 'Coûts', resources: 'Ressources' }[adminTab]}
+              {{ overview: "Vue d'ensemble", beta: 'Demandes bêta', users: 'Utilisateurs', plans: 'Offres', videos: 'Vidéos', library: 'Bibliothèque collaborative', transactions: 'Transactions', costs: 'Coûts', resources: 'Ressources' }[adminTab]}
               {adminTab === 'users' && (
                 <span className="text-2xl font-black text-[#00c2ff] tabular-nums">{adminUsers.length}{adminUsers.length >= 500 ? '+' : ''}</span>
+              )}
+              {adminTab === 'beta' && betaFilter === 'pending' && (
+                <span className="text-2xl font-black text-[#00c2ff] tabular-nums">{betaRequests.length}</span>
               )}
             </h2>
             <p className="text-xs text-slate-400 mt-1">
               {{
                 overview: 'Tableau de bord administrateur KappGen.',
+                beta: "KappGen est en bêta privée — approuve ou refuse chaque demande d'accès.",
                 users: 'Gère les comptes, quotas et abonnements des créateurs.',
                 plans: "Configure les offres d'abonnement proposées à la vente.",
                 videos: 'Toutes les vidéos générées sur la plateforme.',
@@ -18944,6 +19106,78 @@ export default function App() {
               }[adminTab]}
             </p>
           </div>
+
+          {adminTab === 'beta' && (
+            <section className="space-y-4">
+              <div className="flex items-center gap-2">
+                {[
+                  { id: 'pending', label: 'En attente' },
+                  { id: 'approved', label: 'Approuvés' },
+                  { id: 'rejected', label: 'Refusés' },
+                ].map(f => (
+                  <button
+                    key={f.id}
+                    onClick={() => setBetaFilter(f.id)}
+                    className={`px-3.5 py-1.5 rounded-xl text-xs font-bold border transition-colors ${
+                      betaFilter === f.id
+                        ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]'
+                        : 'bg-[var(--bg-surface-alt)] border-[var(--border)] text-slate-300 hover:border-slate-500'
+                    }`}
+                  >
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+
+              {betaRequestsLoading ? (
+                <SkeletonGrid count={3} cardClassName="min-h-[90px]" />
+              ) : betaRequests.length === 0 ? (
+                <div className="bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-2xl p-10 text-center text-sm text-slate-500">
+                  {betaFilter === 'pending' ? 'Aucune demande en attente.' : betaFilter === 'approved' ? 'Aucun compte approuvé pour l\'instant.' : 'Aucune demande refusée.'}
+                </div>
+              ) : (
+                <div className="space-y-2.5">
+                  {betaRequests.map(u => (
+                    <div key={u.id} className="flex items-center gap-4 bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-2xl p-4">
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#00c2ff] to-[#0088ff] flex items-center justify-center text-slate-950 text-sm font-black shrink-0">
+                        {(u.name || u.email || '?')[0].toUpperCase()}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="text-sm font-bold text-white truncate">{u.name || 'Sans nom'}</div>
+                        <div className="text-xs text-slate-400 truncate">{u.email}</div>
+                      </div>
+                      <div className="text-[10px] text-slate-500 shrink-0 hidden sm:block">
+                        Inscrit {u.created_at ? new Date(u.created_at).toLocaleDateString('fr-FR') : ''}
+                      </div>
+                      {betaFilter === 'pending' && (
+                        <div className="flex items-center gap-2 shrink-0">
+                          <button
+                            onClick={() => decideBetaRequest(u.id, 'reject')}
+                            disabled={betaDecidingId === u.id}
+                            className="px-3.5 py-2 bg-[var(--bg-surface-alt)] border border-[var(--border)] hover:border-red-500/50 text-slate-300 hover:text-red-400 text-xs font-bold rounded-xl transition-colors disabled:opacity-50"
+                          >
+                            Refuser
+                          </button>
+                          <button
+                            onClick={() => decideBetaRequest(u.id, 'approve')}
+                            disabled={betaDecidingId === u.id}
+                            className="px-3.5 py-2 bg-[#00c2ff] hover:bg-[#38d0ff] text-slate-950 text-xs font-bold rounded-xl transition-colors disabled:opacity-50"
+                          >
+                            {betaDecidingId === u.id ? '…' : 'Approuver'}
+                          </button>
+                        </div>
+                      )}
+                      {betaFilter !== 'pending' && (
+                        <span className={`shrink-0 px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase ${betaFilter === 'approved' ? 'bg-emerald-950/60 text-emerald-400' : 'bg-red-950/60 text-red-400'}`}>
+                          {betaFilter === 'approved' ? 'Approuvé' : 'Refusé'}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+          )}
 
           {adminTab === 'overview' && (() => {
             const period = adminActivity?.period;
