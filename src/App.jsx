@@ -21239,7 +21239,12 @@ export default function App() {
                       subtitle font/color/outline/position, and active effects — everything
                       exactly as configured on the channel, not just a text summary. */}
                   <div>
-                    <div className="text-xs text-slate-400 mb-2">Aperçu visuel du rendu final</div>
+                    <div className="text-xs text-slate-400 mb-2">
+                      Aperçu du style (couleur, logo, effets)
+                      <span className="block text-[10px] text-slate-500 font-normal mt-0.5">
+                        L'habillage (couleur, logo, effets) sera identique au rendu final. L'image de fond ci-dessous est un exemple aléatoire de ta bibliothèque — les vraies scènes seront choisies après génération du script.
+                      </span>
+                    </div>
                     <div ref={submitSubtitlePreviewRef} className="w-full aspect-video rounded-2xl overflow-hidden relative border border-[var(--border)] shadow-lg">
                       {resolveEnabledImageSources(activeChannel.image_style).includes('library') && (
                         <img
