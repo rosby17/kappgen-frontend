@@ -13845,34 +13845,54 @@ export default function App() {
                                       {purchasingPriorityCardId === vid.id ? 'Priorisation…' : 'Prioriser le rendu'}
                                     </button>
                                   ))}
-                                  <div className="h-[1px] bg-[var(--border-dropdown)] my-1"></div>
-                                  <button onClick={(e) => { e.stopPropagation(); setMovingVideoId(movingVideoId === vid.id ? null : vid.id); }} className="w-full text-left px-3 py-1.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium">
-                                    <span className="material-symbols-outlined text-[14px] text-[#00c2ff]">drive_file_move</span> Déplacer vers…
-                                  </button>
-                                  {movingVideoId === vid.id && (
-                                    <div className="border-t border-[var(--border-dropdown)] mt-1 pt-1 max-h-40 overflow-y-auto">
-                                      {vid.folder_id && (
-                                        <button onClick={(e) => { e.stopPropagation(); moveVideoToFolder(vid.id, null); }} className="w-full text-left px-4 py-2 text-[11px] text-slate-400 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2">
-                                          <span className="material-symbols-outlined text-[14px]">folder_off</span> Retirer du dossier
+                                  {/* A video still queued/rendering has no output yet — "Déplacer
+                                      vers…" (a folder for finished content) is meaningless, and
+                                      "Supprimer" doesn't apply to work that hasn't happened: the
+                                      right action is to stop the render (Annuler), same as the
+                                      production-tracker modal's own cancel button. Once the video
+                                      is actually done (or failed/cancelled — nothing left to stop),
+                                      those two return and Annuler goes away. */}
+                                  {['queued', 'rendering'].includes(vid.status) ? (
+                                    <>
+                                      <div className="h-[1px] bg-[var(--border-dropdown)] my-1"></div>
+                                      <button disabled={cancellingProduction} onClick={(e) => { e.stopPropagation(); handleCancelProduction(vid.id); }} className="w-full text-left px-3 py-1.5 text-xs text-rose-400 hover:bg-rose-950/50 flex items-center gap-2 font-medium disabled:opacity-50">
+                                        <span className="material-symbols-outlined text-[14px]">cancel</span> {cancellingProduction ? 'Annulation…' : 'Annuler'}
+                                      </button>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <div className="h-[1px] bg-[var(--border-dropdown)] my-1"></div>
+                                      {vid.status === 'done' && (
+                                        <button onClick={(e) => { e.stopPropagation(); setMovingVideoId(movingVideoId === vid.id ? null : vid.id); }} className="w-full text-left px-3 py-1.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium">
+                                          <span className="material-symbols-outlined text-[14px] text-[#00c2ff]">drive_file_move</span> Déplacer vers…
                                         </button>
                                       )}
-                                      {folders.length === 0 ? (
-                                        <p className="px-4 py-2 text-[11px] text-slate-500">Aucun dossier — créez-en un.</p>
-                                      ) : folders.map(f => (
-                                        <button
-                                          key={f.id}
-                                          onClick={(e) => { e.stopPropagation(); moveVideoToFolder(vid.id, f.id); }}
-                                          className="w-full text-left px-4 py-2 text-[11px] text-slate-300 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 truncate"
-                                        >
-                                          <span className="material-symbols-outlined text-[14px] text-[#00c2ff]">folder</span> {f.name}
-                                        </button>
-                                      ))}
-                                    </div>
+                                      {movingVideoId === vid.id && (
+                                        <div className="border-t border-[var(--border-dropdown)] mt-1 pt-1 max-h-40 overflow-y-auto">
+                                          {vid.folder_id && (
+                                            <button onClick={(e) => { e.stopPropagation(); moveVideoToFolder(vid.id, null); }} className="w-full text-left px-4 py-2 text-[11px] text-slate-400 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2">
+                                              <span className="material-symbols-outlined text-[14px]">folder_off</span> Retirer du dossier
+                                            </button>
+                                          )}
+                                          {folders.length === 0 ? (
+                                            <p className="px-4 py-2 text-[11px] text-slate-500">Aucun dossier — créez-en un.</p>
+                                          ) : folders.map(f => (
+                                            <button
+                                              key={f.id}
+                                              onClick={(e) => { e.stopPropagation(); moveVideoToFolder(vid.id, f.id); }}
+                                              className="w-full text-left px-4 py-2 text-[11px] text-slate-300 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 truncate"
+                                            >
+                                              <span className="material-symbols-outlined text-[14px] text-[#00c2ff]">folder</span> {f.name}
+                                            </button>
+                                          ))}
+                                        </div>
+                                      )}
+                                      {vid.status === 'done' && <div className="h-[1px] bg-[var(--border-dropdown)] my-1"></div>}
+                                      <button onClick={(e) => handleDeleteVideo(vid.id, e)} className="w-full text-left px-3 py-1.5 text-xs text-rose-400 hover:bg-rose-950/50 flex items-center gap-2 font-medium">
+                                        <span className="material-symbols-outlined text-[14px]">delete</span> Supprimer
+                                      </button>
+                                    </>
                                   )}
-                                  <div className="h-[1px] bg-[var(--border-dropdown)] my-1"></div>
-                                  <button onClick={(e) => handleDeleteVideo(vid.id, e)} className="w-full text-left px-3 py-1.5 text-xs text-rose-400 hover:bg-rose-950/50 flex items-center gap-2 font-medium">
-                                    <span className="material-symbols-outlined text-[14px]">delete</span> Supprimer
-                                  </button>
                                 </div>,
                                 document.body
                               )}
@@ -14877,34 +14897,47 @@ export default function App() {
                                     {purchasingPriorityCardId === vid.id ? 'Priorisation…' : 'Prioriser le rendu'}
                                   </button>
                                 ))}
-                                <div className="h-[1px] bg-[var(--border-dropdown)] my-1"></div>
-                                <button onClick={(e) => { e.stopPropagation(); setMovingVideoId(movingVideoId === vid.id ? null : vid.id); }} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium">
-                                  <span className="material-symbols-outlined text-[16px] text-[#00c2ff]">drive_file_move</span> Déplacer vers…
-                                </button>
-                                {movingVideoId === vid.id && (
-                                  <div className="border-t border-[var(--border-dropdown)] mt-1 pt-1 max-h-40 overflow-y-auto">
-                                    {vid.folder_id && (
-                                      <button onClick={(e) => { e.stopPropagation(); moveVideoToFolder(vid.id, null); }} className="w-full text-left px-4 py-2 text-[11px] text-slate-400 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2">
-                                        <span className="material-symbols-outlined text-[14px]">folder_off</span> Retirer du dossier
+                                {['queued', 'rendering'].includes(vid.status) ? (
+                                  <>
+                                    <div className="h-[1px] bg-[var(--border-dropdown)] my-1"></div>
+                                    <button disabled={cancellingProduction} onClick={(e) => { e.stopPropagation(); handleCancelProduction(vid.id); }} className="w-full text-left px-4 py-2.5 text-xs text-rose-400 hover:bg-rose-950/50 flex items-center gap-2 font-medium disabled:opacity-50">
+                                      <span className="material-symbols-outlined text-[16px]">cancel</span> {cancellingProduction ? 'Annulation…' : 'Annuler'}
+                                    </button>
+                                  </>
+                                ) : (
+                                  <>
+                                    <div className="h-[1px] bg-[var(--border-dropdown)] my-1"></div>
+                                    {vid.status === 'done' && (
+                                      <button onClick={(e) => { e.stopPropagation(); setMovingVideoId(movingVideoId === vid.id ? null : vid.id); }} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium">
+                                        <span className="material-symbols-outlined text-[16px] text-[#00c2ff]">drive_file_move</span> Déplacer vers…
                                       </button>
                                     )}
-                                    {folders.length === 0 ? (
-                                      <p className="px-4 py-2 text-[11px] text-slate-500">Aucun dossier — créez-en un.</p>
-                                    ) : folders.map(f => (
-                                      <button
-                                        key={f.id}
-                                        onClick={(e) => { e.stopPropagation(); moveVideoToFolder(vid.id, f.id); }}
-                                        className="w-full text-left px-4 py-2 text-[11px] text-slate-300 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 truncate"
-                                      >
-                                        <span className="material-symbols-outlined text-[14px] text-[#00c2ff]">folder</span> {f.name}
-                                      </button>
-                                    ))}
-                                  </div>
+                                    {movingVideoId === vid.id && (
+                                      <div className="border-t border-[var(--border-dropdown)] mt-1 pt-1 max-h-40 overflow-y-auto">
+                                        {vid.folder_id && (
+                                          <button onClick={(e) => { e.stopPropagation(); moveVideoToFolder(vid.id, null); }} className="w-full text-left px-4 py-2 text-[11px] text-slate-400 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2">
+                                            <span className="material-symbols-outlined text-[14px]">folder_off</span> Retirer du dossier
+                                          </button>
+                                        )}
+                                        {folders.length === 0 ? (
+                                          <p className="px-4 py-2 text-[11px] text-slate-500">Aucun dossier — créez-en un.</p>
+                                        ) : folders.map(f => (
+                                          <button
+                                            key={f.id}
+                                            onClick={(e) => { e.stopPropagation(); moveVideoToFolder(vid.id, f.id); }}
+                                            className="w-full text-left px-4 py-2 text-[11px] text-slate-300 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 truncate"
+                                          >
+                                            <span className="material-symbols-outlined text-[14px] text-[#00c2ff]">folder</span> {f.name}
+                                          </button>
+                                        ))}
+                                      </div>
+                                    )}
+                                    {vid.status === 'done' && <div className="h-[1px] bg-[var(--border-dropdown)] my-1"></div>}
+                                    <button onClick={(e) => handleDeleteVideo(vid.id, e)} className="w-full text-left px-4 py-2.5 text-xs text-rose-400 hover:bg-rose-950/50 flex items-center gap-2 font-medium">
+                                      <span className="material-symbols-outlined text-[16px]">delete</span> Supprimer
+                                    </button>
+                                  </>
                                 )}
-                                <div className="h-[1px] bg-[var(--border-dropdown)] my-1"></div>
-                                <button onClick={(e) => handleDeleteVideo(vid.id, e)} className="w-full text-left px-4 py-2.5 text-xs text-rose-400 hover:bg-rose-950/50 flex items-center gap-2 font-medium">
-                                  <span className="material-symbols-outlined text-[16px]">delete</span> Supprimer
-                                </button>
                               </div>,
                               document.body
                             )}
