@@ -1531,10 +1531,10 @@ const PLAN_DETAILS = {
   }) },
   'Standard': { tagline: 'Le meilleur rapport crédits / prix.', features: buildPlanFeatures('Standard', {
     autoPublish: true, prioritySupport: false,
-  }), featured: true, badgeText: 'Le plus populaire' },
+  }) },
   'Pro': { tagline: 'Pour un usage intensif et plusieurs chaînes.', features: buildPlanFeatures('Pro', {
     autoPublish: true, prioritySupport: true,
-  }) },
+  }), featured: true, badgeText: 'Le plus populaire' },
 };
 
 // Bottom-sheet pricing popup — opened from the sidebar's "Offres & Tarifs"
