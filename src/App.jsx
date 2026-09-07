@@ -9898,6 +9898,18 @@ export default function App() {
   const [adminVideosLoading, setAdminVideosLoading] = useState(false);
   const [adminVideosViewMode, setAdminVideosViewMode] = useState('list'); // 'list' | 'grid'
   const [adminVideoMenuId, setAdminVideoMenuId] = useState(null);
+  // The kebab menu used to only close via its own toggle button — clicking
+  // anywhere else on the page (even the rest of the same row) left it open.
+  // Both the grid-card and table-row wrappers carry data-admin-video-menu-root;
+  // a click outside every such wrapper closes whichever menu is open.
+  useEffect(() => {
+    if (adminVideoMenuId == null) return;
+    const handleClickOutside = (e) => {
+      if (!e.target.closest('[data-admin-video-menu-root]')) setAdminVideoMenuId(null);
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [adminVideoMenuId]);
   const [adminLibraryFolders, setAdminLibraryFolders] = useState([]);
   const [adminLibraryNamePattern, setAdminLibraryNamePattern] = useState('');
   const [editingLibraryLabelChannelId, setEditingLibraryLabelChannelId] = useState(null);
@@ -9983,6 +9995,7 @@ export default function App() {
   const [adminVideoDetail, setAdminVideoDetail] = useState(null);
   const [adminVideoDetailLoading, setAdminVideoDetailLoading] = useState(false);
   const [adminVideoRetrying, setAdminVideoRetrying] = useState(false);
+  const [adminInputAudioUrl, setAdminInputAudioUrl] = useState(null);
   const [adminVideoSearch, setAdminVideoSearch] = useState('');
   const [adminOrders, setAdminOrders] = useState([]);
   const [adminOrdersLoading, setAdminOrdersLoading] = useState(false);
@@ -10526,6 +10539,30 @@ export default function App() {
     }, 2000);
     return () => clearInterval(timer);
   }, [adminVideoDetail?.id, adminVideoDetail?.status]);
+
+  // audio_input_path is a raw local filesystem path (never pushed to remote
+  // storage the way output_path is), so a plain getVideoUrl(...) <audio src>
+  // pointed nowhere and clicking play silently did nothing. Fetched here as
+  // an authenticated blob instead, through the admin-only serving route.
+  useEffect(() => {
+    setAdminInputAudioUrl(null);
+    if (!adminVideoDetail?.id || !adminVideoDetail?.audio_input_path) return;
+    let cancelled = false;
+    let objectUrl = null;
+    (async () => {
+      try {
+        const res = await authFetch(`${API_BASE}/admin/videos/${adminVideoDetail.id}/input-audio`);
+        if (!res.ok) throw new Error();
+        const blob = await res.blob();
+        if (cancelled) return;
+        objectUrl = URL.createObjectURL(blob);
+        setAdminInputAudioUrl(objectUrl);
+      } catch {
+        if (!cancelled) setAdminInputAudioUrl(null);
+      }
+    })();
+    return () => { cancelled = true; if (objectUrl) URL.revokeObjectURL(objectUrl); };
+  }, [adminVideoDetail?.id, adminVideoDetail?.audio_input_path]);
 
   const retryAdminVideo = async () => {
     if (!adminVideoDetail?.id) return;
@@ -19828,7 +19865,7 @@ export default function App() {
                             </div>
                             <div className="flex items-center justify-between text-[10px] text-slate-500">
                               <span>{v.created_at ? new Date(v.created_at).toLocaleDateString('fr-FR') : '—'}</span>
-                              <div className="relative">
+                              <div className="relative" data-admin-video-menu-root>
                                 <button onClick={(e) => { e.stopPropagation(); setAdminVideoMenuId(adminVideoMenuId === v.id ? null : v.id); }} className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-[var(--bg-hover)] hover:text-white" title="Actions vidéo"><span className="material-symbols-outlined text-[18px]">more_vert</span></button>
                                 {adminVideoMenuId === v.id && renderAdminVideoMenu(v)}
                               </div>
@@ -19929,7 +19966,7 @@ export default function App() {
                         </td>
                         <td className="px-4 py-2.5 text-slate-400">{v.created_at ? new Date(v.created_at).toLocaleDateString('fr-FR') : '—'}</td>
                         <td className="px-4 py-2.5 text-right">
-                          <div className="relative inline-block">
+                          <div className="relative inline-block" data-admin-video-menu-root>
                             <button onClick={event => { event.stopPropagation(); setAdminVideoMenuId(adminVideoMenuId === v.id ? null : v.id); }} className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-[var(--bg-hover)] hover:text-white" title="Actions vidéo"><span className="material-symbols-outlined text-[18px]">more_vert</span></button>
                             {adminVideoMenuId === v.id && renderAdminVideoMenu(v)}
                           </div>
@@ -21232,6 +21269,19 @@ export default function App() {
                       <div className="text-[10px] font-bold text-rose-400 uppercase tracking-wider">Échec du rendu</div>
                       <div className="text-xs text-rose-200 mt-1 whitespace-pre-wrap">{adminVideoDetail.error_message || 'Aucun détail technique disponible.'}</div>
                     </div>
+                    {/* Old failed videos carry whatever generic message was
+                        recorded at the time — this recomputes the exact same
+                        itemized breakdown live, plus the creator's real
+                        current balance, so "solde épuisé" is never a bare
+                        claim: the numbers right below it prove it. */}
+                    {adminVideoDetail.estimated_credits && (
+                      <div className="flex items-center justify-between text-[11px] bg-rose-950/40 border border-rose-800/40 rounded-lg px-3 py-2">
+                        <span className="text-rose-200/80">Coût estimé de cette vidéo vs solde du compte</span>
+                        <span className="font-bold text-white shrink-0 ml-2">
+                          {adminVideoDetail.estimated_credits.total.toLocaleString()} cr. requis — {(adminVideoDetail.owner_credit_balance ?? 0).toLocaleString()} cr. disponibles
+                        </span>
+                      </div>
+                    )}
                     <button onClick={retryAdminVideo} disabled={adminVideoRetrying} className="w-full py-2.5 rounded-xl bg-rose-500 text-white text-xs font-bold disabled:opacity-50">
                       {adminVideoRetrying ? 'Relance…' : 'Relancer la vidéo'}
                     </button>
@@ -21280,10 +21330,14 @@ export default function App() {
                       <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Audio soumis par le client</div>
                       <div className="text-xs font-bold text-white truncate">{adminVideoDetail.audio_input_path.split('/').pop()}</div>
                       <div className="mt-2">
-                        <ServerAudioPreview
-                          src={getVideoUrl(adminVideoDetail.audio_input_path)}
-                          name={adminVideoDetail.audio_input_path.split('/').pop()}
-                        />
+                        {adminInputAudioUrl ? (
+                          <ServerAudioPreview
+                            src={adminInputAudioUrl}
+                            name={adminVideoDetail.audio_input_path.split('/').pop()}
+                          />
+                        ) : (
+                          <div className="text-[10px] text-slate-500">Chargement de l’audio…</div>
+                        )}
                       </div>
                     </div>
                   )}
