@@ -6717,6 +6717,46 @@ export default function App() {
     if (!confirmRes.ok) throw new Error(confirmData.detail || "Échec de la finalisation de l'envoi.");
   };
 
+  // Same fix as uploadOneBrollDirect above, applied to narration audio
+  // uploads — a long recording (tens of minutes, tens of MB) sent as one
+  // multipart POST through handleSubjectSubmit's 90s-capped fetch routinely
+  // failed to complete on a flaky/high-latency connection (Starlink's ~15s
+  // satellite handoff, confirmed as the real case this was built for): the
+  // upload has to survive uninterrupted long enough to clear both that
+  // timeout and Cloudflare's own ~100s proxy limit. The browser PUTs
+  // straight to B2 instead, bypassing api.kappgen.com for the file bytes —
+  // only the small confirm-by-object-key call in handleSubjectSubmit goes
+  // through the API.
+  const uploadOneAudioDirect = async (file, onProgress) => {
+    const startRes = await authFetch(`${API_BASE}/videos/audio/direct-upload/start`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ filename: file.name, content_type: file.type || 'audio/mpeg' }),
+    });
+    const startData = await startRes.json().catch(() => ({}));
+    if (!startRes.ok) throw new Error(startData.detail || "Impossible de préparer l'envoi direct.");
+    const { upload_url, object_key } = startData;
+
+    await new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('PUT', upload_url);
+      xhr.timeout = 30 * 60 * 1000; // 30min — a long recording on a slow/flaky link needs real headroom
+      xhr.upload.onprogress = (event) => {
+        if (event.lengthComputable && onProgress) onProgress(event.loaded / event.total);
+      };
+      xhr.onerror = () => reject(new Error('Erreur réseau pendant l’envoi direct vers le stockage.'));
+      xhr.ontimeout = () => reject(new Error('L’envoi direct a pris trop de temps — réessaie avec une connexion plus stable.'));
+      xhr.onload = () => {
+        if (xhr.status < 200 || xhr.status >= 300) reject(new Error(`Échec de l’envoi direct (HTTP ${xhr.status}).`));
+        else resolve();
+      };
+      xhr.setRequestHeader('Content-Type', file.type || 'audio/mpeg');
+      xhr.send(file);
+    });
+
+    return object_key;
+  };
+
   const uploadLibraryBroll = async (channelId, fileList) => {
     const files = Array.from(fileList || []);
     if (!files.length) return;
@@ -9289,6 +9329,13 @@ export default function App() {
     if (!activeChannel) return showToast("Veuillez sélectionner une chaîne.", "error");
     if (!submitVideoTitle.trim()) return showToast("Le titre de la vidéo est obligatoire.", "error");
 
+    if (submitMode === 'audio_upload' && audioFilesList.length === 0) {
+      return showToast("Veuillez glisser-déposer au moins un fichier audio.", "error");
+    }
+    if (submitMode === 'text' && !singleScriptText.trim()) {
+      return showToast("Veuillez saisir le texte de votre script.", "error");
+    }
+
     const formData = new FormData();
     formData.append("channel_id", activeChannel.id);
     formData.append("input_type", submitMode === 'audio_upload' ? 'audio' : 'text');
@@ -9297,13 +9344,28 @@ export default function App() {
     formData.append("force_script_render", forceScriptRender ? "true" : "false");
 
     if (submitMode === 'text') {
-      if (!singleScriptText.trim()) return showToast("Veuillez saisir le texte de votre script.", "error");
       formData.append("script_text", singleScriptText.trim());
     } else if (submitMode === 'audio_upload') {
-      if (audioFilesList.length === 0) return showToast("Veuillez glisser-déposer au moins un fichier audio.", "error");
-      audioFilesList.forEach(file => {
-        formData.append("audio_files", file);
-      });
+      // Uploaded straight to B2 first (see uploadOneAudioDirect) — only the
+      // resulting object keys travel through this form, never the raw file
+      // bytes. Fixes submissions that failed on a flaky/high-latency
+      // connection (a long recording sent as one multipart POST has to
+      // survive uninterrupted for the whole transfer; a direct PUT with its
+      // own 30min timeout tolerates exactly the kind of brief stalls
+      // (Starlink's satellite handoff, confirmed case) that killed it before).
+      try {
+        setLoading(true);
+        for (const file of audioFilesList) {
+          if (audioFilesList.length > 1) showToast(`Envoi de « ${file.name} »…`, 'success');
+          const objectKey = await uploadOneAudioDirect(file);
+          formData.append("audio_object_keys", objectKey);
+          formData.append("audio_object_filenames", file.name);
+        }
+      } catch (err) {
+        setLoading(false);
+        showToast(err.message || "Échec de l'envoi du fichier audio.", 'error');
+        return;
+      }
       // No separate opt-in: whenever subtitles are on, an accurate
       // transcription is what builds them, so it's not a real choice worth
       // its own toggle — subtitles off means nothing to transcribe for.
@@ -9320,11 +9382,11 @@ export default function App() {
       // unresponsive session left the button reading "Lancement..."
       // forever with no error ever shown — indistinguishable, from the
       // creator's side, from the click having done nothing at all.
-      // 90s (was 30s): this request runs a real AI script-compliance check
-      // (evaluate_script_compliance, a Claude call) synchronously before
-      // responding — a longer script or a slow moment for Claude routinely
-      // pushed past 30s, aborting a submission that was actually working
-      // and showing a misleading "connexion expirée" error. Still comfortably
+      // 90s is generous for what this request actually does now — for
+      // audio, the real file transfer already happened above via a direct
+      // PUT to B2 (its own 30min timeout); this call only carries small
+      // form fields (or object keys) plus a deterministic, non-AI script
+      // compliance check server-side, both fast. Still comfortably
       // under Cloudflare's own ~100s proxy timeout.
       const res = await authFetch(`${API_BASE}/videos`, {
         method: 'POST',
