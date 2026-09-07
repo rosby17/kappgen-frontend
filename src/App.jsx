@@ -5551,6 +5551,9 @@ export default function App() {
   const [productionProgressLoading, setProductionProgressLoading] = useState(false);
   const [productionProgressError, setProductionProgressError] = useState('');
   const [cancellingProduction, setCancellingProduction] = useState(false);
+  const [priorityQuote, setPriorityQuote] = useState(null);
+  const [priorityQuoteLoading, setPriorityQuoteLoading] = useState(false);
+  const [purchasingPriority, setPurchasingPriority] = useState(false);
   const [editingQueuedScript, setEditingQueuedScript] = useState(false);
   const [queuedScriptDraft, setQueuedScriptDraft] = useState('');
   const [savingQueuedScript, setSavingQueuedScript] = useState(false);
@@ -6268,6 +6271,42 @@ export default function App() {
     }
   };
 
+  const fetchPriorityQuote = async (videoId) => {
+    if (!videoId) return;
+    setPriorityQuoteLoading(true);
+    try {
+      const res = await authFetch(`${API_BASE}/videos/${videoId}/priority-quote`);
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) setPriorityQuote(data);
+    } catch {
+      // Non-blocking — the priority button just stays hidden/disabled without a quote.
+    } finally {
+      setPriorityQuoteLoading(false);
+    }
+  };
+
+  const handlePurchasePriority = async (videoId) => {
+    if (!videoId || purchasingPriority) return;
+    const price = priorityQuote?.price_credits;
+    if (!await askConfirm(`Ce rendu passera devant les vidéos actuellement en attente pour ${price ? price.toLocaleString('fr-FR') : ''} crédits.`, { title: 'Prioriser ce rendu ?', confirmLabel: 'Prioriser' })) return;
+    setPurchasingPriority(true);
+    try {
+      const res = await authFetch(`${API_BASE}/videos/${videoId}/priority`, { method: 'POST' });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || 'Impossible de prioriser ce rendu.');
+      setProductionProgress(prev => (prev ? { ...prev, ...data } : prev));
+      setAllVideos(prev => prev.map(v => v.id === videoId ? { ...v, ...data } : v));
+      setChannelVideos(prev => prev.map(v => v.id === videoId ? { ...v, ...data } : v));
+      setPriorityQuote(q => (q ? { ...q, already_prioritized: true, eligible: false } : q));
+      showToast('Rendu priorisé — il passe devant la file.', 'success');
+      authFetch(`${API_BASE}/billing/credits`).then(r => r.ok ? r.json() : null).then(d => { if (d) setCreditBalance(d.balance); }).catch(() => {});
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setPurchasingPriority(false);
+    }
+  };
+
   const handleSaveQueuedScript = async (videoId) => {
     if (!videoId || savingQueuedScript) return;
     setSavingQueuedScript(true);
@@ -6299,8 +6338,19 @@ export default function App() {
     setProductionProgress(null);
     setProductionProgressError('');
     setEditingQueuedScript(false);
+    setPriorityQuote(null);
     loadProductionProgress(video.id);
   };
+
+  // Re-quoted on the same cadence as the render progress itself — queue
+  // depth (and so the price) can change every few seconds while a creator
+  // is looking at this panel.
+  useEffect(() => {
+    if (!productionInspector?.video?.id || productionProgress?.status !== 'queued' || priorityQuote?.already_prioritized) return;
+    fetchPriorityQuote(productionInspector.video.id);
+    const timer = setInterval(() => fetchPriorityQuote(productionInspector.video.id), 5000);
+    return () => clearInterval(timer);
+  }, [productionInspector?.video?.id, productionProgress?.status, priorityQuote?.already_prioritized]);
 
   useEffect(() => {
     if (!productionInspector?.video?.id) return;
@@ -21154,17 +21204,37 @@ export default function App() {
                         {/* Available at any stage while the video is still queued/rendering
                             — a creator watching this shouldn't be stuck riding a render out
                             to a result they already know they don't want. */}
-                        {['queued', 'rendering'].includes(productionProgress.status) && (
-                          <button
-                            type="button"
-                            onClick={() => handleCancelProduction(productionInspector.video.id)}
-                            disabled={cancellingProduction}
-                            className="shrink-0 flex items-center gap-1 rounded-lg border border-rose-500/40 bg-rose-500/10 px-2.5 py-1 text-[10px] font-bold text-rose-300 transition hover:bg-rose-500/20 disabled:opacity-50"
-                          >
-                            <span className="material-symbols-outlined text-[13px]">{cancellingProduction ? 'progress_activity' : 'cancel'}</span>
-                            {cancellingProduction ? 'Annulation…' : 'Annuler la vidéo'}
-                          </button>
-                        )}
+                        <div className="flex items-center gap-2 shrink-0">
+                          {productionProgress.status === 'queued' && priorityQuote?.already_prioritized && (
+                            <span className="flex items-center gap-1 rounded-lg border border-amber-500/40 bg-amber-500/10 px-2.5 py-1 text-[10px] font-bold text-amber-300">
+                              <span className="material-symbols-outlined text-[13px]">bolt</span>
+                              Priorisée
+                            </span>
+                          )}
+                          {productionProgress.status === 'queued' && priorityQuote?.eligible && (
+                            <button
+                              type="button"
+                              onClick={() => handlePurchasePriority(productionInspector.video.id)}
+                              disabled={purchasingPriority}
+                              title={`File actuelle : ${priorityQuote.queued_count} vidéo(s) en attente`}
+                              className="flex items-center gap-1 rounded-lg border border-[#00c2ff]/40 bg-[#00c2ff]/10 px-2.5 py-1 text-[10px] font-bold text-[#59d8ff] transition hover:bg-[#00c2ff]/20 disabled:opacity-50"
+                            >
+                              <span className="material-symbols-outlined text-[13px]">{purchasingPriority ? 'progress_activity' : 'bolt'}</span>
+                              {purchasingPriority ? 'Priorisation…' : `Prioriser — ${priorityQuote.price_credits.toLocaleString('fr-FR')} crédits`}
+                            </button>
+                          )}
+                          {['queued', 'rendering'].includes(productionProgress.status) && (
+                            <button
+                              type="button"
+                              onClick={() => handleCancelProduction(productionInspector.video.id)}
+                              disabled={cancellingProduction}
+                              className="flex items-center gap-1 rounded-lg border border-rose-500/40 bg-rose-500/10 px-2.5 py-1 text-[10px] font-bold text-rose-300 transition hover:bg-rose-500/20 disabled:opacity-50"
+                            >
+                              <span className="material-symbols-outlined text-[13px]">{cancellingProduction ? 'progress_activity' : 'cancel'}</span>
+                              {cancellingProduction ? 'Annulation…' : 'Annuler la vidéo'}
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
 
