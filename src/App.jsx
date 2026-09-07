@@ -4884,7 +4884,7 @@ function viewFromPath(path) {
 // so a page refresh stays on the current tab instead of bouncing back to
 // the overview.
 const ADMIN_TABS = ['overview', 'users', 'plans', 'videos', 'library', 'transactions', 'costs', 'resources'];
-const AI_TEXT_PROVIDER_LABELS = { anthropic: 'Claude (Anthropic)', deepseek: 'DeepSeek', fal: 'Claude via fal.ai', openai: 'OpenAI', groq: 'Groq (gratuit)', gemini: 'Google Gemini (gratuit)' };
+const AI_TEXT_PROVIDER_LABELS = { anthropic: 'Claude (Anthropic)', kie: 'Claude via Kie.ai', deepseek: 'DeepSeek', fal: 'Claude via fal.ai', openai: 'OpenAI', groq: 'Groq (gratuit)', gemini: 'Google Gemini (gratuit)' };
 function adminTabFromPath(path) {
   const m = path.match(/^\/admin\/([a-z_]+)$/);
   if (m && ADMIN_TABS.includes(m[1])) return m[1];
