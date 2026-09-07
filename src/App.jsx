@@ -5208,7 +5208,7 @@ export default function App() {
   const [activeProduct, setActiveProduct] = useState(() => {
     try {
       const saved = localStorage.getItem('kappgen_active_product');
-      return ['montage', 'facecam', 'avatar', 'music'].includes(saved) ? saved : 'montage';
+      return ['montage', 'facecam', 'recap', 'avatar', 'music'].includes(saved) ? saved : 'montage';
     } catch {
       return 'montage';
     }
@@ -5220,6 +5220,7 @@ export default function App() {
   const NICHECUT_PRODUCTS = [
     { id: 'montage', label: 'Faceless', icon: 'movie_edit', available: true },
     { id: 'facecam', label: 'Facecam', icon: 'videocam', available: true },
+    { id: 'recap', label: 'Recap Film', icon: 'theaters', available: true },
     { id: 'avatar', label: 'Vidéos Avatar', icon: 'face', available: false },
     { id: 'music', label: 'Vidéo Musicale', icon: 'library_music', available: true },
   ];
@@ -5263,6 +5264,22 @@ export default function App() {
   // Facecam edits `activeChannel` directly (no draft-then-save wizard step
   // here, saveFacecamBranding already persists on click).
   const facecamOverlayInputRef = useRef(null);
+
+  // Recap Film — upload/link a source video, KappGen transcribes it,
+  // writes a paraphrased summary narration, and montages it over spaced-out
+  // still captures of the source (never a video clip — see recap_frames.py).
+  // Fully automated, no per-shot editor like Facecam's Studio: same simple
+  // "upload → wait → download" shape as a music-channel generation.
+  const [recapChannelId, setRecapChannelId] = useState('');
+  const [recapFile, setRecapFile] = useState(null);
+  const [recapYoutubeUrl, setRecapYoutubeUrl] = useState('');
+  const [recapTitle, setRecapTitle] = useState('');
+  const [recapUploading, setRecapUploading] = useState(false);
+  const [recapUploadError, setRecapUploadError] = useState('');
+  const [recapDragOver, setRecapDragOver] = useState(false);
+  const [recapCreateModalOpen, setRecapCreateModalOpen] = useState(false);
+  const [recapNewChannelName, setRecapNewChannelName] = useState('');
+  const [recapCreatingChannel, setRecapCreatingChannel] = useState(false);
   const facecamReplaceOverlayInputRef = useRef(null);
   const [facecamOverlayUploading, setFacecamOverlayUploading] = useState(false);
   const [facecamReplacingOverlayId, setFacecamReplacingOverlayId] = useState(null);
@@ -5709,6 +5726,81 @@ export default function App() {
       setFacecamUploadError(err.message || 'Échec de l\'envoi de la vidéo.');
     } finally {
       setFacecamUploading(false);
+    }
+  };
+
+  // Recap Film — name-only channel creation, same reasoning as Facecam's:
+  // no per-video pipeline config to set up, the whole montage is automatic.
+  const openRecapCreateModal = () => {
+    setRecapNewChannelName('');
+    setRecapCreateModalOpen(true);
+  };
+
+  const createRecapChannel = async () => {
+    const name = recapNewChannelName.trim();
+    if (!name) return;
+    setRecapCreatingChannel(true);
+    try {
+      const res = await authFetch(`${API_BASE}/channels`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, content_type: 'recap' }),
+      });
+      if (!res.ok) {
+        const detail = await res.json().catch(() => ({}));
+        throw new Error(detail.detail || 'Impossible de créer la chaîne.');
+      }
+      const created = await res.json();
+      await fetchChannels();
+      setRecapChannelId(created.id);
+      setRecapNewChannelName('');
+      setRecapCreateModalOpen(false);
+      showToast('Chaîne créée.', 'success');
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setRecapCreatingChannel(false);
+    }
+  };
+
+  const submitRecapVideo = async () => {
+    if (!recapChannelId) {
+      setRecapUploadError('Choisis une chaîne.');
+      return;
+    }
+    if (!recapFile && !recapYoutubeUrl.trim()) {
+      setRecapUploadError('Ajoute un fichier vidéo ou un lien YouTube.');
+      return;
+    }
+    setRecapUploading(true);
+    setRecapUploadError('');
+    try {
+      const form = new FormData();
+      form.append('channel_id', recapChannelId);
+      if (recapTitle.trim()) form.append('title', recapTitle.trim());
+      if (recapFile) form.append('raw_file', recapFile);
+      if (recapYoutubeUrl.trim()) form.append('youtube_url', recapYoutubeUrl.trim());
+      const res = await authFetch(`${API_BASE}/videos/recap/upload`, { method: 'POST', body: form });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || "Échec de l'envoi de la vidéo.");
+      }
+      showToast('Vidéo envoyée — le résumé démarre (transcription, script, montage).');
+      const channelId = recapChannelId;
+      setRecapFile(null);
+      setRecapYoutubeUrl('');
+      setRecapTitle('');
+      fetchAllVideos?.();
+      const chan = channels.find(c => c.id === channelId);
+      if (chan) {
+        setActiveChannel(chan);
+        fetchChannelVideos(channelId);
+        setView('channel_detail');
+      }
+    } catch (err) {
+      setRecapUploadError(err.message || "Échec de l'envoi de la vidéo.");
+    } finally {
+      setRecapUploading(false);
     }
   };
 
@@ -8191,6 +8283,15 @@ export default function App() {
       setView('home');
       return;
     }
+    // Recap has no script/audio form either — a raw upload or YouTube link
+    // is the whole input, everything else (transcript, script, montage) is
+    // automatic server-side.
+    if (channel.content_type === 'recap') {
+      setRecapChannelId(channel.id);
+      setActiveProduct('recap');
+      setView('home');
+      return;
+    }
     // Music channels have no per-video form either — everything needed
     // (style, titles, montage) was already set once at channel creation.
     if (channel.content_type !== 'music' && channel.automation_mode !== 'auto') {
@@ -8317,6 +8418,12 @@ export default function App() {
         setActiveProduct('facecam');
         setView('home');
         openFacecamCreateModal();
+        return;
+      }
+      if (contentType === 'recap') {
+        setActiveProduct('recap');
+        setView('home');
+        openRecapCreateModal();
         return;
       }
       openCreateWizard(contentType);
@@ -11822,7 +11929,7 @@ export default function App() {
   // fundamentally different from a narration one's, so mixing them in the
   // same list would show configuration that doesn't apply. Home stays
   // unscoped (global totals across every product) since it's just an overview.
-  const activeProductContentType = (activeProduct === 'music' || activeProduct === 'facecam' || activeProduct === 'avatar') ? activeProduct : 'narration';
+  const activeProductContentType = (activeProduct === 'music' || activeProduct === 'facecam' || activeProduct === 'recap' || activeProduct === 'avatar') ? activeProduct : 'narration';
   const productChannels = channels.filter(c => (c.content_type || 'narration') === activeProductContentType);
   const productChannelIds = new Set(productChannels.map(c => c.id));
   const filteredChannels = productChannels.filter(c =>
@@ -12297,9 +12404,113 @@ export default function App() {
           </div>
         )}
 
+        {activeProduct === 'recap' && view === 'home' && (
+          <div className="max-w-lg mx-auto space-y-5 py-4">
+            <div className="text-center space-y-2">
+              <div className="w-16 h-16 mx-auto rounded-2xl bg-[#ff9d5c]/10 flex items-center justify-center">
+                <span className="material-symbols-outlined text-[32px] text-[#ff9d5c]">theaters</span>
+              </div>
+              <h2 className="text-2xl font-extrabold text-white">Recap Film</h2>
+              <p className="text-sm text-slate-400">
+                Envoie un épisode ou un lien YouTube — KappGen transcrit, écrit un script de résumé
+                et monte la vidéo sur des captures d'images clés (jamais d'extrait vidéo).
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-300 mb-2">Chaîne</label>
+              <div className="flex gap-2">
+                <select
+                  value={recapChannelId}
+                  onChange={e => setRecapChannelId(e.target.value)}
+                  className="flex-1 bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-3 py-2.5 text-sm text-white"
+                >
+                  <option value="">Choisir une chaîne…</option>
+                  {productChannels.map(c => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={openRecapCreateModal}
+                  className="px-3 py-2.5 bg-[var(--bg-surface-alt)] border border-[var(--border)] hover:border-[#00c2ff]/50 text-slate-300 hover:text-white text-xs font-bold rounded-xl transition-colors whitespace-nowrap"
+                >
+                  + Nouvelle
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-300 mb-2">Titre (optionnel)</label>
+              <input
+                type="text"
+                value={recapTitle}
+                onChange={e => setRecapTitle(e.target.value)}
+                placeholder="Titre de la vidéo"
+                className="w-full bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-3 py-2.5 text-sm text-white"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-300 mb-2">Fichier vidéo source</label>
+              <label
+                onDragOver={e => { e.preventDefault(); setRecapDragOver(true); }}
+                onDragLeave={e => { e.preventDefault(); setRecapDragOver(false); }}
+                onDrop={e => {
+                  e.preventDefault();
+                  setRecapDragOver(false);
+                  const file = e.dataTransfer.files?.[0];
+                  if (file) setRecapFile(file);
+                }}
+                className={`flex flex-col items-center justify-center gap-2 border-2 border-dashed rounded-xl px-4 py-8 cursor-pointer transition-colors text-center ${recapDragOver ? 'border-[#00c2ff] bg-[#00c2ff]/5' : 'border-[var(--border)] hover:border-[#00c2ff]'}`}
+              >
+                <span className="material-symbols-outlined text-[28px] text-slate-400">upload_file</span>
+                <span className="text-xs text-slate-400">
+                  {recapFile ? recapFile.name : 'Glisse ton fichier ici ou clique pour parcourir (MP4, MOV, MKV, WEBM)'}
+                </span>
+                <input
+                  type="file"
+                  accept=".mp4,.mov,.mkv,.webm"
+                  className="hidden"
+                  onChange={e => setRecapFile(e.target.files?.[0] || null)}
+                />
+              </label>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <div className="flex-1 h-px bg-[var(--border-subtle)]" />
+              <span className="text-[10px] font-bold text-slate-500 uppercase">ou</span>
+              <div className="flex-1 h-px bg-[var(--border-subtle)]" />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-300 mb-2">Lien YouTube</label>
+              <input
+                type="text"
+                value={recapYoutubeUrl}
+                onChange={e => setRecapYoutubeUrl(e.target.value)}
+                placeholder="https://www.youtube.com/watch?v=…"
+                className="w-full bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-3 py-2.5 text-sm text-white"
+              />
+            </div>
+
+            {recapUploadError && (
+              <p className="text-xs font-bold text-red-400">{recapUploadError}</p>
+            )}
+
+            <button
+              onClick={submitRecapVideo}
+              disabled={recapUploading}
+              className="w-full px-5 py-3 bg-[#00c2ff] hover:bg-[#38d0ff] disabled:opacity-50 text-slate-950 font-bold text-sm rounded-xl transition-colors"
+            >
+              {recapUploading ? 'Envoi en cours…' : 'Lancer le résumé automatique'}
+            </button>
+          </div>
+        )}
+
 
             {/* VIEW 1: HOME / DASHBOARD OVERVIEW */}
-            {activeProduct !== 'facecam' && (view === 'home' || view === 'dashboard') && (
+            {activeProduct !== 'facecam' && activeProduct !== 'recap' && (view === 'home' || view === 'dashboard') && (
               <>
                 <div className="pt-1">
                   <p className="text-[10px] font-bold uppercase tracking-[.18em] text-[#55d8ff] mb-2">Ton espace KappGen</p>
@@ -12403,11 +12614,13 @@ export default function App() {
                   <div>
                     <h2 className="text-xl font-extrabold text-white">Mes Chaînes</h2>
                     <p className="text-xs text-slate-400 mt-1">
-                      {activeProduct === 'facecam' ? 'Organisez vos montages Facecam par chaîne.' : "Configurez l'identité, les sous-titres et les effets de vos chaînes automatiques."}
+                      {activeProduct === 'facecam' ? 'Organisez vos montages Facecam par chaîne.'
+                        : activeProduct === 'recap' ? 'Organisez tes résumés Recap Film par chaîne.'
+                        : "Configurez l'identité, les sous-titres et les effets de vos chaînes automatiques."}
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
-                    {activeProduct !== 'facecam' && (
+                    {activeProduct !== 'facecam' && activeProduct !== 'recap' && (
                       <button
                         type="button"
                         onClick={() => { setPipelineRedeemCode(''); setPipelineRedeemOpen(true); }}
@@ -12447,13 +12660,15 @@ export default function App() {
                   <div className="bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-2xl p-12 text-center">
                     <span className="material-symbols-outlined text-[54px] text-slate-500 mb-4">video_settings</span>
                     <h3 className="text-lg font-bold text-white mb-2">Aucune chaîne trouvée</h3>
-                    {activeProduct === 'facecam' ? (
+                    {activeProduct === 'facecam' || activeProduct === 'recap' ? (
                       <>
                         <p className="text-sm text-slate-400 mb-6 max-w-md mx-auto">
-                          Une chaîne Facecam, c'est juste un nom pour organiser tes montages — pas de pipeline à configurer, chaque vidéo est montée à l'upload.
+                          {activeProduct === 'facecam'
+                            ? "Une chaîne Facecam, c'est juste un nom pour organiser tes montages — pas de pipeline à configurer, chaque vidéo est montée à l'upload."
+                            : "Une chaîne Recap Film, c'est juste un nom pour organiser tes résumés — pas de pipeline à configurer, chaque vidéo est montée à l'upload."}
                         </p>
                         <button
-                          onClick={openFacecamCreateModal}
+                          onClick={activeProduct === 'facecam' ? openFacecamCreateModal : openRecapCreateModal}
                           className="bg-[#00c2ff] text-slate-950 px-6 py-3 rounded-xl font-bold text-sm hover:bg-[#38d0ff] transition-all shadow-lg inline-flex items-center gap-2"
                         >
                           <span className="material-symbols-outlined">add</span> Créer une chaîne
@@ -12482,9 +12697,9 @@ export default function App() {
                         this used to be pinned to a tall min-h-[220px], which (being a
                         grid sibling) stretched every card in its row to match, undoing
                         the height reduction on the two/three cards next to it. */}
-                    {activeProduct === 'facecam' ? (
+                    {activeProduct === 'facecam' || activeProduct === 'recap' ? (
                       <button
-                        onClick={openFacecamCreateModal}
+                        onClick={activeProduct === 'facecam' ? openFacecamCreateModal : openRecapCreateModal}
                         className="rounded-2xl p-5 border-2 border-dashed border-[var(--border)] hover:border-[#00c2ff] hover:bg-[var(--bg-surface)] transition-all flex items-center justify-center gap-2.5 text-slate-400 hover:text-[#00c2ff] group"
                       >
                         <div className="w-8 h-8 rounded-full bg-[var(--bg-surface-alt)] group-hover:bg-[#00c2ff]/10 flex items-center justify-center transition-colors shrink-0">
@@ -13541,7 +13756,7 @@ export default function App() {
             )}
 
             {/* VIEW 4: CHANNEL DETAIL VIEW */}
-            {!facecamEditorId && view === 'channel_detail' && activeChannel && activeChannel.content_type !== 'facecam' && (
+            {!facecamEditorId && view === 'channel_detail' && activeChannel && activeChannel.content_type !== 'facecam' && activeChannel.content_type !== 'recap' && (
               <div className="space-y-8">
                 <section className="relative overflow-hidden bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-3xl p-6 sm:p-8 shadow-[0_24px_70px_rgba(0,0,0,.10)]">
                   <div className="absolute -top-24 -left-16 w-72 h-72 rounded-full bg-[#00c2ff]/[.055] blur-3xl pointer-events-none" />
@@ -14551,6 +14766,123 @@ export default function App() {
                 </button>
 
                 <FacecamGallery videos={channelVideos} onOpen={v => setFacecamEditorId(v.id)} thumbnail={getVideoThumbnailUrl} />
+              </div>
+            )}
+
+            {view === 'channel_detail' && activeChannel && activeChannel.content_type === 'recap' && (
+              <div className="space-y-6">
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setView('channels')}
+                    className="w-9 h-9 flex items-center justify-center rounded-xl bg-[var(--bg-surface-alt)] border border-[var(--border)] hover:border-slate-500 text-slate-300 hover:text-white transition-colors flex-shrink-0"
+                    title="Retour à Mes Chaînes"
+                  >
+                    <span className="material-symbols-outlined text-[18px]">arrow_back</span>
+                  </button>
+                  <div className="min-w-0 flex-1">
+                    <h1 className="text-xl sm:text-2xl font-extrabold text-white truncate">{activeChannel.name}</h1>
+                    <p className="text-xs text-slate-400 mt-0.5">{channelVideos.length} résumé{channelVideos.length !== 1 ? 's' : ''}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const name = window.prompt('Renommer la chaîne', activeChannel.name);
+                      if (!name || !name.trim() || name.trim() === activeChannel.name) return;
+                      try {
+                        const res = await authFetch(`${API_BASE}/channels/${activeChannel.id}`, {
+                          method: 'PUT',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ name: name.trim() }),
+                        });
+                        if (!res.ok) throw new Error();
+                        const updated = await res.json();
+                        setChannels(prev => prev.map(c => c.id === updated.id ? { ...c, ...updated } : c));
+                        setActiveChannel(prev => ({ ...prev, ...updated }));
+                        showToast('Chaîne renommée.', 'success');
+                      } catch {
+                        showToast('Impossible de renommer la chaîne.', 'error');
+                      }
+                    }}
+                    className="px-3 py-2 bg-[var(--bg-surface-alt)] border border-[var(--border)] hover:border-slate-500 text-slate-300 hover:text-white text-xs font-bold rounded-xl transition-colors flex items-center gap-1.5 flex-shrink-0"
+                  >
+                    <span className="material-symbols-outlined text-[16px]">edit</span>
+                    Renommer
+                  </button>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const ok = await askConfirm(`Supprimer la chaîne "${activeChannel.name}" ? Tous ses résumés (${channelVideos.length}) seront supprimés aussi. Cette action est définitive.`, { title: 'Supprimer cette chaîne ?', danger: true });
+                      if (!ok) return;
+                      try {
+                        const res = await authFetch(`${API_BASE}/channels/${activeChannel.id}`, { method: 'DELETE' });
+                        if (!res.ok) throw new Error();
+                        setChannels(prev => prev.filter(c => c.id !== activeChannel.id));
+                        setView('channels');
+                        showToast('Chaîne supprimée.', 'success');
+                      } catch {
+                        showToast('Impossible de supprimer la chaîne.', 'error');
+                      }
+                    }}
+                    className="w-9 h-9 flex items-center justify-center rounded-xl bg-[var(--bg-surface-alt)] border border-[var(--border)] hover:border-red-500/50 text-slate-400 hover:text-red-400 transition-colors flex-shrink-0"
+                    title="Supprimer la chaîne"
+                  >
+                    <span className="material-symbols-outlined text-[18px]">delete</span>
+                  </button>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => { setRecapChannelId(activeChannel.id); setActiveProduct('recap'); setView('home'); }}
+                  className="w-full px-5 py-3 bg-[#00c2ff] hover:bg-[#38d0ff] text-slate-950 font-bold text-sm rounded-xl transition-colors flex items-center justify-center gap-2"
+                >
+                  <span className="material-symbols-outlined text-[18px]">add</span>
+                  Nouveau résumé pour cette chaîne
+                </button>
+
+                <div className="space-y-3">
+                  {channelVideos.length === 0 ? (
+                    <div className="text-center py-16 text-slate-500 text-sm">Aucun résumé pour l'instant.</div>
+                  ) : (
+                    channelVideos.map(vid => (
+                      <div key={vid.id} className="flex items-center gap-4 bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-2xl p-4">
+                        <div className="w-24 h-14 rounded-lg bg-black/30 flex-shrink-0 overflow-hidden flex items-center justify-center">
+                          {vid.status === 'done' ? (
+                            <img src={getVideoThumbnailUrl(vid)} alt="" className="w-full h-full object-cover" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+                          ) : (
+                            <span className="material-symbols-outlined text-slate-600 text-[24px]">theaters</span>
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="text-sm font-bold text-white truncate">{vid.title || 'Sans titre'}</div>
+                          <div className="text-xs text-slate-400 mt-0.5">
+                            {vid.status === 'done' && 'Prêt'}
+                            {vid.status === 'rendering' && (vid.progress_stage || 'Résumé en cours…')}
+                            {vid.status === 'queued' && 'En attente'}
+                            {vid.status === 'failed' && (vid.error_message || 'Échec du résumé')}
+                          </div>
+                        </div>
+                        {vid.status === 'done' && vid.output_path && (
+                          <button
+                            type="button"
+                            onClick={(e) => handleDownloadVideo(vid, e)}
+                            className="px-3 py-2 bg-[var(--bg-surface-alt)] border border-[var(--border)] hover:border-[#00c2ff]/50 text-slate-300 hover:text-white text-xs font-bold rounded-xl transition-colors flex-shrink-0"
+                          >
+                            Télécharger
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={(e) => handleDeleteVideo(vid.id, e)}
+                          className="w-9 h-9 flex items-center justify-center rounded-xl text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-colors flex-shrink-0"
+                          title="Supprimer"
+                        >
+                          <span className="material-symbols-outlined text-[18px]">delete</span>
+                        </button>
+                      </div>
+                    ))
+                  )}
+                </div>
               </div>
             )}
 
@@ -20552,6 +20884,55 @@ export default function App() {
               </button>
               <button
                 onClick={() => setFacecamCreateModalOpen(false)}
+                className="px-4 py-2.5 text-slate-400 hover:text-white text-sm font-bold rounded-xl transition-colors"
+              >
+                Annuler
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {recapCreateModalOpen && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-6">
+          <div className="bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-3xl w-full max-w-lg shadow-2xl">
+            <div className="flex justify-between items-center border-b border-[var(--border-soft)] px-6 py-5">
+              <div>
+                <h2 className="text-lg font-extrabold text-white">Nouvelle chaîne Recap Film</h2>
+                <p className="text-xs text-slate-400 mt-1">
+                  Juste un nom pour organiser tes résumés — chaque vidéo (upload ou lien YouTube) est montée automatiquement.
+                </p>
+              </div>
+              <button onClick={() => setRecapCreateModalOpen(false)} className="text-slate-400 hover:text-white p-1 flex-shrink-0">
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+
+            <div className="p-6 space-y-5">
+              <div>
+                <label className="block text-xs font-bold text-slate-300 mb-2">Nom de la chaîne *</label>
+                <input
+                  type="text"
+                  autoFocus
+                  value={recapNewChannelName}
+                  onChange={e => setRecapNewChannelName(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter' && recapNewChannelName.trim()) createRecapChannel(); }}
+                  placeholder="Ex : Résumés Séries du Dimanche"
+                  className="w-full bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-3 py-2.5 text-sm text-white"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 border-t border-[var(--border-soft)] px-6 py-4">
+              <button
+                onClick={createRecapChannel}
+                disabled={recapCreatingChannel || !recapNewChannelName.trim()}
+                className="flex-1 px-5 py-2.5 bg-[#00c2ff] hover:bg-[#38d0ff] disabled:opacity-50 text-slate-950 font-bold text-sm rounded-xl transition-colors"
+              >
+                {recapCreatingChannel ? 'Création…' : 'Créer la chaîne'}
+              </button>
+              <button
+                onClick={() => setRecapCreateModalOpen(false)}
                 className="px-4 py-2.5 text-slate-400 hover:text-white text-sm font-bold rounded-xl transition-colors"
               >
                 Annuler
