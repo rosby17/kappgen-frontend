@@ -22178,12 +22178,18 @@ export default function App() {
             {/* 2x2 grid on narrow screens instead of 4 flex-1 buttons crammed
                 edge to edge (icon+label text was unreadable on a phone width) —
                 falls back to the original single row from sm up. */}
-            <div className="grid grid-cols-2 sm:flex sm:items-center gap-2 sm:gap-3 pt-2">
+            {/* Icon-over-label cards, all the same fixed height regardless of
+                label length ("Relancer le montage" used to wrap to 2 lines
+                and stretch that one button taller than its neighbors) — one
+                accent-colored primary action (download), three neutral
+                secondary ones sharing the same shape. */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 pt-2">
               <button
                 onClick={() => openStudio(selectedVideo)}
-                className="py-3 bg-[var(--bg-surface-alt)] text-white font-bold text-xs rounded-xl text-center hover:bg-[var(--border-soft)] transition-all flex items-center justify-center gap-2 border border-[var(--border)] sm:flex-1"
+                className="min-h-[72px] px-2 py-3 bg-[var(--bg-surface-alt)] text-slate-200 font-semibold text-[11px] rounded-2xl text-center hover:bg-[var(--border-soft)] hover:text-white transition-all flex flex-col items-center justify-center gap-1.5 border border-[var(--border)]"
               >
-                <span className="material-symbols-outlined text-[18px]">edit</span> Éditer
+                <span className="material-symbols-outlined text-[19px]">edit</span>
+                Éditer
               </button>
               {/* For when the audio/narration is fine but the visuals as a whole
                   aren't (an empty stock/library pool falling through to plain
@@ -22194,23 +22200,25 @@ export default function App() {
                 onClick={() => handleRetryVideoVisuals(selectedVideo.id)}
                 disabled={retryingVideoVisualsId === selectedVideo.id}
                 title="Relancer le montage (garder la voix)"
-                className="py-3 bg-[var(--bg-surface-alt)] text-white font-bold text-xs rounded-xl text-center hover:bg-[var(--border-soft)] transition-all flex items-center justify-center gap-2 border border-[var(--border)] disabled:opacity-50 sm:flex-1"
+                className="min-h-[72px] px-2 py-3 bg-[var(--bg-surface-alt)] text-slate-200 font-semibold text-[11px] rounded-2xl text-center hover:bg-[var(--border-soft)] hover:text-white transition-all flex flex-col items-center justify-center gap-1.5 border border-[var(--border)] disabled:opacity-50"
               >
-                <span className="material-symbols-outlined text-[18px]">{retryingVideoVisualsId === selectedVideo.id ? 'progress_activity' : 'image_search'}</span>
-                {retryingVideoVisualsId === selectedVideo.id ? 'Relance…' : 'Relancer le montage'}
+                <span className={`material-symbols-outlined text-[19px] ${retryingVideoVisualsId === selectedVideo.id ? 'animate-spin' : ''}`}>{retryingVideoVisualsId === selectedVideo.id ? 'progress_activity' : 'image_search'}</span>
+                {retryingVideoVisualsId === selectedVideo.id ? 'Relance…' : 'Relancer'}
               </button>
               <button
                 onClick={() => handleShareVideo(selectedVideo)}
                 title="Partager le lien (WhatsApp, etc.)"
-                className="py-3 bg-[var(--bg-surface-alt)] text-white font-bold text-xs rounded-xl text-center hover:bg-[var(--border-soft)] transition-all flex items-center justify-center gap-2 border border-[var(--border)] sm:flex-1"
+                className="min-h-[72px] px-2 py-3 bg-[var(--bg-surface-alt)] text-slate-200 font-semibold text-[11px] rounded-2xl text-center hover:bg-[var(--border-soft)] hover:text-white transition-all flex flex-col items-center justify-center gap-1.5 border border-[var(--border)]"
               >
-                <span className="material-symbols-outlined text-[18px]">share</span> Partager
+                <span className="material-symbols-outlined text-[19px]">share</span>
+                Partager
               </button>
               <button
                 onClick={() => runDownload(selectedVideo, 'hd')}
-                className="py-3 bg-[#00c2ff] text-slate-950 font-bold text-xs rounded-xl text-center hover:bg-[#38d0ff] transition-all flex items-center justify-center gap-2 sm:flex-1"
+                className="min-h-[72px] px-2 py-3 bg-gradient-to-br from-[#00c2ff] to-[#0088ff] text-slate-950 font-bold text-[11px] rounded-2xl text-center hover:opacity-90 transition-all flex flex-col items-center justify-center gap-1.5 shadow-lg shadow-[#00c2ff]/20"
               >
-                <span className="material-symbols-outlined text-[18px]">download</span> Télécharger MP4
+                <span className="material-symbols-outlined text-[19px]">download</span>
+                Télécharger
               </button>
             </div>
           </div>
