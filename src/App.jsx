@@ -1503,6 +1503,10 @@ const nameFromFilename = (filename) => {
 // use already draws down the credit balance per task, so blocking them by
 // plan on top would just double-charge the same usage — they're listed once,
 // included on every tier, instead of as a false differentiator.
+// Display-only mirror of billing.py's CUSTOM_CREDIT_RATE_FCFA_PER_MILLION —
+// the real price always comes from the server's /billing/custom-credits-quote,
+// this is just the copy shown next to the input, never used for any charge.
+const CUSTOM_CREDIT_RATE_FCFA_PER_MILLION_DISPLAY = (30_000).toLocaleString('fr-FR');
 const PLAN_CHANNEL_COUNTS = { 'Starter': 'Jusqu’à 2 chaînes', 'Creator': 'Jusqu’à 5 chaînes', 'Standard': 'Jusqu’à 10 chaînes', 'Pro': 'Chaînes illimitées' };
 const PLAN_VIDEO_DURATIONS = { 'Starter': 'Vidéos jusqu’à 10 min', 'Creator': 'Vidéos jusqu’à 25 min', 'Standard': 'Vidéos jusqu’à 1h', 'Pro': 'Durée de vidéo illimitée' };
 const PLAN_CLONED_VOICES = { 'Starter': '1 voix clonée', 'Creator': 'Jusqu’à 2 voix clonées', 'Standard': 'Jusqu’à 5 voix clonées', 'Pro': 'Voix clonées illimitées' };
@@ -1539,8 +1543,24 @@ const PLAN_DETAILS = {
 // open a tick later so the translate-y transition actually animates in,
 // same trick as any slide-up sheet (can't transition from the initial
 // render's own starting state).
-function PricingModal({ onClose, plans, subscription, checkoutPlanId, onSelectPlan, loading }) {
+function PricingModal({ onClose, plans, subscription, checkoutPlanId, onSelectPlan, loading, authFetch, onSelectCustomCredits }) {
   const [entered, setEntered] = useState(false);
+  const [customCredits, setCustomCredits] = useState(200000);
+  const [customQuote, setCustomQuote] = useState(null); // {valid, min_credits, amount_fcfa}
+  const [customQuoting, setCustomQuoting] = useState(false);
+
+  useEffect(() => {
+    const credits = Number(customCredits) || 0;
+    setCustomQuoting(true);
+    const t = setTimeout(async () => {
+      try {
+        const res = await authFetch(`${API_BASE}/billing/custom-credits-quote?credits=${credits}`);
+        if (res.ok) setCustomQuote(await res.json());
+      } catch { /* the quote is a preview — a network hiccup here isn't worth a toast */ }
+      finally { setCustomQuoting(false); }
+    }, 350);
+    return () => clearTimeout(t);
+  }, [customCredits]);
   useEffect(() => {
     document.body.style.overflow = 'hidden';
     const t = setTimeout(() => setEntered(true), 10);
@@ -1643,6 +1663,47 @@ function PricingModal({ onClose, plans, subscription, checkoutPlanId, onSelectPl
             })}
           </div>
         )}
+
+        {!loading && (
+          <div className="rounded-2xl p-5 border border-dashed border-[var(--border-soft)] bg-[var(--bg-surface-alt)]/40 space-y-3">
+            <div className="flex items-center gap-2">
+              <span className="material-symbols-outlined text-[#00c2ff] text-[18px]">tune</span>
+              <span className="text-sm font-extrabold text-white">Crédits personnalisés</span>
+            </div>
+            <p className="text-[11px] text-slate-400">
+              Choisis exactement le nombre de crédits qu'il te faut — {CUSTOM_CREDIT_RATE_FCFA_PER_MILLION_DISPLAY} FCFA le million, à partir de {(customQuote?.min_credits || 200000).toLocaleString('fr-FR')} crédits.
+            </p>
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+              <div className="flex-1">
+                <input
+                  type="number"
+                  min={200000}
+                  step={10000}
+                  value={customCredits}
+                  onChange={e => setCustomCredits(e.target.value)}
+                  className="w-full bg-[var(--bg-surface)] border border-[var(--border)] rounded-xl px-3 py-2.5 text-sm text-white focus:border-[#00c2ff] outline-none"
+                  placeholder="Nombre de crédits"
+                />
+                {customQuote && !customQuote.valid && (
+                  <p className="text-[10px] text-red-400 mt-1">Minimum {customQuote.min_credits.toLocaleString('fr-FR')} crédits.</p>
+                )}
+              </div>
+              <div className="text-right shrink-0">
+                <div className="text-lg font-extrabold text-white">
+                  {customQuoting ? '…' : customQuote?.valid ? `${customQuote.amount_fcfa.toLocaleString('fr-FR')} FCFA` : '—'}
+                </div>
+                <div className="text-[10px] text-slate-500">prix total</div>
+              </div>
+              <button
+                onClick={() => customQuote?.valid && onSelectCustomCredits({ credits: Number(customCredits), amount_fcfa: customQuote.amount_fcfa })}
+                disabled={!customQuote?.valid || customQuoting}
+                className="px-5 py-2.5 bg-[#00c2ff] hover:bg-[#38d0ff] disabled:opacity-40 text-slate-950 font-bold text-xs rounded-xl transition-colors whitespace-nowrap"
+              >
+                Recharger
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -1656,7 +1717,7 @@ function PricingModal({ onClose, plans, subscription, checkoutPlanId, onSelectPl
 // both settle through Tara Money — no method shown here that isn't actually
 // wired to one of our two real processors.
 
-function PaymentModal({ plan, onClose, onCheckout, checkingOut }) {
+function PaymentModal({ plan, onClose, onCheckout, checkingOut, onCheckoutCustom }) {
   const [entered, setEntered] = useState(false);
   useEffect(() => {
     const t = setTimeout(() => setEntered(true), 10);
@@ -1713,7 +1774,7 @@ function PaymentModal({ plan, onClose, onCheckout, checkingOut }) {
           {methods.map(m => (
             <button
               key={m.id}
-              onClick={() => onCheckout(plan.id, m.provider, 'lifetime')}
+              onClick={() => onCheckoutCustom ? onCheckoutCustom(m.provider) : onCheckout(plan.id, m.provider, 'lifetime')}
               disabled={checkingOut}
               className="w-full flex items-center gap-3.5 p-3.5 bg-[var(--bg-surface-alt)] hover:bg-[var(--bg-dropdown)] border border-[var(--border)] hover:border-[#00c2ff]/50 rounded-2xl transition-all text-left disabled:opacity-50 relative"
             >
@@ -5457,6 +5518,11 @@ export default function App() {
   const [showChannelPickerModal, setShowChannelPickerModal] = useState(false);
   const [showPricingModal, setShowPricingModal] = useState(false);
   const [paymentPlan, setPaymentPlan] = useState(null);
+  // Custom credit purchase (any amount, not a catalog tier) — a lightweight
+  // plan-shaped object ({credits, amount_fcfa}) built from the live quote,
+  // reused by the same PaymentModal component via its onCheckoutCustom prop.
+  const [customCreditsPurchase, setCustomCreditsPurchase] = useState(null);
+  const [customCreditsCheckingOut, setCustomCreditsCheckingOut] = useState(false);
   const [showLanguageModal, setShowLanguageModal] = useState(false);
   const [showScriptStructureModal, setShowScriptStructureModal] = useState(false);
   const [scriptStructureAnalyzing, setScriptStructureAnalyzing] = useState(false);
@@ -9912,6 +9978,23 @@ export default function App() {
     } catch (err) {
       showToast(err.message, 'error');
       setCheckoutPlanId(null);
+    }
+  };
+
+  const startCustomCreditsCheckout = async (provider) => {
+    if (!customCreditsPurchase) return;
+    setCustomCreditsCheckingOut(true);
+    try {
+      const res = await authFetch(`${API_BASE}/billing/checkout-custom-credits`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ credits: customCreditsPurchase.credits, provider }),
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || 'Échec du paiement');
+      const data = await res.json();
+      window.location.href = data.redirect_url;
+    } catch (err) {
+      showToast(err.message, 'error');
+      setCustomCreditsCheckingOut(false);
     }
   };
 
@@ -22862,6 +22945,8 @@ export default function App() {
           checkoutPlanId={checkoutPlanId}
           onSelectPlan={setPaymentPlan}
           loading={billingLoading}
+          authFetch={authFetch}
+          onSelectCustomCredits={setCustomCreditsPurchase}
         />
       )}
 
@@ -22871,6 +22956,20 @@ export default function App() {
           onClose={() => setPaymentPlan(null)}
           onCheckout={startCheckout}
           checkingOut={checkoutPlanId === paymentPlan.id}
+        />
+      )}
+
+      {customCreditsPurchase && (
+        <PaymentModal
+          plan={{
+            id: 'custom-credits',
+            name: 'Crédits personnalisés',
+            price_fcfa: customCreditsPurchase.amount_fcfa,
+            credits: customCreditsPurchase.credits,
+          }}
+          onClose={() => setCustomCreditsPurchase(null)}
+          onCheckoutCustom={startCustomCreditsCheckout}
+          checkingOut={customCreditsCheckingOut}
         />
       )}
 
