@@ -19831,15 +19831,15 @@ export default function App() {
                                 </span>
                               </div>
                             )}
-                            <span className={`absolute top-1.5 left-1.5 px-2 py-0.5 rounded-full text-[9px] font-bold flex items-center gap-1 ${
+                            <span className={`absolute top-1.5 left-1.5 max-w-[calc(100%-12px)] px-2 py-0.5 rounded-full text-[9px] font-bold flex items-center gap-1 whitespace-nowrap ${
                               v.status === 'done' ? 'bg-emerald-950/90 text-emerald-300' :
                               v.status === 'failed' ? 'bg-rose-950/90 text-rose-300' :
                               v.status === 'rendering' ? 'bg-amber-950/90 text-amber-300' :
                               v.admin_priority ? 'bg-amber-950/90 text-amber-300' :
                               'bg-slate-950/90 text-slate-300'
                             }`}>
-                              {v.status === 'queued' && v.admin_priority && <span className="material-symbols-outlined text-[10px]">bolt</span>}
-                              {v.status === 'queued' && v.queue_position ? `attente · #${v.queue_position}` : v.status}
+                              {v.status === 'queued' && v.admin_priority && <span className="material-symbols-outlined text-[10px] shrink-0">bolt</span>}
+                              {v.status === 'queued' && v.queue_position ? `#${v.queue_position} en attente` : v.status}
                             </span>
                           </button>
                           <div className="p-3 space-y-1.5">
@@ -19939,17 +19939,17 @@ export default function App() {
                             );
                           })()}
                         </td>
-                        <td className="px-4 py-2.5 cursor-pointer" onClick={() => openAdminVideoDetail(v.id)}>
-                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold inline-flex items-center gap-1 ${
+                        <td className="px-4 py-2.5 cursor-pointer whitespace-nowrap" onClick={() => openAdminVideoDetail(v.id)}>
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold inline-flex items-center gap-1 whitespace-nowrap ${
                             v.status === 'done' ? 'bg-emerald-950/60 text-emerald-400' :
                             v.status === 'failed' ? 'bg-rose-950/60 text-rose-400' :
                             v.status === 'rendering' ? 'bg-amber-950/60 text-amber-400' :
                             v.admin_priority ? 'bg-amber-950/60 text-amber-400' :
                             'bg-[var(--bg-surface-alt)] text-slate-400'
                           }`}>
-                            {v.status === 'queued' && v.admin_priority && <span className="material-symbols-outlined text-[11px]" title="Priorisée par un admin">bolt</span>}
+                            {v.status === 'queued' && v.admin_priority && <span className="material-symbols-outlined text-[11px] shrink-0" title="Priorisée par un admin">bolt</span>}
                             {v.status === 'queued' && v.queue_position
-                              ? `attente · #${v.queue_position}`
+                              ? `#${v.queue_position} en attente`
                               : v.status}
                           </span>
                         </td>
