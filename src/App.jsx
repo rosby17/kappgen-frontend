@@ -8539,6 +8539,35 @@ export default function App() {
     }
   };
 
+  // Self-service account deletion — the privacy policy and terms both
+  // promise this ("supprimer votre compte depuis vos paramètres"), which
+  // used to only be possible by emailing support and waiting on an admin.
+  const [deletingAccount, setDeletingAccount] = useState(false);
+  const handleDeleteAccount = async () => {
+    if (!await askConfirm(
+      "Cette action est définitive : ta chaîne, tes vidéos, ta bibliothèque et ton historique de crédits seront supprimés. Impossible à annuler.",
+      { title: "Supprimer définitivement ton compte KappGen ?", danger: true, confirmLabel: "Supprimer mon compte" }
+    )) return;
+    setDeletingAccount(true);
+    try {
+      const res = await authFetch(`${API_BASE}/auth/me`, { method: 'DELETE' });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || "Échec de la suppression du compte.");
+      setCurrentUser(null);
+      localStorage.removeItem("nichecut_user");
+      localStorage.removeItem("nichecut_token");
+      sessionStorage.removeItem('nichecut_view');
+      sessionStorage.removeItem('nichecut_active_channel_id');
+      setView('home');
+      setAuthTab('login');
+      setShowAuthModal(true);
+      showToast("Ton compte a été supprimé.", "success");
+    } catch (err) {
+      showToast(err.message, "error");
+    } finally {
+      setDeletingAccount(false);
+    }
+  };
+
   const handleCreateApiKey = async () => {
     try {
       const res = await authFetch(`${API_BASE}/api-keys`, {
@@ -19396,6 +19425,20 @@ export default function App() {
                           Gérer la sécurité Google <span className="material-symbols-outlined text-[14px]">open_in_new</span>
                         </a>
                       )}
+                    </div>
+
+                    <div className="pt-5 border-t border-rose-900/40">
+                      <h4 className="text-xs font-bold text-rose-400 mb-1">Zone de danger</h4>
+                      <p className="text-[11px] text-slate-400 mb-3">Supprime définitivement ton compte, tes chaînes, tes vidéos et ton historique de crédits. Cette action est irréversible.</p>
+                      <button
+                        type="button"
+                        onClick={handleDeleteAccount}
+                        disabled={deletingAccount}
+                        className="py-2.5 px-5 bg-rose-950/60 border border-rose-800/60 text-rose-300 font-bold text-xs rounded-xl hover:bg-rose-900/60 transition-all disabled:opacity-50 flex items-center gap-2"
+                      >
+                        <span className="material-symbols-outlined text-[16px]">{deletingAccount ? 'progress_activity' : 'delete_forever'}</span>
+                        {deletingAccount ? 'Suppression…' : 'Supprimer mon compte'}
+                      </button>
                     </div>
                   </div>
                 )}
