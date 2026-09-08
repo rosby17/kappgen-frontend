@@ -19054,36 +19054,52 @@ export default function App() {
                             </div>
                           )}
 
-                          {/* Animated subtitle at the exact configured vertical position */}
+                          {/* Same style properties, same word-highlight logic and the
+                              same real @font-face-loaded fonts as the Step 6 editor's
+                              own "Aperçu en direct" — this used to be a separate,
+                              much cruder mock (no outline at all, a hardcoded white
+                              instead of the real base_color, and a glow+scale flourish
+                              on the highlighted word that the actual ffmpeg/libass
+                              render never produces) that gave a false idea of the
+                              final result. Rendered at the exact configured position. */}
                           {isRecapChecked('subtitles') && (
                           <div className={`absolute inset-x-5 flex justify-center ${subtitlePositionClass(newChannel.subtitle_style.position)}`} style={{ zIndex: zForLayer('subtitles') }}>
                             <div
                               style={{
-                                backgroundColor: newChannel.subtitle_style.box_color || 'transparent',
-                                padding: `${newChannel.subtitle_style.box_padding_y ?? newChannel.subtitle_style.box_padding ?? 10}px ${newChannel.subtitle_style.box_padding_x ?? newChannel.subtitle_style.box_padding ?? 10}px`,
-                                borderRadius: `${newChannel.subtitle_style.box_radius ?? 0}px`
+                                backgroundColor: newChannel.subtitle_style.box_color && newChannel.subtitle_style.box_color !== 'transparent' ? newChannel.subtitle_style.box_color : 'transparent',
+                                padding: `${(newChannel.subtitle_style.box_padding_y ?? newChannel.subtitle_style.box_padding ?? 10) * mockupSubtitlePreviewScale}px ${(newChannel.subtitle_style.box_padding_x ?? newChannel.subtitle_style.box_padding ?? 10) * mockupSubtitlePreviewScale}px`,
+                                borderRadius: `${(newChannel.subtitle_style.box_radius ?? 0) * mockupSubtitlePreviewScale}px`,
+                                opacity: (newChannel.subtitle_style.opacity ?? 100) / 100,
+                                transform: `translateX(${(newChannel.subtitle_style.x_offset || 0) * mockupSubtitlePreviewScale}px) translateY(${(newChannel.subtitle_style.y_offset || 0) * mockupSubtitlePreviewScale}px) rotate(${newChannel.subtitle_style.rotation || 0}deg)`
                               }}
-                              className="flex flex-wrap justify-center items-center gap-1.5 text-center"
+                              className={`flex flex-wrap items-center gap-1.5 ${newChannel.subtitle_style.align === 'left' ? 'justify-start text-left max-w-[58%]' : newChannel.subtitle_style.align === 'right' ? 'justify-end text-right max-w-[58%] ml-auto' : 'justify-center text-center'}`}
                             >
-                              {sampleWords.map((wordObj, i) => (
-                                <span
-                                  key={i}
-                                  style={{
-                                    fontFamily: newChannel.subtitle_style.font,
-                                    fontSize: `${(newChannel.subtitle_style.size || 44) * mockupSubtitlePreviewScale}px`,
-                                    fontWeight: '900',
-                                    color: wordObj.highlight ? (newChannel.subtitle_style.color || '#FFD700') : '#FFFFFF',
-                                    textShadow: wordObj.highlight
-                                      ? `0 0 12px ${newChannel.subtitle_style.color || '#FFD700'}, 0 2px 4px rgba(0,0,0,0.9)`
-                                      : '0 2px 4px rgba(0,0,0,0.9)',
-                                    transform: wordObj.highlight ? 'scale(1.08)' : 'scale(1)',
-                                    transition: 'all 0.15s ease-in-out'
-                                  }}
-                                  className="inline-block"
-                                >
-                                  {applySubtitleCase(wordObj.text, newChannel.subtitle_style.text_case)}
-                                </span>
-                              ))}
+                              {sampleWords.map((wordObj, i) => {
+                                const highlightMode = newChannel.subtitle_style.highlight_mode || (newChannel.subtitle_style.karaoke === false ? 'line' : 'word');
+                                const isColored = highlightMode === 'line' || (highlightMode === 'word' && wordObj.highlight);
+                                const outlinePx = (newChannel.subtitle_style.outline_width ?? 3) * mockupSubtitlePreviewScale;
+                                return (
+                                  <span
+                                    key={i}
+                                    style={{
+                                      fontFamily: newChannel.subtitle_style.font,
+                                      fontSize: `${(newChannel.subtitle_style.size || 44) * mockupSubtitlePreviewScale}px`,
+                                      fontWeight: newChannel.subtitle_style.bold ? '900' : '700',
+                                      fontStyle: newChannel.subtitle_style.italic ? 'italic' : 'normal',
+                                      letterSpacing: `${(newChannel.subtitle_style.letter_spacing || 0) * mockupSubtitlePreviewScale}px`,
+                                      color: isColored ? (newChannel.subtitle_style.color || '#FFD700') : (newChannel.subtitle_style.base_color || '#FFFFFF'),
+                                      WebkitTextStroke: outlinePx > 0 ? `${outlinePx}px ${newChannel.subtitle_style.outline_color || '#000000'}` : 'none',
+                                      paintOrder: 'stroke fill',
+                                      textShadow: newChannel.subtitle_style.shadow
+                                        ? `${(newChannel.subtitle_style.shadow_distance ?? 3)}px ${(newChannel.subtitle_style.shadow_distance ?? 3)}px 4px ${newChannel.subtitle_style.shadow_color || '#000000'}`
+                                        : 'none'
+                                    }}
+                                    className="inline-block"
+                                  >
+                                    {applySubtitleCase(wordObj.text, newChannel.subtitle_style.text_case)}
+                                  </span>
+                                );
+                              })}
                             </div>
                           </div>
                           )}
