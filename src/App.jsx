@@ -10383,6 +10383,8 @@ export default function App() {
   const [modelCatalog, setModelCatalog] = useState(null);
   const [selectedTaskModel, setSelectedTaskModel] = useState({});
   const [hfAccounts, setHfAccounts] = useState([]);
+  const [editingProviderKey, setEditingProviderKey] = useState(null);
+  const [providerKeyDraft, setProviderKeyDraft] = useState('');
   const [hfAccountsLoading, setHfAccountsLoading] = useState(false);
   const [hfAccountForm, setHfAccountForm] = useState({ token: '', label: '' });
   // Which image-generation provider's key pool is shown/edited — the pool
@@ -11360,6 +11362,11 @@ export default function App() {
     }
   };
 
+  const reportKeySync = (result) => {
+    if (result.environment_sync === 'error') showToast('Base mise à jour. La synchronisation du fichier environnement a échoué.', 'error');
+    else if (result.environment_sync === 'not_configured') showToast('Base mise à jour, effective pour les prochains appels. Synchronisation du fichier environnement non configurée.', 'info');
+  };
+
   const addHfAccount = async () => {
     const token = hfAccountForm.token.trim();
     if (!token) return showToast(`Colle une clé ${IMAGE_KEY_PROVIDER_LABELS[hfAccountsProvider]}.`, 'error');
@@ -11373,7 +11380,7 @@ export default function App() {
       const account = await res.json();
       setHfAccounts(prev => [...prev, account]);
       setHfAccountForm({ token: '', label: '' });
-      showToast(account.status === 'active' ? 'Compte ajouté et fonctionnel.' : `Compte ajouté (statut: ${account.status}).`, account.status === 'active' ? 'success' : 'error');
+      reportKeySync(account);
     } catch (err) {
       showToast(err.message, 'error');
     } finally {
@@ -11401,6 +11408,7 @@ export default function App() {
       if (!res.ok) throw new Error();
       const account = await res.json();
       setHfAccounts(prev => prev.map(a => a.id === id ? account : a));
+      reportKeySync(account);
     } catch {
       showToast('Échec de la mise à jour.', 'error');
     }
@@ -11419,11 +11427,33 @@ export default function App() {
     }
   };
 
+  const replaceProviderKey = async () => {
+    if (!editingProviderKey || !providerKeyDraft.trim()) return;
+    setHfAccountChecking(editingProviderKey);
+    try {
+      const res = await authFetch(`${API_BASE}/admin/hf-accounts/${editingProviderKey}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: providerKeyDraft.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || 'Modification refusée.');
+      setHfAccounts(prev => prev.map(a => a.id === editingProviderKey ? data : a));
+      setEditingProviderKey(null);
+      setProviderKeyDraft('');
+      reportKeySync(data);
+    } catch (error) {
+      showToast(error.message || 'Échec de la modification.', 'error');
+    } finally {
+      setHfAccountChecking(null);
+    }
+  };
+
   const deleteHfAccount = async (id) => {
-    if (!await askConfirm('Le compte ne sera plus utilisé pour les générations.', { title: 'Retirer ce compte Hugging Face ?', danger: true, confirmLabel: 'Retirer' })) return;
+    if (!await askConfirm('Le compte ne sera plus utilisé pour les générations.', { title: 'Supprimer cette clé ?', danger: true, confirmLabel: 'Retirer' })) return;
     try {
       const res = await authFetch(`${API_BASE}/admin/hf-accounts/${id}`, { method: 'DELETE' });
       if (!res.ok) throw new Error();
+      reportKeySync(await res.json());
       setHfAccounts(prev => prev.filter(a => a.id !== id));
     } catch {
       showToast('Échec de la suppression.', 'error');
@@ -21295,38 +21325,6 @@ export default function App() {
 
           {adminTab === 'resources' && (
             <div className="flex flex-col gap-5">
-              <div className={`order-last mt-4 rounded-2xl border p-4 transition-colors ${paidApisKillSwitch?.disabled ? 'border-rose-500/50 bg-rose-950/20' : 'border-[var(--border-soft)] bg-[var(--bg-surface-alt)]'} flex items-center justify-between gap-4`}>
-                <div className="flex items-center gap-2.5">
-                  <span className={`material-symbols-outlined text-[20px] ${paidApisKillSwitch?.disabled ? 'text-rose-400' : 'text-slate-400'}`}>power_settings_new</span>
-                  <div>
-                    <h4 className="text-sm font-extrabold text-white">Mode maintenance</h4>
-                    <p className={`mt-0.5 text-[11px] ${paidApisKillSwitch?.disabled ? 'text-rose-300' : 'text-slate-500'}`}>{paidApisKillSwitch?.disabled ? 'Activé' : 'Désactivé'}</p>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={togglePaidApisKillSwitch}
-                  disabled={paidApisKillSwitchSaving || !paidApisKillSwitch}
-                  role="switch"
-                  aria-checked={!!paidApisKillSwitch?.disabled}
-                  aria-label="Activer ou désactiver le mode maintenance"
-                  title={paidApisKillSwitch?.disabled ? 'Désactiver le mode maintenance' : 'Activer le mode maintenance'}
-                  className={`relative inline-flex h-8 w-14 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent p-0.5 transition-colors duration-200 ease-in-out disabled:opacity-50 ${
-                    paidApisKillSwitch?.disabled ? 'bg-rose-500' : 'bg-slate-700 hover:bg-slate-600'
-                  }`}
-                >
-                  <span
-                    className={`pointer-events-none flex h-6 w-6 transform items-center justify-center rounded-full bg-white text-[13px] text-slate-800 shadow-md transition duration-200 ease-in-out ${
-                      paidApisKillSwitch?.disabled ? 'translate-x-6' : 'translate-x-0'
-                    }`}
-                  >
-                    <span className={`material-symbols-outlined text-[14px] ${paidApisKillSwitchSaving ? 'animate-spin' : ''}`}>
-                      {paidApisKillSwitchSaving ? 'progress_activity' : 'power_settings_new'}
-                    </span>
-                  </span>
-                </button>
-              </div>
-
               <div className="space-y-3">
                 <div>
                   <h4 className="text-sm font-bold text-white">Vidéos rendues en même temps</h4>
@@ -21557,7 +21555,7 @@ export default function App() {
                 <div>
                   <h4 className="text-sm font-bold text-white">Clés API et rotation des fournisseurs</h4>
                   <p className="text-[11px] text-slate-500 mt-1 max-w-xl">
-                    Ajoute plusieurs clés par fournisseur. Kappgen les alterne automatiquement lorsqu'une clé est épuisée ou invalide.
+                    Les clés enregistrées en base sont utilisées à tour de rôle à chaque appel. En cas d’échec, KappGen essaie la suivante. Le statut indique le résultat de la dernière vérification.
                   </p>
                 </div>
 
@@ -21566,7 +21564,7 @@ export default function App() {
                     <button
                       key={id}
                       type="button"
-                      onClick={() => setHfAccountsProvider(id)}
+                      onClick={() => { setHfAccountsProvider(id); setEditingProviderKey(null); setProviderKeyDraft(''); setHfAccountForm({ token: '', label: '' }); }}
                       className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${hfAccountsProvider === id ? 'bg-[#00c2ff] text-slate-950' : 'text-slate-400 hover:text-white'}`}
                     >
                       {label}
@@ -21605,10 +21603,18 @@ export default function App() {
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                     {hfAccounts.map(a => {
-                      const dotColor = a.status === 'active' ? 'bg-emerald-500' : a.status === 'quota_exhausted' ? 'bg-amber-500' : 'bg-red-500';
-                      const statusLabel = { active: 'Actif', quota_exhausted: 'Épuisé', invalid: 'Invalide' }[a.status] || a.status;
+                      const dotColor = !a.is_enabled ? 'bg-slate-500' : a.status === 'active' ? 'bg-emerald-500' : ['quota_exhausted', 'rate_limited', 'unverified'].includes(a.status) ? 'bg-amber-500' : 'bg-red-500';
+                      const statusLabel = !a.is_enabled ? 'Inactif' : ({ active: 'Valide', quota_exhausted: 'Quota épuisé', rate_limited: 'Limité', invalid: 'Invalide', forbidden: 'Accès refusé', error: 'Erreur du service', unverified: 'À vérifier' }[a.status] || 'À vérifier');
                       return (
                         <div key={a.id} className={`bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-xl px-2.5 py-2 ${!a.is_enabled ? 'opacity-50' : ''}`}>
+                          {editingProviderKey === a.id && (
+                            <div className="space-y-2 mb-2">
+                              <input type="password" autoComplete="new-password" value={providerKeyDraft} onChange={e => setProviderKeyDraft(e.target.value)} placeholder="Nouvelle clé" className="w-full rounded-lg p-2 bg-[var(--bg-surface-alt)] text-xs" />
+                              <button onClick={replaceProviderKey} disabled={!providerKeyDraft.trim() || hfAccountChecking === a.id} className="text-xs text-cyan-400 disabled:opacity-50">Enregistrer et vérifier</button>
+                              <button onClick={() => { setEditingProviderKey(null); setProviderKeyDraft(''); }} className="text-xs text-slate-400 ml-3">Annuler</button>
+                            </div>
+                          )}
+                          <div className="text-[9px] text-slate-500 mb-1">{a.last_checked_at ? `Dernière vérification : ${new Date(a.last_checked_at).toLocaleString()}` : 'Pas encore vérifiée'}</div>
                           {editingHfLabelId === a.id ? (
                             <div className="flex items-center gap-1 mb-1">
                               <input
@@ -21651,7 +21657,7 @@ export default function App() {
                                 <span className="material-symbols-outlined text-[13px]">edit</span>
                               </button>
                             )}
-                            {a.provider === 'huggingface' && (
+                            {!a.read_only && (
                               <button
                                 onClick={() => checkHfAccount(a.id)}
                                 disabled={hfAccountChecking === a.id || a.read_only}
@@ -21661,6 +21667,9 @@ export default function App() {
                                 <span className={`material-symbols-outlined text-[13px] ${hfAccountChecking === a.id ? 'animate-spin' : ''}`}>{hfAccountChecking === a.id ? 'progress_activity' : 'refresh'}</span>
                               </button>
                             )}
+                            <button onClick={() => { setEditingProviderKey(a.id); setProviderKeyDraft(''); }} title="Modifier la clé" className="p-1 rounded text-slate-400 hover:text-white">
+                              <span className="material-symbols-outlined text-[13px]">key</span>
+                            </button>
                             <button
                               onClick={() => toggleHfAccount(a.id, !a.is_enabled)}
                               disabled={a.read_only}
