@@ -13220,30 +13220,6 @@ export default function App() {
                   )}
                 </button>
               ))}
-              <div className={`mt-1 flex items-center rounded-xl border transition-colors ${sidebarCollapsed ? 'justify-center p-2' : 'justify-between gap-2 px-4 py-2.5'} ${paidApisKillSwitch?.disabled ? 'border-rose-500/40 bg-rose-950/25' : 'border-[var(--border-soft)] bg-[var(--bg-surface-alt)]/50'}`}>
-                <div className="flex items-center gap-3 min-w-0">
-                  <span className={`material-symbols-outlined shrink-0 text-[18px] ${paidApisKillSwitch?.disabled ? 'text-rose-400' : 'text-slate-500'}`}>power_settings_new</span>
-                  {!sidebarCollapsed && <div className="min-w-0"><div className="text-[11px] font-bold text-slate-300">Mode maintenance</div><div className={`text-[9px] ${paidApisKillSwitch?.disabled ? 'text-rose-400' : 'text-slate-600'}`}>{paidApisKillSwitch?.disabled ? 'Activé' : 'Désactivé'}</div></div>}
-                </div>
-                {!sidebarCollapsed && (
-                  <button
-                    type="button"
-                    onClick={togglePaidApisKillSwitch}
-                    disabled={paidApisKillSwitchSaving || !paidApisKillSwitch}
-                    role="switch"
-                    aria-checked={!!paidApisKillSwitch?.disabled}
-                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out disabled:opacity-50 ${
-                      paidApisKillSwitch?.disabled ? 'bg-rose-500' : 'bg-slate-700'
-                    }`}
-                  >
-                    <span
-                      className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition duration-200 ease-in-out ${
-                        paidApisKillSwitch?.disabled ? 'translate-x-5' : 'translate-x-0'
-                      }`}
-                    />
-                  </button>
-                )}
-              </div>
             </div>
           ) : (
             <div className="px-3 space-y-1.5">
@@ -13272,7 +13248,42 @@ export default function App() {
           )}
         </div>
 
-        {view !== 'admin' && currentUser && (
+        {view === 'admin' ? (
+          <div className="px-3 pt-3 border-t border-[var(--border-soft)]">
+            <div className={`flex items-center rounded-xl border transition-colors ${sidebarCollapsed ? 'justify-center p-2' : 'justify-between gap-2 px-3 py-2.5'} ${paidApisKillSwitch?.disabled ? 'border-rose-500/40 bg-rose-950/25' : 'border-[var(--border-soft)] bg-[var(--bg-surface-alt)]/50'}`}>
+              <div className="flex items-center gap-2.5 min-w-0">
+                <span className={`material-symbols-outlined shrink-0 text-[18px] ${paidApisKillSwitch?.disabled ? 'text-rose-400' : 'text-slate-500'}`}>power_settings_new</span>
+                {!sidebarCollapsed && (
+                  <div className="min-w-0">
+                    <div className="text-[11px] font-bold text-slate-300 truncate">Mode maintenance</div>
+                    <div className={`text-[9px] ${paidApisKillSwitch?.disabled ? 'text-rose-400 font-semibold' : 'text-slate-500'}`}>
+                      {paidApisKillSwitch?.disabled ? 'Activé' : 'Désactivé'}
+                    </div>
+                  </div>
+                )}
+              </div>
+              {!sidebarCollapsed && (
+                <button
+                  type="button"
+                  onClick={togglePaidApisKillSwitch}
+                  disabled={paidApisKillSwitchSaving || !paidApisKillSwitch}
+                  role="switch"
+                  aria-checked={!!paidApisKillSwitch?.disabled}
+                  title={paidApisKillSwitch?.disabled ? "Désactiver le mode maintenance" : "Activer le mode maintenance"}
+                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out disabled:opacity-50 ${
+                    paidApisKillSwitch?.disabled ? 'bg-rose-500' : 'bg-slate-700'
+                  }`}
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition duration-200 ease-in-out ${
+                      paidApisKillSwitch?.disabled ? 'translate-x-5' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
+              )}
+            </div>
+          </div>
+        ) : currentUser && (
           <div className={`px-3 pt-4 mt-4 border-t border-[var(--border-soft)] space-y-2`}>
             <button
               onClick={() => setShowPricingModal(true)}
