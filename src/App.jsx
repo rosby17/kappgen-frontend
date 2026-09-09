@@ -4925,7 +4925,7 @@ export function MaintenanceScreen() {
         <section className="flex flex-1 items-center py-16 sm:py-20">
           <div className="max-w-2xl">
             <div className="mb-7 flex h-14 w-14 items-center justify-center rounded-2xl border border-amber-300/25 bg-amber-300/[.075] shadow-[0_0_40px_rgba(251,191,36,.1)]">
-              <svg viewBox="0 0 24 24" className="h-6 w-6 text-amber-300" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m14.7 6.3 3 3M5.4 20.1l2.2-.5 10-10a2.1 2.1 0 0 0-3-3l-10 10-.5 2.2Z" /><path d="m12.2 8.8 3 3" /></svg>
+              <svg viewBox="0 0 24 24" className="h-6 w-6 text-amber-300" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="8" cy="15" r="3.5" /><path d="m10.5 12.5 8.2-8.2 2 2-1.6 1.6 1.3 1.3-2 2-1.3-1.3-5.2 5.2" /></svg>
             </div>
             <p className="mb-4 text-[10px] font-extrabold uppercase tracking-[.22em] text-cyan-300">Accès temporairement limité</p>
             <h1 className="max-w-xl text-4xl font-black leading-[1.02] tracking-[-0.06em] text-white sm:text-6xl">Une pause<br /><span style={{ backgroundImage: 'linear-gradient(100deg, #ffffff 10%, #64dfff 60%, #2997ff)', backgroundClip: 'text', WebkitBackgroundClip: 'text', color: 'transparent' }}>volontaire.</span></h1>
