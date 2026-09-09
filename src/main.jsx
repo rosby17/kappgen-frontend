@@ -48,6 +48,7 @@ function MaintenanceGate({ children }) {
   // Starting at false made the marketing page appear for one frame on every
   // refresh before the API switched it back to maintenance.
   const [maintenanceActive, setMaintenanceActive] = useState(null)
+  const [maintenanceExempt, setMaintenanceExempt] = useState(null)
   useEffect(() => {
     let cancelled = false
     const check = () => {
@@ -61,7 +62,29 @@ function MaintenanceGate({ children }) {
     return () => { cancelled = true; clearInterval(interval) }
   }, [])
 
-  return maintenanceActive !== false ? <MaintenanceScreen /> : children
+  useEffect(() => {
+    let cancelled = false
+    fetch(`${API_BASE}/auth/session`, { credentials: 'include' })
+      .then(async res => {
+        if (!res.ok) return null
+        return res.json().catch(() => null)
+      })
+      .then(user => {
+        if (!cancelled) {
+          const email = String(user?.email || '').trim().toLowerCase()
+          setMaintenanceExempt(!!user?.is_admin || email === 'rooseveltmkr@gmail.com')
+        }
+      })
+      .catch(() => { if (!cancelled) setMaintenanceExempt(false) })
+    return () => { cancelled = true }
+  }, [])
+
+  // Hold a neutral surface only while the two short public/session checks
+  // resolve. This avoids flashing either the landing or maintenance screen.
+  if (maintenanceActive === null || maintenanceExempt === null) {
+    return <div className="min-h-screen bg-[#060a10]" />
+  }
+  return maintenanceActive && !maintenanceExempt ? <MaintenanceScreen /> : children
 }
 
 class AppErrorBoundary extends Component {
