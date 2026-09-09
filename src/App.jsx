@@ -8669,88 +8669,6 @@ export default function App() {
     }
   };
 
-  // Bring-your-own-key for every external AI provider the platform calls on
-  // a creator's behalf (Settings > Clés API) — connecting a personal key
-  // makes it used in that provider's place, free against KappGen credits
-  // (see src/pipeline/ai_text.py's BYOK handling), instead of the shared
-  // platform key. Izivoice keeps its own dedicated connect/disconnect route
-  // (handleConnectIzivoiceKey/handleDisconnectIzivoiceKey above) — this list
-  // just displays it alongside the others for one single place to manage
-  // every key, rather than duplicating its storage.
-  const [providerKeys, setProviderKeys] = useState([]);
-  const [providerKeysLoading, setProviderKeysLoading] = useState(false);
-  const [providerKeyDrafts, setProviderKeyDrafts] = useState({}); // provider_id -> in-progress input value
-  const [providerKeyEditing, setProviderKeyEditing] = useState(null); // provider_id currently showing its input row
-  const [providerKeyBusy, setProviderKeyBusy] = useState(null); // provider_id with a save/delete in flight
-
-  const fetchProviderKeys = async () => {
-    setProviderKeysLoading(true);
-    try {
-      const res = await authFetch(`${API_BASE}/auth/me/provider-keys`);
-      if (res.ok) setProviderKeys(await res.json());
-    } catch {} finally {
-      setProviderKeysLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (view === 'settings' && settingsTab === 'api' && currentUser) fetchProviderKeys();
-  }, [view, settingsTab, currentUser?.id]);
-
-  const saveProviderKey = async (providerId) => {
-    const apiKey = (providerKeyDrafts[providerId] || '').trim();
-    if (!apiKey) return;
-    setProviderKeyBusy(providerId);
-    try {
-      const res = await authFetch(`${API_BASE}/auth/me/provider-keys/${providerId}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ api_key: apiKey }),
-      });
-      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || 'Échec de la connexion de la clé.');
-      setProviderKeyEditing(null);
-      setProviderKeyDrafts(prev => ({ ...prev, [providerId]: '' }));
-      await fetchProviderKeys();
-      showToast('Clé connectée.', 'success');
-    } catch (err) {
-      showToast(err.message, 'error');
-    } finally {
-      setProviderKeyBusy(null);
-    }
-  };
-
-  const removeProviderKey = async (providerId) => {
-    if (!await askConfirm("KappGen repassera sur son propre moteur pour ce fournisseur.", { title: 'Retirer cette clé API ?', danger: true, confirmLabel: 'Retirer' })) return;
-    setProviderKeyBusy(providerId);
-    try {
-      const res = await authFetch(`${API_BASE}/auth/me/provider-keys/${providerId}`, { method: 'DELETE' });
-      if (!res.ok) throw new Error();
-      await fetchProviderKeys();
-      showToast('Clé retirée.', 'success');
-    } catch {
-      showToast('Échec de la suppression.', 'error');
-    } finally {
-      setProviderKeyBusy(null);
-    }
-  };
-
-  const toggleProviderKey = async (providerId, enabled) => {
-    setProviderKeyBusy(providerId);
-    try {
-      const res = await authFetch(`${API_BASE}/auth/me/provider-keys/${providerId}/toggle`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ enabled }),
-      });
-      if (!res.ok) throw new Error();
-      await fetchProviderKeys();
-    } catch {
-      showToast('Échec de la mise à jour.', 'error');
-    } finally {
-      setProviderKeyBusy(null);
-    }
-  };
-
   const handleCreateApiKey = async () => {
     try {
       const res = await authFetch(`${API_BASE}/api-keys`, {
@@ -10273,7 +10191,7 @@ export default function App() {
   // mechanism (rotate through multiple keys, skip exhausted ones) is the
   // same for all three, just scoped by this tab.
   const [hfAccountsProvider, setHfAccountsProvider] = useState('huggingface');
-  const IMAGE_KEY_PROVIDER_LABELS = { huggingface: 'Hugging Face', fal: 'fal.ai', izivoice: 'Moteur KappGen', gemini: 'Google Gemini (gratuit)' };
+  const IMAGE_KEY_PROVIDER_LABELS = { huggingface: 'Hugging Face', fal: 'fal.ai', izivoice: 'Moteur KappGen', gemini: 'Google Gemini (gratuit)', anthropic: 'Anthropic (Claude)', kie: 'Claude via Kie.ai' };
   const [hfAccountBusy, setHfAccountBusy] = useState(false);
   const [hfAccountChecking, setHfAccountChecking] = useState(null);
   const [editingHfLabelId, setEditingHfLabelId] = useState(null);
@@ -11471,7 +11389,6 @@ export default function App() {
       setShowIzivoiceKeyModal(false);
       setIzivoiceKeyDraft('');
       showToast('Clé vocale connectée — tes voix clonées et ton historique sont maintenant synchronisés.', 'success');
-      if (view === 'settings' && settingsTab === 'api') fetchProviderKeys();
     } catch (err) {
       showToast(err.message, 'error');
     } finally {
@@ -11487,7 +11404,6 @@ export default function App() {
       setIzivoiceStatus({ connected: false, key_prefix: null, mode: 'nichecut' });
       setShowIzivoiceKeyModal(false);
       showToast('Clé vocale déconnectée — retour au moteur KappGen par défaut.', 'success');
-      if (view === 'settings' && settingsTab === 'api') fetchProviderKeys();
     } catch {
       showToast('Impossible de déconnecter la clé.', 'error');
     }
@@ -19472,7 +19388,6 @@ export default function App() {
                 { id: 'profile', label: 'Profil', icon: 'person' },
                 { id: 'appearance', label: 'Apparence', icon: 'palette' },
                 { id: 'security', label: 'Sécurité', icon: 'lock' },
-                { id: 'api', label: 'Clés API', icon: 'key' },
                 { id: 'billing', label: 'Abonnement', icon: 'workspace_premium' },
               ].map(tab => (
                 <button
@@ -19681,93 +19596,6 @@ export default function App() {
                         {deletingAccount ? 'Suppression…' : 'Supprimer mon compte'}
                       </button>
                     </div>
-                  </div>
-                )}
-
-                {settingsTab === 'api' && (
-                  <div className="space-y-4">
-                    <div>
-                      <h4 className="text-xs font-bold text-white mb-1">Clés API externes</h4>
-                      <p className="text-[11px] text-slate-400">Connecte ta propre clé pour un service utilisé par KappGen — elle est alors utilisée à la place du moteur partagé, sans toucher à ton solde de crédits KappGen, dans l'ordre de priorité déjà utilisé par la génération (le premier fournisseur disponible dans la chaîne).</p>
-                    </div>
-
-                    {providerKeysLoading ? (
-                      <div className="text-center text-slate-500 text-xs py-6">Chargement…</div>
-                    ) : (
-                      <div className="space-y-2.5">
-                        {providerKeys.map(p => {
-                          const busy = providerKeyBusy === p.provider_id;
-                          const editing = providerKeyEditing === p.provider_id;
-                          return (
-                            <div key={p.provider_id} className="bg-[var(--bg-input)] border border-[var(--border-subtle)] rounded-xl p-4">
-                              <div className="flex items-center justify-between gap-3">
-                                <div className="min-w-0">
-                                  <div className="text-xs font-bold text-white flex items-center gap-2">
-                                    {p.label}
-                                    {p.managed_elsewhere && <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wide">(dédié)</span>}
-                                  </div>
-                                  <div className="text-[11px] text-slate-400 mt-0.5">
-                                    {p.connected ? (
-                                      <span className="text-emerald-400 font-mono">✓ {p.key_prefix || 'Connectée'}</span>
-                                    ) : (
-                                      <span>Non connectée — KappGen utilise son propre moteur.</span>
-                                    )}
-                                  </div>
-                                </div>
-                                <div className="flex items-center gap-2 shrink-0">
-                                  {p.connected && !p.managed_elsewhere && (
-                                    <label className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400 cursor-pointer" title="Activer/désactiver sans supprimer la clé">
-                                      <input type="checkbox" checked={p.enabled} disabled={busy} onChange={e => toggleProviderKey(p.provider_id, e.target.checked)} className="kappgen-checkbox" />
-                                      Active
-                                    </label>
-                                  )}
-                                  {p.managed_elsewhere ? (
-                                    p.connected ? (
-                                      <button onClick={handleDisconnectIzivoiceKey} className="text-[11px] font-bold text-rose-400 hover:text-rose-300">Déconnecter</button>
-                                    ) : (
-                                      <button onClick={() => setShowIzivoiceKeyModal(true)} className="text-[11px] font-bold text-[#00c2ff] hover:text-[#38d0ff]">Connecter</button>
-                                    )
-                                  ) : p.connected ? (
-                                    <button onClick={() => removeProviderKey(p.provider_id)} disabled={busy} className="text-[11px] font-bold text-rose-400 hover:text-rose-300 disabled:opacity-50">
-                                      {busy ? '…' : 'Supprimer'}
-                                    </button>
-                                  ) : (
-                                    <button onClick={() => setProviderKeyEditing(editing ? null : p.provider_id)} className="text-[11px] font-bold text-[#00c2ff] hover:text-[#38d0ff]">
-                                      {editing ? 'Annuler' : 'Ajouter'}
-                                    </button>
-                                  )}
-                                  {p.connected && !p.managed_elsewhere && (
-                                    <button onClick={() => setProviderKeyEditing(editing ? null : p.provider_id)} className="text-[11px] font-bold text-slate-400 hover:text-white">
-                                      {editing ? 'Annuler' : 'Changer'}
-                                    </button>
-                                  )}
-                                </div>
-                              </div>
-                              {editing && !p.managed_elsewhere && (
-                                <div className="mt-3 flex items-center gap-2">
-                                  <input
-                                    type="password"
-                                    autoFocus
-                                    placeholder="Colle ta clé API ici"
-                                    value={providerKeyDrafts[p.provider_id] || ''}
-                                    onChange={e => setProviderKeyDrafts(prev => ({ ...prev, [p.provider_id]: e.target.value }))}
-                                    onKeyDown={e => { if (e.key === 'Enter') saveProviderKey(p.provider_id); }}
-                                    className="flex-1 bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-lg px-3 py-2 text-xs text-white font-mono focus:border-[#00c2ff] outline-none"
-                                  />
-                                  <button
-                                    onClick={() => saveProviderKey(p.provider_id)}
-                                    disabled={busy || !(providerKeyDrafts[p.provider_id] || '').trim()}
-                                    className="px-4 py-2 bg-[#00c2ff] text-slate-950 font-bold text-xs rounded-lg hover:bg-[#38d0ff] disabled:opacity-50 shrink-0"
-                                  >
-                                    {busy ? '…' : 'Enregistrer'}
-                                  </button>
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
                   </div>
                 )}
 
