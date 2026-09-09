@@ -5,6 +5,9 @@ import freedomSunrise from './assets/dashboard/freedom-sunrise.png';
 import FacecamStudio, { FacecamHome, FacecamGallery } from './facecam/FacecamStudio';
 import FacecamLibrary from './facecam/FacecamLibrary';
 import { DEFAULT_SETTINGS } from './facecam/settings';
+import { migrateBrandStorage } from './brandStorage';
+
+migrateBrandStorage();
 
 const getOrigin = () => (typeof window !== 'undefined' ? window.location.origin : '');
 const isLocalhost = getOrigin().includes('localhost') || getOrigin().includes('127.0.0.1');
@@ -262,7 +265,7 @@ const trimAudioClientSide = async (file, maxSeconds = 32) => {
 const getVideoUrl = (path) => {
   if (!path) return '';
   if (path.startsWith('http://') || path.startsWith('https://')) return path;
-  const cleanPath = path.replace(/^(\.nichecut-storage\/|storage\/|\/)+/, '');
+  const cleanPath = path.replace(/^(\.(?:kappgen|nichecut)-storage\/|storage\/|\/)+/, '');
   return `${STORAGE_BASE}/${cleanPath}`;
 };
 
@@ -900,7 +903,7 @@ const mergeFontCatalog = (installed = []) => {
 const STABLE_EFFECT_PREVIEW_IMAGES = [
   '/assets/dashboard/freedom-sunrise.png',
   '/assets/dashboard/freedom-sleep.png',
-  '/assets/backgrounds/nichecut-abstract-tech.webp',
+  '/assets/backgrounds/kappgen-abstract-tech.webp',
 ];
 
 const VOICE_MODELS = [
@@ -914,8 +917,8 @@ const VOICE_MODELS = [
 // catalog and the clone endpoint don't tag these server-side, so the voice
 // library modal tracks them client-side per browser, à la bibliothèque
 // KappGen (onglets Bibliothèque / Clonées / Enregistrées / Par défaut).
-const SAVED_VOICE_IDS_KEY = 'nichecut_saved_voice_ids';
-const CLONED_VOICE_IDS_KEY = 'nichecut_cloned_voice_ids';
+const SAVED_VOICE_IDS_KEY = 'kappgen_saved_voice_ids';
+const CLONED_VOICE_IDS_KEY = 'kappgen_cloned_voice_ids';
 function readVoiceIdList(key) {
   try { return JSON.parse(localStorage.getItem(key) || '[]'); } catch { return []; }
 }
@@ -931,7 +934,7 @@ function writeVoiceIdList(key, ids) {
 // creator) silently vanishes from the "Mes voix clonées" tab on the very
 // next catalog refetch, even though the channel using it keeps working fine
 // (its voice_id is stored server-side, independent of this cache).
-const VOICE_META_CACHE_KEY = 'nichecut_voice_meta_cache';
+const VOICE_META_CACHE_KEY = 'kappgen_voice_meta_cache';
 function readVoiceMetaCache() {
   try { return JSON.parse(localStorage.getItem(VOICE_META_CACHE_KEY) || '{}'); } catch { return {}; }
 }
@@ -4404,6 +4407,7 @@ function useSubtitlePreviewScale() {
 // Browsers deliberately don't let a site auto-watch or silently re-read a
 // local folder without the user re-confirming access, so this is the closest
 // a website can get to "one-click refresh".
+// Existing file handles retain their browser permission grants.
 const FOLDER_HANDLE_DB = "nichecut_folder_handles";
 function openHandleDb() {
   return new Promise((resolve, reject) => {
@@ -4816,7 +4820,7 @@ const PIPELINE_PATHS = {
     { match: /découpage|scènes en/i, floor: 40, label: 'Scènes', icon: 'auto_stories' },
     { match: /préparation des visuels/i, floor: 48, label: 'Visuels', icon: 'image' },
     { match: /sous-titres|animation|mixage|montage final/i, floor: 60, label: 'Montage', icon: 'movie' },
-    { match: /assemblage|youtube|miniature|publication/i, floor: 90, label: 'Finalisation', icon: 'movie_edit' },
+    { match: /assemblage|youtube|miniature|publication/i, floor: 90, label: 'Finalisation', icon: 'auto_fix_high' },
   ],
   script: [
     { match: /contrôle|scénario à corriger|montage forcé/i, floor: 0, label: 'Script', icon: 'edit_note' },
@@ -4825,7 +4829,7 @@ const PIPELINE_PATHS = {
     { match: /découpage|scènes en/i, floor: 35, label: 'Scènes', icon: 'auto_stories' },
     { match: /préparation des visuels/i, floor: 45, label: 'Visuels', icon: 'image' },
     { match: /sous-titres|animation|mixage|montage final/i, floor: 60, label: 'Montage', icon: 'movie' },
-    { match: /assemblage|youtube|miniature|publication/i, floor: 90, label: 'Finalisation', icon: 'movie_edit' },
+    { match: /assemblage|youtube|miniature|publication/i, floor: 90, label: 'Finalisation', icon: 'auto_fix_high' },
   ],
   audio: [
     { match: /démarrage|reprise|audio|contrôle/i, floor: 0, label: 'Audio', icon: 'audio_file' },
@@ -4833,7 +4837,7 @@ const PIPELINE_PATHS = {
     { match: /découpage|scènes en/i, floor: 35, label: 'Scènes', icon: 'auto_stories' },
     { match: /préparation des visuels/i, floor: 45, label: 'Visuels', icon: 'image' },
     { match: /sous-titres|animation|mixage|montage final/i, floor: 60, label: 'Montage', icon: 'movie' },
-    { match: /assemblage|youtube|miniature|publication/i, floor: 90, label: 'Finalisation', icon: 'movie_edit' },
+    { match: /assemblage|youtube|miniature|publication/i, floor: 90, label: 'Finalisation', icon: 'auto_fix_high' },
   ],
 };
 
@@ -5413,7 +5417,7 @@ function adminTabFromPath(path) {
   return 'overview';
 }
 
-const THEME_STORAGE_KEY = 'nichecut_theme'; // 'light' | 'dark' | 'auto'
+const THEME_STORAGE_KEY = 'kappgen_theme'; // 'light' | 'dark' | 'auto'
 
 // Resolves the effective light/dark value for a given preference — 'auto'
 // follows the OS-level prefers-color-scheme instead of a fixed choice.
@@ -5739,7 +5743,7 @@ export default function App() {
     try { localStorage.setItem('kappgen_active_product', activeProduct); } catch {}
   }, [activeProduct]);
   const [productMenuOpen, setProductMenuOpen] = useState(false);
-  const NICHECUT_PRODUCTS = [
+  const KAPPGEN_PRODUCTS = [
     { id: 'montage', label: 'Faceless', icon: 'movie_edit', available: true },
     { id: 'facecam', label: 'Facecam', icon: 'videocam', available: true },
     { id: 'recap', label: 'Recap Film', icon: 'theaters', available: true },
@@ -6030,7 +6034,7 @@ export default function App() {
   const formatSyncAgo = (channelId, _tick) => {
     if (!channelId) return 'jamais';
     let iso = null;
-    try { iso = localStorage.getItem(`nichecut_last_sync_${channelId}`); } catch {}
+    try { iso = localStorage.getItem(`kappgen_last_sync_${channelId}`); } catch {}
     if (!iso) return 'jamais';
     const diffMs = Date.now() - new Date(iso).getTime();
     const mins = Math.floor(diffMs / 60000);
@@ -6716,8 +6720,8 @@ export default function App() {
         const chan = await res.json();
         let returnStep = null;
         try {
-          const raw = sessionStorage.getItem('nichecut_return_to_wizard_step');
-          sessionStorage.removeItem('nichecut_return_to_wizard_step');
+          const raw = sessionStorage.getItem('kappgen_return_to_wizard_step');
+          sessionStorage.removeItem('kappgen_return_to_wizard_step');
           const n = raw ? parseInt(raw, 10) : NaN;
           if (Number.isFinite(n) && n >= 1 && n <= 9) returnStep = n;
         } catch {}
@@ -6765,7 +6769,7 @@ export default function App() {
 
   // User Auth State
   const [currentUser, setCurrentUser] = useState(() => {
-    const saved = localStorage.getItem("nichecut_user");
+    const saved = localStorage.getItem("kappgen_user");
     return saved ? JSON.parse(saved) : null;
   });
   // The session token itself lives only in an httpOnly cookie set by the
@@ -6799,7 +6803,7 @@ export default function App() {
   };
   const storeAuthSession = (loggedUser) => {
     setCurrentUser(loggedUser);
-    localStorage.setItem("nichecut_user", JSON.stringify(loggedUser));
+    localStorage.setItem("kappgen_user", JSON.stringify(loggedUser));
   };
 
   // Mirrors the admin's "Coupe-circuit API payantes" kill switch (see
@@ -6840,7 +6844,7 @@ export default function App() {
   const [apiKeys, setApiKeys] = useState([]);
   const [newApiKeyName, setNewApiKeyName] = useState('');
   const [justCreatedApiKey, setJustCreatedApiKey] = useState(null);
-  const [izivoiceConnection, setIzivoiceConnection] = useState({ connected: false, mode: 'nichecut', key_prefix: null });
+  const [izivoiceConnection, setIzivoiceConnection] = useState({ connected: false, mode: 'kappgen', key_prefix: null });
   const [izivoiceApiKey, setIzivoiceApiKey] = useState('');
   const [izivoiceConnecting, setIzivoiceConnecting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -8459,7 +8463,7 @@ export default function App() {
   // Persist the current page/tab so a refresh (or the polling re-render below)
   // doesn't bounce the user back to Home.
   useEffect(() => {
-    sessionStorage.setItem('nichecut_view', view);
+    sessionStorage.setItem('kappgen_view', view);
   }, [view]);
 
   useEffect(() => {
@@ -8492,7 +8496,7 @@ export default function App() {
 
   useEffect(() => {
     if (activeChannel) {
-      sessionStorage.setItem('nichecut_active_channel_id', activeChannel.id);
+      sessionStorage.setItem('kappgen_active_channel_id', activeChannel.id);
     }
   }, [activeChannel]);
 
@@ -8704,11 +8708,11 @@ export default function App() {
 
   const handleLogout = () => {
     setCurrentUser(null);
-    localStorage.removeItem("nichecut_user");
-    localStorage.removeItem("nichecut_token"); // cleanup for sessions created before the httpOnly-cookie migration
+    localStorage.removeItem("kappgen_user");
+    localStorage.removeItem("kappgen_token"); // cleanup for sessions created before the httpOnly-cookie migration
     fetch(`${API_BASE}/auth/logout`, { method: 'POST', credentials: 'include' }).catch(() => {});
-    sessionStorage.removeItem('nichecut_view');
-    sessionStorage.removeItem('nichecut_active_channel_id');
+    sessionStorage.removeItem('kappgen_view');
+    sessionStorage.removeItem('kappgen_active_channel_id');
     setActiveChannel(null);
     setWizardMode('create');
     setEditingChannelId(null);
@@ -8794,7 +8798,7 @@ export default function App() {
       if (res.ok) {
         const updated = await res.json();
         setCurrentUser(updated);
-        localStorage.setItem("nichecut_user", JSON.stringify(updated));
+        localStorage.setItem("kappgen_user", JSON.stringify(updated));
         showToast("Profil mis à jour.", "success");
       } else {
         const err = await res.json();
@@ -8848,10 +8852,10 @@ export default function App() {
       const res = await authFetch(`${API_BASE}/auth/me`, { method: 'DELETE' });
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || "Échec de la suppression du compte.");
       setCurrentUser(null);
-      localStorage.removeItem("nichecut_user");
-      localStorage.removeItem("nichecut_token");
-      sessionStorage.removeItem('nichecut_view');
-      sessionStorage.removeItem('nichecut_active_channel_id');
+      localStorage.removeItem("kappgen_user");
+      localStorage.removeItem("kappgen_token");
+      sessionStorage.removeItem('kappgen_view');
+      sessionStorage.removeItem('kappgen_active_channel_id');
       setView('home');
       setAuthTab('login');
       setShowAuthModal(true);
@@ -8923,7 +8927,7 @@ export default function App() {
   // work. Cleared once the channel is actually saved. Can't cover raw files
   // (a not-yet-uploaded logo/music/image picked in this session) — those really
   // are gone if the wizard unmounts, since a File object can't survive that.
-  const draftKey = (id) => `nichecut_draft_${id || 'new'}`;
+  const draftKey = (id) => `kappgen_draft_${id || 'new'}`;
   // Root cause of a channel's settings silently reverting to old values
   // (e.g. Next Age Health Fr's image style repeatedly regressing to a
   // retired default): this draft is auto-saved on every keystroke while
@@ -8959,7 +8963,7 @@ export default function App() {
   // Same idea as the draft above, but for which step the creator was on — so a
   // hard refresh on e.g. the Publication step (8) lands back there instead of
   // bouncing to Identité (1). Keyed by channel id (or 'new' pre-save).
-  const wizardStepKey = (id) => `nichecut_wizard_step_${id || 'new'}`;
+  const wizardStepKey = (id) => `kappgen_wizard_step_${id || 'new'}`;
   const loadWizardStep = (id) => {
     try {
       const raw = sessionStorage.getItem(wizardStepKey(id));
@@ -9601,7 +9605,7 @@ export default function App() {
 
   const markLibrarySynced = (channelKey) => {
     if (!channelKey) return;
-    try { localStorage.setItem(`nichecut_last_sync_${channelKey}`, new Date().toISOString()); } catch {}
+    try { localStorage.setItem(`kappgen_last_sync_${channelKey}`, new Date().toISOString()); } catch {}
   };
 
   const prepareLocalImageFiles = (files, folderName, channelKeyForSync) => {
@@ -9788,7 +9792,7 @@ export default function App() {
       // name/description/logo that connecting just filled in server-side were
       // never visible until the creator manually reopened "Modifier". Leave a
       // breadcrumb so the return effect can reopen the wizard on this same step.
-      try { sessionStorage.setItem('nichecut_return_to_wizard_step', String(wizardStep)); } catch {}
+      try { sessionStorage.setItem('kappgen_return_to_wizard_step', String(wizardStep)); } catch {}
       // The draft autosave (see the effect below) just wrote this channel's
       // pre-connect state (blank name, no logo, etc.) to sessionStorage.
       // openEditWizard would normally replay that draft over whatever fresh
@@ -11535,7 +11539,7 @@ export default function App() {
   useEffect(() => {
     // Server-side source of truth for "Mes voix clonées" — VoiceCloneJob
     // rows persist per-user regardless of browser/device, unlike the old
-    // localStorage-only tracking (nichecut_cloned_voice_ids), which made a
+    // localStorage-only tracking (kappgen_cloned_voice_ids), which made a
     // creator's own cloned voices "disappear" the moment they opened the
     // wizard from a different tab, browser, or after clearing site data,
     // even though the channel using that voice_id kept generating fine the
@@ -11700,7 +11704,7 @@ export default function App() {
     try {
       const res = await authFetch(`${API_BASE}/channels/izivoice/connect?user_id=${encodeURIComponent(currentUser.id)}`, { method: 'DELETE' });
       if (!res.ok) throw new Error();
-      setIzivoiceStatus({ connected: false, key_prefix: null, mode: 'nichecut' });
+      setIzivoiceStatus({ connected: false, key_prefix: null, mode: 'kappgen' });
       setShowIzivoiceKeyModal(false);
       showToast('Clé vocale déconnectée — retour au moteur KappGen par défaut.', 'success');
     } catch {
@@ -13215,14 +13219,14 @@ export default function App() {
               <div className={`mb-8 relative ${sidebarCollapsed ? 'px-3' : 'px-3'}`}>
                 <button
                   onClick={() => setProductMenuOpen(o => !o)}
-                  title={NICHECUT_PRODUCTS.find(p => p.id === activeProduct)?.label}
+                  title={KAPPGEN_PRODUCTS.find(p => p.id === activeProduct)?.label}
                   className={`w-full py-2 flex items-center gap-2 rounded-xl bg-[var(--bg-surface-alt)] hover:bg-[var(--bg-dropdown)] border border-[var(--border)] transition-colors text-left ${sidebarCollapsed ? 'px-0 justify-center' : 'px-3'}`}
                 >
-                  <span className="material-symbols-outlined text-[16px] text-[#00c2ff] flex-shrink-0">{NICHECUT_PRODUCTS.find(p => p.id === activeProduct)?.icon}</span>
+                  <span className="material-symbols-outlined text-[16px] text-[#00c2ff] flex-shrink-0">{KAPPGEN_PRODUCTS.find(p => p.id === activeProduct)?.icon}</span>
                   {!sidebarCollapsed && (
                     <>
                       <span className="min-w-0 flex-1 text-xs font-bold text-white truncate">
-                        {NICHECUT_PRODUCTS.find(p => p.id === activeProduct)?.label}
+                        {KAPPGEN_PRODUCTS.find(p => p.id === activeProduct)?.label}
                       </span>
                       <span className={`material-symbols-outlined text-[16px] text-slate-400 transition-transform ${productMenuOpen ? 'rotate-180' : ''}`}>expand_more</span>
                     </>
@@ -13231,7 +13235,7 @@ export default function App() {
 
                 {productMenuOpen && (
                   <div className={`absolute top-full mt-1.5 bg-[var(--bg-dropdown)] border border-[var(--border-dropdown)] rounded-xl shadow-2xl z-50 py-1.5 overflow-hidden ${sidebarCollapsed ? 'left-0 w-56' : 'left-3 right-3'}`}>
-                    {NICHECUT_PRODUCTS.map(p => (
+                    {KAPPGEN_PRODUCTS.map(p => (
                       <button
                         key={p.id}
                         onClick={() => {
@@ -14315,7 +14319,7 @@ export default function App() {
                                 // card as a genuinely purged video, which read as broken/scary. This is
                                 // a normal, brief, self-resolving state — not a failure.
                                 <div className="absolute inset-0 flex flex-col items-center justify-center text-center space-y-2 @lg:space-y-3">
-                                  <span className="material-symbols-outlined text-[36px] @lg:text-[56px] text-[#00c2ff] animate-pulse">cloud_sync</span>
+                                  <span className="material-symbols-outlined text-[36px] @lg:text-[56px] text-[#00c2ff] animate-pulse" aria-hidden="true">auto_fix_high</span>
                                   <div className="text-[11px] @lg:text-base font-bold font-mono text-[#00c2ff]">Finalisation…</div>
                                   <div className="text-[9px] @lg:text-xs text-slate-500">La vidéo est prête, dernières étapes en cours.</div>
                                 </div>
@@ -15372,7 +15376,7 @@ export default function App() {
                               // See the equivalent branch above (Mes Vidéos card) — "done" without
                               // output_path yet just means storage finalization is still running.
                               <div className="absolute inset-0 flex flex-col items-center justify-center text-center space-y-2 @lg:space-y-3">
-                                <span className="material-symbols-outlined text-[36px] @lg:text-[56px] text-[#00c2ff] animate-pulse">cloud_sync</span>
+                                <span className="material-symbols-outlined text-[36px] @lg:text-[56px] text-[#00c2ff] animate-pulse" aria-hidden="true">auto_fix_high</span>
                                 <div className="text-[11px] @lg:text-base font-bold font-mono text-[#00c2ff]">Finalisation…</div>
                               </div>
                             ) : (
@@ -20432,7 +20436,7 @@ export default function App() {
                               // finalization (B2 upload) is still running in the background —
                               // a normal, brief, self-resolving state, not a failure.
                               <div className="w-full h-full flex flex-col items-center justify-center gap-1">
-                                <span className="material-symbols-outlined text-[28px] text-[#00c2ff] animate-pulse">cloud_sync</span>
+                                <span className="material-symbols-outlined text-[28px] text-[#00c2ff] animate-pulse" aria-hidden="true">auto_fix_high</span>
                                 <span className="text-[9px] text-[#00c2ff]">Finalisation…</span>
                               </div>
                             ) : (
@@ -22860,7 +22864,7 @@ export default function App() {
         </div>
       )}
 
-      {/* NICHECUT STUDIO — full scene-based editor (script/audio, scene timeline, per-scene edits) */}
+      {/* KAPPGEN STUDIO — full scene-based editor (script/audio, scene timeline, per-scene edits) */}
       {studioVideo && (
         <div className="fixed inset-0 bg-slate-950 z-50 flex flex-col">
           {/* Header */}
@@ -23816,7 +23820,7 @@ export default function App() {
       {/* FULL-PAGE AUTHENTICATION */}
       {(showAuthModal || isAuthRoute) && (
         <div className="fixed inset-0 z-50 overflow-y-auto bg-[var(--bg-page)] text-white">
-          <div className="absolute inset-0 bg-[url('/assets/backgrounds/nichecut-abstract-tech.webp')] bg-cover bg-center opacity-40" />
+          <div className="absolute inset-0 bg-[url('/assets/backgrounds/kappgen-abstract-tech.webp')] bg-cover bg-center opacity-40" />
           <div className="absolute inset-0 bg-gradient-to-r from-[var(--bg-page)] via-[var(--bg-page)]/90 to-[var(--bg-page)]/70" />
           <div className="relative min-h-screen grid lg:grid-cols-[1.05fr_.95fr]">
             <section className="hidden lg:flex min-h-screen flex-col justify-between px-12 xl:px-20 py-10">
