@@ -913,7 +913,7 @@ const VOICE_MODELS = [
 // localStorage-backed "saved" / "cloned" voice bookmarks — the shared voice
 // catalog and the clone endpoint don't tag these server-side, so the voice
 // library modal tracks them client-side per browser, à la bibliothèque
-// Easy Voice (onglets Bibliothèque / Clonées / Enregistrées / Par défaut).
+// KappGen (onglets Bibliothèque / Clonées / Enregistrées / Par défaut).
 const SAVED_VOICE_IDS_KEY = 'nichecut_saved_voice_ids';
 const CLONED_VOICE_IDS_KEY = 'nichecut_cloned_voice_ids';
 function readVoiceIdList(key) {
@@ -983,7 +983,7 @@ function mapCatalogVoice(v) {
 
 // A single, module-level "now playing" preview — starting a new preview
 // anywhere in the app (library modal, studio picker, ...) stops whichever
-// one was already playing, à la claimGlobalAudioPlayback() in Easy Voice.
+// one was already playing, à la claimGlobalAudioPlayback() in KappGen.
 let __voicePreviewAudio = null;
 let __voicePreviewOnStop = null;
 function playVoicePreviewExclusive(url, onStop) {
@@ -1136,7 +1136,7 @@ function getGroupIcon(groupName = '') {
 // Compact custom-styled dropdown for a plain "pick one of these options"
 // select — supports collapsible/accordion group submenus, instant search,
 // and custom dark styling.
-function SimpleSelect({ value, onChange, options = [], className = '' }) {
+function SimpleSelect({ value, onChange, options = [], className = '', disabled = false }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [expandedGroups, setExpandedGroups] = useState({});
@@ -1195,13 +1195,14 @@ function SimpleSelect({ value, onChange, options = [], className = '' }) {
     <div ref={ref} className={`relative min-w-0 ${className}`}>
       <button
         type="button"
+        disabled={disabled}
         onClick={() => setOpen(o => !o)}
         className="w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl bg-[var(--bg-surface-alt)] border border-[var(--border)] hover:border-[#00c2ff]/60 transition-colors text-xs text-white min-w-0 overflow-hidden"
       >
         <span className="truncate text-left min-w-0 flex-1 whitespace-nowrap" title={current?.label}>{current?.label}</span>
         <span className={`material-symbols-outlined text-[14px] text-slate-400 shrink-0 transition-transform ${open ? 'rotate-180' : ''}`}>expand_more</span>
       </button>
-      {open && (
+      {open && !disabled && (
         <div className="absolute left-0 top-full mt-1.5 min-w-full w-max max-w-[480px] bg-[var(--bg-dropdown)] border border-[var(--border-dropdown)] rounded-xl shadow-2xl z-50 overflow-hidden py-1">
           {options.length > 7 && (
             <div className="px-2.5 py-1.5 border-b border-[var(--border-soft)]">
@@ -11255,59 +11256,36 @@ export default function App() {
   const fetchModelCatalog = async () => {
     try { const res = await authFetch(`${API_BASE}/admin/settings/model-catalog`); if (res.ok) setModelCatalog(await res.json()); } catch (err) { console.error('Erreur catalogue modèles:', err); }
   };
-  const chooseTaskModel = (task, provider, model) => {
-    const next = { ...selectedTaskModel, [task]: { provider, model } };
-    setSelectedTaskModel(next);
-    localStorage.setItem('kappgen_task_models', JSON.stringify(next));
-    if (task === 'thumbnail' && provider) {
-      const current = thumbnailProviderMode?.order || [];
-      const nextOrder = [provider, ...current.filter(p => p !== provider)];
-      authFetch(`${API_BASE}/admin/settings/thumbnail-provider-mode`, {
+  const chooseTaskModel = async (task, provider, model) => {
+    const config = {
+      thumbnail: ['thumbnail-provider-mode', thumbnailProviderMode, setThumbnailProviderModeState, setThumbnailProviderModeSaving],
+      image: ['scene-image-provider-mode', sceneImageProviderMode, setSceneImageProviderModeState, setSceneImageProviderModeSaving],
+      voice: ['voiceover-provider-mode', voiceoverProviderMode, setVoiceoverProviderModeState, setVoiceoverProviderModeSaving],
+      music: ['music-provider-mode', musicProviderMode, setMusicProviderModeState, setMusicProviderModeSaving],
+      text: ['ai-text-provider', aiTextProvider, setAiTextProviderState, setAiTextProviderSaving],
+    }[task];
+    if (!config || !provider) return;
+    const [endpoint, mode, setMode, setSaving] = config;
+    setSaving(true);
+    try {
+      const order = [provider, ...(mode?.order || []).filter(p => p !== provider)];
+      const res = await authFetch(`${API_BASE}/admin/settings/${endpoint}`, {
         method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ order: nextOrder }),
-      }).then(res => res.ok && res.json()).then(data => {
-        if (data?.order) setThumbnailProviderModeState(prev => ({ ...prev, order: data.order }));
-      }).catch(() => {});
-    }
-    if (task === 'image' && provider) {
-      const current = sceneImageProviderMode?.order || [];
-      const nextOrder = [provider, ...current.filter(p => p !== provider)];
-      authFetch(`${API_BASE}/admin/settings/scene-image-provider-mode`, {
-        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ order: nextOrder }),
-      }).then(res => res.ok && res.json()).then(data => {
-        if (data?.order) setSceneImageProviderModeState(prev => ({ ...prev, order: data.order }));
-      }).catch(() => {});
-    }
-    if (task === 'text' && provider) {
-      const current = aiTextProvider?.order || [];
-      const nextOrder = [provider, ...current.filter(p => p !== provider)];
-      authFetch(`${API_BASE}/admin/settings/ai-text-provider`, {
-        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ order: nextOrder }),
-      }).then(res => res.ok && res.json()).then(data => {
-        if (data?.order) setAiTextProviderState(prev => ({ ...prev, order: data.order, effective_order: [...data.order, ...(prev?.available || []).filter(p => !data.order.includes(p))] }));
-      }).catch(() => {});
-    }
-    if (task === 'voice' && provider) {
-      const current = voiceoverProviderMode?.order || [];
-      const nextOrder = [provider, ...current.filter(p => p !== provider)];
-      authFetch(`${API_BASE}/admin/settings/voiceover-provider-mode`, {
-        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ order: nextOrder }),
-      }).then(res => res.ok && res.json()).then(data => {
-        if (data?.order) setVoiceoverProviderModeState(prev => ({ ...prev, order: data.order }));
-      }).catch(() => {});
-    }
-    if (task === 'music' && provider) {
-      const current = musicProviderMode?.order || [];
-      const nextOrder = [provider, ...current.filter(p => p !== provider)];
-      authFetch(`${API_BASE}/admin/settings/music-provider-mode`, {
-        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ order: nextOrder }),
-      }).then(res => res.ok && res.json()).then(data => {
-        if (data?.order) setMusicProviderModeState(prev => ({ ...prev, order: data.order }));
-      }).catch(() => {});
+        body: JSON.stringify({ order }),
+      });
+      if (!res.ok) throw new Error('Configuration refusée');
+      const data = await res.json();
+      setMode(prev => ({ ...prev, order: data.order }));
+      setSelectedTaskModel(prev => {
+        const next = { ...prev, [task]: { provider, model } };
+        localStorage.setItem('kappgen_task_models', JSON.stringify(next));
+        return next;
+      });
+      showToast('Source principale enregistrée.', 'success');
+    } catch {
+      showToast('La source n’a pas été enregistrée. Réessaie.', 'error');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -21151,10 +21129,11 @@ export default function App() {
                         for (const [provider, v] of Object.entries(adminCosts.by_provider)) {
                           let label = provider.replace(/_/g, ' ');
                           if (/^(izivoice|ai33pro)/i.test(provider)) {
-                            if (/_tts$/i.test(provider)) label = 'Izivoice TTS';
-                            else if (/_stt$/i.test(provider)) label = 'Izivoice STT';
-                            else if (/_image$/i.test(provider)) label = 'Izivoice Image';
-                            else label = 'Izivoice';
+                            const source = /^ai33pro/i.test(provider) ? 'KappGen' : 'Izivoice';
+                            if (/_tts$/i.test(provider)) label = `${source} TTS`;
+                            else if (/_stt$/i.test(provider)) label = `${source} STT`;
+                            else if (/_image$/i.test(provider)) label = `${source} Image`;
+                            else label = source;
                           }
                           merged[label] = merged[label] || { cost_usd: 0, calls: 0 };
                           merged[label].cost_usd += v.cost_usd;
@@ -21389,14 +21368,9 @@ export default function App() {
                     ['music', 'Musique de fond', 'music_note', musicProviderMode, musicProviderModeSaving, toggleMusicProvider],
                     ['voice', 'Voix off', 'graphic_eq', voiceoverProviderMode, voiceoverProviderModeSaving, toggleVoiceoverProvider],
                   ].map(([task, label, icon, taskMode, taskSaving, taskToggle]) => {
-                    const chosen = selectedTaskModel[task] || {};
-                    const provider = chosen.provider || (
-                      task === 'thumbnail' && thumbnailProviderMode?.order?.[0] && modelCatalog.providers?.[thumbnailProviderMode.order[0]]?.thumbnail
-                        ? thumbnailProviderMode.order[0]
-                        : task === 'image' && sceneImageProviderMode?.order?.[0] && modelCatalog.providers?.[sceneImageProviderMode.order[0]]?.image
-                        ? sceneImageProviderMode.order[0]
-                        : Object.keys(modelCatalog.providers || {}).find(p => modelCatalog.providers[p]?.[task])
-                    );
+                    // The server's saved order is authoritative, across browsers and sessions.
+                    const provider = taskMode?.order?.[0] || '';
+                    const chosen = selectedTaskModel[task]?.provider === provider ? selectedTaskModel[task] : {};
                     const models = provider ? (modelCatalog.providers[provider]?.[task] || []) : [];
                     const providerOptions = Object.entries(modelCatalog.providers || {}).filter(([, d]) => d[task]).map(([id, d]) => ({ value: id, label: d.label }));
                     const availableProviders = taskMode?.available && taskMode.available.length > 0
@@ -21438,7 +21412,7 @@ export default function App() {
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3">
                           <div className="min-w-0">
                             <span className="block text-[9px] uppercase tracking-wider text-slate-500 mb-1.5 truncate">Source principale</span>
-                            <SimpleSelect className="w-full min-w-0" value={provider || ''} options={providerOptions} onChange={id => chooseTaskModel(task, id, (modelCatalog.providers[id]?.[task] || [])[0] || '')} />
+                            <SimpleSelect className="w-full min-w-0" value={provider || ''} options={[{ value: '', label: 'Aucune source active' }, ...providerOptions]} disabled={taskSaving || !taskMode} onChange={id => chooseTaskModel(task, id, (modelCatalog.providers[id]?.[task] || [])[0] || '')} />
                           </div>
                           <div className="min-w-0">
                             <span className="block text-[9px] uppercase tracking-wider text-slate-500 mb-1.5 truncate" title="Modèle · coût / 1M tokens">Modèle · coût / 1M tokens</span>
