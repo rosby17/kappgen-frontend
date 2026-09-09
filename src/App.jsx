@@ -5212,8 +5212,8 @@ function viewFromPath(path) {
 // so a page refresh stays on the current tab instead of bouncing back to
 // the overview.
 const ADMIN_TABS = ['overview', 'beta', 'users', 'plans', 'videos', 'library', 'transactions', 'costs', 'resources'];
-const AI_TEXT_PROVIDER_LABELS = { anthropic: 'Claude (Anthropic)', kie: 'Claude via Kie.ai', deepseek: 'DeepSeek', fal: 'Claude via fal.ai', openai: 'OpenAI', groq: 'Groq (gratuit)', gemini: 'Google Gemini (gratuit)' };
-const aiTextProviderFamily = id => id === 'anthropic' || id === 'kie' || id === 'fal' ? 'Claude' : id === 'openai' ? 'OpenAI' : id === 'gemini' ? 'Gemini' : id === 'deepseek' ? 'DeepSeek' : id === 'groq' ? 'Groq' : id;
+const AI_TEXT_PROVIDER_LABELS = { anthropic: 'Claude (Anthropic)', kie: 'Claude via Kie.ai', deepseek: 'DeepSeek', fal: 'Claude via fal.ai', openai: 'OpenAI', groq: 'Groq (gratuit)', xai: 'xAI (Grok)', gemini: 'Google Gemini (gratuit)' };
+const aiTextProviderFamily = id => id === 'anthropic' || id === 'kie' || id === 'fal' ? 'Claude' : id === 'openai' ? 'OpenAI' : id === 'gemini' ? 'Gemini' : id === 'deepseek' ? 'DeepSeek' : id === 'groq' ? 'Groq' : id === 'xai' ? 'Grok' : id;
 function adminTabFromPath(path) {
   const m = path.match(/^\/admin\/([a-z_]+)$/);
   if (m && ADMIN_TABS.includes(m[1])) return m[1];
@@ -10194,7 +10194,7 @@ export default function App() {
   // mechanism (rotate through multiple keys, skip exhausted ones) is the
   // same for all three, just scoped by this tab.
   const [hfAccountsProvider, setHfAccountsProvider] = useState('huggingface');
-  const IMAGE_KEY_PROVIDER_LABELS = { huggingface: 'Hugging Face', fal: 'fal.ai', izivoice: 'Izivoice', ai33pro: 'ai33.pro', gemini: 'Google Gemini', anthropic: 'Anthropic', kie: 'Kie.ai', openai: 'OpenAI', deepseek: 'DeepSeek', groq: 'Groq' };
+  const IMAGE_KEY_PROVIDER_LABELS = { huggingface: 'Hugging Face', fal: 'fal.ai', izivoice: 'Izivoice', ai33pro: 'ai33.pro', gemini: 'Google Gemini', anthropic: 'Anthropic', kie: 'Kie.ai', openai: 'OpenAI', deepseek: 'DeepSeek', groq: 'Groq', xai: 'xAI (Grok)' };
   const [hfAccountBusy, setHfAccountBusy] = useState(false);
   const [hfAccountChecking, setHfAccountChecking] = useState(null);
   const [editingHfLabelId, setEditingHfLabelId] = useState(null);
