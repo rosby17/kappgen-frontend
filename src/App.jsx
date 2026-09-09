@@ -13,7 +13,7 @@ let rawApiBase = import.meta.env.VITE_API_BASE || (isLocalhost ? `${getOrigin()}
 if (rawApiBase.startsWith("http://api.kappgen.com")) {
   rawApiBase = rawApiBase.replace("http://", "https://");
 }
-const API_BASE = rawApiBase;
+export const API_BASE = rawApiBase;
 
 // Mirrors SERVICE_UNAVAILABLE_MESSAGE in backend/src/worker/queue_runner.py —
 // a render failure with exactly this text means an underlying paid-provider
@@ -4889,7 +4889,7 @@ function LibraryChannelAvatar({ channel }) {
 // own: App's existing 45s interval keeps maintenanceActive current, so this
 // unmounts on its own the moment the admin flips the switch back off — no
 // reload needed.
-function MaintenanceScreen() {
+export function MaintenanceScreen() {
   return (
     <div className="min-h-screen relative flex items-center justify-center bg-[#0a0e14] text-[#e5e8f0] p-6 overflow-hidden">
       <div className="pointer-events-none absolute inset-0">
