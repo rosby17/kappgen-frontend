@@ -44,7 +44,10 @@ const isContactPage = !appSurface && path === '/contact'
 // marketing site during an outage otherwise still got the full pitch/signup
 // flow for a product that can't currently generate anything.
 function MaintenanceGate({ children }) {
-  const [maintenanceActive, setMaintenanceActive] = useState(false)
+  // Do not render the landing until the public maintenance flag has answered.
+  // Starting at false made the marketing page appear for one frame on every
+  // refresh before the API switched it back to maintenance.
+  const [maintenanceActive, setMaintenanceActive] = useState(null)
   useEffect(() => {
     let cancelled = false
     const check = () => {
@@ -58,7 +61,7 @@ function MaintenanceGate({ children }) {
     return () => { cancelled = true; clearInterval(interval) }
   }, [])
 
-  return maintenanceActive ? <MaintenanceScreen /> : children
+  return maintenanceActive !== false ? <MaintenanceScreen /> : children
 }
 
 class AppErrorBoundary extends Component {

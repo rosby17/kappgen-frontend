@@ -6611,7 +6611,10 @@ export default function App() {
   // on the marketing/login flow. 45s: frequent enough to clear the screen
   // shortly after the admin flips it back off, without hammering the
   // backend from every open tab.
-  const [maintenanceActive, setMaintenanceActive] = useState(false);
+  // `null` means the public maintenance status has not answered yet. Keeping
+  // the screen closed during that short check prevents protected app content
+  // from flashing before a maintenance response arrives.
+  const [maintenanceActive, setMaintenanceActive] = useState(null);
   useEffect(() => {
     let cancelled = false;
     const check = () => {
@@ -12746,7 +12749,7 @@ export default function App() {
   // direct DB edit. Every other route shows the maintenance screen for
   // anyone who isn't an admin (an already-signed-in admin's own session is
   // never blocked by their own kill switch).
-  if (maintenanceActive && !isAuthRoute && !(currentUser && currentUser.is_admin)) {
+  if (maintenanceActive !== false && !isAuthRoute && !(currentUser && currentUser.is_admin)) {
     return <MaintenanceScreen />;
   }
 
