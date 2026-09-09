@@ -21435,7 +21435,13 @@ export default function App() {
                             const rank = currentOrder.indexOf(id);
                             const selected = rank !== -1;
                             const health = (adminProviders || []).find(p => p.id === id);
-                            const dotColor = health?.status === 'ok' ? 'bg-emerald-500' : health?.status === 'quota_exhausted' ? 'bg-rose-500' : (id === 'huggingface' || id === 'groq' || id === 'gemini') ? 'bg-emerald-500' : 'bg-slate-500';
+                            const dotColor = health?.status === 'ok'
+                              ? 'bg-emerald-500'
+                              : health?.status === 'error' || health?.status === 'quota_exhausted'
+                                ? 'bg-rose-500'
+                                : (id === 'huggingface' || id === 'groq' || id === 'gemini')
+                                  ? 'bg-emerald-500'
+                                  : 'bg-slate-500';
                             const pName = getProviderDisplayName(id);
                             return (
                               <button
@@ -21443,7 +21449,7 @@ export default function App() {
                                 type="button"
                                 onClick={() => taskToggle(id)}
                                 disabled={taskSaving}
-                                title={selected ? `Secours #${rank + 1} — cliquer pour désactiver` : `Cliquer pour ajouter au secours`}
+                                title={`${selected ? `Secours #${rank + 1} — cliquer pour désactiver` : 'Cliquer pour ajouter au secours'}${health?.detail ? `\n${health.detail}` : ''}`}
                                 className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-semibold border transition-all ${
                                   selected
                                     ? 'bg-[#00c2ff]/10 text-[#00c2ff] border-[#00c2ff]/50 shadow-sm'
