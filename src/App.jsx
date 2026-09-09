@@ -1192,17 +1192,17 @@ function SimpleSelect({ value, onChange, options = [], className = '' }) {
     : null;
 
   return (
-    <div ref={ref} className={`relative ${className}`}>
+    <div ref={ref} className={`relative min-w-0 ${className}`}>
       <button
         type="button"
         onClick={() => setOpen(o => !o)}
-        className="w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl bg-[var(--bg-surface-alt)] border border-[var(--border)] hover:border-[#00c2ff]/60 transition-colors text-xs text-white"
+        className="w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl bg-[var(--bg-surface-alt)] border border-[var(--border)] hover:border-[#00c2ff]/60 transition-colors text-xs text-white min-w-0 overflow-hidden"
       >
-        <span className="truncate">{current?.label}</span>
-        <span className={`material-symbols-outlined text-[14px] text-slate-400 transition-transform ${open ? 'rotate-180' : ''}`}>expand_more</span>
+        <span className="truncate text-left min-w-0 flex-1 whitespace-nowrap" title={current?.label}>{current?.label}</span>
+        <span className={`material-symbols-outlined text-[14px] text-slate-400 shrink-0 transition-transform ${open ? 'rotate-180' : ''}`}>expand_more</span>
       </button>
       {open && (
-        <div className="absolute left-0 top-full mt-1.5 min-w-full w-max max-w-[460px] bg-[var(--bg-dropdown)] border border-[var(--border-dropdown)] rounded-xl shadow-2xl z-50 overflow-hidden py-1">
+        <div className="absolute left-0 top-full mt-1.5 min-w-full w-max max-w-[480px] bg-[var(--bg-dropdown)] border border-[var(--border-dropdown)] rounded-xl shadow-2xl z-50 overflow-hidden py-1">
           {options.length > 7 && (
             <div className="px-2.5 py-1.5 border-b border-[var(--border-soft)]">
               <div className="relative">
@@ -1228,11 +1228,11 @@ function SimpleSelect({ value, onChange, options = [], className = '' }) {
                     key={opt.value}
                     type="button"
                     onClick={() => { onChange(opt.value); setOpen(false); }}
-                    className={`w-full text-left px-3 py-2 text-[11px] hover:bg-[var(--bg-hover)] transition-colors flex items-center justify-between gap-3 ${value === opt.value ? 'text-[#00c2ff] font-bold bg-[#00c2ff]/10' : 'text-slate-300'}`}
+                    className={`w-full text-left px-3 py-2 text-[11px] hover:bg-[var(--bg-hover)] transition-colors flex items-center justify-between gap-3 min-w-0 ${value === opt.value ? 'text-[#00c2ff] font-bold bg-[#00c2ff]/10' : 'text-slate-300'}`}
                   >
-                    <div className="truncate flex items-center gap-2">
+                    <div className="truncate min-w-0 flex-1 flex items-center gap-2">
                       {opt.group && <span className="text-[9px] px-1.5 py-0.5 rounded bg-white/5 text-slate-400 border border-white/10 shrink-0">{opt.group}</span>}
-                      <span className="truncate">{opt.label}</span>
+                      <span className="truncate whitespace-nowrap" title={opt.label}>{opt.label}</span>
                     </div>
                     {value === opt.value && <span className="material-symbols-outlined text-[14px] text-[#00c2ff] shrink-0">check</span>}
                   </button>
@@ -1251,18 +1251,18 @@ function SimpleSelect({ value, onChange, options = [], className = '' }) {
                     <button
                       type="button"
                       onClick={(e) => toggleGroup(grpName, e)}
-                      className={`w-full flex items-center justify-between px-3 py-2 text-[11px] font-semibold transition-colors ${
+                      className={`w-full flex items-center justify-between px-3 py-2 text-[11px] font-semibold transition-colors select-none ${
                         hasActive ? 'bg-[#00c2ff]/10 text-[#00c2ff]' : 'bg-[var(--bg-surface-alt)]/40 hover:bg-[var(--bg-surface-alt)] text-slate-300'
                       }`}
                     >
-                      <div className="flex items-center gap-2">
-                        <span className="material-symbols-outlined text-[15px] opacity-80">{icon}</span>
-                        <span>{grpName}</span>
-                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-white/10 text-slate-400 font-normal">
+                      <div className="flex items-center gap-2 truncate min-w-0">
+                        <span className="material-symbols-outlined text-[15px] opacity-80 shrink-0">{icon}</span>
+                        <span className="truncate">{grpName}</span>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-white/10 text-slate-400 font-normal shrink-0">
                           {items.length}
                         </span>
                       </div>
-                      <span className={`material-symbols-outlined text-[14px] text-slate-400 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}>
+                      <span className={`material-symbols-outlined text-[14px] text-slate-400 shrink-0 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}>
                         expand_more
                       </span>
                     </button>
@@ -1274,11 +1274,11 @@ function SimpleSelect({ value, onChange, options = [], className = '' }) {
                             key={opt.value}
                             type="button"
                             onClick={() => { onChange(opt.value); setOpen(false); }}
-                            className={`w-full text-left pl-7 pr-3 py-1.5 text-[11px] hover:bg-[var(--bg-hover)] transition-colors flex items-center justify-between gap-3 ${
+                            className={`w-full text-left pl-7 pr-3 py-1.5 text-[11px] hover:bg-[var(--bg-hover)] transition-colors flex items-center justify-between gap-3 min-w-0 ${
                               value === opt.value ? 'text-[#00c2ff] font-bold bg-[#00c2ff]/10' : 'text-slate-300'
                             }`}
                           >
-                            <span className="truncate">{opt.label}</span>
+                            <span className="truncate min-w-0 flex-1 whitespace-nowrap" title={opt.label}>{opt.label}</span>
                             {value === opt.value && <span className="material-symbols-outlined text-[14px] text-[#00c2ff] shrink-0">check</span>}
                           </button>
                         ))}
@@ -1293,9 +1293,9 @@ function SimpleSelect({ value, onChange, options = [], className = '' }) {
                   key={opt.value}
                   type="button"
                   onClick={() => { onChange(opt.value); setOpen(false); }}
-                  className={`w-full text-left px-3 py-1.5 text-[11px] hover:bg-[var(--bg-hover)] transition-colors flex items-center justify-between gap-3 ${value === opt.value ? 'text-[#00c2ff] font-bold' : 'text-slate-300'}`}
+                  className={`w-full text-left px-3 py-1.5 text-[11px] hover:bg-[var(--bg-hover)] transition-colors flex items-center justify-between gap-3 min-w-0 ${value === opt.value ? 'text-[#00c2ff] font-bold' : 'text-slate-300'}`}
                 >
-                  <span className="truncate">{opt.label}</span>
+                  <span className="truncate min-w-0 flex-1 whitespace-nowrap" title={opt.label}>{opt.label}</span>
                   {value === opt.value && <span className="material-symbols-outlined text-[14px] shrink-0">check</span>}
                 </button>
               ))
@@ -21424,15 +21424,15 @@ export default function App() {
                           )}
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3">
-                          <div>
-                            <span className="block text-[9px] uppercase tracking-wider text-slate-500 mb-1.5">Source principale</span>
-                            <SimpleSelect className="w-full" value={provider || ''} options={providerOptions} onChange={id => chooseTaskModel(task, id, (modelCatalog.providers[id]?.[task] || [])[0] || '')} />
+                          <div className="min-w-0">
+                            <span className="block text-[9px] uppercase tracking-wider text-slate-500 mb-1.5 truncate">Source principale</span>
+                            <SimpleSelect className="w-full min-w-0" value={provider || ''} options={providerOptions} onChange={id => chooseTaskModel(task, id, (modelCatalog.providers[id]?.[task] || [])[0] || '')} />
                           </div>
-                          <div>
-                            <span className="block text-[9px] uppercase tracking-wider text-slate-500 mb-1.5">Modèle · coût / 1M tokens</span>
-                            <SimpleSelect className="w-full" value={chosen.model || models[0] || ''} options={models.map(m => {
+                          <div className="min-w-0">
+                            <span className="block text-[9px] uppercase tracking-wider text-slate-500 mb-1.5 truncate" title="Modèle · coût / 1M tokens">Modèle · coût / 1M tokens</span>
+                            <SimpleSelect className="w-full min-w-0" value={chosen.model || models[0] || ''} options={models.map(m => {
                               const price = modelCatalog.pricing?.[`${provider}:${m}`];
-                              const cost = price?.free_tier ? 'Gratuit' : price?.input != null && price?.output != null ? `$${price.input} entrée · $${price.output} sortie` : price?.output != null ? `$${price.output} sortie` : 'Tarif à vérifier';
+                              const cost = price?.free_tier ? 'Gratuit' : price?.input != null && price?.output != null ? `$${price.input} / $${price.output}` : price?.output != null ? `$${price.output}` : 'Tarif vérif.';
                               return { value: m, label: `${m} — ${cost}`, group: getModelGroup(m) };
                             })} onChange={m => chooseTaskModel(task, provider, m)} />
                           </div>
