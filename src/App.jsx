@@ -5369,8 +5369,8 @@ function viewFromPath(path) {
 // so a page refresh stays on the current tab instead of bouncing back to
 // the overview.
 const ADMIN_TABS = ['overview', 'beta', 'users', 'plans', 'videos', 'library', 'transactions', 'costs', 'resources'];
-const AI_TEXT_PROVIDER_LABELS = { anthropic: 'Anthropic (Claude)', kie: 'Kie.ai', deepseek: 'DeepSeek', fal: 'fal.ai', openai: 'OpenAI', groq: 'Groq', xai: 'xAI', gemini: 'Google Gemini' };
-const aiTextProviderFamily = id => id === 'anthropic' || id === 'kie' || id === 'fal' ? 'Claude' : id === 'openai' ? 'OpenAI' : id === 'gemini' ? 'Gemini' : id === 'deepseek' ? 'DeepSeek' : id === 'groq' ? 'Groq' : id === 'xai' ? 'Grok' : id;
+const AI_TEXT_PROVIDER_LABELS = { anthropic: 'Anthropic (Claude)', kie: 'Kie.ai', deepseek: 'DeepSeek', fal: 'fal.ai', openai: 'OpenAI', groq: 'Groq', xai: 'xAI', gemini: 'Google Gemini', ollama: 'Ollama (Mac)' };
+const aiTextProviderFamily = id => id === 'anthropic' || id === 'kie' || id === 'fal' ? 'Claude' : id === 'openai' ? 'OpenAI' : id === 'gemini' ? 'Gemini' : id === 'deepseek' ? 'DeepSeek' : id === 'groq' ? 'Groq' : id === 'xai' ? 'Grok' : id === 'ollama' ? 'Ollama (Mac)' : id;
 function adminTabFromPath(path) {
   const m = path.match(/^\/admin\/([a-z_]+)$/);
   if (m && ADMIN_TABS.includes(m[1])) return m[1];
@@ -10353,7 +10353,7 @@ export default function App() {
   // mechanism (rotate through multiple keys, skip exhausted ones) is the
   // same for all three, just scoped by this tab.
   const [hfAccountsProvider, setHfAccountsProvider] = useState('huggingface');
-  const IMAGE_KEY_PROVIDER_LABELS = { huggingface: 'Hugging Face', fal: 'fal.ai', izivoice: 'Izivoice', ai33pro: 'KappGen', gemini: 'Google Gemini', anthropic: 'Anthropic', kie: 'Kie.ai', openai: 'OpenAI', deepseek: 'DeepSeek', groq: 'Groq', xai: 'xAI (Grok)' };
+  const IMAGE_KEY_PROVIDER_LABELS = { huggingface: 'Hugging Face', fal: 'fal.ai', izivoice: 'Izivoice', ai33pro: 'KappGen', gemini: 'Google Gemini', anthropic: 'Anthropic', kie: 'Kie.ai', openai: 'OpenAI', deepseek: 'DeepSeek', groq: 'Groq', xai: 'xAI (Grok)', ollama: 'Ollama (Mac)' };
   const [hfAccountBusy, setHfAccountBusy] = useState(false);
   const [hfAccountChecking, setHfAccountChecking] = useState(null);
   const [editingHfLabelId, setEditingHfLabelId] = useState(null);
@@ -21419,6 +21419,7 @@ export default function App() {
                         deepseek: 'DeepSeek',
                         anthropic: 'Anthropic (Claude)',
                         xai: 'xAI',
+                        ollama: 'Ollama (Mac)',
                       };
                       return map[id] || id;
                     };
@@ -21500,7 +21501,7 @@ export default function App() {
                   </p>
                 </div>
 
-                <div className="flex items-center gap-1 bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl p-1 w-fit">
+                <div className="flex flex-wrap items-center gap-1 bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl p-1 w-fit">
                   {Object.entries(IMAGE_KEY_PROVIDER_LABELS).map(([id, label]) => (
                     <button
                       key={id}
@@ -21517,7 +21518,7 @@ export default function App() {
                   <input
                     value={hfAccountForm.token}
                     onChange={e => setHfAccountForm({ ...hfAccountForm, token: e.target.value })}
-                    placeholder={hfAccountsProvider === 'huggingface' ? 'hf_...' : `Clé API ${IMAGE_KEY_PROVIDER_LABELS[hfAccountsProvider]}...`}
+                    placeholder={hfAccountsProvider === 'ollama' ? 'URL du tunnel Cloudflare (ex: https://...trycloudflare.com)' : hfAccountsProvider === 'huggingface' ? 'hf_...' : `Clé API ${IMAGE_KEY_PROVIDER_LABELS[hfAccountsProvider]}...`}
                     className="flex-1 min-w-0 bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-3 py-2 text-xs text-white focus:border-[#00c2ff] outline-none font-mono"
                   />
                   <input
