@@ -21286,7 +21286,7 @@ export default function App() {
                             {a.provider === 'huggingface' && (
                               <button
                                 onClick={() => checkHfAccount(a.id)}
-                                disabled={hfAccountChecking === a.id}
+                                disabled={hfAccountChecking === a.id || a.read_only}
                                 title="Revérifier"
                                 className="p-1 rounded text-slate-400 hover:text-white hover:bg-[var(--bg-surface-alt)] disabled:opacity-50"
                               >
@@ -21295,6 +21295,7 @@ export default function App() {
                             )}
                             <button
                               onClick={() => toggleHfAccount(a.id, !a.is_enabled)}
+                              disabled={a.read_only}
                               title={a.is_enabled ? 'Désactiver' : 'Activer'}
                               className="p-1 rounded text-slate-400 hover:text-white hover:bg-[var(--bg-surface-alt)]"
                             >
@@ -21302,6 +21303,7 @@ export default function App() {
                             </button>
                             <button
                               onClick={() => deleteHfAccount(a.id)}
+                              disabled={a.read_only}
                               title="Retirer"
                               className="p-1 rounded text-rose-400 hover:text-rose-300 hover:bg-rose-950/40"
                             >
