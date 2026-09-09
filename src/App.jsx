@@ -10193,7 +10193,7 @@ export default function App() {
   // mechanism (rotate through multiple keys, skip exhausted ones) is the
   // same for all three, just scoped by this tab.
   const [hfAccountsProvider, setHfAccountsProvider] = useState('huggingface');
-  const IMAGE_KEY_PROVIDER_LABELS = { huggingface: 'Hugging Face', fal: 'fal.ai', izivoice: 'Easy Voice', ai33pro: 'ai33.pro', gemini: 'Google Gemini', anthropic: 'Anthropic', kie: 'Kie.ai', openai: 'OpenAI', deepseek: 'DeepSeek', groq: 'Groq' };
+  const IMAGE_KEY_PROVIDER_LABELS = { huggingface: 'Hugging Face', fal: 'fal.ai', izivoice: 'Izivoice', ai33pro: 'ai33.pro', gemini: 'Google Gemini', anthropic: 'Anthropic', kie: 'Kie.ai', openai: 'OpenAI', deepseek: 'DeepSeek', groq: 'Groq' };
   const [hfAccountBusy, setHfAccountBusy] = useState(false);
   const [hfAccountChecking, setHfAccountChecking] = useState(null);
   const [editingHfLabelId, setEditingHfLabelId] = useState(null);
