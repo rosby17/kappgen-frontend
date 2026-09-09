@@ -10353,7 +10353,7 @@ export default function App() {
   // mechanism (rotate through multiple keys, skip exhausted ones) is the
   // same for all three, just scoped by this tab.
   const [hfAccountsProvider, setHfAccountsProvider] = useState('huggingface');
-  const IMAGE_KEY_PROVIDER_LABELS = { huggingface: 'Hugging Face', fal: 'fal.ai', izivoice: 'Izivoice', ai33pro: 'ai33.pro', gemini: 'Google Gemini', anthropic: 'Anthropic', kie: 'Kie.ai', openai: 'OpenAI', deepseek: 'DeepSeek', groq: 'Groq', xai: 'xAI (Grok)' };
+  const IMAGE_KEY_PROVIDER_LABELS = { huggingface: 'Hugging Face', fal: 'fal.ai', izivoice: 'Izivoice', ai33pro: 'KappGen', gemini: 'Google Gemini', anthropic: 'Anthropic', kie: 'Kie.ai', openai: 'OpenAI', deepseek: 'DeepSeek', groq: 'Groq', xai: 'xAI (Grok)' };
   const [hfAccountBusy, setHfAccountBusy] = useState(false);
   const [hfAccountChecking, setHfAccountChecking] = useState(null);
   const [editingHfLabelId, setEditingHfLabelId] = useState(null);
@@ -11142,7 +11142,7 @@ export default function App() {
       if (!res.ok) throw new Error();
       const data = await res.json();
       setSceneImageProviderModeState(prev => ({ ...prev, order: data.order }));
-      const labels = { huggingface: 'Hugging Face', fal: 'fal.ai', izivoice: 'Izivoice', ai33pro: 'ai33.pro', kie: 'Kie.ai' };
+      const labels = { huggingface: 'Hugging Face', fal: 'fal.ai', izivoice: 'Izivoice', ai33pro: 'KappGen', kie: 'Kie.ai' };
       showToast(nextOrder.includes(id) ? `${labels[id] || id} ajouté à la priorité.` : `${labels[id] || id} retiré de la priorité.`, 'success');
     } catch {
       showToast('Échec de la mise à jour.', 'error');
@@ -11172,7 +11172,7 @@ export default function App() {
       if (!res.ok) throw new Error();
       const data = await res.json();
       setVoiceoverProviderModeState(prev => ({ ...prev, order: data.order }));
-      const labels = { izivoice: 'Izivoice', ai33pro: 'ai33.pro' };
+      const labels = { izivoice: 'Izivoice', ai33pro: 'KappGen' };
       showToast(nextOrder.includes(id) ? `${labels[id] || id} ajouté à la priorité.` : `${labels[id] || id} retiré de la priorité.`, 'success');
     } catch {
       showToast('Échec de la mise à jour.', 'error');
@@ -11202,7 +11202,7 @@ export default function App() {
       if (!res.ok) throw new Error();
       const data = await res.json();
       setMusicProviderModeState(prev => ({ ...prev, order: data.order }));
-      const labels = { izivoice: 'Izivoice', ai33pro: 'ai33.pro' };
+      const labels = { izivoice: 'Izivoice', ai33pro: 'KappGen' };
       showToast(nextOrder.includes(id) ? `${labels[id] || id} ajouté à la priorité.` : `${labels[id] || id} retiré de la priorité.`, 'success');
     } catch {
       showToast('Échec de la mise à jour.', 'error');
@@ -21312,7 +21312,7 @@ export default function App() {
                       const selected = rank !== -1;
                       const health = (adminProviders || []).find(p => p.id === id);
                       const dotColor = health?.status === 'ok' ? 'bg-emerald-500' : health?.status === 'quota_exhausted' ? 'bg-rose-500' : 'bg-slate-600';
-                      const label = { izivoice: 'Izivoice', ai33pro: 'ai33.pro' }[id] || id;
+                      const label = { izivoice: 'Izivoice', ai33pro: 'KappGen' }[id] || id;
                       return (
                         <button
                           key={id}
@@ -21349,7 +21349,7 @@ export default function App() {
                       const selected = rank !== -1;
                       const health = (adminProviders || []).find(p => p.id === id);
                       const dotColor = health?.status === 'ok' ? 'bg-emerald-500' : health?.status === 'quota_exhausted' ? 'bg-rose-500' : 'bg-slate-600';
-                      const label = { izivoice: 'Izivoice', ai33pro: 'ai33.pro', kie: 'Kie.ai (Suno)' }[id] || id;
+                      const label = { izivoice: 'Izivoice', ai33pro: 'KappGen', kie: 'Kie.ai (Suno)' }[id] || id;
                       return (
                         <button
                           key={id}
@@ -21411,7 +21411,7 @@ export default function App() {
                         huggingface: 'Hugging Face',
                         fal: 'fal.ai',
                         izivoice: 'Izivoice',
-                        ai33pro: 'ai33.pro',
+                        ai33pro: 'KappGen',
                         kie: 'Kie.ai',
                         openai: 'OpenAI',
                         gemini: 'Google Gemini',
