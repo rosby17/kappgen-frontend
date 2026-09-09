@@ -71,8 +71,7 @@ function MaintenanceGate({ children }) {
       })
       .then(user => {
         if (!cancelled) {
-          const email = String(user?.email || '').trim().toLowerCase()
-          setMaintenanceExempt(!!user?.is_admin || email === 'rooseveltmkr@gmail.com')
+          setMaintenanceExempt(!!user?.is_admin || !!user?.maintenance_access)
         }
       })
       .catch(() => { if (!cancelled) setMaintenanceExempt(false) })

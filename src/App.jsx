@@ -10032,6 +10032,9 @@ export default function App() {
   const [betaFilter, setBetaFilter] = useState('pending'); // 'pending' | 'approved' | 'rejected'
   const [betaDecidingId, setBetaDecidingId] = useState(null);
   const [pendingBetaCount, setPendingBetaCount] = useState(0);
+  const [maintenanceAccessUsers, setMaintenanceAccessUsers] = useState([]);
+  const [maintenanceAccessEmail, setMaintenanceAccessEmail] = useState('');
+  const [maintenanceAccessBusy, setMaintenanceAccessBusy] = useState(false);
 
   const fetchBetaRequests = async (statusFilter = betaFilter) => {
     setBetaRequestsLoading(true);
@@ -10046,6 +10049,42 @@ export default function App() {
       console.error('Erreur chargement demandes bêta:', e);
     } finally {
       setBetaRequestsLoading(false);
+    }
+  };
+
+  const fetchMaintenanceAccess = async () => {
+    try {
+      const res = await authFetch(`${API_BASE}/admin/maintenance-access`);
+      if (res.ok) setMaintenanceAccessUsers(await res.json());
+    } catch (e) {
+      console.error('Erreur chargement accès maintenance:', e);
+    }
+  };
+
+  const setMaintenanceAccess = async (email, granted) => {
+    const normalizedEmail = String(email || '').trim().toLowerCase();
+    if (!normalizedEmail) return;
+    setMaintenanceAccessBusy(true);
+    try {
+      const res = await authFetch(`${API_BASE}/admin/maintenance-access`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: normalizedEmail, granted }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || 'Action impossible.');
+      }
+      const user = await res.json();
+      setMaintenanceAccessUsers(previous => granted
+        ? [...previous.filter(item => item.id !== user.id), user].sort((a, b) => a.email.localeCompare(b.email))
+        : previous.filter(item => item.id !== user.id));
+      setMaintenanceAccessEmail('');
+      showToast(granted ? 'Accès maintenu pendant la maintenance.' : 'Accès maintenance retiré.', 'success');
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setMaintenanceAccessBusy(false);
     }
   };
 
@@ -10923,7 +10962,10 @@ export default function App() {
   }, [view, currentUser?.is_admin, adminTab]);
 
   useEffect(() => {
-    if (view === 'admin' && currentUser?.is_admin && adminTab === 'beta') fetchBetaRequests(betaFilter);
+    if (view === 'admin' && currentUser?.is_admin && adminTab === 'beta') {
+      fetchBetaRequests(betaFilter);
+      fetchMaintenanceAccess();
+    }
   }, [view, currentUser?.is_admin, adminTab, betaFilter]);
 
   // The sidebar badge (pending count) should stay current even while the
@@ -12755,7 +12797,7 @@ export default function App() {
   // direct DB edit. Every other route shows the maintenance screen for
   // anyone who isn't an admin (an already-signed-in admin's own session is
   // never blocked by their own kill switch).
-  const isMaintenanceExempt = currentUser?.is_admin || currentUser?.email?.trim().toLowerCase() === 'rooseveltmkr@gmail.com';
+  const isMaintenanceExempt = currentUser?.is_admin || currentUser?.maintenance_access;
   if (maintenanceActive !== false && !isAuthRoute && !isMaintenanceExempt) {
     return <MaintenanceScreen />;
   }
@@ -19872,6 +19914,28 @@ export default function App() {
 
           {adminTab === 'beta' && (
             <section className="space-y-4">
+              <div className="rounded-2xl border border-cyan-500/20 bg-cyan-500/[0.04] p-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <div className="flex items-center gap-2 text-sm font-bold text-white"><span className="material-symbols-outlined text-[18px] text-[#00c2ff]">admin_panel_settings</span>Accès pendant la maintenance</div>
+                    <p className="mt-1 text-xs text-slate-400">Ces comptes restent utilisables lorsque le mode maintenance est activé.</p>
+                  </div>
+                  <form className="flex w-full gap-2 sm:w-auto" onSubmit={(event) => { event.preventDefault(); setMaintenanceAccess(maintenanceAccessEmail, true); }}>
+                    <input value={maintenanceAccessEmail} onChange={(event) => setMaintenanceAccessEmail(event.target.value)} type="email" required placeholder="email@exemple.com" className="min-w-0 flex-1 rounded-xl border border-[var(--border)] bg-[var(--bg-surface-alt)] px-3 py-2 text-xs text-white outline-none placeholder:text-slate-600 focus:border-[#00c2ff] sm:w-56" />
+                    <button type="submit" disabled={maintenanceAccessBusy} className="shrink-0 rounded-xl bg-[#00c2ff] px-3.5 py-2 text-xs font-bold text-slate-950 transition-colors hover:bg-[#38d0ff] disabled:opacity-50">Autoriser</button>
+                  </form>
+                </div>
+                {maintenanceAccessUsers.length > 0 && (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {maintenanceAccessUsers.map(user => (
+                      <span key={user.id} className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-400/20 bg-slate-950/40 py-1 pl-2.5 pr-1 text-[11px] text-cyan-100">
+                        {user.email}
+                        <button type="button" onClick={() => setMaintenanceAccess(user.email, false)} disabled={maintenanceAccessBusy} title="Retirer l'accès" className="grid h-5 w-5 place-items-center rounded-md text-slate-400 hover:bg-red-500/15 hover:text-red-400 disabled:opacity-50"><span className="material-symbols-outlined text-[14px]">close</span></button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
               <div className="flex items-center gap-2">
                 {[
                   { id: 'pending', label: 'En attente' },
