@@ -1373,26 +1373,6 @@ function VoiceLibraryModal({
   const [filterAccent, setFilterAccent] = useState('');
   const [sortBy, setSortBy] = useState('recommended');
   const scrollRef = useRef(null);
-  const [addByIdOpen, setAddByIdOpen] = useState(false);
-  const [addByIdValue, setAddByIdValue] = useState('');
-  const [addByIdLoading, setAddByIdLoading] = useState(false);
-  const [addByIdError, setAddByIdError] = useState('');
-
-  const submitAddById = async () => {
-    const id = addByIdValue.trim();
-    if (!id) return;
-    setAddByIdLoading(true);
-    setAddByIdError('');
-    try {
-      await onAddVoiceById(id);
-      setAddByIdValue('');
-      setAddByIdOpen(false);
-    } catch (e) {
-      setAddByIdError(friendlyErrorMessage(e, "Impossible d’ajouter cette voix pour le moment."));
-    } finally {
-      setAddByIdLoading(false);
-    }
-  };
 
   useEffect(() => {
     document.body.style.overflow = 'hidden';
@@ -1510,14 +1490,6 @@ function VoiceLibraryModal({
             <div className="flex items-center gap-2 shrink-0">
               <button
                 type="button"
-                onClick={() => setAddByIdOpen(o => !o)}
-                className="px-3 py-2 rounded-lg border border-[var(--border)] text-slate-300 hover:text-white hover:border-slate-500 text-[11px] font-bold flex items-center gap-1.5 transition-all"
-              >
-                <span className="material-symbols-outlined text-[16px]">tag</span>
-                Ajouter par ID
-              </button>
-              <button
-                type="button"
                 onClick={onOpenCloner}
                 className="px-4 py-2 rounded-lg bg-gradient-to-r from-[#65e0ff] to-[#1a9cff] text-[var(--bg-deep)] text-[11px] font-extrabold flex items-center gap-1.5 shadow-md shadow-[#00c2ff]/20 hover:brightness-110 transition-all"
               >
@@ -1529,33 +1501,6 @@ function VoiceLibraryModal({
             <span className="shrink-0 text-[10px] text-slate-600">Clonage disponible après la création</span>
           )}
         </div>
-
-        {addByIdOpen && (
-          <div className="px-5 pt-3">
-            <div className="bg-[#0b0f16] border border-[var(--border-subtle)] rounded-xl p-3 space-y-2">
-              <p className="text-[11px] text-slate-400">Tu as déjà une voix clonée ? Colle son identifiant (voice_id) pour l'utiliser ici sans la recloner.</p>
-              <div className="flex items-center gap-2">
-                <input
-                  autoFocus
-                  value={addByIdValue}
-                  onChange={e => setAddByIdValue(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter') submitAddById(); }}
-                  placeholder="Ex : 6f2b1a9e-..."
-                  className="flex-1 bg-[var(--bg-input)] border border-[var(--border)] rounded-lg px-3 py-2 text-xs text-white focus:border-[#00c2ff] outline-none"
-                />
-                <button
-                  type="button"
-                  onClick={submitAddById}
-                  disabled={!addByIdValue.trim() || addByIdLoading}
-                  className="shrink-0 px-4 py-2 rounded-lg bg-[#00c2ff] text-slate-950 text-xs font-bold hover:bg-[#38d0ff] disabled:opacity-50 transition-all"
-                >
-                  {addByIdLoading ? 'Vérification…' : 'Ajouter'}
-                </button>
-              </div>
-              {addByIdError && <p className="text-[11px] text-rose-400">{addByIdError}</p>}
-            </div>
-          </div>
-        )}
 
         {tab === 'library' && (
           <div className="px-5 pt-3 space-y-2">
