@@ -21135,33 +21135,23 @@ export default function App() {
                   <div className="text-center text-slate-500 text-xs py-4">Chargement...</div>
                 ) : (
                   <div className="space-y-3">
-                    <select
+                    <SimpleSelect
                       value={(aiTextProvider.order || [])[0] || ''}
-                      onChange={e => {
-                        const selected = e.target.value;
+                      options={(aiTextProvider.available || []).map(id => ({ value: id, label: AI_TEXT_PROVIDER_LABELS[id] || id }))}
+                      onChange={selected => {
                         if (!selected) return;
                         const current = aiTextProvider.order || [];
                         toggleAiTextProvider(selected, [selected, ...current.filter(p => p !== selected)]);
                       }}
-                      disabled={aiTextProviderSaving}
-                      className="w-full max-w-md bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-[#00c2ff]"
-                    >
-                      <option value="">Sélectionner un fournisseur</option>
-                      {(aiTextProvider.available || []).map(id => <option key={id} value={id}>{AI_TEXT_PROVIDER_LABELS[id] || id}</option>)}
-                    </select>
+                    />
                     {modelCatalog && <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-w-2xl">
                       {['text', 'image', 'music', 'voice'].map(task => {
                         const chosen = selectedTaskModel[task] || {};
                         const provider = chosen.provider || Object.keys(modelCatalog.providers || {}).find(p => modelCatalog.providers[p][task]);
                         const models = provider ? (modelCatalog.providers[provider]?.[task] || []) : [];
                         return <div key={task} className="flex gap-2">
-                          <select value={provider || ''} onChange={e => chooseTaskModel(task, e.target.value, (modelCatalog.providers[e.target.value]?.[task] || [])[0] || '')} className="flex-1 bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-2 py-2 text-xs text-white">
-                            <option value="">{task === 'text' ? 'Scripts / titres' : task === 'image' ? 'Images / miniatures' : task === 'music' ? 'Musique' : 'Voix off'}</option>
-                            {Object.entries(modelCatalog.providers || {}).filter(([, d]) => d[task]).map(([id, d]) => <option key={id} value={id}>{d.label}</option>)}
-                          </select>
-                          <select value={chosen.model || models[0] || ''} onChange={e => chooseTaskModel(task, provider, e.target.value)} className="flex-1 bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-2 py-2 text-xs text-white">
-                            {models.map(m => <option key={m} value={m}>{m}</option>)}
-                          </select>
+                          <SimpleSelect value={provider || ''} options={Object.entries(modelCatalog.providers || {}).filter(([, d]) => d[task]).map(([id, d]) => ({ value: id, label: d.label }))} onChange={id => chooseTaskModel(task, id, (modelCatalog.providers[id]?.[task] || [])[0] || '')} />
+                          <SimpleSelect value={chosen.model || models[0] || ''} options={models.map(m => ({ value: m, label: m }))} onChange={m => chooseTaskModel(task, provider, m)} />
                         </div>;
                       })}
                     </div>}
