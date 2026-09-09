@@ -10175,6 +10175,8 @@ export default function App() {
   const [adminProviders, setAdminProviders] = useState(null);
   const [thumbnailProviderMode, setThumbnailProviderModeState] = useState(null);
   const [thumbnailProviderModeSaving, setThumbnailProviderModeSaving] = useState(false);
+  const [sceneImageProviderMode, setSceneImageProviderModeState] = useState(null);
+  const [sceneImageProviderModeSaving, setSceneImageProviderModeSaving] = useState(false);
   const [voiceoverProviderMode, setVoiceoverProviderModeState] = useState(null);
   const [voiceoverProviderModeSaving, setVoiceoverProviderModeSaving] = useState(false);
   const [musicProviderMode, setMusicProviderModeState] = useState(null);
@@ -10879,7 +10881,7 @@ export default function App() {
   };
 
   useEffect(() => {
-    if (view === 'admin' && currentUser?.is_admin && adminTab === 'resources') { fetchAdminProviders(); fetchThumbnailProviderMode(); fetchVoiceoverProviderMode(); fetchMusicProviderMode(); fetchAiTextProvider(); fetchModelCatalog(); fetchRenderConcurrency(); fetchPaidApisKillSwitch(); }
+    if (view === 'admin' && currentUser?.is_admin && adminTab === 'resources') { fetchAdminProviders(); fetchThumbnailProviderMode(); fetchSceneImageProviderMode(); fetchVoiceoverProviderMode(); fetchMusicProviderMode(); fetchAiTextProvider(); fetchModelCatalog(); fetchRenderConcurrency(); fetchPaidApisKillSwitch(); }
   }, [view, currentUser?.is_admin, adminTab]);
 
   useEffect(() => {
@@ -10941,6 +10943,15 @@ export default function App() {
     }
   };
 
+  const fetchSceneImageProviderMode = async () => {
+    try {
+      const res = await authFetch(`${API_BASE}/admin/settings/scene-image-provider-mode`);
+      if (res.ok) setSceneImageProviderModeState(await res.json());
+    } catch (err) {
+      console.error("Erreur chargement du mode images de scène:", err);
+    }
+  };
+
   const toggleThumbnailProvider = async (id) => {
     const current = thumbnailProviderMode?.order || [];
     const nextOrder = current.includes(id) ? current.filter(p => p !== id) : [...current, id];
@@ -10959,6 +10970,27 @@ export default function App() {
       showToast('Échec de la mise à jour.', 'error');
     } finally {
       setThumbnailProviderModeSaving(false);
+    }
+  };
+
+  const toggleSceneImageProvider = async (id) => {
+    const current = sceneImageProviderMode?.order || [];
+    const nextOrder = current.includes(id) ? current.filter(p => p !== id) : [...current, id];
+    setSceneImageProviderModeSaving(true);
+    try {
+      const res = await authFetch(`${API_BASE}/admin/settings/scene-image-provider-mode`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ order: nextOrder }),
+      });
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      setSceneImageProviderModeState(prev => ({ ...prev, order: data.order }));
+      const labels = { huggingface: 'Hugging Face', fal: 'fal.ai', izivoice: 'Izivoice', ai33pro: 'ai33.pro', kie: 'Kie.ai' };
+      showToast(nextOrder.includes(id) ? `${labels[id] || id} ajouté à la priorité.` : `${labels[id] || id} retiré de la priorité.`, 'success');
+    } catch {
+      showToast('Échec de la mise à jour.', 'error');
+    } finally {
+      setSceneImageProviderModeSaving(false);
     }
   };
 
@@ -11070,7 +11102,58 @@ export default function App() {
     const next = { ...selectedTaskModel, [task]: { provider, model } };
     setSelectedTaskModel(next);
     localStorage.setItem('kappgen_task_models', JSON.stringify(next));
+    if (task === 'thumbnail' && provider) {
+      const current = thumbnailProviderMode?.order || [];
+      const nextOrder = [provider, ...current.filter(p => p !== provider)];
+      authFetch(`${API_BASE}/admin/settings/thumbnail-provider-mode`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ order: nextOrder }),
+      }).then(res => res.ok && res.json()).then(data => {
+        if (data?.order) setThumbnailProviderModeState(prev => ({ ...prev, order: data.order }));
+      }).catch(() => {});
+    }
+    if (task === 'image' && provider) {
+      const current = sceneImageProviderMode?.order || [];
+      const nextOrder = [provider, ...current.filter(p => p !== provider)];
+      authFetch(`${API_BASE}/admin/settings/scene-image-provider-mode`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ order: nextOrder }),
+      }).then(res => res.ok && res.json()).then(data => {
+        if (data?.order) setSceneImageProviderModeState(prev => ({ ...prev, order: data.order }));
+      }).catch(() => {});
+    }
+    if (task === 'text' && provider) {
+      const current = aiTextProvider?.order || [];
+      const nextOrder = [provider, ...current.filter(p => p !== provider)];
+      authFetch(`${API_BASE}/admin/settings/ai-text-provider`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ order: nextOrder }),
+      }).then(res => res.ok && res.json()).then(data => {
+        if (data?.order) setAiTextProviderState(prev => ({ ...prev, order: data.order, effective_order: [...data.order, ...(prev?.available || []).filter(p => !data.order.includes(p))] }));
+      }).catch(() => {});
+    }
+    if (task === 'voice' && provider) {
+      const current = voiceoverProviderMode?.order || [];
+      const nextOrder = [provider, ...current.filter(p => p !== provider)];
+      authFetch(`${API_BASE}/admin/settings/voiceover-provider-mode`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ order: nextOrder }),
+      }).then(res => res.ok && res.json()).then(data => {
+        if (data?.order) setVoiceoverProviderModeState(prev => ({ ...prev, order: data.order }));
+      }).catch(() => {});
+    }
+    if (task === 'music' && provider) {
+      const current = musicProviderMode?.order || [];
+      const nextOrder = [provider, ...current.filter(p => p !== provider)];
+      authFetch(`${API_BASE}/admin/settings/music-provider-mode`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ order: nextOrder }),
+      }).then(res => res.ok && res.json()).then(data => {
+        if (data?.order) setMusicProviderModeState(prev => ({ ...prev, order: data.order }));
+      }).catch(() => {});
+    }
   };
+
 
   const toggleAiTextProvider = async (id, forcedOrder = null) => {
     const current = aiTextProvider?.order || [];
@@ -12980,6 +13063,13 @@ export default function App() {
                   )}
                 </button>
               ))}
+              <div className={`mt-1 flex items-center rounded-xl border transition-colors ${sidebarCollapsed ? 'justify-center p-2' : 'justify-between gap-2 px-4 py-2.5'} ${paidApisKillSwitch?.disabled ? 'border-rose-500/40 bg-rose-950/25' : 'border-[var(--border-soft)] bg-[var(--bg-surface-alt)]/50'}`}>
+                <div className="flex items-center gap-3 min-w-0">
+                  <span className={`material-symbols-outlined shrink-0 text-[18px] ${paidApisKillSwitch?.disabled ? 'text-rose-400' : 'text-slate-500'}`}>power_settings_new</span>
+                  {!sidebarCollapsed && <div className="min-w-0"><div className="text-[11px] font-bold text-slate-300">Mode maintenance</div><div className={`text-[9px] ${paidApisKillSwitch?.disabled ? 'text-rose-400' : 'text-slate-600'}`}>{paidApisKillSwitch?.disabled ? 'Activé' : 'Désactivé'}</div></div>}
+                </div>
+                {!sidebarCollapsed && <button type="button" onClick={togglePaidApisKillSwitch} disabled={paidApisKillSwitchSaving || !paidApisKillSwitch} role="switch" aria-checked={!!paidApisKillSwitch?.disabled} className={`relative h-6 w-10 shrink-0 rounded-full transition-colors disabled:opacity-50 ${paidApisKillSwitch?.disabled ? 'bg-rose-500' : 'bg-slate-700'}`}><span className={`absolute top-1 h-4 w-4 rounded-full bg-white shadow transition-transform ${paidApisKillSwitch?.disabled ? 'translate-x-5' : 'translate-x-1'}`} /></button>}
+              </div>
             </div>
           ) : (
             <div className="px-3 space-y-1.5">
@@ -21090,147 +21180,123 @@ export default function App() {
                 )}
               </div>
 
-              <div className="hidden pt-6 border-t border-[var(--border-soft)] space-y-3">
-                <div>
-                  <h4 className="text-sm font-bold text-white">Génération des miniatures</h4>
-                </div>
-                {!thumbnailProviderMode ? (
-                  <div className="text-center text-slate-500 text-xs py-4">Chargement...</div>
-                ) : (
-                  <div className="flex flex-wrap items-center gap-2">
-                    {(thumbnailProviderMode.available || []).map(id => {
-                      const rank = (thumbnailProviderMode.order || []).indexOf(id);
-                      const selected = rank !== -1;
-                      const health = (adminProviders || []).find(p => p.id === id);
-                      const dotColor = health?.status === 'ok' ? 'bg-emerald-500' : health?.status === 'quota_exhausted' ? 'bg-rose-500' : id === 'huggingface' ? 'bg-emerald-500' : 'bg-slate-600';
-                      const label = { huggingface: 'Hugging Face (gratuit)', fal: 'fal.ai', izivoice: 'Izivoice', gemini: 'Google Gemini (gratuit)', ai33pro: 'ai33.pro', kie: 'Kie.ai' }[id] || id;
-                      return (
-                        <button
-                          key={id}
-                          type="button"
-                          onClick={() => toggleThumbnailProvider(id)}
-                          disabled={thumbnailProviderModeSaving}
-                          className={`px-4 py-2 rounded-xl text-xs font-bold border transition-colors disabled:opacity-50 ${
-                            selected
-                              ? 'bg-[#00c2ff]/10 text-[#00c2ff] border-[#00c2ff]/60'
-                              : 'bg-[var(--bg-surface-alt)] text-slate-400 border-[var(--border)] hover:border-slate-500'
-                          }`}
-                        >
-                          <span className={`inline-block w-1.5 h-1.5 rounded-full mr-1.5 align-middle ${dotColor}`} />
-                          {label}
-                          {selected && <span className="ml-1.5 inline-flex items-center justify-center w-4 h-4 rounded-full bg-[#00c2ff] text-[#04121a] text-[10px] font-black align-middle">{rank + 1}</span>}
-                        </button>
-                      );
-                    })}
-                    {thumbnailProviderModeSaving && <span className="material-symbols-outlined text-[16px] text-slate-500 animate-spin">progress_activity</span>}
-                  </div>
-                )}
-              </div>
-
-              <div className="hidden pt-6 border-t border-[var(--border-soft)] space-y-3">
-                <div>
-                  <h4 className="text-sm font-bold text-white">Fournisseur IA texte (script, titres, miniatures...)</h4>
-                  <p className="text-[11px] text-slate-500 mt-1">Choisis le fournisseur principal. Les autres fournisseurs sélectionnés servent automatiquement de secours.</p>
-                </div>
-                {!aiTextProvider ? (
-                  <div className="text-center text-slate-500 text-xs py-4">Chargement...</div>
-                ) : (
-                  <div className="space-y-3">
-                    <SimpleSelect
-                      value={(aiTextProvider.order || [])[0] || ''}
-                      options={(aiTextProvider.available || []).map(id => ({ value: id, label: AI_TEXT_PROVIDER_LABELS[id] || id }))}
-                      onChange={selected => {
-                        if (!selected) return;
-                        const current = aiTextProvider.order || [];
-                        toggleAiTextProvider(selected, [selected, ...current.filter(p => p !== selected)]);
-                      }}
-                    />
-                    {modelCatalog && <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-w-2xl">
-                      {['text', 'image', 'music', 'voice'].map(task => {
-                        const chosen = selectedTaskModel[task] || {};
-                        const provider = chosen.provider || Object.keys(modelCatalog.providers || {}).find(p => modelCatalog.providers[p][task]);
-                        const models = provider ? (modelCatalog.providers[provider]?.[task] || []) : [];
-                        return <div key={task} className="flex gap-2">
-                          <SimpleSelect value={provider || ''} options={Object.entries(modelCatalog.providers || {}).filter(([, d]) => d[task]).map(([id, d]) => ({ value: id, label: d.label }))} onChange={id => chooseTaskModel(task, id, (modelCatalog.providers[id]?.[task] || [])[0] || '')} />
-                          <SimpleSelect value={chosen.model || models[0] || ''} options={models.map(m => ({ value: m, label: m }))} onChange={m => chooseTaskModel(task, provider, m)} />
-                        </div>;
-                      })}
-                    </div>}
-                    <div className="flex flex-wrap items-center gap-2">
-                    {(aiTextProvider.available || []).map(id => {
-                      const rank = (aiTextProvider.order || []).indexOf(id);
-                      const selected = rank !== -1;
-                      const health = (adminProviders || []).find(p => p.id === id);
-                      const dotColor = health?.status === 'ok' ? 'bg-emerald-500' : health?.status === 'quota_exhausted' ? 'bg-rose-500' : 'bg-slate-600';
-                      return (
-                        <button
-                          key={id}
-                          type="button"
-                          onClick={() => toggleAiTextProvider(id)}
-                          disabled={aiTextProviderSaving}
-                          className={`px-4 py-2 rounded-xl text-xs font-bold border transition-colors disabled:opacity-50 ${
-                            selected
-                              ? 'bg-[#00c2ff]/10 text-[#00c2ff] border-[#00c2ff]/60'
-                              : 'bg-[var(--bg-surface-alt)] text-slate-400 border-[var(--border)] hover:border-slate-500'
-                          }`}
-                        >
-                          <span className={`inline-block w-1.5 h-1.5 rounded-full mr-1.5 align-middle ${dotColor}`} />
-                          {AI_TEXT_PROVIDER_LABELS[id] || id}
-                          {selected && <span className="ml-1.5 inline-flex items-center justify-center w-4 h-4 rounded-full bg-[#00c2ff] text-[#04121a] text-[10px] font-black align-middle">{rank + 1}</span>}
-                        </button>
-                      );
-                    })}
-                    {aiTextProviderSaving && <span className="material-symbols-outlined text-[16px] text-slate-500 animate-spin">progress_activity</span>}
-                  </div>
-                  </div>
-                )}
-              </div>
-
               <div className="pt-6 border-t border-[var(--border-soft)] space-y-4">
                 <div className="flex items-start justify-between gap-4">
                   <div>
-                    <h4 className="text-sm font-bold text-white">Routage des modèles</h4>
-                    <p className="text-[11px] text-slate-500 mt-1">Choisis d’abord la source, puis le modèle utilisé pour chaque service.</p>
+                    <h4 className="text-sm font-bold text-white">Routage des modèles &amp; Ordre de secours</h4>
+                    <p className="text-[11px] text-slate-500 mt-1">Choisis la source principale et le modèle pour chaque étape, ainsi que son propre ordre de secours si le service principal est indisponible.</p>
                   </div>
                   <span className="text-[10px] font-bold uppercase tracking-wider text-[#00c2ff] bg-[#00c2ff]/10 border border-[#00c2ff]/20 rounded-full px-2.5 py-1">Configuration active</span>
                 </div>
                 {modelCatalog ? <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
                   {[
-                    ['text', 'Scripts et textes', 'edit_note'],
-                    ['image', 'Images et miniatures', 'image'],
-                    ['music', 'Musique de fond', 'music_note'],
-                    ['voice', 'Voix off', 'graphic_eq'],
-                  ].map(([task, label, icon]) => {
+                    ['text', 'Scripts et textes', 'edit_note', aiTextProvider, aiTextProviderSaving, toggleAiTextProvider],
+                    ['image', 'Images de scène', 'photo_library', sceneImageProviderMode, sceneImageProviderModeSaving, toggleSceneImageProvider],
+                    ['thumbnail', 'Miniatures', 'image', thumbnailProviderMode, thumbnailProviderModeSaving, toggleThumbnailProvider],
+                    ['music', 'Musique de fond', 'music_note', musicProviderMode, musicProviderModeSaving, toggleMusicProvider],
+                    ['voice', 'Voix off', 'graphic_eq', voiceoverProviderMode, voiceoverProviderModeSaving, toggleVoiceoverProvider],
+                  ].map(([task, label, icon, taskMode, taskSaving, taskToggle]) => {
                     const chosen = selectedTaskModel[task] || {};
-                    const provider = chosen.provider || Object.keys(modelCatalog.providers || {}).find(p => modelCatalog.providers[p][task]);
+                    const provider = chosen.provider || (
+                      task === 'thumbnail' && thumbnailProviderMode?.order?.[0] && modelCatalog.providers?.[thumbnailProviderMode.order[0]]?.thumbnail
+                        ? thumbnailProviderMode.order[0]
+                        : task === 'image' && sceneImageProviderMode?.order?.[0] && modelCatalog.providers?.[sceneImageProviderMode.order[0]]?.image
+                        ? sceneImageProviderMode.order[0]
+                        : Object.keys(modelCatalog.providers || {}).find(p => modelCatalog.providers[p]?.[task])
+                    );
                     const models = provider ? (modelCatalog.providers[provider]?.[task] || []) : [];
                     const providerOptions = Object.entries(modelCatalog.providers || {}).filter(([, d]) => d[task]).map(([id, d]) => ({ value: id, label: d.label }));
-                    return <div key={task} className="rounded-2xl border border-[var(--border-soft)] bg-[var(--bg-surface-alt)]/45 p-3.5">
-                      <div className="flex items-center gap-2 mb-3">
-                        <span className="material-symbols-outlined text-[17px] text-[#00c2ff]">{icon}</span>
-                        <span className="text-xs font-bold text-white">{label}</span>
+                    const availableProviders = taskMode?.available && taskMode.available.length > 0
+                      ? taskMode.available
+                      : Object.keys(modelCatalog.providers || {}).filter(p => modelCatalog.providers[p]?.[task]);
+                    const currentOrder = taskMode?.order || [];
+
+                    const getProviderDisplayName = (id) => {
+                      if (modelCatalog.providers?.[id]?.label) return modelCatalog.providers[id].label;
+                      if (AI_TEXT_PROVIDER_LABELS?.[id]) return AI_TEXT_PROVIDER_LABELS[id];
+                      const map = {
+                        huggingface: 'Hugging Face (gratuit)',
+                        fal: 'fal.ai',
+                        izivoice: 'Izivoice',
+                        ai33pro: 'ai33.pro',
+                        kie: 'Kie.ai',
+                        openai: 'OpenAI',
+                        gemini: 'Google Gemini (gratuit)',
+                        groq: 'Groq (gratuit)',
+                        deepseek: 'DeepSeek',
+                        anthropic: 'Claude (Anthropic)',
+                        xai: 'xAI (Grok)',
+                      };
+                      return map[id] || id;
+                    };
+
+                    return <div key={task} className="rounded-2xl border border-[var(--border-soft)] bg-[var(--bg-surface-alt)]/45 p-4 flex flex-col justify-between">
+                      <div>
+                        <div className="flex items-center justify-between gap-2 mb-3">
+                          <div className="flex items-center gap-2">
+                            <span className="material-symbols-outlined text-[18px] text-[#00c2ff]">{icon}</span>
+                            <span className="text-xs font-bold text-white">{label}</span>
+                          </div>
+                          {taskSaving && (
+                            <span className="material-symbols-outlined text-[14px] text-[#00c2ff] animate-spin">progress_activity</span>
+                          )}
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3">
+                          <div>
+                            <span className="block text-[9px] uppercase tracking-wider text-slate-500 mb-1.5">Source principale</span>
+                            <SimpleSelect className="w-full" value={provider || ''} options={providerOptions} onChange={id => chooseTaskModel(task, id, (modelCatalog.providers[id]?.[task] || [])[0] || '')} />
+                          </div>
+                          <div>
+                            <span className="block text-[9px] uppercase tracking-wider text-slate-500 mb-1.5">Modèle · coût / 1M tokens</span>
+                            <SimpleSelect className="w-full" value={chosen.model || models[0] || ''} options={models.map(m => {
+                              const price = modelCatalog.pricing?.[`${provider}:${m}`];
+                              const cost = price?.free_tier ? 'Gratuit' : price?.input != null && price?.output != null ? `$${price.input} entrée · $${price.output} sortie` : price?.output != null ? `$${price.output} sortie` : 'Tarif à vérifier';
+                              return { value: m, label: `${m} — ${cost}` };
+                            })} onChange={m => chooseTaskModel(task, provider, m)} />
+                          </div>
+                        </div>
                       </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        <div><span className="block text-[9px] uppercase tracking-wider text-slate-500 mb-1.5">Source</span><SimpleSelect className="w-full" value={provider || ''} options={providerOptions} onChange={id => chooseTaskModel(task, id, (modelCatalog.providers[id]?.[task] || [])[0] || '')} /></div>
-                        <div><span className="block text-[9px] uppercase tracking-wider text-slate-500 mb-1.5">Modèle · coût / 1M tokens</span><SimpleSelect className="w-full" value={chosen.model || models[0] || ''} options={models.map(m => {
-                          const price = modelCatalog.pricing?.[`${provider}:${m}`];
-                          const cost = price?.free_tier ? 'Gratuit' : price?.input != null && price?.output != null ? `$${price.input} entrée · $${price.output} sortie` : price?.output != null ? `$${price.output} sortie` : 'Tarif à vérifier';
-                          return { value: m, label: `${m} — ${cost}` };
-                        })} onChange={m => chooseTaskModel(task, provider, m)} /></div>
+
+                      <div className="pt-3 border-t border-[var(--border-soft)]">
+                        <div className="flex items-center justify-between gap-2 mb-2">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Ordre de secours</span>
+                          <span className="text-[10px] text-slate-500">Cliquez pour activer/ordonner</span>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          {availableProviders.map(id => {
+                            const rank = currentOrder.indexOf(id);
+                            const selected = rank !== -1;
+                            const health = (adminProviders || []).find(p => p.id === id);
+                            const dotColor = health?.status === 'ok' ? 'bg-emerald-500' : health?.status === 'quota_exhausted' ? 'bg-rose-500' : (id === 'huggingface' || id === 'groq' || id === 'gemini') ? 'bg-emerald-500' : 'bg-slate-500';
+                            const pName = getProviderDisplayName(id);
+                            return (
+                              <button
+                                key={id}
+                                type="button"
+                                onClick={() => taskToggle(id)}
+                                disabled={taskSaving}
+                                title={selected ? `Secours #${rank + 1} — cliquer pour désactiver` : `Cliquer pour ajouter au secours`}
+                                className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-semibold border transition-all ${
+                                  selected
+                                    ? 'bg-[#00c2ff]/10 text-[#00c2ff] border-[#00c2ff]/50 shadow-sm'
+                                    : 'bg-[var(--bg-surface)] text-slate-400 border-[var(--border)] hover:border-slate-500 hover:text-slate-300 opacity-60'
+                                }`}
+                              >
+                                <span className={`w-1.5 h-1.5 rounded-full ${dotColor}`} />
+                                <span>{pName}</span>
+                                {selected && (
+                                  <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-[#00c2ff] text-[#04121a] text-[9px] font-black ml-0.5">
+                                    {rank + 1}
+                                  </span>
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
                       </div>
                     </div>;
                   })}
                 </div> : <div className="text-center text-slate-500 text-xs py-6">Chargement du catalogue...</div>}
-
-                {aiTextProvider && <div className="rounded-2xl border border-[var(--border-soft)] bg-[var(--bg-surface-alt)]/30 p-3.5">
-                  <div className="flex items-center justify-between gap-3 mb-3"><div><h5 className="text-xs font-bold text-white">Ordre de secours</h5><p className="text-[10px] text-slate-500 mt-0.5">Utilisé seulement si le modèle principal est indisponible.</p></div></div>
-                  <div className="flex flex-wrap gap-2">{(aiTextProvider.order || []).reduce((families, id) => {
-                    const family = aiTextProviderFamily(id);
-                    if (!families.some(item => item.family === family)) families.push({ family, sources: [id] });
-                    else families.find(item => item.family === family).sources.push(id);
-                    return families;
-                  }, []).map(({ family, sources }, rank) => <button key={family} type="button" onClick={() => toggleAiTextProvider(sources[0])} title={`Source${sources.length > 1 ? 's' : ''} : ${sources.map(id => AI_TEXT_PROVIDER_LABELS[id] || id).join(', ')}`} className="inline-flex items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--bg-surface-alt)] px-3 py-2 text-xs font-bold text-slate-300 hover:border-[#00c2ff]/50"><span className="w-5 h-5 rounded-md bg-[#00c2ff]/10 text-[#00c2ff] flex items-center justify-center text-[10px]">{rank + 1}</span>{family}</button>)}</div>
-                </div>}
               </div>
 
               <div className="pt-6 border-t border-[var(--border-soft)] space-y-4">
