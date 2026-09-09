@@ -5213,6 +5213,7 @@ function viewFromPath(path) {
 // the overview.
 const ADMIN_TABS = ['overview', 'beta', 'users', 'plans', 'videos', 'library', 'transactions', 'costs', 'resources'];
 const AI_TEXT_PROVIDER_LABELS = { anthropic: 'Claude (Anthropic)', kie: 'Claude via Kie.ai', deepseek: 'DeepSeek', fal: 'Claude via fal.ai', openai: 'OpenAI', groq: 'Groq (gratuit)', gemini: 'Google Gemini (gratuit)' };
+const aiTextProviderFamily = id => id === 'anthropic' || id === 'kie' || id === 'fal' ? 'Claude' : id === 'openai' ? 'OpenAI' : id === 'gemini' ? 'Gemini' : id === 'deepseek' ? 'DeepSeek' : id === 'groq' ? 'Groq' : id;
 function adminTabFromPath(path) {
   const m = path.match(/^\/admin\/([a-z_]+)$/);
   if (m && ADMIN_TABS.includes(m[1])) return m[1];
@@ -21223,10 +21224,12 @@ export default function App() {
 
                 {aiTextProvider && <div className="rounded-2xl border border-[var(--border-soft)] bg-[var(--bg-surface-alt)]/30 p-3.5">
                   <div className="flex items-center justify-between gap-3 mb-3"><div><h5 className="text-xs font-bold text-white">Ordre de secours</h5><p className="text-[10px] text-slate-500 mt-0.5">Utilisé seulement si le modèle principal est indisponible.</p></div></div>
-                  <div className="flex flex-wrap gap-2">{(aiTextProvider.order || []).map((id, rank) => {
-                    const family = id === 'anthropic' || id === 'kie' || id === 'fal' ? 'Claude' : id === 'openai' ? 'OpenAI' : id === 'gemini' ? 'Gemini' : id === 'deepseek' ? 'DeepSeek' : id === 'groq' ? 'Groq' : id;
-                    return <button key={id} type="button" onClick={() => toggleAiTextProvider(id)} title={`Source : ${AI_TEXT_PROVIDER_LABELS[id] || id}`} className="inline-flex items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--bg-surface-alt)] px-3 py-2 text-xs font-bold text-slate-300 hover:border-[#00c2ff]/50"><span className="w-5 h-5 rounded-md bg-[#00c2ff]/10 text-[#00c2ff] flex items-center justify-center text-[10px]">{rank + 1}</span>{family}</button>;
-                  })}</div>
+                  <div className="flex flex-wrap gap-2">{(aiTextProvider.order || []).reduce((families, id) => {
+                    const family = aiTextProviderFamily(id);
+                    if (!families.some(item => item.family === family)) families.push({ family, sources: [id] });
+                    else families.find(item => item.family === family).sources.push(id);
+                    return families;
+                  }, []).map(({ family, sources }, rank) => <button key={family} type="button" onClick={() => toggleAiTextProvider(sources[0])} title={`Source${sources.length > 1 ? 's' : ''} : ${sources.map(id => AI_TEXT_PROVIDER_LABELS[id] || id).join(', ')}`} className="inline-flex items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--bg-surface-alt)] px-3 py-2 text-xs font-bold text-slate-300 hover:border-[#00c2ff]/50"><span className="w-5 h-5 rounded-md bg-[#00c2ff]/10 text-[#00c2ff] flex items-center justify-center text-[10px]">{rank + 1}</span>{family}</button>)}</div>
                 </div>}
               </div>
 
