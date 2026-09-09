@@ -4883,6 +4883,13 @@ function LibraryChannelAvatar({ channel }) {
   );
 }
 
+// Same operator WhatsApp number as BETA_WHATSAPP_GROUP_URL's personal-contact
+// sibling (see BetaGateScreen's whatsappHref) — a fixed, prefilled message
+// since this screen carries no user identity to personalize it with.
+const MAINTENANCE_WHATSAPP_HREF = `https://wa.me/237655306425?text=${encodeURIComponent(
+  "Bonjour, je souhaite tester KappGen en accès anticipé pendant la maintenance."
+)}`;
+
 // Site-wide maintenance screen — shown in place of the entire app while the
 // admin's paid-APIs kill switch is on (see App's maintenanceActive state and
 // the render gate right after the auth-route redirects). No polling of its
@@ -4905,10 +4912,22 @@ export function MaintenanceScreen() {
           <div className="w-20 h-20 mx-auto mb-5 rounded-full bg-amber-500/10 border border-amber-500/30 flex items-center justify-center">
             <span className="material-symbols-outlined text-[36px] text-amber-400">build</span>
           </div>
-          <h1 className="text-2xl font-extrabold text-white">Maintenance en cours</h1>
+          <h1 className="text-2xl font-extrabold text-white">Une pause volontaire</h1>
           <p className="text-sm text-slate-400 mt-3 leading-relaxed">
-            KappGen est en pause pour une opération de maintenance. Dû à l'adoption massive de l'outil, nous avons mis en place des restrictions pour garantir un usage sain et contrôlé. Nos services seront disponibles très bientôt.
+            La vision de KappGen pour le YouTube automation est tellement avancée que nous ne pouvons pas encore la rendre accessible à tout le monde. Face à l'adoption massive, on préfère marquer une pause plutôt que de brader la qualité qu'on veut associer à KappGen. L'outil reste disponible en accès anticipé pour l'instant.
           </p>
+          <p className="text-sm text-slate-300 mt-4 leading-relaxed">
+            Envie de tester KappGen dès maintenant, en priorité ? Contacte-nous sur WhatsApp — un accès anticipé est possible pour ceux prêts à s'engager dès aujourd'hui.
+          </p>
+          <a
+            href={MAINTENANCE_WHATSAPP_HREF}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-5 w-full py-3 bg-[#25D366] hover:bg-[#20bd5a] text-white font-bold text-sm rounded-xl transition-colors flex items-center justify-center gap-2 shadow-lg shadow-[#25D366]/20"
+          >
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.48 1.32 5l-1.4 5.12 5.24-1.38a9.9 9.9 0 004.75 1.21h.01c5.46 0 9.9-4.45 9.9-9.91 0-2.65-1.03-5.13-2.9-7C17.15 3.03 14.68 2 12.04 2zm0 18.1h-.01a8.2 8.2 0 01-4.19-1.15l-.3-.18-3.11.82.83-3.03-.2-.31a8.18 8.18 0 01-1.26-4.36c0-4.53 3.69-8.22 8.24-8.22 2.2 0 4.27.86 5.83 2.42a8.17 8.17 0 012.41 5.82c0 4.54-3.7 8.19-8.24 8.19zm4.52-6.16c-.25-.12-1.47-.72-1.69-.81-.23-.08-.39-.12-.56.13-.17.25-.64.81-.78.97-.14.17-.29.19-.54.06-.25-.12-1.04-.38-1.99-1.22-.73-.66-1.23-1.46-1.37-1.71-.14-.25-.02-.38.11-.51.11-.11.25-.29.37-.43.12-.15.16-.25.25-.42.08-.17.04-.31-.02-.43-.06-.13-.56-1.34-.76-1.84-.2-.48-.41-.42-.56-.42-.14 0-.31-.01-.47-.01-.17 0-.44.06-.67.31-.23.25-.87.85-.87 2.08 0 1.23.89 2.42 1.02 2.58.12.17 1.75 2.67 4.24 3.75.59.26 1.05.41 1.41.52.59.19 1.13.16 1.55.1.47-.07 1.47-.6 1.68-1.18.21-.58.21-1.08.14-1.18-.06-.11-.23-.17-.48-.29z"/></svg>
+            Contacter sur WhatsApp
+          </a>
         </div>
       </div>
     </div>
