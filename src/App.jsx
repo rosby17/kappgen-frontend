@@ -6769,8 +6769,15 @@ export default function App() {
 
   // User Auth State
   const [currentUser, setCurrentUser] = useState(() => {
-    const saved = localStorage.getItem("kappgen_user");
-    return saved ? JSON.parse(saved) : null;
+    try {
+      const saved = localStorage.getItem("kappgen_user");
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      // A malformed value from an older browser session must never prevent
+      // React from mounting the whole application.
+      try { localStorage.removeItem("kappgen_user"); } catch {}
+      return null;
+    }
   });
   // The session token itself lives only in an httpOnly cookie set by the
   // backend (src/utils/auth.py: set_session_cookie) — never in localStorage
