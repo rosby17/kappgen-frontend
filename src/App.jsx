@@ -1050,13 +1050,32 @@ function VoiceAvatar({ voice, size = 40, playable = false, playing = false, gene
   );
 }
 
-function VoiceCard({ voice, active, saved, mine, playingId, generatingPreviewId, onSelect, onToggleSave, onPlayPreview, onDelete }) {
+function VoiceCard({ voice, active, saved, mine, playingId, generatingPreviewId, onSelect, onToggleSave, onPlayPreview, onDelete, onRename }) {
   const playing = playingId === voice.id;
   const generating = generatingPreviewId === voice.id;
+  const [isEditing, setIsEditing] = useState(false);
+  const [draftName, setDraftName] = useState(voice.name || '');
+
+  const isAi33 = voice.provider === 'ai33pro' || String(voice.id || '').startsWith('clone_');
+
+  const handleSaveRename = (e) => {
+    e.stopPropagation();
+    if (draftName.trim() && draftName.trim() !== voice.name) {
+      onRename?.(voice.id, draftName.trim());
+    }
+    setIsEditing(false);
+  };
+
+  const handleCancelRename = (e) => {
+    e.stopPropagation();
+    setDraftName(voice.name || '');
+    setIsEditing(false);
+  };
+
   return (
     <div
       onClick={() => onSelect(voice)}
-      className={`flex items-center gap-2.5 px-3 py-1.5 rounded-lg border cursor-pointer transition-colors ${
+      className={`group flex items-center gap-2.5 px-3 py-1.5 rounded-lg border cursor-pointer transition-colors ${
         active ? 'bg-[#00c2ff]/10 border-[#00c2ff]' : 'bg-[var(--bg-surface-alt)] border-[var(--border)] hover:border-slate-500'
       }`}
     >
@@ -1069,12 +1088,68 @@ function VoiceCard({ voice, active, saved, mine, playingId, generatingPreviewId,
         onTogglePlay={() => onPlayPreview(mine ? { ...voice, cloned: true } : voice)}
       />
       <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-1.5">
-          <span className="text-xs font-bold text-white truncate">{voice.name}</span>
-          {mine && (
-            <span className="shrink-0 text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-[#00c2ff]/15 text-[#56d9ff]">Clonée</span>
-          )}
-        </div>
+        {isEditing ? (
+          <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+            <input
+              type="text"
+              value={draftName}
+              onChange={(e) => setDraftName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleSaveRename(e);
+                if (e.key === 'Escape') handleCancelRename(e);
+              }}
+              autoFocus
+              className="bg-[#0b0f16] border border-[#00c2ff] rounded px-1.5 py-0.5 text-xs text-white outline-none w-full max-w-[180px]"
+            />
+            <button
+              type="button"
+              onClick={handleSaveRename}
+              className="p-1 rounded bg-[#00c2ff]/20 text-[#56d9ff] hover:bg-[#00c2ff]/30 text-xs flex items-center justify-center"
+              title="Valider"
+            >
+              <span className="material-symbols-outlined text-[14px]">check</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleCancelRename}
+              className="p-1 rounded bg-white/5 text-slate-400 hover:bg-white/10 text-xs flex items-center justify-center"
+              title="Annuler"
+            >
+              <span className="material-symbols-outlined text-[14px]">close</span>
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-xs font-bold text-white truncate">{voice.name}</span>
+            {mine && (
+              isAi33 ? (
+                <span className="shrink-0 text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-violet-500/15 text-violet-300 border border-violet-500/30 flex items-center gap-1" title="Clonée via ai33.pro">
+                  <span className="w-1.5 h-1.5 rounded-full bg-violet-400 shadow-[0_0_6px_rgba(167,139,250,0.8)]"></span>
+                  AI33.pro
+                </span>
+              ) : (
+                <span className="shrink-0 text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-[#00c2ff]/15 text-[#56d9ff] border border-[#00c2ff]/30 flex items-center gap-1" title="Clonée via Izivoice">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#00c2ff] shadow-[0_0_6px_rgba(0,194,255,0.8)]"></span>
+                  Izivoice
+                </span>
+              )
+            )}
+            {mine && onRename && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setDraftName(voice.name || '');
+                  setIsEditing(true);
+                }}
+                className="opacity-0 group-hover:opacity-100 hover:opacity-100 text-slate-400 hover:text-white transition-opacity p-0.5 rounded"
+                title="Renommer cette voix"
+              >
+                <span className="material-symbols-outlined text-[13px]">edit</span>
+              </button>
+            )}
+          </div>
+        )}
         <p className="text-[10px] text-slate-500 truncate">{voice.desc || 'Voix'}</p>
       </div>
       <button
@@ -1088,6 +1163,20 @@ function VoiceCard({ voice, active, saved, mine, playingId, generatingPreviewId,
           style={{ fontVariationSettings: saved ? "'FILL' 1" : "'FILL' 0" }}
         >bookmark</span>
       </button>
+      {mine && onRename && !isEditing && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            setDraftName(voice.name || '');
+            setIsEditing(true);
+          }}
+          className="shrink-0 w-7 h-7 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-slate-400 hover:text-white transition-colors"
+          title="Renommer cette voix"
+        >
+          <span className="material-symbols-outlined text-[15px]">edit</span>
+        </button>
+      )}
       {onDelete && (
         <button
           type="button"
@@ -1363,7 +1452,7 @@ function VoiceLibrarySelect({ label, value, onChange, options }) {
 function VoiceLibraryModal({
   voices, selectedId, savedIds, clonedIds,
   searchQuery, onSearchChange, searching,
-  onSelect, onToggleSave, onClose, onOpenCloner, cloningEnabled, onAddVoiceById, onDeleteVoice,
+  onSelect, onToggleSave, onClose, onOpenCloner, cloningEnabled, onAddVoiceById, onDeleteVoice, onRenameVoice,
   onLoadMore, loadingMore, hasMore
 }) {
   const [tab, setTab] = useState('library');
@@ -1564,6 +1653,7 @@ function VoiceLibraryModal({
                   onToggleSave={onToggleSave}
                   onPlayPreview={handlePlayPreview}
                   onDelete={clonedIds.includes(v.id) ? onDeleteVoice : undefined}
+                  onRename={clonedIds.includes(v.id) ? onRenameVoice : undefined}
                 />
               ))}
               {tab === 'library' && !searchQuery.trim() && hasMore && loadingMore && (
@@ -11432,6 +11522,7 @@ export default function App() {
         if (!serverVoices.length) return;
         const mapped = serverVoices.map(v => ({
           id: v.id, name: v.name, gender: v.gender, desc: 'Voix personnelle clonée', cloned: true,
+          provider: v.provider || (String(v.id || '').startsWith('clone_') ? 'ai33pro' : 'izivoice'),
           preview_url: v.preview_url ? (String(v.preview_url).startsWith('http') ? v.preview_url : `${API_BASE}${v.preview_url}`) : null,
         }));
         setAvailableVoices(prev => {
@@ -11698,6 +11789,7 @@ export default function App() {
         gender,
         desc: 'Voix personnelle clonée',
         cloned: true,
+        provider: String(body.voice_id || '').startsWith('clone_') ? 'ai33pro' : 'izivoice',
         // Relative to our own API (unlike catalog voices' preview_url, which
         // Izivoice already returns as an absolute URL) — prefix with
         // API_BASE so it resolves against api.kappgen.com, not the
@@ -11737,6 +11829,30 @@ export default function App() {
       });
       setSavedVoiceIds(prev => prev.filter(id => id !== voiceId));
       showToast('Voix clonée supprimée.', 'success');
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  };
+
+  const handleRenameClonedVoice = async (voiceId, newName) => {
+    if (!newName?.trim()) return;
+    try {
+      const res = await authFetch(`${API_BASE}/channels/my-cloned-voices/${encodeURIComponent(voiceId)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newName.trim() }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.detail || 'Impossible de renommer la voix.');
+      const updatedName = body.name || newName.trim();
+      setAvailableVoices(prev => prev.map(v => v.id === voiceId ? { ...v, name: updatedName } : v));
+      if (newChannel.voice_id === voiceId) {
+        setNewChannel(prev => ({ ...prev, voice_name: updatedName }));
+      }
+      if (activeChannel?.voice_id === voiceId) {
+        setActiveChannel(prev => prev ? ({ ...prev, voice_name: updatedName }) : prev);
+      }
+      showToast('Voix renommée avec succès.', 'success');
     } catch (err) {
       showToast(err.message, 'error');
     }
@@ -16610,7 +16726,22 @@ export default function App() {
                                   }}
                                 />
                                 <div className="min-w-0 flex-1">
-                                  <p className="text-xs font-bold text-white truncate">{activeVoice.name}</p>
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <p className="text-xs font-bold text-white truncate">{activeVoice.name}</p>
+                                    {clonedVoiceIds.includes(activeVoice.id) && (
+                                      (activeVoice.provider === 'ai33pro' || String(activeVoice.id).startsWith('clone_')) ? (
+                                        <span className="shrink-0 text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-violet-500/15 text-violet-300 border border-violet-500/30 flex items-center gap-1" title="Clonée via ai33.pro">
+                                          <span className="w-1.5 h-1.5 rounded-full bg-violet-400 shadow-[0_0_6px_rgba(167,139,250,0.8)]"></span>
+                                          AI33.pro
+                                        </span>
+                                      ) : (
+                                        <span className="shrink-0 text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-[#00c2ff]/15 text-[#56d9ff] border border-[#00c2ff]/30 flex items-center gap-1" title="Clonée via Izivoice">
+                                          <span className="w-1.5 h-1.5 rounded-full bg-[#00c2ff] shadow-[0_0_6px_rgba(0,194,255,0.8)]"></span>
+                                          Izivoice
+                                        </span>
+                                      )
+                                    )}
+                                  </div>
                                   <p className="text-[10px] text-slate-500 truncate">{activeVoice.desc}</p>
                                 </div>
                               </>
@@ -23125,6 +23256,7 @@ export default function App() {
           onOpenCloner={() => setShowVoiceCloner(true)}
           onAddVoiceById={handleAddVoiceById}
           onDeleteVoice={handleDeleteClonedVoice}
+          onRenameVoice={handleRenameClonedVoice}
           cloningEnabled={wizardMode === 'edit' && !!editingChannelId}
           onLoadMore={loadMoreVoices}
           loadingMore={loadingMoreVoices}
