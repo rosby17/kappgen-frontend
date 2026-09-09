@@ -5359,6 +5359,47 @@ function SkeletonGrid({ count = 6, cardClassName = "min-h-[220px]" }) {
   );
 }
 
+// A temporary API interruption is a connection state, not a destructive
+// product error. Keep the studio's visual language present and make the next
+// reconnection attempt understandable instead of replacing the workspace
+// with a large red alert box.
+function StudioReconnectState({ resource = 'cet espace', attempt = 0, onRetry }) {
+  const delay = Math.min(30, 4 * (2 ** Math.min(attempt, 3)));
+  return (
+    <div className="relative min-h-[350px] overflow-hidden rounded-2xl border border-cyan-400/15 bg-[#101a27]/80" role="status" aria-live="polite">
+      <div className="pointer-events-none absolute inset-0 opacity-70">
+        <div className="absolute -top-24 left-1/2 h-64 w-64 -translate-x-1/2 rounded-full bg-cyan-400/10 blur-3xl" />
+        <div className="absolute inset-x-8 top-10 grid grid-cols-3 gap-4 opacity-30 blur-[1px]">
+          {Array.from({ length: 6 }).map((_, index) => (
+            <div key={index} className="h-28 rounded-xl border border-slate-600/30 bg-slate-800/35 animate-pulse" style={{ animationDelay: `${index * 120}ms` }} />
+          ))}
+        </div>
+      </div>
+      <div className="relative z-10 mx-auto flex min-h-[350px] max-w-md flex-col items-center justify-center px-6 text-center">
+        <div className="relative mb-5 grid h-14 w-14 place-items-center rounded-2xl border border-cyan-300/25 bg-cyan-400/10 shadow-[0_0_32px_rgba(0,194,255,0.14)]">
+          <span className="material-symbols-outlined animate-[spin_3s_linear_infinite] text-[28px] text-[#3ed4ff]">sync</span>
+          <span className="absolute -right-1 -top-1 h-3 w-3 rounded-full border-2 border-[#101a27] bg-cyan-300 animate-pulse" />
+        </div>
+        <h3 className="text-lg font-bold tracking-tight text-white">Connexion au studio en cours</h3>
+        <p className="mt-2 max-w-sm text-sm leading-6 text-slate-400">
+          KappGen essaie de rétablir la connexion à {resource}. Tes vidéos et tes réglages restent enregistrés.
+        </p>
+        <div className="mt-4 flex items-center gap-2 text-xs font-medium text-cyan-200/80">
+          <span className="h-1.5 w-1.5 rounded-full bg-cyan-300 animate-pulse" />
+          Nouvelle tentative dans moins de {delay} secondes
+        </div>
+        <button
+          type="button"
+          onClick={onRetry}
+          className="mt-6 rounded-xl border border-cyan-300/25 bg-cyan-400/10 px-4 py-2 text-xs font-bold text-cyan-100 transition hover:border-cyan-300/50 hover:bg-cyan-400/20 focus:outline-none focus:ring-2 focus:ring-cyan-300/60"
+        >
+          Réessayer maintenant
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // Table-row shimmer for admin lists still loading — same animate-pulse
 // language as SkeletonGrid above, just shaped like table rows instead of
 // cards, so every admin page reads as "loading" instead of flashing a
@@ -5820,6 +5861,7 @@ export default function App() {
   const [videosLoaded, setVideosLoaded] = useState(false);
   const [channelsLoadError, setChannelsLoadError] = useState('');
   const [videosLoadError, setVideosLoadError] = useState('');
+  const [studioReconnectAttempt, setStudioReconnectAttempt] = useState(0);
   const [selectedVideo, setSelectedVideo] = useState(null);
   const [productionInspector, setProductionInspector] = useState(null); // { video, step }
   const [productionProgress, setProductionProgress] = useState(null);
@@ -8042,6 +8084,32 @@ export default function App() {
       setVideosLoaded(true);
     }
   };
+
+  const retryStudioConnection = () => {
+    setStudioReconnectAttempt(0);
+    fetchChannels();
+    fetchAllVideos();
+  };
+
+  // A backend restart should repair itself without asking the creator to
+  // keep pressing a retry button. Back off quickly enough to feel responsive
+  // (four, eight, sixteen, then thirty seconds) without needlessly loading
+  // a service that is still booting.
+  useEffect(() => {
+    const interrupted = Boolean(channelsLoadError || videosLoadError);
+    if (!interrupted) {
+      if (studioReconnectAttempt) setStudioReconnectAttempt(0);
+      return undefined;
+    }
+    if (!currentUser || !['videos', 'channels'].includes(view)) return undefined;
+    const delay = Math.min(30000, 4000 * (2 ** Math.min(studioReconnectAttempt, 3)));
+    const timer = window.setTimeout(() => {
+      if (view === 'channels') fetchChannels();
+      else retryStudioConnection();
+      setStudioReconnectAttempt(previous => Math.min(previous + 1, 4));
+    }, delay);
+    return () => window.clearTimeout(timer);
+  }, [view, currentUser, channelsLoadError, videosLoadError, studioReconnectAttempt]);
 
   const [folders, setFolders] = useState([]);
   const [videoFilterFolderId, setVideoFilterFolderId] = useState('all');
@@ -13802,14 +13870,7 @@ export default function App() {
                 {!channelsLoaded ? (
                   <SkeletonGrid count={6} />
                 ) : channelsLoadError ? (
-                  <div className="bg-rose-950/40 border border-rose-800 rounded-2xl p-8 text-center">
-                    <span className="material-symbols-outlined text-[46px] text-rose-400 mb-3">cloud_off</span>
-                    <h3 className="text-lg font-bold text-white mb-2">Chargement impossible</h3>
-                    <p className="text-sm text-rose-200 mb-5">{channelsLoadError}</p>
-                    <button onClick={fetchChannels} className="bg-rose-200 text-rose-950 px-5 py-2.5 rounded-xl font-bold text-sm">
-                      Réessayer
-                    </button>
-                  </div>
+                  <StudioReconnectState resource="tes chaînes" attempt={studioReconnectAttempt} onRetry={retryStudioConnection} />
                 ) : sortedFilteredChannels.length === 0 ? (
                   <div className="bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-2xl p-12 text-center">
                     <span className="material-symbols-outlined text-[54px] text-slate-500 mb-4">video_settings</span>
@@ -14196,14 +14257,7 @@ export default function App() {
                 {!videosLoaded ? (
                   <SkeletonGrid count={8} cardClassName="min-h-[260px]" />
                 ) : videosLoadError ? (
-                  <div className="bg-rose-950/40 border border-rose-800 rounded-2xl p-8 text-center">
-                    <span className="material-symbols-outlined text-[46px] text-rose-400 mb-3">cloud_off</span>
-                    <h3 className="text-lg font-bold text-white mb-2">Chargement impossible</h3>
-                    <p className="text-sm text-rose-200 mb-5">{videosLoadError}</p>
-                    <button onClick={fetchAllVideos} className="bg-rose-200 text-rose-950 px-5 py-2.5 rounded-xl font-bold text-sm">
-                      Réessayer
-                    </button>
-                  </div>
+                  <StudioReconnectState resource="tes vidéos" attempt={studioReconnectAttempt} onRetry={retryStudioConnection} />
                 ) : allVideos.filter(v => productChannelIds.has(v.channel_id)).length === 0 ? (
                   <div className="bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-2xl p-12 text-center">
                     <span className="material-symbols-outlined text-[54px] text-slate-500 mb-3">movie</span>
