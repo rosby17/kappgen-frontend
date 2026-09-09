@@ -4946,7 +4946,7 @@ export function MaintenanceScreen() {
           </div>
         </section>
 
-        <footer className="flex items-center justify-between border-t border-white/[.06] py-5 text-[10px] font-medium uppercase tracking-[.16em] text-slate-600"><span>KappGen · Vidéo automation</span><span>© {new Date().getFullYear()}</span></footer>
+        <footer className="flex items-center justify-between border-t border-white/[.06] py-5 text-[10px] font-medium uppercase tracking-[.16em] text-slate-600"><span>Tu dors. KappGen travaille pour toi.</span><span>© {new Date().getFullYear()}</span></footer>
       </div>
     </main>
   );
