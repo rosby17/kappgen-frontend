@@ -1103,23 +1103,93 @@ function VoiceCard({ voice, active, saved, mine, playingId, generatingPreviewId,
   );
 }
 
+function getModelGroup(name = '') {
+  const n = String(name).toLowerCase();
+  if (n.startsWith('claude') || n.includes('anthropic')) return 'Claude (Anthropic)';
+  if (n.startsWith('gpt') || n.startsWith('o1') || n.startsWith('o3') || n.startsWith('o4') || n.startsWith('chatgpt') || n.startsWith('text-embedding') || n.startsWith('dall-e')) return 'OpenAI (ChatGPT)';
+  if (n.startsWith('gemini') || n.startsWith('imagen') || n.includes('google')) return 'Google (Gemini)';
+  if (n.startsWith('grok') || n.includes('xai')) return 'xAI (Grok)';
+  if (n.startsWith('deepseek')) return 'DeepSeek';
+  if (n.startsWith('flux') || n.includes('schnell') || n.includes('dev') || n.includes('pro-ultra') || n.includes('stable-diffusion') || n.includes('sdxl') || n.includes('recraft') || n.includes('ideogram')) return 'FLUX & Images';
+  if (n.startsWith('suno') || n.includes('music') || n.includes('audio') || n.includes('elevenlabs') || n.includes('chime')) return 'Audio & Musique';
+  if (n.includes('llama') || n.includes('meta')) return 'Meta (Llama)';
+  if (n.startsWith('mistral') || n.startsWith('codestral') || n.startsWith('pixtral')) return 'Mistral AI';
+  if (n.startsWith('qwen')) return 'Qwen (Alibaba)';
+  return 'Autres modèles';
+}
+
+function getGroupIcon(groupName = '') {
+  const g = String(groupName).toLowerCase();
+  if (g.includes('claude') || g.includes('anthropic')) return 'smart_toy';
+  if (g.includes('openai') || g.includes('chatgpt')) return 'auto_awesome';
+  if (g.includes('google') || g.includes('gemini')) return 'temp_preferences_custom';
+  if (g.includes('grok') || g.includes('xai')) return 'bolt';
+  if (g.includes('deepseek')) return 'neurology';
+  if (g.includes('flux') || g.includes('image')) return 'palette';
+  if (g.includes('audio') || g.includes('musique') || g.includes('suno')) return 'music_note';
+  if (g.includes('llama') || g.includes('meta')) return 'hub';
+  if (g.includes('mistral')) return 'wind_power';
+  if (g.includes('qwen')) return 'cloud';
+  return 'folder_open';
+}
+
 // Compact custom-styled dropdown for a plain "pick one of these options"
-// select — replaces the browser's native <select> (unstyled system popup,
-// breaks the app's dark theme and rounded-corner language) with the same
-// dark dropdown + checkmark look used everywhere else in the app.
-function SimpleSelect({ value, onChange, options, className = '' }) {
+// select — supports collapsible/accordion group submenus, instant search,
+// and custom dark styling.
+function SimpleSelect({ value, onChange, options = [], className = '' }) {
   const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const [expandedGroups, setExpandedGroups] = useState({});
   const ref = useRef(null);
   const current = options.find(o => o.value === value) || options[0];
 
+  const hasGroups = options.some(o => o.group);
+
+  // Group options if applicable
+  const groupedOptions = useMemo(() => {
+    if (!hasGroups) return null;
+    const groups = {};
+    for (const opt of options) {
+      const g = opt.group || 'Autres modèles';
+      if (!groups[g]) groups[g] = [];
+      groups[g].push(opt);
+    }
+    return groups;
+  }, [options, hasGroups]);
+
+  // When opening or when value changes, auto-expand the group containing the current value
   useEffect(() => {
-    if (!open) return;
+    if (open && hasGroups && groupedOptions) {
+      const currentGroup = options.find(o => o.value === value)?.group;
+      if (currentGroup) {
+        setExpandedGroups(prev => ({ ...prev, [currentGroup]: true }));
+      } else {
+        const firstGrp = Object.keys(groupedOptions)[0];
+        if (firstGrp) setExpandedGroups(prev => ({ ...prev, [firstGrp]: true }));
+      }
+    }
+  }, [open, value, hasGroups, groupedOptions, options]);
+
+  useEffect(() => {
+    if (!open) {
+      setSearch('');
+      return;
+    }
     const handleClickOutside = (e) => {
       if (ref.current && !ref.current.contains(e.target)) setOpen(false);
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [open]);
+
+  const toggleGroup = (grpName, e) => {
+    e.stopPropagation();
+    setExpandedGroups(prev => ({ ...prev, [grpName]: !prev[grpName] }));
+  };
+
+  const filteredOptions = search.trim()
+    ? options.filter(o => (o.label || '').toLowerCase().includes(search.toLowerCase()) || (o.value || '').toLowerCase().includes(search.toLowerCase()))
+    : null;
 
   return (
     <div ref={ref} className={`relative ${className}`}>
@@ -1128,22 +1198,109 @@ function SimpleSelect({ value, onChange, options, className = '' }) {
         onClick={() => setOpen(o => !o)}
         className="w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl bg-[var(--bg-surface-alt)] border border-[var(--border)] hover:border-[#00c2ff]/60 transition-colors text-xs text-white"
       >
-        {current?.label}
+        <span className="truncate">{current?.label}</span>
         <span className={`material-symbols-outlined text-[14px] text-slate-400 transition-transform ${open ? 'rotate-180' : ''}`}>expand_more</span>
       </button>
       {open && (
-        <div className="absolute left-0 top-full mt-1.5 min-w-full w-max bg-[var(--bg-dropdown)] border border-[var(--border-dropdown)] rounded-xl shadow-2xl z-50 overflow-hidden py-1">
-          {options.map(opt => (
-            <button
-              key={opt.value}
-              type="button"
-              onClick={() => { onChange(opt.value); setOpen(false); }}
-              className={`w-full text-left px-3 py-1.5 text-[11px] hover:bg-[var(--bg-hover)] transition-colors flex items-center justify-between gap-3 ${value === opt.value ? 'text-[#00c2ff] font-bold' : 'text-slate-300'}`}
-            >
-              <span className="truncate">{opt.label}</span>
-              {value === opt.value && <span className="material-symbols-outlined text-[14px] shrink-0">check</span>}
-            </button>
-          ))}
+        <div className="absolute left-0 top-full mt-1.5 min-w-full w-max max-w-[460px] bg-[var(--bg-dropdown)] border border-[var(--border-dropdown)] rounded-xl shadow-2xl z-50 overflow-hidden py-1">
+          {options.length > 7 && (
+            <div className="px-2.5 py-1.5 border-b border-[var(--border-soft)]">
+              <div className="relative">
+                <span className="material-symbols-outlined absolute left-2 top-1/2 -translate-y-1/2 text-[14px] text-slate-500">search</span>
+                <input
+                  type="text"
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  placeholder="Rechercher un modèle..."
+                  autoFocus
+                  className="w-full bg-[var(--bg-surface)] text-xs text-white placeholder-slate-500 pl-7 pr-2.5 py-1.5 rounded-lg border border-[var(--border-soft)] focus:border-[#00c2ff] outline-none"
+                  onClick={e => e.stopPropagation()}
+                />
+              </div>
+            </div>
+          )}
+
+          <div className="max-h-72 overflow-y-auto custom-scrollbar">
+            {filteredOptions ? (
+              filteredOptions.length > 0 ? (
+                filteredOptions.map(opt => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => { onChange(opt.value); setOpen(false); }}
+                    className={`w-full text-left px-3 py-2 text-[11px] hover:bg-[var(--bg-hover)] transition-colors flex items-center justify-between gap-3 ${value === opt.value ? 'text-[#00c2ff] font-bold bg-[#00c2ff]/10' : 'text-slate-300'}`}
+                  >
+                    <div className="truncate flex items-center gap-2">
+                      {opt.group && <span className="text-[9px] px-1.5 py-0.5 rounded bg-white/5 text-slate-400 border border-white/10 shrink-0">{opt.group}</span>}
+                      <span className="truncate">{opt.label}</span>
+                    </div>
+                    {value === opt.value && <span className="material-symbols-outlined text-[14px] text-[#00c2ff] shrink-0">check</span>}
+                  </button>
+                ))
+              ) : (
+                <div className="px-3 py-4 text-center text-slate-500 text-xs">Aucun modèle trouvé</div>
+              )
+            ) : hasGroups && groupedOptions ? (
+              Object.entries(groupedOptions).map(([grpName, items]) => {
+                const isExpanded = expandedGroups[grpName] ?? false;
+                const hasActive = items.some(o => o.value === value);
+                const icon = getGroupIcon(grpName);
+
+                return (
+                  <div key={grpName} className="border-b border-[var(--border-soft)]/50 last:border-b-0">
+                    <button
+                      type="button"
+                      onClick={(e) => toggleGroup(grpName, e)}
+                      className={`w-full flex items-center justify-between px-3 py-2 text-[11px] font-semibold transition-colors ${
+                        hasActive ? 'bg-[#00c2ff]/10 text-[#00c2ff]' : 'bg-[var(--bg-surface-alt)]/40 hover:bg-[var(--bg-surface-alt)] text-slate-300'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="material-symbols-outlined text-[15px] opacity-80">{icon}</span>
+                        <span>{grpName}</span>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-white/10 text-slate-400 font-normal">
+                          {items.length}
+                        </span>
+                      </div>
+                      <span className={`material-symbols-outlined text-[14px] text-slate-400 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}>
+                        expand_more
+                      </span>
+                    </button>
+
+                    {isExpanded && (
+                      <div className="py-1 bg-[var(--bg-dropdown)]">
+                        {items.map(opt => (
+                          <button
+                            key={opt.value}
+                            type="button"
+                            onClick={() => { onChange(opt.value); setOpen(false); }}
+                            className={`w-full text-left pl-7 pr-3 py-1.5 text-[11px] hover:bg-[var(--bg-hover)] transition-colors flex items-center justify-between gap-3 ${
+                              value === opt.value ? 'text-[#00c2ff] font-bold bg-[#00c2ff]/10' : 'text-slate-300'
+                            }`}
+                          >
+                            <span className="truncate">{opt.label}</span>
+                            {value === opt.value && <span className="material-symbols-outlined text-[14px] text-[#00c2ff] shrink-0">check</span>}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })
+            ) : (
+              options.map(opt => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => { onChange(opt.value); setOpen(false); }}
+                  className={`w-full text-left px-3 py-1.5 text-[11px] hover:bg-[var(--bg-hover)] transition-colors flex items-center justify-between gap-3 ${value === opt.value ? 'text-[#00c2ff] font-bold' : 'text-slate-300'}`}
+                >
+                  <span className="truncate">{opt.label}</span>
+                  {value === opt.value && <span className="material-symbols-outlined text-[14px] shrink-0">check</span>}
+                </button>
+              ))
+            )}
+          </div>
         </div>
       )}
     </div>
@@ -21276,7 +21433,7 @@ export default function App() {
                             <SimpleSelect className="w-full" value={chosen.model || models[0] || ''} options={models.map(m => {
                               const price = modelCatalog.pricing?.[`${provider}:${m}`];
                               const cost = price?.free_tier ? 'Gratuit' : price?.input != null && price?.output != null ? `$${price.input} entrée · $${price.output} sortie` : price?.output != null ? `$${price.output} sortie` : 'Tarif à vérifier';
-                              return { value: m, label: `${m} — ${cost}` };
+                              return { value: m, label: `${m} — ${cost}`, group: getModelGroup(m) };
                             })} onChange={m => chooseTaskModel(task, provider, m)} />
                           </div>
                         </div>
