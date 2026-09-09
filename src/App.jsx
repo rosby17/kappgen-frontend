@@ -10184,6 +10184,8 @@ export default function App() {
   const [renderConcurrencySaving, setRenderConcurrencySaving] = useState(false);
   const [aiTextProvider, setAiTextProviderState] = useState(null);
   const [aiTextProviderSaving, setAiTextProviderSaving] = useState(false);
+  const [modelCatalog, setModelCatalog] = useState(null);
+  const [selectedTaskModel, setSelectedTaskModel] = useState(() => { try { return JSON.parse(localStorage.getItem('kappgen_task_models') || '{}'); } catch { return {}; } });
   const [hfAccounts, setHfAccounts] = useState([]);
   const [hfAccountsLoading, setHfAccountsLoading] = useState(false);
   const [hfAccountForm, setHfAccountForm] = useState({ token: '', label: '' });
@@ -10191,7 +10193,7 @@ export default function App() {
   // mechanism (rotate through multiple keys, skip exhausted ones) is the
   // same for all three, just scoped by this tab.
   const [hfAccountsProvider, setHfAccountsProvider] = useState('huggingface');
-  const IMAGE_KEY_PROVIDER_LABELS = { huggingface: 'Hugging Face', fal: 'fal.ai', izivoice: 'Moteur KappGen', gemini: 'Google Gemini (gratuit)', anthropic: 'Anthropic (Claude)', kie: 'Claude via Kie.ai' };
+  const IMAGE_KEY_PROVIDER_LABELS = { huggingface: 'Hugging Face', fal: 'fal.ai', izivoice: 'Easy Voice', ai33pro: 'ai33.pro', gemini: 'Google Gemini', anthropic: 'Anthropic', kie: 'Kie.ai', openai: 'OpenAI', deepseek: 'DeepSeek', groq: 'Groq' };
   const [hfAccountBusy, setHfAccountBusy] = useState(false);
   const [hfAccountChecking, setHfAccountChecking] = useState(null);
   const [editingHfLabelId, setEditingHfLabelId] = useState(null);
@@ -10876,7 +10878,7 @@ export default function App() {
   };
 
   useEffect(() => {
-    if (view === 'admin' && currentUser?.is_admin && adminTab === 'resources') { fetchAdminProviders(); fetchThumbnailProviderMode(); fetchVoiceoverProviderMode(); fetchMusicProviderMode(); fetchAiTextProvider(); fetchRenderConcurrency(); fetchPaidApisKillSwitch(); }
+    if (view === 'admin' && currentUser?.is_admin && adminTab === 'resources') { fetchAdminProviders(); fetchThumbnailProviderMode(); fetchVoiceoverProviderMode(); fetchMusicProviderMode(); fetchAiTextProvider(); fetchModelCatalog(); fetchRenderConcurrency(); fetchPaidApisKillSwitch(); }
   }, [view, currentUser?.is_admin, adminTab]);
 
   useEffect(() => {
@@ -11060,9 +11062,18 @@ export default function App() {
     }
   };
 
-  const toggleAiTextProvider = async (id) => {
+  const fetchModelCatalog = async () => {
+    try { const res = await authFetch(`${API_BASE}/admin/settings/model-catalog`); if (res.ok) setModelCatalog(await res.json()); } catch (err) { console.error('Erreur catalogue modèles:', err); }
+  };
+  const chooseTaskModel = (task, provider, model) => {
+    const next = { ...selectedTaskModel, [task]: { provider, model } };
+    setSelectedTaskModel(next);
+    localStorage.setItem('kappgen_task_models', JSON.stringify(next));
+  };
+
+  const toggleAiTextProvider = async (id, forcedOrder = null) => {
     const current = aiTextProvider?.order || [];
-    const nextOrder = current.includes(id) ? current.filter(p => p !== id) : [...current, id];
+    const nextOrder = forcedOrder || (current.includes(id) ? current.filter(p => p !== id) : [...current, id]);
     setAiTextProviderSaving(true);
     try {
       const res = await authFetch(`${API_BASE}/admin/settings/ai-text-provider`, {
@@ -20974,17 +20985,6 @@ export default function App() {
                 </button>
               </div>
 
-              <div className="flex items-center justify-between gap-3">
-                <button
-                  onClick={fetchAdminProviders}
-                  disabled={adminProvidersLoading}
-                  className="shrink-0 px-4 py-2 rounded-xl bg-[var(--bg-surface-alt)] border border-[var(--border)] text-slate-300 hover:text-white text-xs font-bold flex items-center gap-1.5 disabled:opacity-50 transition-all"
-                >
-                  <span className={`material-symbols-outlined text-[16px] ${adminProvidersLoading ? 'animate-spin' : ''}`}>{adminProvidersLoading ? 'progress_activity' : 'refresh'}</span>
-                  {adminProvidersLoading ? 'Vérification…' : 'Revérifier'}
-                </button>
-              </div>
-
               <div className="space-y-3">
                 <div>
                   <h4 className="text-sm font-bold text-white">Vidéos rendues en même temps</h4>
@@ -21129,11 +21129,43 @@ export default function App() {
               <div className="pt-6 border-t border-[var(--border-soft)] space-y-3">
                 <div>
                   <h4 className="text-sm font-bold text-white">Fournisseur IA texte (script, titres, miniatures...)</h4>
+                  <p className="text-[11px] text-slate-500 mt-1">Choisis le fournisseur principal. Les autres fournisseurs sélectionnés servent automatiquement de secours.</p>
                 </div>
                 {!aiTextProvider ? (
                   <div className="text-center text-slate-500 text-xs py-4">Chargement...</div>
                 ) : (
-                  <div className="flex flex-wrap items-center gap-2">
+                  <div className="space-y-3">
+                    <select
+                      value={(aiTextProvider.order || [])[0] || ''}
+                      onChange={e => {
+                        const selected = e.target.value;
+                        if (!selected) return;
+                        const current = aiTextProvider.order || [];
+                        toggleAiTextProvider(selected, [selected, ...current.filter(p => p !== selected)]);
+                      }}
+                      disabled={aiTextProviderSaving}
+                      className="w-full max-w-md bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-[#00c2ff]"
+                    >
+                      <option value="">Sélectionner un fournisseur</option>
+                      {(aiTextProvider.available || []).map(id => <option key={id} value={id}>{AI_TEXT_PROVIDER_LABELS[id] || id}</option>)}
+                    </select>
+                    {modelCatalog && <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-w-2xl">
+                      {['text', 'image', 'music', 'voice'].map(task => {
+                        const chosen = selectedTaskModel[task] || {};
+                        const provider = chosen.provider || Object.keys(modelCatalog.providers || {}).find(p => modelCatalog.providers[p][task]);
+                        const models = provider ? (modelCatalog.providers[provider]?.[task] || []) : [];
+                        return <div key={task} className="flex gap-2">
+                          <select value={provider || ''} onChange={e => chooseTaskModel(task, e.target.value, (modelCatalog.providers[e.target.value]?.[task] || [])[0] || '')} className="flex-1 bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-2 py-2 text-xs text-white">
+                            <option value="">{task === 'text' ? 'Scripts / titres' : task === 'image' ? 'Images / miniatures' : task === 'music' ? 'Musique' : 'Voix off'}</option>
+                            {Object.entries(modelCatalog.providers || {}).filter(([, d]) => d[task]).map(([id, d]) => <option key={id} value={id}>{d.label}</option>)}
+                          </select>
+                          <select value={chosen.model || models[0] || ''} onChange={e => chooseTaskModel(task, provider, e.target.value)} className="flex-1 bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl px-2 py-2 text-xs text-white">
+                            {models.map(m => <option key={m} value={m}>{m}</option>)}
+                          </select>
+                        </div>;
+                      })}
+                    </div>}
+                    <div className="flex flex-wrap items-center gap-2">
                     {(aiTextProvider.available || []).map(id => {
                       const rank = (aiTextProvider.order || []).indexOf(id);
                       const selected = rank !== -1;
@@ -21159,14 +21191,15 @@ export default function App() {
                     })}
                     {aiTextProviderSaving && <span className="material-symbols-outlined text-[16px] text-slate-500 animate-spin">progress_activity</span>}
                   </div>
+                  </div>
                 )}
               </div>
 
               <div className="pt-6 border-t border-[var(--border-soft)] space-y-4">
                 <div>
-                  <h4 className="text-sm font-bold text-white">Clés des moteurs de génération d'image</h4>
+                  <h4 className="text-sm font-bold text-white">Clés API et rotation des fournisseurs</h4>
                   <p className="text-[11px] text-slate-500 mt-1 max-w-xl">
-                    Ajoute plusieurs clés par fournisseur pour basculer automatiquement à la suivante dès qu'une clé est épuisée ou invalide — même mécanisme de rotation pour les trois.
+                    Ajoute plusieurs clés par fournisseur. Kappgen les alterne automatiquement lorsqu'une clé est épuisée ou invalide.
                   </p>
                 </div>
 
