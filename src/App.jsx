@@ -21211,7 +21211,11 @@ export default function App() {
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                         <div><span className="block text-[9px] uppercase tracking-wider text-slate-500 mb-1.5">Source</span><SimpleSelect className="w-full" value={provider || ''} options={providerOptions} onChange={id => chooseTaskModel(task, id, (modelCatalog.providers[id]?.[task] || [])[0] || '')} /></div>
-                        <div><span className="block text-[9px] uppercase tracking-wider text-slate-500 mb-1.5">Modèle</span><SimpleSelect className="w-full" value={chosen.model || models[0] || ''} options={models.map(m => ({ value: m, label: m }))} onChange={m => chooseTaskModel(task, provider, m)} /></div>
+                        <div><span className="block text-[9px] uppercase tracking-wider text-slate-500 mb-1.5">Modèle · coût / 1M tokens</span><SimpleSelect className="w-full" value={chosen.model || models[0] || ''} options={models.map(m => {
+                          const price = modelCatalog.pricing?.[`${provider}:${m}`];
+                          const cost = price?.free_tier ? 'Gratuit' : price?.input != null && price?.output != null ? `$${price.input} entrée · $${price.output} sortie` : price?.output != null ? `$${price.output} sortie` : 'Tarif à vérifier';
+                          return { value: m, label: `${m} — ${cost}` };
+                        })} onChange={m => chooseTaskModel(task, provider, m)} /></div>
                       </div>
                     </div>;
                   })}
