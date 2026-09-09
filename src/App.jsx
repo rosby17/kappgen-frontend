@@ -1107,7 +1107,7 @@ function VoiceCard({ voice, active, saved, mine, playingId, generatingPreviewId,
 // select — replaces the browser's native <select> (unstyled system popup,
 // breaks the app's dark theme and rounded-corner language) with the same
 // dark dropdown + checkmark look used everywhere else in the app.
-function SimpleSelect({ value, onChange, options }) {
+function SimpleSelect({ value, onChange, options, className = '' }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
   const current = options.find(o => o.value === value) || options[0];
@@ -1122,11 +1122,11 @@ function SimpleSelect({ value, onChange, options }) {
   }, [open]);
 
   return (
-    <div ref={ref} className="relative">
+    <div ref={ref} className={`relative ${className}`}>
       <button
         type="button"
         onClick={() => setOpen(o => !o)}
-        className="flex items-center gap-1.5 px-2.5 py-2 rounded-xl bg-[var(--bg-surface-alt)] border border-[var(--border)] hover:border-slate-500 transition-colors text-xs text-white"
+        className="w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl bg-[var(--bg-surface-alt)] border border-[var(--border)] hover:border-[#00c2ff]/60 transition-colors text-xs text-white"
       >
         {current?.label}
         <span className={`material-symbols-outlined text-[14px] text-slate-400 transition-transform ${open ? 'rotate-180' : ''}`}>expand_more</span>
@@ -20960,8 +20960,8 @@ export default function App() {
           )}
 
           {adminTab === 'resources' && (
-            <div className="space-y-5">
-              <div className={`rounded-2xl border p-4 transition-colors ${paidApisKillSwitch?.disabled ? 'border-rose-500/50 bg-rose-950/20' : 'border-[var(--border-soft)] bg-[var(--bg-surface-alt)]'} flex items-center justify-between gap-4`}>
+            <div className="flex flex-col gap-5">
+              <div className={`order-last mt-4 rounded-2xl border p-4 transition-colors ${paidApisKillSwitch?.disabled ? 'border-rose-500/50 bg-rose-950/20' : 'border-[var(--border-soft)] bg-[var(--bg-surface-alt)]'} flex items-center justify-between gap-4`}>
                 <div className="flex items-center gap-2.5">
                   <span className={`material-symbols-outlined text-[20px] ${paidApisKillSwitch?.disabled ? 'text-rose-400' : 'text-slate-400'}`}>power_settings_new</span>
                   <div>
@@ -21015,7 +21015,7 @@ export default function App() {
                 )}
               </div>
 
-              <div className="pt-6 border-t border-[var(--border-soft)] space-y-3">
+              <div className="hidden pt-6 border-t border-[var(--border-soft)] space-y-3">
                 <div>
                   <h4 className="text-sm font-bold text-white">Voix off (audio)</h4>
                 </div>
@@ -21052,7 +21052,7 @@ export default function App() {
                 )}
               </div>
 
-              <div className="pt-6 border-t border-[var(--border-soft)] space-y-3">
+              <div className="hidden pt-6 border-t border-[var(--border-soft)] space-y-3">
                 <div>
                   <h4 className="text-sm font-bold text-white">Musique de fond</h4>
                 </div>
@@ -21089,7 +21089,7 @@ export default function App() {
                 )}
               </div>
 
-              <div className="pt-6 border-t border-[var(--border-soft)] space-y-3">
+              <div className="hidden pt-6 border-t border-[var(--border-soft)] space-y-3">
                 <div>
                   <h4 className="text-sm font-bold text-white">Génération des miniatures</h4>
                 </div>
@@ -21126,7 +21126,7 @@ export default function App() {
                 )}
               </div>
 
-              <div className="pt-6 border-t border-[var(--border-soft)] space-y-3">
+              <div className="hidden pt-6 border-t border-[var(--border-soft)] space-y-3">
                 <div>
                   <h4 className="text-sm font-bold text-white">Fournisseur IA texte (script, titres, miniatures...)</h4>
                   <p className="text-[11px] text-slate-500 mt-1">Choisis le fournisseur principal. Les autres fournisseurs sélectionnés servent automatiquement de secours.</p>
@@ -21183,6 +21183,47 @@ export default function App() {
                   </div>
                   </div>
                 )}
+              </div>
+
+              <div className="pt-6 border-t border-[var(--border-soft)] space-y-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <h4 className="text-sm font-bold text-white">Routage des modèles</h4>
+                    <p className="text-[11px] text-slate-500 mt-1">Choisis d’abord la source, puis le modèle utilisé pour chaque service.</p>
+                  </div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-[#00c2ff] bg-[#00c2ff]/10 border border-[#00c2ff]/20 rounded-full px-2.5 py-1">Configuration active</span>
+                </div>
+                {modelCatalog ? <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                  {[
+                    ['text', 'Scripts et textes', 'edit_note'],
+                    ['image', 'Images et miniatures', 'image'],
+                    ['music', 'Musique de fond', 'music_note'],
+                    ['voice', 'Voix off', 'graphic_eq'],
+                  ].map(([task, label, icon]) => {
+                    const chosen = selectedTaskModel[task] || {};
+                    const provider = chosen.provider || Object.keys(modelCatalog.providers || {}).find(p => modelCatalog.providers[p][task]);
+                    const models = provider ? (modelCatalog.providers[provider]?.[task] || []) : [];
+                    const providerOptions = Object.entries(modelCatalog.providers || {}).filter(([, d]) => d[task]).map(([id, d]) => ({ value: id, label: d.label }));
+                    return <div key={task} className="rounded-2xl border border-[var(--border-soft)] bg-[var(--bg-surface-alt)]/45 p-3.5">
+                      <div className="flex items-center gap-2 mb-3">
+                        <span className="material-symbols-outlined text-[17px] text-[#00c2ff]">{icon}</span>
+                        <span className="text-xs font-bold text-white">{label}</span>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <div><span className="block text-[9px] uppercase tracking-wider text-slate-500 mb-1.5">Source</span><SimpleSelect className="w-full" value={provider || ''} options={providerOptions} onChange={id => chooseTaskModel(task, id, (modelCatalog.providers[id]?.[task] || [])[0] || '')} /></div>
+                        <div><span className="block text-[9px] uppercase tracking-wider text-slate-500 mb-1.5">Modèle</span><SimpleSelect className="w-full" value={chosen.model || models[0] || ''} options={models.map(m => ({ value: m, label: m }))} onChange={m => chooseTaskModel(task, provider, m)} /></div>
+                      </div>
+                    </div>;
+                  })}
+                </div> : <div className="text-center text-slate-500 text-xs py-6">Chargement du catalogue...</div>}
+
+                {aiTextProvider && <div className="rounded-2xl border border-[var(--border-soft)] bg-[var(--bg-surface-alt)]/30 p-3.5">
+                  <div className="flex items-center justify-between gap-3 mb-3"><div><h5 className="text-xs font-bold text-white">Ordre de secours</h5><p className="text-[10px] text-slate-500 mt-0.5">Utilisé seulement si le modèle principal est indisponible.</p></div></div>
+                  <div className="flex flex-wrap gap-2">{(aiTextProvider.order || []).map((id, rank) => {
+                    const family = id === 'anthropic' || id === 'kie' || id === 'fal' ? 'Claude' : id === 'openai' ? 'OpenAI' : id === 'gemini' ? 'Gemini' : id === 'deepseek' ? 'DeepSeek' : id === 'groq' ? 'Groq' : id;
+                    return <button key={id} type="button" onClick={() => toggleAiTextProvider(id)} title={`Source : ${AI_TEXT_PROVIDER_LABELS[id] || id}`} className="inline-flex items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--bg-surface-alt)] px-3 py-2 text-xs font-bold text-slate-300 hover:border-[#00c2ff]/50"><span className="w-5 h-5 rounded-md bg-[#00c2ff]/10 text-[#00c2ff] flex items-center justify-center text-[10px]">{rank + 1}</span>{family}</button>;
+                  })}</div>
+                </div>}
               </div>
 
               <div className="pt-6 border-t border-[var(--border-soft)] space-y-4">
