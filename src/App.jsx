@@ -4898,39 +4898,57 @@ const MAINTENANCE_WHATSAPP_HREF = `https://wa.me/237655306425?text=${encodeURICo
 // reload needed.
 export function MaintenanceScreen() {
   return (
-    <div className="min-h-screen relative flex items-center justify-center bg-[#0a0e14] text-[#e5e8f0] p-6 overflow-hidden">
-      <div className="pointer-events-none absolute inset-0">
-        <div className="absolute -top-40 -left-32 w-[520px] h-[520px] rounded-full blur-[120px] opacity-20 bg-[#00c2ff]" />
-        <div className="absolute -bottom-40 -right-32 w-[520px] h-[520px] rounded-full blur-[120px] opacity-15 bg-amber-500" />
+    <main className="relative isolate min-h-screen overflow-hidden bg-[#060a10] px-5 py-8 text-[#eaf6ff] sm:px-9">
+      <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
+        <div className="absolute inset-0 opacity-[0.18] [background-image:linear-gradient(rgba(83,180,255,.16)_1px,transparent_1px),linear-gradient(90deg,rgba(83,180,255,.16)_1px,transparent_1px)] [background-size:46px_46px] [mask-image:radial-gradient(ellipse_90%_85%_at_50%_40%,black,transparent)]" />
+        <div className="absolute -left-36 top-[-11rem] h-[36rem] w-[36rem] rounded-full bg-cyan-400/20 blur-[145px]" />
+        <div className="absolute -right-48 bottom-[-16rem] h-[40rem] w-[40rem] rounded-full bg-blue-600/20 blur-[165px]" />
+        <div className="absolute left-1/2 top-[12%] h-px w-[min(78rem,100vw)] -translate-x-1/2 bg-gradient-to-r from-transparent via-cyan-300/30 to-transparent" />
+        <div className="absolute left-1/2 top-[12%] h-3 w-3 -translate-x-1/2 -translate-y-1 rounded-full border border-cyan-200/70 bg-cyan-300 shadow-[0_0_24px_7px_rgba(34,211,238,.45)]" />
+        <div className="absolute right-[8%] top-1/2 hidden h-[31rem] w-[31rem] -translate-y-1/2 rounded-full border border-cyan-200/[.08] lg:block" />
+        <div className="absolute right-[12%] top-1/2 hidden h-[22rem] w-[22rem] -translate-y-1/2 rounded-full border border-cyan-200/[.1] lg:block" />
+        <div className="absolute right-[18.5%] top-1/2 hidden h-[9rem] w-[9rem] -translate-y-1/2 rounded-full border border-cyan-200/[.15] bg-cyan-300/[.03] lg:block" />
       </div>
-      <div className="relative w-full max-w-md text-center">
-        <div className="flex items-center justify-center gap-2 mb-6">
-          <img src="/assets/logo/logo-kappgen.png" alt="KappGen" className="w-8 h-8 rounded-lg object-cover" />
-          <span className="font-black text-white tracking-wide text-lg">KappGen</span>
-        </div>
-        <div className="bg-[var(--bg-surface)]/90 backdrop-blur-xl border border-[var(--border-soft)] rounded-3xl shadow-2xl p-8">
-          <div className="w-20 h-20 mx-auto mb-5 rounded-full bg-amber-500/10 border border-amber-500/30 flex items-center justify-center">
-            <span className="material-symbols-outlined text-[36px] text-amber-400">build</span>
-          </div>
-          <h1 className="text-2xl font-extrabold text-white">Une pause volontaire</h1>
-          <p className="text-sm text-slate-400 mt-3 leading-relaxed">
-            La vision de KappGen pour le YouTube automation est tellement avancée que nous ne pouvons pas encore la rendre accessible à tout le monde. Face à l'adoption massive, on préfère marquer une pause plutôt que de brader la qualité qu'on veut associer à KappGen. L'outil reste disponible en accès anticipé pour l'instant.
-          </p>
-          <p className="text-sm text-slate-300 mt-4 leading-relaxed">
-            Envie de tester KappGen dès maintenant, en priorité ? Contacte-nous sur WhatsApp — un accès anticipé est possible pour ceux prêts à s'engager dès aujourd'hui.
-          </p>
-          <a
-            href={MAINTENANCE_WHATSAPP_HREF}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="mt-5 w-full py-3 bg-[#25D366] hover:bg-[#20bd5a] text-white font-bold text-sm rounded-xl transition-colors flex items-center justify-center gap-2 shadow-lg shadow-[#25D366]/20"
-          >
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.48 1.32 5l-1.4 5.12 5.24-1.38a9.9 9.9 0 004.75 1.21h.01c5.46 0 9.9-4.45 9.9-9.91 0-2.65-1.03-5.13-2.9-7C17.15 3.03 14.68 2 12.04 2zm0 18.1h-.01a8.2 8.2 0 01-4.19-1.15l-.3-.18-3.11.82.83-3.03-.2-.31a8.18 8.18 0 01-1.26-4.36c0-4.53 3.69-8.22 8.24-8.22 2.2 0 4.27.86 5.83 2.42a8.17 8.17 0 012.41 5.82c0 4.54-3.7 8.19-8.24 8.19zm4.52-6.16c-.25-.12-1.47-.72-1.69-.81-.23-.08-.39-.12-.56.13-.17.25-.64.81-.78.97-.14.17-.29.19-.54.06-.25-.12-1.04-.38-1.99-1.22-.73-.66-1.23-1.46-1.37-1.71-.14-.25-.02-.38.11-.51.11-.11.25-.29.37-.43.12-.15.16-.25.25-.42.08-.17.04-.31-.02-.43-.06-.13-.56-1.34-.76-1.84-.2-.48-.41-.42-.56-.42-.14 0-.31-.01-.47-.01-.17 0-.44.06-.67.31-.23.25-.87.85-.87 2.08 0 1.23.89 2.42 1.02 2.58.12.17 1.75 2.67 4.24 3.75.59.26 1.05.41 1.41.52.59.19 1.13.16 1.55.1.47-.07 1.47-.6 1.68-1.18.21-.58.21-1.08.14-1.18-.06-.11-.23-.17-.48-.29z"/></svg>
-            Contacter sur WhatsApp
+
+      <div className="relative mx-auto flex min-h-[calc(100vh-4rem)] max-w-[1120px] flex-col">
+        <header className="flex items-center justify-between py-2">
+          <a href="/" className="flex items-center gap-2.5" aria-label="KappGen">
+            <img src="/assets/logo/logo-kappgen.png" alt="" className="h-9 w-9 rounded-xl object-cover shadow-[0_0_28px_rgba(0,194,255,.28)]" />
+            <span className="text-lg font-black tracking-[-0.04em] text-white">KappGen</span>
           </a>
-        </div>
+          <div className="flex items-center gap-2 rounded-full border border-cyan-300/15 bg-cyan-300/[.06] px-3 py-1.5 text-[10px] font-bold uppercase tracking-[.14em] text-cyan-100/80">
+            <span className="relative flex h-1.5 w-1.5"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-cyan-300 opacity-70" /><span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-cyan-300" /></span>
+            Mise à niveau
+          </div>
+        </header>
+
+        <section className="flex flex-1 items-center py-16 sm:py-20">
+          <div className="max-w-2xl">
+            <div className="mb-7 flex h-14 w-14 items-center justify-center rounded-2xl border border-amber-300/25 bg-amber-300/[.075] shadow-[0_0_40px_rgba(251,191,36,.1)]">
+              <svg viewBox="0 0 24 24" className="h-6 w-6 text-amber-300" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m14.7 6.3 3 3M5.4 20.1l2.2-.5 10-10a2.1 2.1 0 0 0-3-3l-10 10-.5 2.2Z" /><path d="m12.2 8.8 3 3" /></svg>
+            </div>
+            <p className="mb-4 text-[10px] font-extrabold uppercase tracking-[.22em] text-cyan-300">Accès temporairement limité</p>
+            <h1 className="max-w-xl text-4xl font-black leading-[1.02] tracking-[-0.06em] text-white sm:text-6xl">Une pause<br /><span className="text-transparent [background:linear-gradient(100deg,#fff_10%,#64dfff_60%,#2997ff)] bg-clip-text">volontaire.</span></h1>
+            <p className="mt-7 max-w-xl text-[15px] leading-7 text-slate-400 sm:text-base">
+              KappGen évolue rapidement. Pour préserver la qualité de production et accompagner chaque créateur dans de bonnes conditions, l’accès public est momentanément suspendu.
+            </p>
+
+            <div className="mt-9 flex flex-col gap-4 border-l border-cyan-300/30 pl-5 sm:flex-row sm:items-center sm:justify-between sm:gap-8">
+              <div>
+                <h2 className="text-sm font-bold text-slate-100">Tu veux tester KappGen en priorité ?</h2>
+                <p className="mt-1 text-xs leading-5 text-slate-400">Des accès anticipés restent ouverts pour les créateurs prêts à commencer maintenant.</p>
+              </div>
+              <a href={MAINTENANCE_WHATSAPP_HREF} target="_blank" rel="noopener noreferrer" className="flex shrink-0 items-center justify-center gap-2 rounded-xl bg-[#25d366] px-5 py-3 text-sm font-extrabold text-white shadow-[0_10px_26px_rgba(37,211,102,.18)] transition-transform hover:-translate-y-0.5 hover:bg-[#2be477] focus:outline-none focus:ring-2 focus:ring-[#25d366]/70 focus:ring-offset-2 focus:ring-offset-[#060a10]">
+                <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" fill="currentColor" aria-hidden="true"><path d="M12.04 2A9.87 9.87 0 0 0 3.8 17.3L2.5 22l4.82-1.26A9.96 9.96 0 1 0 12.04 2Zm5.8 14.07c-.24.67-1.2 1.22-1.97 1.39-.54.11-1.24.2-3.6-.78-3.02-1.25-4.96-4.3-5.11-4.5-.15-.2-1.22-1.62-1.22-3.1s.77-2.2 1.04-2.5c.27-.3.59-.37.78-.37h.56c.18 0 .42-.07.66.5.24.58.82 2 .9 2.14.07.15.12.32.02.52-.1.2-.15.32-.3.49-.15.17-.31.37-.45.5-.15.15-.3.31-.13.61.17.3.77 1.27 1.65 2.05 1.14 1.02 2.1 1.34 2.4 1.49.3.15.47.12.64-.07.17-.2.74-.87.94-1.17.2-.3.4-.25.67-.15.27.1 1.72.82 2.01.97.3.15.5.22.57.35.07.12.07.72-.17 1.39Z" /></svg>
+                Contacter sur WhatsApp
+              </a>
+            </div>
+          </div>
+        </section>
+
+        <footer className="flex items-center justify-between border-t border-white/[.06] py-5 text-[10px] font-medium uppercase tracking-[.16em] text-slate-600"><span>KappGen · Vidéo automation</span><span>© {new Date().getFullYear()}</span></footer>
       </div>
-    </div>
+    </main>
   );
 }
 
