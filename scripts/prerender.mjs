@@ -8,7 +8,7 @@ const template = fs.readFileSync(path.join(distDir, 'index.html'), 'utf-8')
 
 const { render } = await import(path.join(root, '..', 'dist-ssr', 'entry-server.js'))
 
-const routes = ['/', '/privacy', '/terms']
+const routes = ['/', '/privacy', '/terms', '/contact']
 
 // dist/index.html is the SPA fallback vercel.json routes EVERY unmatched
 // path to, on BOTH kappgen.com (marketing) and app.kappgen.com (the app) —
@@ -25,6 +25,16 @@ for (const route of routes) {
   let page = template
     .replace(/<title>.*?<\/title>/s, `<title>${title}</title>`)
     .replace(/<meta name="description" content=".*?"\s*\/>/s, `<meta name="description" content="${description}" />`)
+    // Each public page must describe itself. Leaving every route with the
+    // homepage canonical caused Google to consolidate legitimate pages as
+    // duplicates rather than indexing them independently.
+    .replace(/<link rel="canonical" href=".*?"\s*\/>/s, `<link rel="canonical" href="https://kappgen.com${route === '/' ? '/' : route}" />`)
+    .replace(/<meta property="og:url" content=".*?"\s*\/>/s, `<meta property="og:url" content="https://kappgen.com${route === '/' ? '/' : route}" />`)
+    .replace(/<meta property="og:title" content=".*?"\s*\/>/s, `<meta property="og:title" content="${title}" />`)
+    .replace(/<meta property="og:description" content=".*?"\s*\/>/s, `<meta property="og:description" content="${description}" />`)
+    .replace(/<meta name="twitter:url" content=".*?"\s*\/>/s, `<meta name="twitter:url" content="https://kappgen.com${route === '/' ? '/' : route}" />`)
+    .replace(/<meta name="twitter:title" content=".*?"\s*\/>/s, `<meta name="twitter:title" content="${title}" />`)
+    .replace(/<meta name="twitter:description" content=".*?"\s*\/>/s, `<meta name="twitter:description" content="${description}" />`)
     .replace('<div id="root">', `<div id="root">${html}`)
 
   if (route === '/') {

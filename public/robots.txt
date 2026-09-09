@@ -2,5 +2,13 @@ User-agent: *
 Allow: /
 Disallow: /admin
 Disallow: /api/
+# Product, authentication and account routes are functional application
+# screens, not standalone search destinations. They should never compete
+# with KappGen's public pages in Search.
+Disallow: /login
+Disallow: /signup
+Disallow: /dashboard
+Disallow: /channels
+Disallow: /videos
 
 Sitemap: https://kappgen.com/sitemap.xml

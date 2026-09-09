@@ -1,6 +1,7 @@
 import { renderToString } from 'react-dom/server'
 import LandingPage from './LandingPage.jsx'
 import LegalPage from './LegalPage.jsx'
+import ContactPage from './ContactPage.jsx'
 
 const PAGES = {
   '/': {
@@ -17,6 +18,11 @@ const PAGES = {
     Component: () => <LegalPage type="terms" />,
     title: "KappGen — Conditions d'utilisation",
     description: "Les conditions d'utilisation du service KappGen.",
+  },
+  '/contact': {
+    Component: ContactPage,
+    title: 'Contacter KappGen — Support et partenariats',
+    description: 'Contactez KappGen pour le support, les partenariats et les questions commerciales liées à la création vidéo YouTube avec IA.',
   },
 }
 
