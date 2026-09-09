@@ -10405,6 +10405,7 @@ export default function App() {
   const IMAGE_KEY_PROVIDER_LABELS = { huggingface: 'Hugging Face', fal: 'fal.ai', izivoice: 'Izivoice', ai33pro: 'KappGen', gemini: 'Google Gemini', anthropic: 'Anthropic', kie: 'Kie.ai', openai: 'OpenAI', deepseek: 'DeepSeek', groq: 'Groq', xai: 'xAI (Grok)', ollama: 'Ollama (Mac)' };
   const [hfAccountBusy, setHfAccountBusy] = useState(false);
   const [hfAccountChecking, setHfAccountChecking] = useState(null);
+  const [hfAccountsCheckingAll, setHfAccountsCheckingAll] = useState(false);
   const [editingHfLabelId, setEditingHfLabelId] = useState(null);
   const [editingHfLabelValue, setEditingHfLabelValue] = useState('');
   const [adminProvidersLoading, setAdminProvidersLoading] = useState(false);
@@ -11086,6 +11087,12 @@ export default function App() {
     }
   };
 
+  const providerDotClass = (health) => {
+    if (health?.status === 'ok') return 'bg-emerald-500';
+    if (!health || health.status === 'not_configured') return 'bg-slate-500';
+    return 'bg-rose-500';
+  };
+
   useEffect(() => {
     if (view === 'admin' && currentUser?.is_admin && adminTab === 'resources') { fetchAdminProviders(); fetchThumbnailProviderMode(); fetchSceneImageProviderMode(); fetchVoiceoverProviderMode(); fetchMusicProviderMode(); fetchAiTextProvider(); fetchModelCatalog(); fetchRenderConcurrency(); fetchPaidApisKillSwitch(); }
   }, [view, currentUser?.is_admin, adminTab]);
@@ -11410,6 +11417,22 @@ export default function App() {
       showToast('Échec de la vérification.', 'error');
     } finally {
       setHfAccountChecking(null);
+    }
+  };
+
+  const checkAllProviderKeys = async () => {
+    setHfAccountsCheckingAll(true);
+    try {
+      const res = await authFetch(`${API_BASE}/admin/hf-accounts/check-all`, { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || 'Vérification impossible.');
+      setAdminProviders(data.providers || []);
+      await fetchHfAccounts();
+      showToast(`${data.checked} clé${data.checked > 1 ? 's' : ''} vérifiée${data.checked > 1 ? 's' : ''}.`, 'success');
+    } catch (error) {
+      showToast(error.message || 'Échec de la vérification des clés.', 'error');
+    } finally {
+      setHfAccountsCheckingAll(false);
     }
   };
 
@@ -21378,7 +21401,7 @@ export default function App() {
                       const rank = (voiceoverProviderMode.order || []).indexOf(id);
                       const selected = rank !== -1;
                       const health = (adminProviders || []).find(p => p.id === id);
-                      const dotColor = health?.status === 'ok' ? 'bg-emerald-500' : health?.status === 'quota_exhausted' ? 'bg-rose-500' : 'bg-slate-600';
+                      const dotColor = providerDotClass(health);
                       const label = { izivoice: 'Izivoice', ai33pro: 'KappGen' }[id] || id;
                       return (
                         <button
@@ -21415,7 +21438,7 @@ export default function App() {
                       const rank = (musicProviderMode.order || []).indexOf(id);
                       const selected = rank !== -1;
                       const health = (adminProviders || []).find(p => p.id === id);
-                      const dotColor = health?.status === 'ok' ? 'bg-emerald-500' : health?.status === 'quota_exhausted' ? 'bg-rose-500' : 'bg-slate-600';
+                      const dotColor = providerDotClass(health);
                       const label = { izivoice: 'Izivoice', ai33pro: 'KappGen', kie: 'Kie.ai (Suno)' }[id] || id;
                       return (
                         <button
@@ -21524,13 +21547,7 @@ export default function App() {
                             const rank = currentOrder.indexOf(id);
                             const selected = rank !== -1;
                             const health = (adminProviders || []).find(p => p.id === id);
-                            const dotColor = health?.status === 'ok'
-                              ? 'bg-emerald-500'
-                              : health?.status === 'error' || health?.status === 'quota_exhausted'
-                                ? 'bg-rose-500'
-                                : (id === 'huggingface' || id === 'groq' || id === 'gemini')
-                                  ? 'bg-emerald-500'
-                                  : 'bg-slate-500';
+                            const dotColor = providerDotClass(health);
                             const pName = getProviderDisplayName(id);
                             return (
                               <button
@@ -21563,11 +21580,17 @@ export default function App() {
               </div>
 
               <div className="pt-6 border-t border-[var(--border-soft)] space-y-4">
-                <div>
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
                   <h4 className="text-sm font-bold text-white">Clés API et rotation des fournisseurs</h4>
                   <p className="text-[11px] text-slate-500 mt-1 max-w-xl">
-                    Les clés enregistrées en base sont utilisées à tour de rôle à chaque appel. En cas d’échec, KappGen essaie la suivante. Le statut indique le résultat de la dernière vérification.
+                    Vert : requête vérifiée et disponible. Rouge : clé refusée, inactive ou quota indisponible. Gris : aucun modèle actif ou contrôle non effectué.
                   </p>
+                  </div>
+                  <button onClick={checkAllProviderKeys} disabled={hfAccountsCheckingAll} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-[#00c2ff]/50 text-[#00c2ff] text-xs font-bold disabled:opacity-50">
+                    <span className={`material-symbols-outlined text-[15px] ${hfAccountsCheckingAll ? 'animate-spin' : ''}`}>{hfAccountsCheckingAll ? 'progress_activity' : 'fact_check'}</span>
+                    Vérifier toutes les clés
+                  </button>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-1 bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-xl p-1 w-fit">
@@ -21614,8 +21637,8 @@ export default function App() {
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                     {hfAccounts.map(a => {
-                      const dotColor = !a.is_enabled ? 'bg-slate-500' : a.status === 'active' ? 'bg-emerald-500' : ['quota_exhausted', 'rate_limited', 'unverified'].includes(a.status) ? 'bg-amber-500' : 'bg-red-500';
-                      const statusLabel = !a.is_enabled ? 'Inactif' : ({ active: 'Valide', quota_exhausted: 'Quota épuisé', rate_limited: 'Limité', invalid: 'Invalide', forbidden: 'Accès refusé', error: 'Erreur du service', unverified: 'À vérifier' }[a.status] || 'À vérifier');
+                      const dotColor = a.status === 'active' && a.is_enabled ? 'bg-emerald-500' : a.status === 'unverified' && a.is_enabled ? 'bg-slate-500' : 'bg-rose-500';
+                      const statusLabel = !a.is_enabled ? 'Inactif' : ({ active: 'Actif', quota_exhausted: 'Solde insuffisant', rate_limited: 'Limite atteinte', invalid: 'Clé refusée', forbidden: 'Accès refusé', error: 'Inactif', unverified: 'Non vérifié' }[a.status] || 'Non vérifié');
                       return (
                         <div key={a.id} className={`bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-xl px-2.5 py-2 ${!a.is_enabled ? 'opacity-50' : ''}`}>
                           {editingProviderKey === a.id && (
@@ -21648,7 +21671,7 @@ export default function App() {
                               <span className={`w-2 h-2 rounded-full shrink-0 ${dotColor}`} />
                               <span className="text-[11px] font-bold text-white truncate flex-1" title={a.label || a.token_preview}>{a.label || a.token_preview}</span>
                               <span className={`shrink-0 text-[8px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full ${
-                                a.status === 'active' ? 'bg-emerald-950/60 text-emerald-400' : a.status === 'quota_exhausted' ? 'bg-amber-950/60 text-amber-400' : 'bg-rose-950/60 text-rose-400'
+                                a.status === 'active' && a.is_enabled ? 'bg-emerald-950/60 text-emerald-400' : a.status === 'unverified' && a.is_enabled ? 'bg-slate-800 text-slate-400' : 'bg-rose-950/60 text-rose-400'
                               }`}>{statusLabel}</span>
                             </div>
                           )}
