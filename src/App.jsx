@@ -4883,6 +4883,38 @@ function LibraryChannelAvatar({ channel }) {
   );
 }
 
+// Site-wide maintenance screen — shown in place of the entire app while the
+// admin's paid-APIs kill switch is on (see App's maintenanceActive state and
+// the render gate right after the auth-route redirects). No polling of its
+// own: App's existing 45s interval keeps maintenanceActive current, so this
+// unmounts on its own the moment the admin flips the switch back off — no
+// reload needed.
+function MaintenanceScreen() {
+  return (
+    <div className="min-h-screen relative flex items-center justify-center bg-[#0a0e14] text-[#e5e8f0] p-6 overflow-hidden">
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute -top-40 -left-32 w-[520px] h-[520px] rounded-full blur-[120px] opacity-20 bg-[#00c2ff]" />
+        <div className="absolute -bottom-40 -right-32 w-[520px] h-[520px] rounded-full blur-[120px] opacity-15 bg-amber-500" />
+      </div>
+      <div className="relative w-full max-w-md text-center">
+        <div className="flex items-center justify-center gap-2 mb-6">
+          <img src="/assets/logo/logo-kappgen.png" alt="KappGen" className="w-8 h-8 rounded-lg object-cover" />
+          <span className="font-black text-white tracking-wide text-lg">KappGen</span>
+        </div>
+        <div className="bg-[var(--bg-surface)]/90 backdrop-blur-xl border border-[var(--border-soft)] rounded-3xl shadow-2xl p-8">
+          <div className="w-20 h-20 mx-auto mb-5 rounded-full bg-amber-500/10 border border-amber-500/30 flex items-center justify-center">
+            <span className="material-symbols-outlined text-[36px] text-amber-400">build</span>
+          </div>
+          <h1 className="text-2xl font-extrabold text-white">Maintenance en cours</h1>
+          <p className="text-sm text-slate-400 mt-3 leading-relaxed">
+            KappGen est momentanément en pause pour une opération de maintenance. On revient très vite — aucune donnée n'est perdue, tes vidéos et chaînes seront là à la réouverture.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // Private beta gate — shown in place of the entire app for a signed-in
 // account that isn't approved yet (see App's render, right after the
 // currentUser/auth-route redirects). Polls the account's own status so
@@ -6532,6 +6564,29 @@ export default function App() {
     setCurrentUser(loggedUser);
     localStorage.setItem("nichecut_user", JSON.stringify(loggedUser));
   };
+
+  // Mirrors the admin's "Coupe-circuit API payantes" kill switch (see
+  // Ressources tab) — this used to only change which provider each
+  // generation used under the hood, so a visitor during an outage saw a
+  // perfectly normal app that then failed or silently degraded (voice/music
+  // have no free fallback). Polled unauthenticated (public endpoint, no
+  // authFetch/credentials needed) so it works even for a signed-out visitor
+  // on the marketing/login flow. 45s: frequent enough to clear the screen
+  // shortly after the admin flips it back off, without hammering the
+  // backend from every open tab.
+  const [maintenanceActive, setMaintenanceActive] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    const check = () => {
+      fetch(`${API_BASE}/maintenance-status`)
+        .then(res => res.ok ? res.json() : null)
+        .then(data => { if (!cancelled && data) setMaintenanceActive(!!data.maintenance); })
+        .catch(() => {}); // transient network hiccup — keep the last known state
+    };
+    check();
+    const interval = setInterval(check, 45000);
+    return () => { cancelled = true; clearInterval(interval); };
+  }, []);
   const [authTab, setAuthTab] = useState(() => window.location.pathname.endsWith('/signup') || window.location.pathname.endsWith('/signin') ? 'register' : 'login'); // 'login' | 'register' | 'forgot'
   const [authForm, setAuthForm] = useState({ email: '', password: '' });
   const [showAuthPassword, setShowAuthPassword] = useState(false);
@@ -10888,7 +10943,7 @@ export default function App() {
   const togglePaidApisKillSwitch = async () => {
     const next = !paidApisKillSwitch?.disabled;
     if (next && !(await askConfirm(
-      "Toutes les vidéos qui utilisent la voix off ou la musique générée s'arrêteront de fonctionner tant que c'est actif — seules les images/miniatures (Hugging Face) et l'IA texte (Groq/Gemini) continueront. Réactive-le dès que tes comptes payants sont rechargés.",
+      "Le site passera en page de maintenance pour tout le monde sauf les admins connectés, et voix off / musique s'arrêteront complètement — seules les images/miniatures (Hugging Face) et l'IA texte (Groq/Gemini) continueront en interne. Réactive-le dès que tes comptes payants sont rechargés.",
       { title: "Couper toutes les API payantes maintenant ?", confirmLabel: "Oui, tout couper", danger: true }
     ))) return;
     setPaidApisKillSwitchSaving(true);
@@ -12560,6 +12615,18 @@ export default function App() {
     const requestedPath = typeof location.state?.from === 'string' ? location.state.from : '/dashboard';
     const safeDestination = requestedPath.startsWith('/') && !AUTH_PATHS.has(requestedPath.split('?')[0]) ? requestedPath : '/dashboard';
     return <Navigate to={safeDestination} replace />;
+  }
+
+  // Site-wide maintenance: mirrors the admin's paid-APIs kill switch (see
+  // maintenanceActive above + the "Coupe-circuit API payantes" panel in
+  // Ressources). Auth routes stay reachable on purpose — an admin whose
+  // session expired while this is on must still be able to log back in and
+  // flip it off, or the site locks itself out with no way back short of a
+  // direct DB edit. Every other route shows the maintenance screen for
+  // anyone who isn't an admin (an already-signed-in admin's own session is
+  // never blocked by their own kill switch).
+  if (maintenanceActive && !isAuthRoute && !(currentUser && currentUser.is_admin)) {
+    return <MaintenanceScreen />;
   }
 
   // Private beta gate: a signed-in account that isn't approved yet sees this
@@ -20780,7 +20847,7 @@ export default function App() {
                       Coupe-circuit API payantes
                     </h4>
                     <p className="text-[11px] text-slate-400 mt-1 max-w-xl">
-                      Un seul bouton pour arrêter tout appel payant (Izivoice, ai33.pro, Claude/Anthropic, fal.ai, OpenAI, DeepSeek) partout dans l'app — utile quand un compte est à sec, pour ne plus jamais me faire débiter. Seuls les moteurs gratuits (Hugging Face pour les images, Groq/Gemini pour le texte) continuent. Voix off et musique s'arrêtent complètement le temps que c'est actif.
+                      Un seul bouton pour arrêter tout appel payant (Izivoice, ai33.pro, Claude/Anthropic, fal.ai, OpenAI, DeepSeek) partout dans l'app — utile quand un compte est à sec, pour ne plus jamais me faire débiter. Le site bascule en page de maintenance pour tout le monde sauf les admins (connectés) — personne ne voit une génération démarrer pour échouer ou dégrader en silence.
                     </p>
                   </div>
                 </div>
