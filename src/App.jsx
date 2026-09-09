@@ -4937,7 +4937,6 @@ export function MaintenanceScreen() {
             <div className="mt-9 flex flex-col gap-4 border-l border-cyan-300/30 pl-5 sm:flex-row sm:items-center sm:justify-between sm:gap-8">
               <div>
                 <h2 className="text-sm font-bold text-slate-100">Tu veux tester KappGen en priorité ?</h2>
-                <p className="mt-1 text-xs leading-5 text-slate-400">Des accès anticipés restent ouverts pour les créateurs prêts à commencer maintenant.</p>
               </div>
               <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
                 <a href={MAINTENANCE_SUBSCRIPTION_HREF} className="flex items-center justify-center gap-2 rounded-xl bg-[#00c2ff] px-5 py-3 text-sm font-extrabold text-slate-950 shadow-[0_10px_26px_rgba(0,194,255,.16)] transition-transform hover:-translate-y-0.5 hover:bg-[#41d3ff] focus:outline-none focus:ring-2 focus:ring-[#00c2ff]/70 focus:ring-offset-2 focus:ring-offset-[#060a10]">
