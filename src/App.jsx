@@ -4907,7 +4907,7 @@ function MaintenanceScreen() {
           </div>
           <h1 className="text-2xl font-extrabold text-white">Maintenance en cours</h1>
           <p className="text-sm text-slate-400 mt-3 leading-relaxed">
-            KappGen est momentanément en pause pour une opération de maintenance. On revient très vite — aucune donnée n'est perdue, tes vidéos et chaînes seront là à la réouverture.
+            KappGen est en pause pour une opération de maintenance. Dû à l'adoption massive de l'outil, nous avons mis en place des restrictions pour garantir un usage sain et contrôlé. Nos services seront disponibles très bientôt.
           </p>
         </div>
       </div>
