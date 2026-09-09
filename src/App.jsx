@@ -4889,6 +4889,7 @@ function LibraryChannelAvatar({ channel }) {
 const MAINTENANCE_WHATSAPP_HREF = `https://wa.me/237655306425?text=${encodeURIComponent(
   "Bonjour, je souhaite tester KappGen en accès anticipé pendant la maintenance."
 )}`;
+const MAINTENANCE_SUBSCRIPTION_HREF = 'https://app.kappgen.com/signup?intent=subscription';
 
 // Site-wide maintenance screen — shown in place of the entire app while the
 // admin's paid-APIs kill switch is on (see App's maintenanceActive state and
@@ -4938,10 +4939,16 @@ export function MaintenanceScreen() {
                 <h2 className="text-sm font-bold text-slate-100">Tu veux tester KappGen en priorité ?</h2>
                 <p className="mt-1 text-xs leading-5 text-slate-400">Des accès anticipés restent ouverts pour les créateurs prêts à commencer maintenant.</p>
               </div>
-              <a href={MAINTENANCE_WHATSAPP_HREF} target="_blank" rel="noopener noreferrer" className="flex shrink-0 items-center justify-center gap-2 rounded-xl bg-[#25d366] px-5 py-3 text-sm font-extrabold text-white shadow-[0_10px_26px_rgba(37,211,102,.18)] transition-transform hover:-translate-y-0.5 hover:bg-[#2be477] focus:outline-none focus:ring-2 focus:ring-[#25d366]/70 focus:ring-offset-2 focus:ring-offset-[#060a10]">
-                <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" fill="currentColor" aria-hidden="true"><path d="M12.04 2A9.87 9.87 0 0 0 3.8 17.3L2.5 22l4.82-1.26A9.96 9.96 0 1 0 12.04 2Zm5.8 14.07c-.24.67-1.2 1.22-1.97 1.39-.54.11-1.24.2-3.6-.78-3.02-1.25-4.96-4.3-5.11-4.5-.15-.2-1.22-1.62-1.22-3.1s.77-2.2 1.04-2.5c.27-.3.59-.37.78-.37h.56c.18 0 .42-.07.66.5.24.58.82 2 .9 2.14.07.15.12.32.02.52-.1.2-.15.32-.3.49-.15.17-.31.37-.45.5-.15.15-.3.31-.13.61.17.3.77 1.27 1.65 2.05 1.14 1.02 2.1 1.34 2.4 1.49.3.15.47.12.64-.07.17-.2.74-.87.94-1.17.2-.3.4-.25.67-.15.27.1 1.72.82 2.01.97.3.15.5.22.57.35.07.12.07.72-.17 1.39Z" /></svg>
-                Obtenir un accès anticipé
-              </a>
+              <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
+                <a href={MAINTENANCE_SUBSCRIPTION_HREF} className="flex items-center justify-center gap-2 rounded-xl bg-[#00c2ff] px-5 py-3 text-sm font-extrabold text-slate-950 shadow-[0_10px_26px_rgba(0,194,255,.16)] transition-transform hover:-translate-y-0.5 hover:bg-[#41d3ff] focus:outline-none focus:ring-2 focus:ring-[#00c2ff]/70 focus:ring-offset-2 focus:ring-offset-[#060a10]">
+                  <span className="material-symbols-outlined text-[18px]">workspace_premium</span>
+                  Obtenir un accès anticipé
+                </a>
+                <a href={MAINTENANCE_WHATSAPP_HREF} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 rounded-xl border border-[#25d366]/40 bg-[#25d366]/10 px-5 py-3 text-sm font-extrabold text-[#62e995] transition-transform hover:-translate-y-0.5 hover:bg-[#25d366]/20 focus:outline-none focus:ring-2 focus:ring-[#25d366]/70 focus:ring-offset-2 focus:ring-offset-[#060a10]">
+                  <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" fill="currentColor" aria-hidden="true"><path d="M12.04 2A9.87 9.87 0 0 0 3.8 17.3L2.5 22l4.82-1.26A9.96 9.96 0 1 0 12.04 2Zm5.8 14.07c-.24.67-1.2 1.22-1.97 1.39-.54.11-1.24.2-3.6-.78-3.02-1.25-4.96-4.3-5.11-4.5-.15-.2-1.22-1.62-1.22-3.1s.77-2.2 1.04-2.5c.27-.3.59-.37.78-.37h.56c.18 0 .42-.07.66.5.24.58.82 2 .9 2.14.07.15.12.32.02.52-.1.2-.15.32-.3.49-.15.17-.31.37-.45.5-.15.15-.3.31-.13.61.17.3.77 1.27 1.65 2.05 1.14 1.02 2.1 1.34 2.4 1.49.3.15.47.12.64-.07.17-.2.74-.87.94-1.17.2-.3.4-.25.67-.15.27.1 1.72.82 2.01.97.3.15.5.22.57.35.07.12.07.72-.17 1.39Z" /></svg>
+                  Contacter sur WhatsApp
+                </a>
+              </div>
             </div>
           </div>
         </section>
