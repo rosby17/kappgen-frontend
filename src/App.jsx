@@ -21048,32 +21048,27 @@ export default function App() {
 
           {adminTab === 'resources' && (
             <div className="space-y-5">
-              <div className={`rounded-2xl border-2 p-4 space-y-3 transition-colors ${paidApisKillSwitch?.disabled ? 'border-rose-600 bg-rose-950/30' : 'border-[var(--border-soft)] bg-[var(--bg-surface-alt)]'}`}>
-                <div className="flex items-start justify-between gap-3">
+              <div className={`rounded-2xl border p-4 transition-colors ${paidApisKillSwitch?.disabled ? 'border-rose-500/50 bg-rose-950/20' : 'border-[var(--border-soft)] bg-[var(--bg-surface-alt)]'} flex items-center justify-between gap-4`}>
+                <div className="flex items-center gap-2.5">
+                  <span className={`material-symbols-outlined text-[20px] ${paidApisKillSwitch?.disabled ? 'text-rose-400' : 'text-slate-400'}`}>power_settings_new</span>
                   <div>
-                    <h4 className="text-sm font-extrabold text-white flex items-center gap-1.5">
-                      <span className="material-symbols-outlined text-[18px] text-rose-400">emergency</span>
-                      Coupe-circuit API payantes
-                    </h4>
-                    <p className="text-[11px] text-slate-400 mt-1 max-w-xl">
-                      Un seul bouton pour arrêter tout appel payant (Izivoice, ai33.pro, Claude/Anthropic, fal.ai, OpenAI, DeepSeek) partout dans l'app — utile quand un compte est à sec, pour ne plus jamais me faire débiter. Le site bascule en page de maintenance pour tout le monde sauf les admins (connectés) — personne ne voit une génération démarrer pour échouer ou dégrader en silence.
-                    </p>
+                    <h4 className="text-sm font-extrabold text-white">Mode maintenance</h4>
+                    <p className={`mt-0.5 text-[11px] ${paidApisKillSwitch?.disabled ? 'text-rose-300' : 'text-slate-500'}`}>{paidApisKillSwitch?.disabled ? 'Activé' : 'Désactivé'}</p>
                   </div>
                 </div>
                 <button
                   type="button"
                   onClick={togglePaidApisKillSwitch}
                   disabled={paidApisKillSwitchSaving || !paidApisKillSwitch}
-                  className={`w-full py-3 rounded-xl text-sm font-extrabold flex items-center justify-center gap-2 transition-all disabled:opacity-50 ${
-                    paidApisKillSwitch?.disabled
-                      ? 'bg-rose-600 hover:bg-rose-500 text-white'
-                      : 'bg-[#00c2ff] hover:bg-[#38d0ff] text-slate-950'
-                  }`}
+                  role="switch"
+                  aria-checked={!!paidApisKillSwitch?.disabled}
+                  aria-label="Activer ou désactiver le mode maintenance"
+                  title={paidApisKillSwitch?.disabled ? 'Désactiver le mode maintenance' : 'Activer le mode maintenance'}
+                  className={`relative h-8 w-14 rounded-full transition-colors disabled:opacity-50 ${paidApisKillSwitch?.disabled ? 'bg-rose-500' : 'bg-slate-700 hover:bg-slate-600'}`}
                 >
-                  <span className={`material-symbols-outlined text-[18px] ${paidApisKillSwitchSaving ? 'animate-spin' : ''}`}>
-                    {paidApisKillSwitchSaving ? 'progress_activity' : paidApisKillSwitch?.disabled ? 'power_off' : 'power'}
+                  <span className={`absolute top-1 flex h-6 w-6 items-center justify-center rounded-full bg-white text-[13px] text-slate-800 shadow-sm transition-transform ${paidApisKillSwitch?.disabled ? 'translate-x-7' : 'translate-x-1'}`}>
+                    <span className={`material-symbols-outlined text-[14px] ${paidApisKillSwitchSaving ? 'animate-spin' : ''}`}>{paidApisKillSwitchSaving ? 'progress_activity' : 'power_settings_new'}</span>
                   </span>
-                  {!paidApisKillSwitch ? 'Chargement…' : paidApisKillSwitch.disabled ? 'API payantes coupées — cliquer pour réactiver' : 'Tout couper maintenant'}
                 </button>
               </div>
 
