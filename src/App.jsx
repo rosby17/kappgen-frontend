@@ -4928,7 +4928,7 @@ export function MaintenanceScreen() {
               <svg viewBox="0 0 24 24" className="h-6 w-6 text-amber-300" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m14.7 6.3 3 3M5.4 20.1l2.2-.5 10-10a2.1 2.1 0 0 0-3-3l-10 10-.5 2.2Z" /><path d="m12.2 8.8 3 3" /></svg>
             </div>
             <p className="mb-4 text-[10px] font-extrabold uppercase tracking-[.22em] text-cyan-300">Accès temporairement limité</p>
-            <h1 className="max-w-xl text-4xl font-black leading-[1.02] tracking-[-0.06em] text-white sm:text-6xl">Une pause<br /><span className="text-transparent [background:linear-gradient(100deg,#fff_10%,#64dfff_60%,#2997ff)] bg-clip-text">volontaire.</span></h1>
+            <h1 className="max-w-xl text-4xl font-black leading-[1.02] tracking-[-0.06em] text-white sm:text-6xl">Une pause<br /><span style={{ backgroundImage: 'linear-gradient(100deg, #ffffff 10%, #64dfff 60%, #2997ff)', backgroundClip: 'text', WebkitBackgroundClip: 'text', color: 'transparent' }}>volontaire.</span></h1>
             <p className="mt-7 max-w-xl text-[15px] leading-7 text-slate-400 sm:text-base">
               KappGen évolue rapidement. Pour préserver la qualité de production et accompagner chaque créateur dans de bonnes conditions, l’accès public est momentanément suspendu.
             </p>
