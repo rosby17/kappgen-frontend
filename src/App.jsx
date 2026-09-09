@@ -13068,7 +13068,24 @@ export default function App() {
                   <span className={`material-symbols-outlined shrink-0 text-[18px] ${paidApisKillSwitch?.disabled ? 'text-rose-400' : 'text-slate-500'}`}>power_settings_new</span>
                   {!sidebarCollapsed && <div className="min-w-0"><div className="text-[11px] font-bold text-slate-300">Mode maintenance</div><div className={`text-[9px] ${paidApisKillSwitch?.disabled ? 'text-rose-400' : 'text-slate-600'}`}>{paidApisKillSwitch?.disabled ? 'Activé' : 'Désactivé'}</div></div>}
                 </div>
-                {!sidebarCollapsed && <button type="button" onClick={togglePaidApisKillSwitch} disabled={paidApisKillSwitchSaving || !paidApisKillSwitch} role="switch" aria-checked={!!paidApisKillSwitch?.disabled} className={`relative h-6 w-10 shrink-0 rounded-full transition-colors disabled:opacity-50 ${paidApisKillSwitch?.disabled ? 'bg-rose-500' : 'bg-slate-700'}`}><span className={`absolute top-1 h-4 w-4 rounded-full bg-white shadow transition-transform ${paidApisKillSwitch?.disabled ? 'translate-x-5' : 'translate-x-1'}`} /></button>}
+                {!sidebarCollapsed && (
+                  <button
+                    type="button"
+                    onClick={togglePaidApisKillSwitch}
+                    disabled={paidApisKillSwitchSaving || !paidApisKillSwitch}
+                    role="switch"
+                    aria-checked={!!paidApisKillSwitch?.disabled}
+                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out disabled:opacity-50 ${
+                      paidApisKillSwitch?.disabled ? 'bg-rose-500' : 'bg-slate-700'
+                    }`}
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition duration-200 ease-in-out ${
+                        paidApisKillSwitch?.disabled ? 'translate-x-5' : 'translate-x-0'
+                      }`}
+                    />
+                  </button>
+                )}
               </div>
             </div>
           ) : (
@@ -21068,10 +21085,18 @@ export default function App() {
                   aria-checked={!!paidApisKillSwitch?.disabled}
                   aria-label="Activer ou désactiver le mode maintenance"
                   title={paidApisKillSwitch?.disabled ? 'Désactiver le mode maintenance' : 'Activer le mode maintenance'}
-                  className={`relative h-8 w-14 rounded-full transition-colors disabled:opacity-50 ${paidApisKillSwitch?.disabled ? 'bg-rose-500' : 'bg-slate-700 hover:bg-slate-600'}`}
+                  className={`relative inline-flex h-8 w-14 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent p-0.5 transition-colors duration-200 ease-in-out disabled:opacity-50 ${
+                    paidApisKillSwitch?.disabled ? 'bg-rose-500' : 'bg-slate-700 hover:bg-slate-600'
+                  }`}
                 >
-                  <span className={`absolute top-1 flex h-6 w-6 items-center justify-center rounded-full bg-white text-[13px] text-slate-800 shadow-sm transition-transform ${paidApisKillSwitch?.disabled ? 'translate-x-7' : 'translate-x-1'}`}>
-                    <span className={`material-symbols-outlined text-[14px] ${paidApisKillSwitchSaving ? 'animate-spin' : ''}`}>{paidApisKillSwitchSaving ? 'progress_activity' : 'power_settings_new'}</span>
+                  <span
+                    className={`pointer-events-none flex h-6 w-6 transform items-center justify-center rounded-full bg-white text-[13px] text-slate-800 shadow-md transition duration-200 ease-in-out ${
+                      paidApisKillSwitch?.disabled ? 'translate-x-6' : 'translate-x-0'
+                    }`}
+                  >
+                    <span className={`material-symbols-outlined text-[14px] ${paidApisKillSwitchSaving ? 'animate-spin' : ''}`}>
+                      {paidApisKillSwitchSaving ? 'progress_activity' : 'power_settings_new'}
+                    </span>
                   </span>
                 </button>
               </div>
