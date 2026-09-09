@@ -10381,7 +10381,7 @@ export default function App() {
   const [aiTextProvider, setAiTextProviderState] = useState(null);
   const [aiTextProviderSaving, setAiTextProviderSaving] = useState(false);
   const [modelCatalog, setModelCatalog] = useState(null);
-  const [selectedTaskModel, setSelectedTaskModel] = useState(() => { try { return JSON.parse(localStorage.getItem('kappgen_task_models') || '{}'); } catch { return {}; } });
+  const [selectedTaskModel, setSelectedTaskModel] = useState({});
   const [hfAccounts, setHfAccounts] = useState([]);
   const [hfAccountsLoading, setHfAccountsLoading] = useState(false);
   const [hfAccountForm, setHfAccountForm] = useState({ token: '', label: '' });
@@ -11282,7 +11282,11 @@ export default function App() {
   const fetchAiTextProvider = async () => {
     try {
       const res = await authFetch(`${API_BASE}/admin/settings/ai-text-provider`);
-      if (res.ok) setAiTextProviderState(await res.json());
+      if (res.ok) {
+        const data = await res.json();
+        setAiTextProviderState(data);
+        setSelectedTaskModel(prev => ({ ...prev, text: { provider: data.order?.[0] || '', model: data.models?.[data.order?.[0]] || '' } }));
+      }
     } catch (err) {
       console.error("Erreur chargement du fournisseur IA texte:", err);
     }
@@ -11306,14 +11310,13 @@ export default function App() {
       const order = [provider, ...(mode?.order || []).filter(p => p !== provider)];
       const res = await authFetch(`${API_BASE}/admin/settings/${endpoint}`, {
         method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ order }),
+        body: JSON.stringify({ order, provider, model }),
       });
       if (!res.ok) throw new Error('Configuration refusée');
       const data = await res.json();
-      setMode(prev => ({ ...prev, order: data.order }));
+      setMode(prev => ({ ...prev, order: data.order, models: data.models || prev?.models }));
       setSelectedTaskModel(prev => {
         const next = { ...prev, [task]: { provider, model } };
-        localStorage.setItem('kappgen_task_models', JSON.stringify(next));
         return next;
       });
       showToast('Source principale enregistrée.', 'success');
@@ -21446,7 +21449,8 @@ export default function App() {
                   ].map(([task, label, icon, taskMode, taskSaving, taskToggle]) => {
                     // The server's saved order is authoritative, across browsers and sessions.
                     const provider = taskMode?.order?.[0] || '';
-                    const chosen = selectedTaskModel[task]?.provider === provider ? selectedTaskModel[task] : {};
+                    const serverModel = taskMode?.models?.[provider];
+                    const chosen = serverModel ? { provider, model: serverModel } : (selectedTaskModel[task]?.provider === provider ? selectedTaskModel[task] : {});
                     const models = provider ? (modelCatalog.providers[provider]?.[task] || []) : [];
                     const providerOptions = Object.entries(modelCatalog.providers || {}).filter(([, d]) => d[task]).map(([id, d]) => ({ value: id, label: d.label }));
                     const availableProviders = taskMode?.available && taskMode.available.length > 0
