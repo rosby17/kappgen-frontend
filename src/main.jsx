@@ -1,9 +1,9 @@
-import { Component, StrictMode } from 'react'
+import { Component, StrictMode, useEffect, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import * as Sentry from '@sentry/react'
 import './index.css'
-import App from './App.jsx'
+import App, { API_BASE, MaintenanceScreen } from './App.jsx'
 import LandingPage from './LandingPage.jsx'
 import LegalPage from './LegalPage.jsx'
 import ContactPage from './ContactPage.jsx'
@@ -35,6 +35,31 @@ const appSurface = isAppHostname || isLocalAppPath
 const path = window.location.pathname.replace(/\/+$/, '') || '/'
 const legalType = !appSurface && path === '/privacy' ? 'privacy' : !appSurface && path === '/terms' ? 'terms' : null
 const isContactPage = !appSurface && path === '/contact'
+
+// Gates the marketing landing page (kappgen.com) behind the same admin
+// kill switch as the app itself (see App.jsx's maintenanceActive + the
+// "Coupe-circuit API payantes" panel in Ressources) — this file's own
+// top-level routing renders LandingPage without ever mounting <App />, so
+// App's internal maintenance gate never saw it. A visitor landing on the
+// marketing site during an outage otherwise still got the full pitch/signup
+// flow for a product that can't currently generate anything.
+function MaintenanceGate({ children }) {
+  const [maintenanceActive, setMaintenanceActive] = useState(false)
+  useEffect(() => {
+    let cancelled = false
+    const check = () => {
+      fetch(`${API_BASE}/maintenance-status`)
+        .then(res => (res.ok ? res.json() : null))
+        .then(data => { if (!cancelled && data) setMaintenanceActive(!!data.maintenance) })
+        .catch(() => {})
+    }
+    check()
+    const interval = setInterval(check, 45000)
+    return () => { cancelled = true; clearInterval(interval) }
+  }, [])
+
+  return maintenanceActive ? <MaintenanceScreen /> : children
+}
 
 class AppErrorBoundary extends Component {
   constructor(props) {
@@ -76,7 +101,7 @@ createRoot(document.getElementById('root')).render(
   <StrictMode>
     <AppErrorBoundary>
       <BrowserRouter basename={isLocalAppPath ? '/app' : undefined}>
-        {legalType ? <LegalPage type={legalType} /> : isContactPage ? <ContactPage /> : appSurface ? <App /> : <LandingPage />}
+        {legalType ? <LegalPage type={legalType} /> : isContactPage ? <ContactPage /> : appSurface ? <App /> : <MaintenanceGate><LandingPage /></MaintenanceGate>}
       </BrowserRouter>
     </AppErrorBoundary>
   </StrictMode>,
