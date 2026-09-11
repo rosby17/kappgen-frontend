@@ -1127,7 +1127,7 @@ function VoiceCard({ voice, active, saved, mine, playingId, generatingPreviewId,
               isAi33 ? (
                 <span className="shrink-0 text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-violet-500/15 text-violet-300 border border-violet-500/30 flex items-center gap-1" title="Clonée via ai33.pro">
                   <span className="w-1.5 h-1.5 rounded-full bg-violet-400 shadow-[0_0_6px_rgba(167,139,250,0.8)]"></span>
-                  AI33.pro
+                  Kappgen
                 </span>
               ) : (
                 <span className="shrink-0 text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-[#00c2ff]/15 text-[#56d9ff] border border-[#00c2ff]/30 flex items-center gap-1" title="Clonée via Izivoice">
@@ -1808,8 +1808,8 @@ function PricingModal({ onClose, plans, subscription, checkoutPlanId, onSelectPl
                 <div
                   key={p.id}
                   className={`relative flex flex-col rounded-2xl p-5 space-y-4 border ${details.featured
-                      ? 'bg-gradient-to-b from-[#00c2ff]/10 to-[var(--bg-surface)] border-[#00c2ff] shadow-lg shadow-[#00c2ff]/10'
-                      : 'bg-[var(--bg-surface-alt)] border-[var(--border-soft)]'
+                    ? 'bg-gradient-to-b from-[#00c2ff]/10 to-[var(--bg-surface)] border-[#00c2ff] shadow-lg shadow-[#00c2ff]/10'
+                    : 'bg-[var(--bg-surface-alt)] border-[var(--border-soft)]'
                     }`}
                 >
                   {(details.featured || details.badgeText) && (
@@ -2927,8 +2927,8 @@ function MusicChannelWizard({ authFetch, showToast, onCreated, onBack, editingCh
                 key={stepNum}
                 onClick={() => setStep(stepNum)}
                 className={`shrink-0 whitespace-nowrap py-2 px-3 sm:px-1 text-center rounded-xl text-xs font-bold transition-all ${isActive ? 'bg-[#00c2ff] text-slate-950 shadow-md' :
-                    isPassed ? 'bg-[#00c2ff]/20 text-[#00c2ff] border border-[#00c2ff]/40' :
-                      'bg-[var(--bg-surface-alt)] text-slate-400'
+                  isPassed ? 'bg-[#00c2ff]/20 text-[#00c2ff] border border-[#00c2ff]/40' :
+                    'bg-[var(--bg-surface-alt)] text-slate-400'
                   }`}
               >
                 {stepNum}. {label}
@@ -4559,8 +4559,8 @@ function ShapePicker({ value, onChange }) {
           title={s.label}
           onClick={() => onChange(s.id)}
           className={`w-6 h-6 flex items-center justify-center rounded-md border transition-colors ${(value || 'rectangle') === s.id
-              ? 'bg-[#00c2ff]/10 border-[#00c2ff]'
-              : 'bg-[var(--bg-input)] border-[var(--border)] hover:border-slate-500'
+            ? 'bg-[#00c2ff]/10 border-[#00c2ff]'
+            : 'bg-[var(--bg-input)] border-[var(--border)] hover:border-slate-500'
             }`}
         >
           <span className={`w-2.5 h-2.5 ${(value || 'rectangle') === s.id ? 'bg-[#00c2ff]' : 'bg-slate-500'}`} style={{ borderRadius: s.radius }} />
@@ -4869,9 +4869,9 @@ function PipelineStepper({ stage, percent, failed = false, source = 'automatic',
             <button type="button" key={step.label} onClick={(event) => { event.stopPropagation(); onStepClick?.(step, i, state); }} className={`relative flex min-w-0 w-full flex-col items-center gap-1 @lg:gap-1.5 rounded-md py-0.5 ${onStepClick ? 'cursor-pointer hover:bg-white/[.05] focus:outline-none focus:ring-1 focus:ring-[#00c2ff]/50' : ''}`} title={`${step.label} — ouvrir le suivi`}>
               {i > 0 && <div className={`absolute right-1/2 top-2.5 @sm:top-3.5 @lg:top-5 h-px w-full ${i <= activeIndex ? 'bg-[#00c2ff]/45' : 'bg-slate-800'}`} />}
               <div className={`relative z-10 w-5 h-5 @sm:w-7 @sm:h-7 @lg:w-10 @lg:h-10 rounded-full flex items-center justify-center shrink-0 transition-all border ${state === 'done' ? 'bg-[#0b2b2b] text-emerald-400 border-emerald-500/25' :
-                  state === 'active' ? 'bg-[#062d40] text-[#4ed9ff] border-[#00c2ff]/70 shadow-[0_0_14px_rgba(0,194,255,.25)]' :
-                    state === 'failed' ? 'bg-rose-500/20 text-rose-400' :
-                      'bg-[#111a27] text-slate-600 border-slate-800'
+                state === 'active' ? 'bg-[#062d40] text-[#4ed9ff] border-[#00c2ff]/70 shadow-[0_0_14px_rgba(0,194,255,.25)]' :
+                  state === 'failed' ? 'bg-rose-500/20 text-rose-400' :
+                    'bg-[#111a27] text-slate-600 border-slate-800'
                 }`}>
                 {state === 'done' ? (
                   <span className="material-symbols-outlined text-[11px] @sm:text-[16px] @lg:text-[22px]">check</span>
@@ -13207,8 +13207,8 @@ export default function App() {
                       key={id}
                       onClick={() => { setView(id); setMobileMenuOpen(false); }}
                       className={`w-full flex items-center gap-3.5 px-4 py-3 cursor-pointer rounded-xl transition-all font-medium text-sm ${active
-                          ? 'bg-gradient-to-r from-[#00c2ff] to-[#0099ff] text-slate-950 font-bold shadow-md shadow-[#00c2ff]/20'
-                          : 'text-slate-300 hover:bg-[var(--bg-dropdown)] hover:text-white'
+                        ? 'bg-gradient-to-r from-[#00c2ff] to-[#0099ff] text-slate-950 font-bold shadow-md shadow-[#00c2ff]/20'
+                        : 'text-slate-300 hover:bg-[var(--bg-dropdown)] hover:text-white'
                         }`}
                     >
                       <span className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: active ? "'FILL' 1" : "'FILL' 0" }}>{icon}</span>
@@ -13369,8 +13369,8 @@ export default function App() {
                     onClick={() => setAdminTab(t.id)}
                     title={t.label}
                     className={`w-full flex items-center gap-3.5 py-3 cursor-pointer rounded-xl transition-all font-medium text-sm ${sidebarCollapsed ? 'px-0 justify-center' : 'px-4'} ${adminTab === t.id
-                        ? 'bg-gradient-to-r from-[#00c2ff] to-[#0099ff] text-slate-950 font-bold shadow-md shadow-[#00c2ff]/20'
-                        : 'text-slate-300 hover:bg-[var(--bg-dropdown)] hover:text-white'
+                      ? 'bg-gradient-to-r from-[#00c2ff] to-[#0099ff] text-slate-950 font-bold shadow-md shadow-[#00c2ff]/20'
+                      : 'text-slate-300 hover:bg-[var(--bg-dropdown)] hover:text-white'
                       }`}
                   >
                     <span className="material-symbols-outlined w-5 shrink-0 text-center text-[20px]" style={{ fontVariationSettings: adminTab === t.id ? "'FILL' 1" : "'FILL' 0" }}>{t.icon}</span>
@@ -13395,8 +13395,8 @@ export default function App() {
                     onClick={t.onClick}
                     title={t.label}
                     className={`w-full flex items-center gap-3.5 py-3 cursor-pointer rounded-xl transition-all font-medium text-sm ${sidebarCollapsed ? 'px-0 justify-center' : 'px-4'} ${t.active
-                        ? 'bg-gradient-to-r from-[#00c2ff] to-[#0099ff] text-slate-950 font-bold shadow-md shadow-[#00c2ff]/20'
-                        : 'text-slate-300 hover:bg-[var(--bg-dropdown)] hover:text-white'
+                      ? 'bg-gradient-to-r from-[#00c2ff] to-[#0099ff] text-slate-950 font-bold shadow-md shadow-[#00c2ff]/20'
+                      : 'text-slate-300 hover:bg-[var(--bg-dropdown)] hover:text-white'
                       }`}
                   >
                     <span className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: t.active ? "'FILL' 1" : "'FILL' 0" }}>{t.icon}</span>
@@ -13520,8 +13520,8 @@ export default function App() {
                   onClick={() => setView(view === 'admin' ? 'home' : 'admin')}
                   title={view === 'admin' ? "Retour à l'app" : 'Administration'}
                   className={`w-9 h-9 rounded-full flex items-center justify-center transition-colors flex-shrink-0 border ${view === 'admin'
-                      ? 'bg-[#00c2ff]/10 text-[#00c2ff] border-[#00c2ff]/50'
-                      : 'text-slate-400 hover:text-white bg-[var(--bg-surface-alt)] border-[var(--border)] hover:border-[#00c2ff]/50'
+                    ? 'bg-[#00c2ff]/10 text-[#00c2ff] border-[#00c2ff]/50'
+                    : 'text-slate-400 hover:text-white bg-[var(--bg-surface-alt)] border-[var(--border)] hover:border-[#00c2ff]/50'
                     }`}
                 >
                   <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>
@@ -15857,8 +15857,8 @@ export default function App() {
                                             title={c.label}
                                             onClick={() => updateFacecamOverlayField(ov.id, { corner: c.id, x_percent: target.x, y_percent: target.y })}
                                             className={`w-6 h-6 flex items-center justify-center rounded-md border transition-colors ${Math.round(xPercent) === Math.round(target.x) && Math.round(yPercent) === Math.round(target.y)
-                                                ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]'
-                                                : 'bg-[var(--bg-input)] border-[var(--border)] text-slate-500 hover:border-slate-500'
+                                              ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]'
+                                              : 'bg-[var(--bg-input)] border-[var(--border)] text-slate-500 hover:border-slate-500'
                                               }`}
                                           >
                                             <span className="material-symbols-outlined text-[12px]">{c.icon}</span>
@@ -15916,8 +15916,8 @@ export default function App() {
                               type="button"
                               onClick={() => setFacecamNiche(n)}
                               className={`shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold border transition-colors ${facecamNiche === n
-                                  ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]'
-                                  : 'bg-[var(--bg-surface-alt)] border-[var(--border)] text-slate-300 hover:border-slate-500'
+                                ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]'
+                                : 'bg-[var(--bg-surface-alt)] border-[var(--border)] text-slate-300 hover:border-slate-500'
                                 }`}
                             >
                               {n}
@@ -15941,8 +15941,8 @@ export default function App() {
                               type="button"
                               onClick={() => setFacecamEditingStyle(s)}
                               className={`shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold border capitalize transition-colors ${facecamEditingStyle === s
-                                  ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]'
-                                  : 'bg-[var(--bg-surface-alt)] border-[var(--border)] text-slate-300 hover:border-slate-500'
+                                ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]'
+                                : 'bg-[var(--bg-surface-alt)] border-[var(--border)] text-slate-300 hover:border-slate-500'
                                 }`}
                             >
                               {s}
@@ -15960,8 +15960,8 @@ export default function App() {
                               type="button"
                               onClick={() => setFacecamFormatTemplate(f.id)}
                               className={`shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold border transition-colors ${facecamFormatTemplate === f.id
-                                  ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]'
-                                  : 'bg-[var(--bg-surface-alt)] border-[var(--border)] text-slate-300 hover:border-slate-500'
+                                ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]'
+                                : 'bg-[var(--bg-surface-alt)] border-[var(--border)] text-slate-300 hover:border-slate-500'
                                 }`}
                             >
                               {f.label}
@@ -16173,8 +16173,8 @@ export default function App() {
                           key={stepNum}
                           onClick={() => setWizardStep(stepNum)}
                           className={`shrink-0 whitespace-nowrap py-2 px-3 sm:px-1 text-center rounded-xl text-xs font-bold transition-all ${isActive ? 'bg-[#00c2ff] text-slate-950 shadow-md' :
-                              isPassed ? 'bg-[#00c2ff]/20 text-[#00c2ff] border border-[#00c2ff]/40' :
-                                'bg-[var(--bg-surface-alt)] text-slate-400'
+                            isPassed ? 'bg-[#00c2ff]/20 text-[#00c2ff] border border-[#00c2ff]/40' :
+                              'bg-[var(--bg-surface-alt)] text-slate-400'
                             }`}
                         >
                           {stepNum}. {label}
@@ -16304,8 +16304,8 @@ export default function App() {
                                             title={`Placer le logo : ${c.label}`}
                                             onClick={() => setNewChannel({ ...newChannel, branding: { ...newChannel.branding, logo_corner: c.id, logo_x_percent: target.x, logo_y_percent: target.y } })}
                                             className={`w-6 h-6 flex items-center justify-center rounded-md border transition-colors ${Math.round(logoX) === Math.round(target.x) && Math.round(logoY) === Math.round(target.y)
-                                                ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]'
-                                                : 'bg-[var(--bg-input)] border-[var(--border)] text-slate-500 hover:border-slate-500'
+                                              ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]'
+                                              : 'bg-[var(--bg-input)] border-[var(--border)] text-slate-500 hover:border-slate-500'
                                               }`}
                                           >
                                             <span className="material-symbols-outlined text-[12px]">{c.icon}</span>
@@ -16383,8 +16383,8 @@ export default function App() {
                                                 title={c.label}
                                                 onClick={() => setNewChannel(prev => ({ ...prev, branding: { ...prev.branding, overlays: (prev.branding.overlays || []).map(o => o.id === ov.id ? { ...o, corner: c.id, x_percent: target.x, y_percent: target.y } : o) } }))}
                                                 className={`w-6 h-6 flex items-center justify-center rounded-md border transition-colors ${Math.round(xPercent) === Math.round(target.x) && Math.round(yPercent) === Math.round(target.y)
-                                                    ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]'
-                                                    : 'bg-[var(--bg-input)] border-[var(--border)] text-slate-500 hover:border-slate-500'
+                                                  ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]'
+                                                  : 'bg-[var(--bg-input)] border-[var(--border)] text-slate-500 hover:border-slate-500'
                                                   }`}
                                               >
                                                 <span className="material-symbols-outlined text-[12px]">{c.icon}</span>
@@ -16500,8 +16500,8 @@ export default function App() {
                               type="button"
                               onClick={() => setNewChannel({ ...newChannel, niche: n })}
                               className={`shrink-0 px-3.5 py-2 rounded-xl text-xs font-bold border transition-colors ${newChannel.niche === n
-                                  ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]'
-                                  : 'bg-[var(--bg-surface-alt)] border-[var(--border)] text-slate-300 hover:border-slate-500'
+                                ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]'
+                                : 'bg-[var(--bg-surface-alt)] border-[var(--border)] text-slate-300 hover:border-slate-500'
                                 }`}
                             >
                               {n}
@@ -17029,8 +17029,8 @@ export default function App() {
                             <div
                               onClick={toggleOptionA}
                               className={`p-5 rounded-2xl border-2 transition-all cursor-pointer space-y-4 flex flex-col justify-between ${isOptionAChecked
-                                  ? 'bg-[var(--bg-surface-alt)] border-[#00c2ff] shadow-lg shadow-[#00c2ff]/10'
-                                  : 'bg-[var(--bg-surface-soft)] border-[var(--border-soft)] hover:border-slate-500 opacity-60'
+                                ? 'bg-[var(--bg-surface-alt)] border-[#00c2ff] shadow-lg shadow-[#00c2ff]/10'
+                                : 'bg-[var(--bg-surface-soft)] border-[var(--border-soft)] hover:border-slate-500 opacity-60'
                                 }`}
                             >
                               <div className="space-y-2">
@@ -17184,14 +17184,14 @@ export default function App() {
                                 )}
                                 {libraryUploadStatus && (
                                   <div className={`mt-3 p-3 rounded-xl border text-left space-y-2 ${libraryUploadStatus === 'success'
-                                      ? 'bg-emerald-950/60 border-emerald-700/60'
-                                      : libraryUploadStatus === 'error'
-                                        ? 'bg-red-950/50 border-red-700/60'
-                                        : 'bg-[#081c2a] border-[#00c2ff]/40'
+                                    ? 'bg-emerald-950/60 border-emerald-700/60'
+                                    : libraryUploadStatus === 'error'
+                                      ? 'bg-red-950/50 border-red-700/60'
+                                      : 'bg-[#081c2a] border-[#00c2ff]/40'
                                     }`}>
                                     <div className="flex items-center justify-between gap-3">
                                       <div className={`flex items-center gap-1.5 text-[10px] font-bold ${libraryUploadStatus === 'success' ? 'text-emerald-300' :
-                                          libraryUploadStatus === 'error' ? 'text-red-300' : 'text-[#00c2ff]'
+                                        libraryUploadStatus === 'error' ? 'text-red-300' : 'text-[#00c2ff]'
                                         }`}>
                                         <span className={`material-symbols-outlined text-[15px] ${['analyzing', 'uploading', 'validating'].includes(libraryUploadStatus) ? 'animate-spin' : ''
                                           }`}>
@@ -17261,10 +17261,10 @@ export default function App() {
                             <div
                               onClick={toggleOptionB}
                               className={`p-5 rounded-2xl border-2 transition-all space-y-4 flex flex-col justify-between ${isOptionBChecked
-                                  ? 'bg-[var(--bg-surface-alt)] border-[#00c2ff] shadow-lg shadow-[#00c2ff]/10 cursor-pointer'
-                                  : canGenerateAIImages
-                                    ? 'bg-[var(--bg-surface-soft)] border-[var(--border-soft)] hover:border-slate-500 opacity-60 cursor-pointer'
-                                    : 'bg-[var(--bg-surface-soft)] border-[var(--border-soft)] opacity-50 cursor-not-allowed'
+                                ? 'bg-[var(--bg-surface-alt)] border-[#00c2ff] shadow-lg shadow-[#00c2ff]/10 cursor-pointer'
+                                : canGenerateAIImages
+                                  ? 'bg-[var(--bg-surface-soft)] border-[var(--border-soft)] hover:border-slate-500 opacity-60 cursor-pointer'
+                                  : 'bg-[var(--bg-surface-soft)] border-[var(--border-soft)] opacity-50 cursor-not-allowed'
                                 }`}
                             >
                               <div className="space-y-2">
@@ -17398,8 +17398,8 @@ export default function App() {
                               <div
                                 onClick={toggleGoogleSearch}
                                 className={`flex-1 p-5 rounded-2xl border-2 transition-all cursor-pointer space-y-2 flex flex-col justify-between ${isGoogleSearchChecked
-                                    ? 'bg-[var(--bg-surface-alt)] border-[#00c2ff] shadow-lg shadow-[#00c2ff]/10'
-                                    : 'bg-[var(--bg-surface-soft)] border-[var(--border-soft)] hover:border-slate-500 opacity-60'
+                                  ? 'bg-[var(--bg-surface-alt)] border-[#00c2ff] shadow-lg shadow-[#00c2ff]/10'
+                                  : 'bg-[var(--bg-surface-soft)] border-[var(--border-soft)] hover:border-slate-500 opacity-60'
                                   }`}
                               >
                                 <div className="flex items-start justify-between gap-3">
@@ -17774,8 +17774,8 @@ export default function App() {
                         <div
                           onClick={() => setNewChannel({ ...newChannel, music_preference: { ...newChannel.music_preference, mode: 'library' } })}
                           className={`p-5 rounded-2xl border-2 transition-all cursor-pointer space-y-4 flex flex-col ${(newChannel.music_preference.mode || 'library') === 'library'
-                              ? 'bg-[var(--bg-surface-alt)] border-[#00c2ff] shadow-lg shadow-[#00c2ff]/10'
-                              : 'bg-[var(--bg-surface-soft)] border-[var(--border-soft)] hover:border-slate-500 opacity-60'
+                            ? 'bg-[var(--bg-surface-alt)] border-[#00c2ff] shadow-lg shadow-[#00c2ff]/10'
+                            : 'bg-[var(--bg-surface-soft)] border-[var(--border-soft)] hover:border-slate-500 opacity-60'
                             }`}
                         >
                           <div className="space-y-2">
@@ -17839,8 +17839,8 @@ export default function App() {
                         <div
                           onClick={() => setNewChannel({ ...newChannel, music_preference: { ...newChannel.music_preference, mode: 'ai_generate' } })}
                           className={`p-5 rounded-2xl border-2 transition-all cursor-pointer space-y-4 flex flex-col ${newChannel.music_preference.mode === 'ai_generate'
-                              ? 'bg-[var(--bg-surface-alt)] border-[#00c2ff] shadow-lg shadow-[#00c2ff]/10'
-                              : 'bg-[var(--bg-surface-soft)] border-[var(--border-soft)] hover:border-slate-500 opacity-60'
+                            ? 'bg-[var(--bg-surface-alt)] border-[#00c2ff] shadow-lg shadow-[#00c2ff]/10'
+                            : 'bg-[var(--bg-surface-soft)] border-[var(--border-soft)] hover:border-slate-500 opacity-60'
                             }`}
                         >
                           <div className="space-y-2">
@@ -18928,8 +18928,8 @@ export default function App() {
                                     type="button"
                                     onClick={() => setNewChannel({ ...newChannel, effects_config: { ...newChannel.effects_config, color_grade: colorGrade === id ? 'none' : id } })}
                                     className={`px-3 py-2 rounded-xl text-xs font-bold border transition-colors ${colorGrade === id
-                                        ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]'
-                                        : 'bg-[var(--bg-surface-alt)] border-[var(--border)] text-slate-300 hover:border-slate-500'
+                                      ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]'
+                                      : 'bg-[var(--bg-surface-alt)] border-[var(--border)] text-slate-300 hover:border-slate-500'
                                       }`}
                                   >
                                     {label}
@@ -19523,10 +19523,10 @@ export default function App() {
                                     disabled={!available}
                                     onClick={() => toggleRecap(id)}
                                     className={`flex-1 min-w-0 px-3 py-2.5 rounded-xl text-xs font-bold border transition-colors flex items-center gap-2.5 text-left ${!available
-                                        ? 'bg-[var(--bg-surface-alt)]/50 border-[var(--border)]/50 text-slate-600 cursor-not-allowed'
-                                        : isRecapChecked(id)
-                                          ? 'bg-emerald-950/60 border-emerald-700 text-emerald-400'
-                                          : 'bg-[var(--bg-surface-alt)] border-[var(--border)] text-slate-500 hover:border-slate-500'
+                                      ? 'bg-[var(--bg-surface-alt)]/50 border-[var(--border)]/50 text-slate-600 cursor-not-allowed'
+                                      : isRecapChecked(id)
+                                        ? 'bg-emerald-950/60 border-emerald-700 text-emerald-400'
+                                        : 'bg-[var(--bg-surface-alt)] border-[var(--border)] text-slate-500 hover:border-slate-500'
                                       }`}
                                   >
                                     <span className="material-symbols-outlined text-[16px] shrink-0">{icon}</span>
@@ -19849,8 +19849,8 @@ export default function App() {
                                 type="button"
                                 onClick={() => setThemePreference(opt.id)}
                                 className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all ${themePreference === opt.id
-                                    ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]'
-                                    : 'bg-[var(--bg-surface-alt)] border-[var(--border)] text-slate-300 hover:border-slate-500'
+                                  ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]'
+                                  : 'bg-[var(--bg-surface-alt)] border-[var(--border)] text-slate-300 hover:border-slate-500'
                                   }`}
                               >
                                 <span className="material-symbols-outlined text-[22px]">{opt.icon}</span>
@@ -20067,8 +20067,8 @@ export default function App() {
                                     <div
                                       key={p.id}
                                       className={`relative flex flex-col rounded-2xl p-5 space-y-4 border ${details.featured
-                                          ? 'bg-gradient-to-b from-[#00c2ff]/10 to-[var(--bg-surface)] border-[#00c2ff] shadow-lg shadow-[#00c2ff]/10'
-                                          : 'bg-[var(--bg-surface)] border-[var(--border-soft)]'
+                                        ? 'bg-gradient-to-b from-[#00c2ff]/10 to-[var(--bg-surface)] border-[#00c2ff] shadow-lg shadow-[#00c2ff]/10'
+                                        : 'bg-[var(--bg-surface)] border-[var(--border-soft)]'
                                         }`}
                                     >
                                       {(details.featured || details.badgeText) && (
@@ -20190,8 +20190,8 @@ export default function App() {
                             key={f.id}
                             onClick={() => setBetaFilter(f.id)}
                             className={`px-3.5 py-1.5 rounded-xl text-xs font-bold border transition-colors ${betaFilter === f.id
-                                ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]'
-                                : 'bg-[var(--bg-surface-alt)] border-[var(--border)] text-slate-300 hover:border-slate-500'
+                              ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]'
+                              : 'bg-[var(--bg-surface-alt)] border-[var(--border)] text-slate-300 hover:border-slate-500'
                               }`}
                           >
                             {f.label}
@@ -20484,10 +20484,10 @@ export default function App() {
                                       </div>
                                     )}
                                     <span className={`absolute top-1.5 left-1.5 max-w-[calc(100%-12px)] px-2 py-0.5 rounded-full text-[9px] font-bold flex items-center gap-1 whitespace-nowrap ${v.status === 'done' ? 'bg-emerald-950/90 text-emerald-300' :
-                                        v.status === 'failed' ? 'bg-rose-950/90 text-rose-300' :
-                                          v.status === 'rendering' ? 'bg-amber-950/90 text-amber-300' :
-                                            v.admin_priority ? 'bg-amber-950/90 text-amber-300' :
-                                              'bg-slate-950/90 text-slate-300'
+                                      v.status === 'failed' ? 'bg-rose-950/90 text-rose-300' :
+                                        v.status === 'rendering' ? 'bg-amber-950/90 text-amber-300' :
+                                          v.admin_priority ? 'bg-amber-950/90 text-amber-300' :
+                                            'bg-slate-950/90 text-slate-300'
                                       }`}>
                                       {v.status === 'queued' && v.admin_priority && <span className="material-symbols-outlined text-[10px] shrink-0">bolt</span>}
                                       {v.status === 'queued' && v.queue_position ? `#${v.queue_position} en attente` : v.status}
@@ -20592,10 +20592,10 @@ export default function App() {
                                   </td>
                                   <td className="px-4 py-2.5 cursor-pointer whitespace-nowrap" onClick={() => openAdminVideoDetail(v.id)}>
                                     <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold inline-flex items-center gap-1 whitespace-nowrap ${v.status === 'done' ? 'bg-emerald-950/60 text-emerald-400' :
-                                        v.status === 'failed' ? 'bg-rose-950/60 text-rose-400' :
-                                          v.status === 'rendering' ? 'bg-amber-950/60 text-amber-400' :
-                                            v.admin_priority ? 'bg-amber-950/60 text-amber-400' :
-                                              'bg-[var(--bg-surface-alt)] text-slate-400'
+                                      v.status === 'failed' ? 'bg-rose-950/60 text-rose-400' :
+                                        v.status === 'rendering' ? 'bg-amber-950/60 text-amber-400' :
+                                          v.admin_priority ? 'bg-amber-950/60 text-amber-400' :
+                                            'bg-[var(--bg-surface-alt)] text-slate-400'
                                       }`}>
                                       {v.status === 'queued' && v.admin_priority && <span className="material-symbols-outlined text-[11px] shrink-0" title="Priorisée par un admin">bolt</span>}
                                       {v.status === 'queued' && v.queue_position
@@ -20717,9 +20717,9 @@ export default function App() {
 
                     const StatusBadge = ({ status }) => (
                       <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${status === 'approved' ? 'bg-emerald-950/60 text-emerald-400'
-                          : status === 'flagged' ? 'bg-rose-950/60 text-rose-400'
-                            : status === 'pending' ? 'bg-amber-950/60 text-amber-400'
-                              : 'bg-[var(--bg-surface-alt)] text-slate-500'
+                        : status === 'flagged' ? 'bg-rose-950/60 text-rose-400'
+                          : status === 'pending' ? 'bg-amber-950/60 text-amber-400'
+                            : 'bg-[var(--bg-surface-alt)] text-slate-500'
                         }`}>
                         {status === 'approved' ? 'Validé' : status === 'flagged' ? 'Signalé' : status === 'pending' ? 'En attente' : 'Non partagé'}
                       </span>
@@ -21023,8 +21023,8 @@ export default function App() {
                                   if (next) { setAdminLibraryNicheImages([]); fetchAdminNicheImages(niche.niche, true); }
                                 }}
                                 className={`px-3 py-2 rounded-xl text-[11px] font-bold border transition-colors flex items-center gap-1.5 ${adminLibraryNicheAllImagesMode
-                                    ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]'
-                                    : 'bg-[var(--bg-surface-alt)] border-[var(--border)] text-slate-300 hover:border-slate-500'
+                                  ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]'
+                                  : 'bg-[var(--bg-surface-alt)] border-[var(--border)] text-slate-300 hover:border-slate-500'
                                   }`}
                               >
                                 <span className="material-symbols-outlined text-[15px]">{adminLibraryNicheAllImagesMode ? 'group' : 'grid_view'}</span>
@@ -21199,9 +21199,9 @@ export default function App() {
                                 <td className="px-4 py-2.5 text-slate-400 capitalize">{o.provider}</td>
                                 <td className="px-4 py-2.5">
                                   <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${o.status === 'success' ? 'bg-emerald-950/60 text-emerald-400' :
-                                      o.status === 'failed' ? 'bg-rose-950/60 text-rose-400' :
-                                        o.status === 'flagged_underpaid' ? 'bg-amber-950/60 text-amber-400' :
-                                          'bg-[var(--bg-surface-alt)] text-slate-400'
+                                    o.status === 'failed' ? 'bg-rose-950/60 text-rose-400' :
+                                      o.status === 'flagged_underpaid' ? 'bg-amber-950/60 text-amber-400' :
+                                        'bg-[var(--bg-surface-alt)] text-slate-400'
                                     }`}>{o.status}</span>
                                 </td>
                                 <td className="px-4 py-2.5 text-slate-400">{o.created_at ? new Date(o.created_at).toLocaleDateString('fr-FR') : '—'}</td>
@@ -21377,8 +21377,8 @@ export default function App() {
                                 onClick={() => setRenderConcurrency(n)}
                                 disabled={renderConcurrencySaving}
                                 className={`w-11 h-11 rounded-xl text-sm font-black border transition-colors disabled:opacity-50 ${renderConcurrency.value === n
-                                    ? 'bg-[#00c2ff]/10 text-[#00c2ff] border-[#00c2ff]/60'
-                                    : 'bg-[var(--bg-surface-alt)] text-slate-400 border-[var(--border)] hover:border-slate-500'
+                                  ? 'bg-[#00c2ff]/10 text-[#00c2ff] border-[#00c2ff]/60'
+                                  : 'bg-[var(--bg-surface-alt)] text-slate-400 border-[var(--border)] hover:border-slate-500'
                                   }`}
                               >
                                 {n}
@@ -21411,8 +21411,8 @@ export default function App() {
                                   onClick={() => toggleVoiceoverProvider(id)}
                                   disabled={voiceoverProviderModeSaving}
                                   className={`px-4 py-2 rounded-xl text-xs font-bold border transition-colors disabled:opacity-50 ${selected
-                                      ? 'bg-[#00c2ff]/10 text-[#00c2ff] border-[#00c2ff]/60'
-                                      : 'bg-[var(--bg-surface-alt)] text-slate-400 border-[var(--border)] hover:border-slate-500'
+                                    ? 'bg-[#00c2ff]/10 text-[#00c2ff] border-[#00c2ff]/60'
+                                    : 'bg-[var(--bg-surface-alt)] text-slate-400 border-[var(--border)] hover:border-slate-500'
                                     }`}
                                 >
                                   <span className={`inline-block w-1.5 h-1.5 rounded-full mr-1.5 align-middle ${dotColor}`} />
@@ -21447,8 +21447,8 @@ export default function App() {
                                   onClick={() => toggleMusicProvider(id)}
                                   disabled={musicProviderModeSaving}
                                   className={`px-4 py-2 rounded-xl text-xs font-bold border transition-colors disabled:opacity-50 ${selected
-                                      ? 'bg-[#00c2ff]/10 text-[#00c2ff] border-[#00c2ff]/60'
-                                      : 'bg-[var(--bg-surface-alt)] text-slate-400 border-[var(--border)] hover:border-slate-500'
+                                    ? 'bg-[#00c2ff]/10 text-[#00c2ff] border-[#00c2ff]/60'
+                                    : 'bg-[var(--bg-surface-alt)] text-slate-400 border-[var(--border)] hover:border-slate-500'
                                     }`}
                                 >
                                   <span className={`inline-block w-1.5 h-1.5 rounded-full mr-1.5 align-middle ${dotColor}`} />
@@ -21556,8 +21556,8 @@ export default function App() {
                                         disabled={taskSaving}
                                         title={`${selected ? `Secours #${rank + 1} — cliquer pour désactiver` : 'Cliquer pour ajouter au secours'}${health?.detail ? `\n${health.detail}` : ''}`}
                                         className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-semibold border transition-all ${selected
-                                            ? 'bg-[#00c2ff]/10 text-[#00c2ff] border-[#00c2ff]/50 shadow-sm'
-                                            : 'bg-[var(--bg-surface)] text-slate-400 border-[var(--border)] hover:border-slate-500 hover:text-slate-300 opacity-60'
+                                          ? 'bg-[#00c2ff]/10 text-[#00c2ff] border-[#00c2ff]/50 shadow-sm'
+                                          : 'bg-[var(--bg-surface)] text-slate-400 border-[var(--border)] hover:border-slate-500 hover:text-slate-300 opacity-60'
                                           }`}
                                       >
                                         <span className={`w-1.5 h-1.5 rounded-full ${dotColor}`} />
@@ -22317,8 +22317,8 @@ export default function App() {
                         type="button"
                         onClick={() => setFacecamNiche(n)}
                         className={`shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold border transition-colors ${facecamNiche === n
-                            ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]'
-                            : 'bg-[var(--bg-surface-alt)] border-[var(--border)] text-slate-300 hover:border-slate-500'
+                          ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]'
+                          : 'bg-[var(--bg-surface-alt)] border-[var(--border)] text-slate-300 hover:border-slate-500'
                           }`}
                       >
                         {n}
@@ -22342,8 +22342,8 @@ export default function App() {
                         type="button"
                         onClick={() => setFacecamEditingStyle(s)}
                         className={`shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold border capitalize transition-colors ${facecamEditingStyle === s
-                            ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]'
-                            : 'bg-[var(--bg-surface-alt)] border-[var(--border)] text-slate-300 hover:border-slate-500'
+                          ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]'
+                          : 'bg-[var(--bg-surface-alt)] border-[var(--border)] text-slate-300 hover:border-slate-500'
                           }`}
                       >
                         {s}
@@ -22361,8 +22361,8 @@ export default function App() {
                         type="button"
                         onClick={() => setFacecamFormatTemplate(f.id)}
                         className={`shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold border transition-colors ${facecamFormatTemplate === f.id
-                            ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]'
-                            : 'bg-[var(--bg-surface-alt)] border-[var(--border)] text-slate-300 hover:border-slate-500'
+                          ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]'
+                          : 'bg-[var(--bg-surface-alt)] border-[var(--border)] text-slate-300 hover:border-slate-500'
                           }`}
                       >
                         {f.label}
@@ -22618,8 +22618,8 @@ export default function App() {
                               disabled={readOnly}
                               onClick={() => group && toggleActiveChannelFlag(group, field)}
                               className={`w-full px-3 py-2 rounded-xl text-xs font-bold border transition-colors flex items-center gap-2.5 text-left ${readOnly ? 'cursor-default' : ''} ${checked
-                                  ? 'bg-emerald-950/60 border-emerald-700 text-emerald-400'
-                                  : 'bg-[var(--bg-surface-alt)] border-[var(--border)] text-slate-500 hover:border-slate-500'
+                                ? 'bg-emerald-950/60 border-emerald-700 text-emerald-400'
+                                : 'bg-[var(--bg-surface-alt)] border-[var(--border)] text-slate-500 hover:border-slate-500'
                                 }`}
                             >
                               <span className="material-symbols-outlined text-[16px] shrink-0">{icon}</span>
@@ -22640,8 +22640,8 @@ export default function App() {
                             type="button"
                             onClick={() => setTranscribeAudio(prev => !prev)}
                             className={`w-full px-3 py-2 rounded-xl text-xs font-bold border transition-colors flex items-center gap-2.5 text-left ${transcribeAudio
-                                ? 'bg-emerald-950/60 border-emerald-700 text-emerald-400'
-                                : 'bg-[var(--bg-surface-alt)] border-[var(--border)] text-slate-500 hover:border-slate-500'
+                              ? 'bg-emerald-950/60 border-emerald-700 text-emerald-400'
+                              : 'bg-[var(--bg-surface-alt)] border-[var(--border)] text-slate-500 hover:border-slate-500'
                               }`}
                             title="Sans transcription, les sous-titres sont estimés en répartissant le script uniformément sur la durée — moins précis. Avec transcription : synchronisés sur les mots réellement prononcés."
                           >
@@ -24551,8 +24551,8 @@ export default function App() {
       {toast && createPortal(
         <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[200] animate-in fade-in slide-in-from-top-4 duration-300">
           <div className={`flex items-center gap-3 px-5 py-3.5 rounded-xl shadow-2xl border max-w-md ${toast.type === 'error'
-              ? 'bg-rose-950 border-rose-800 text-rose-200'
-              : 'bg-emerald-950 border-emerald-800 text-emerald-200'
+            ? 'bg-rose-950 border-rose-800 text-rose-200'
+            : 'bg-emerald-950 border-emerald-800 text-emerald-200'
             }`}>
             <span className="material-symbols-outlined text-[20px]">
               {toast.type === 'error' ? 'error' : 'check_circle'}
@@ -24625,8 +24625,8 @@ export default function App() {
               <button
                 onClick={() => resolveConfirm(true)}
                 className={`sm:min-w-44 px-4 py-3 rounded-xl font-extrabold text-xs transition-all flex items-center justify-center gap-2 ${confirmDialog.danger
-                    ? 'bg-rose-600 text-white hover:bg-rose-500 shadow-lg shadow-rose-950/30'
-                    : 'bg-gradient-to-r from-[#65e0ff] to-[#1a9cff] text-slate-950 hover:brightness-110 shadow-lg shadow-[#00c2ff]/20'
+                  ? 'bg-rose-600 text-white hover:bg-rose-500 shadow-lg shadow-rose-950/30'
+                  : 'bg-gradient-to-r from-[#65e0ff] to-[#1a9cff] text-slate-950 hover:brightness-110 shadow-lg shadow-[#00c2ff]/20'
                   }`}
               >
                 <span className="material-symbols-outlined text-[17px]">{confirmDialog.danger ? 'warning' : (confirmDialog.icon || 'check')}</span>
