@@ -39,6 +39,14 @@ const friendlyErrorMessage = (error, fallback = "Une erreur est survenue. Réess
   return message;
 };
 
+// Video errors are persisted by asynchronous workers. Never render their raw
+// value: old records and future worker regressions must not expose an upstream
+// provider, an HTTP response, a URL, or an internal implementation detail.
+const publicVideoError = (message) => {
+  if (message === CREDIT_INSUFFICIENT_MESSAGE) return message;
+  return "KappGen n’a pas pu terminer cette étape. Réessaie dans quelques instants.";
+};
+
 // Mirrors src/utils/billing.py's IZIVOICE_*/THUMBNAIL_CREDITS constants —
 // used here only to show the creator a cost estimate and to gate paid
 // options behind an actual balance; the real charge always happens
@@ -14363,8 +14371,8 @@ export default function App() {
                                           </button>
                                         );
                                       })()}
-                                      <div className="max-w-full text-[9px] @lg:text-xs leading-relaxed text-rose-300/80 line-clamp-2" title={vid.error_message || ''}>
-                                        {(vid.error_message || 'Erreur inconnue').split('\n')[0]}
+                                      <div className="max-w-full text-[9px] @lg:text-xs leading-relaxed text-rose-300/80 line-clamp-2" title={publicVideoError(vid.error_message)}>
+                                        {publicVideoError(vid.error_message)}
                                       </div>
                                     </div>
                                   ) : vid.status === 'done' && vid.purged_at ? (
@@ -15423,8 +15431,8 @@ export default function App() {
                                                 </button>
                                               );
                                             })()}
-                                            <div className="max-w-full text-[9px] @lg:text-xs leading-relaxed text-rose-300/80 line-clamp-2" title={vid.error_message || ''}>
-                                              {(vid.error_message || 'Erreur inconnue').split('\n')[0]}
+                                            <div className="max-w-full text-[9px] @lg:text-xs leading-relaxed text-rose-300/80 line-clamp-2" title={publicVideoError(vid.error_message)}>
+                                              {publicVideoError(vid.error_message)}
                                             </div>
                                           </div>
                                         ) : vid.status === 'done' && vid.purged_at ? (
@@ -16093,7 +16101,7 @@ export default function App() {
                               {vid.status === 'done' && 'Prêt'}
                               {vid.status === 'rendering' && (vid.progress_stage || 'Résumé en cours…')}
                               {vid.status === 'queued' && 'En attente'}
-                              {vid.status === 'failed' && (vid.error_message || 'Échec du résumé')}
+                              {vid.status === 'failed' && publicVideoError(vid.error_message)}
                             </div>
                           </div>
                           {vid.status === 'done' && vid.output_path && (
