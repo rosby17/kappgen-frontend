@@ -157,13 +157,28 @@ const minutesToWords = (minutes) => Math.round(minutes * WORDS_PER_MINUTE);
 // Rescales every part's word_count proportionally so the parts sum to
 // newTotalWords, preserving each part's relative share of the total. The
 // last part absorbs the rounding remainder so the sum always matches exactly.
+//
+// currentTotal used to fall back to `|| parts.length` whenever every part's
+// word_count was already 0 (e.g. right after parts were reset or freshly
+// analyzed) — meant as a divide-by-zero guard, but it silently changed what
+// "share" means: every part's own share/currentTotal became 0/6 = 0, so
+// every part but the last got word_count 0, and the last part's
+// `newTotalWords - running` absorbed the ENTIRE target instead of just the
+// rounding remainder. Confirmed live: a creator set a 60-minute target
+// (9000 words at 150 wpm) while every part was at 0 — one part got all
+// 9000 words, the rest got 0, instead of splitting evenly. When there's no
+// existing distribution to preserve, split the total evenly across parts
+// instead of dumping it all on the last one.
 const redistributePartsToTotal = (parts, newTotalWords) => {
   if (!parts.length) return parts;
-  const currentTotal = parts.reduce((sum, p) => sum + (Number(p.word_count) || 0), 0) || parts.length;
+  const rawTotal = parts.reduce((sum, p) => sum + (Number(p.word_count) || 0), 0);
+  const evenSplit = rawTotal === 0;
+  const currentTotal = rawTotal || parts.length;
   let running = 0;
   return parts.map((p, i) => {
     if (i === parts.length - 1) return { ...p, word_count: Math.max(0, newTotalWords - running) };
-    const share = Math.round(((Number(p.word_count) || 0) / currentTotal) * newTotalWords);
+    const weight = evenSplit ? 1 : (Number(p.word_count) || 0);
+    const share = Math.round((weight / currentTotal) * newTotalWords);
     running += share;
     return { ...p, word_count: share };
   });
