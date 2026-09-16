@@ -9774,7 +9774,9 @@ export default function App() {
   // someone who picked the wrong folder had no way back except abandoning
   // the wizard entirely.
   const clearWizardLocalFolder = async () => {
-    const hasStoredLibraryNow = Number(newChannel.image_style.library_image_count || 0) > 0 && wizardMode === 'edit' && editingChannelId;
+    const hasStoredLibraryNow = Number(newChannel.image_style.library_image_count || 0) > 0
+      && String(newChannel.image_style.library_path || '').startsWith('channels/')
+      && wizardMode === 'edit' && editingChannelId;
     if (hasStoredLibraryNow) {
       await deleteAllLibraryImages(editingChannelId);
       setNewChannel(prev => ({ ...prev, image_style: { ...prev.image_style, library_image_count: 0, library_path: '' } }));
@@ -17073,10 +17075,19 @@ export default function App() {
                     const imageCountMode = newChannel.image_style.image_count_mode ?? (newChannel.image_style.max_unique_images ? 'manual' : 'auto');
 
                     // The staging upload returns its image count before the
-                    // channel is saved and may not have a library_path yet.
-                    // The count is still authoritative: keep the confirmation
-                    // visible instead of reverting to an empty dropzone.
-                    const hasStoredLibrary = Number(newChannel.image_style.library_image_count || 0) > 0;
+                    // channel is saved and may not have a library_path yet —
+                    // stagedLibraryToken is what actually proves a real
+                    // upload just happened in that window. Requiring one or
+                    // the other (never the count alone) closes the gap that
+                    // let a stray/carried-over library_image_count with no
+                    // real upload behind it (path never set, no staging
+                    // token either) show "dossier présent et prêt" for a
+                    // library that was never actually there — confirmed
+                    // live, this produced a channel that later failed at
+                    // generation time with "aucune image disponible" despite
+                    // this banner insisting otherwise.
+                    const hasStoredLibrary = Number(newChannel.image_style.library_image_count || 0) > 0
+                      && (String(newChannel.image_style.library_path || '').startsWith('channels/') || !!stagedLibraryToken);
 
                     return (
                       <div className="flex flex-col space-y-6">
