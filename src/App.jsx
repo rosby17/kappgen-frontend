@@ -974,13 +974,22 @@ function writeVoiceMetaCache(cache) {
 // here for every channel saved before this existed.
 const IMAGE_SOURCE_PRIORITY = ['ai_generated', 'library', 'community', 'google_search'];
 function resolveEnabledImageSources(imageStyle) {
+  // imageStyle missing entirely means a channel that predates this field —
+  // 'library' is the safe, free, pre-existing default for those. A present
+  // imageStyle with no source/sources chosen yet (source === '') is a
+  // brand-new, still-unconfigured channel instead — that must resolve to
+  // "nothing selected" so the wizard shows every checkbox unticked and the
+  // creator has to actively choose, rather than silently landing on any
+  // one source (confirmed live: this used to hide an implicit ai_generated
+  // default from the creator entirely).
   if (!imageStyle) return ['library'];
   const sources = imageStyle.sources;
   if (Array.isArray(sources) && sources.length) {
     const enabled = IMAGE_SOURCE_PRIORITY.filter(s => sources.includes(s));
     if (enabled.length) return enabled;
   }
-  const legacy = imageStyle.source || 'library';
+  const legacy = imageStyle.source;
+  if (!legacy) return [];
   if (legacy === 'hybrid') return ['ai_generated', 'library'];
   if (IMAGE_SOURCE_PRIORITY.includes(legacy)) return [legacy];
   return ['library'];
@@ -2272,7 +2281,10 @@ function buildMusicChannelForm(channel) {
     // supported for music videos (no video/B-roll montage mode), so
     // media_mode is deliberately not part of this shape at all.
     image_style: {
-      sources: ['ai_generated'],
+      // Nothing pre-checked — same reasoning as newChannel's image_style
+      // default above: a creator must actively choose a visual source,
+      // never be silently billed for one they never picked.
+      sources: [],
       style_prompt: '',
       library_path: '',
       library_image_count: 0,
@@ -2587,8 +2599,12 @@ function MusicChannelWizard({ authFetch, showToast, onCreated, onBack, editingCh
   const isCommunityChecked = enabledImageSources.includes('community');
   const isGoogleSearchChecked = enabledImageSources.includes('google_search');
   const setEnabledImageSources = (next) => {
-    const cleaned = IMAGE_SOURCE_PRIORITY.filter(s => next.includes(s));
-    const sources = cleaned.length ? cleaned : ['ai_generated'];
+    // Unchecking every box now genuinely leaves nothing selected instead of
+    // silently re-enabling AI generation — a creator who deliberately
+    // unticks everything should see an empty state (and be blocked from
+    // continuing) rather than land back on the paid default without
+    // realizing it.
+    const sources = IMAGE_SOURCE_PRIORITY.filter(s => next.includes(s));
     setForm(f => ({ ...f, image_style: { ...f.image_style, sources } }));
   };
   const toggleOptionA = () => setEnabledImageSources(isOptionAChecked ? enabledImageSources.filter(s => s !== 'library') : [...enabledImageSources, 'library']);
@@ -7923,7 +7939,16 @@ export default function App() {
       maximus_amount: 0.40
     },
     image_style: {
-      source: 'library',
+      // Left unset on purpose (Sept 2026): no visual source pre-checked, so
+      // a creator who skips or rushes this step can't end up silently
+      // billed for AI-generated images they never actually chose —
+      // confirmed live, a new channel with no local library uploaded ended
+      // up on ai_generated + community with no explicit opt-in. The
+      // creator must tick at least one source themselves; resolveEnabledImageSources
+      // only falls back to 'library' for a channel that predates this field
+      // entirely (image_style missing altogether), never for a fresh,
+      // still-unconfigured one.
+      source: '',
       // Left empty on purpose: this used to default to a "stoic sculpture
       // style" prompt (leftover from the Philosophie & Stoïcisme example
       // channel) which every new channel silently inherited regardless of
