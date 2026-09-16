@@ -8897,6 +8897,45 @@ export default function App() {
     }
   };
 
+  // Self-service kill switch for every one of this creator's own auto-mode
+  // channels at once — stops any NEW script/video from starting on any
+  // channel (checked by run_daily_automation, backend) without touching
+  // each channel's own automation toggle individually. Anything already
+  // queued, rendering or finalizing when this flips on always finishes
+  // normally; this only ever blocks something that hasn't started yet.
+  const [automationPauseToggling, setAutomationPauseToggling] = useState(false);
+  const handleToggleAutomationPause = async () => {
+    const next = !currentUser?.automation_paused;
+    if (next) {
+      const ok = await askConfirm(
+        "Aucune chaîne automatique ne lancera de nouvelle vidéo tant que tu n'auras pas réactivé — les vidéos déjà en cours de génération, de montage ou de finalisation continuent normalement jusqu'au bout.",
+        { title: 'Mettre en pause toutes les chaînes automatiques ?', confirmLabel: 'Mettre en pause' }
+      );
+      if (!ok) return;
+    }
+    setAutomationPauseToggling(true);
+    try {
+      const res = await authFetch(`${API_BASE}/auth/me/${currentUser.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ automation_paused: next }),
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        setCurrentUser(updated);
+        localStorage.setItem("kappgen_user", JSON.stringify(updated));
+        showToast(next ? "Toutes les chaînes automatiques sont en pause." : "Automatisation relancée sur toutes les chaînes.", "success");
+      } else {
+        const err = await res.json();
+        showToast(err.detail || "Erreur lors de la mise à jour.", "error");
+      }
+    } catch (err) {
+      showToast("Erreur réseau: " + err.message, "error");
+    } finally {
+      setAutomationPauseToggling(false);
+    }
+  };
+
   const handleChangePasswordSettings = async (e) => {
     e.preventDefault();
     try {
@@ -13847,6 +13886,24 @@ export default function App() {
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
+                      {activeProduct !== 'facecam' && activeProduct !== 'recap' && (
+                        <button
+                          type="button"
+                          onClick={handleToggleAutomationPause}
+                          disabled={automationPauseToggling}
+                          title={currentUser?.automation_paused
+                            ? "Aucune chaîne automatique ne lance de nouvelle vidéo — les rendus déjà en cours continuent normalement. Clique pour relancer."
+                            : "Met en pause toute génération automatique de nouvelles vidéos, sur toutes tes chaînes à la fois — les vidéos déjà en cours continuent normalement."}
+                          className={`rounded-xl px-3 py-2 text-xs font-bold transition-colors flex items-center gap-1.5 border disabled:opacity-50 ${
+                            currentUser?.automation_paused
+                              ? 'bg-amber-500/15 border-amber-500/40 text-amber-300 hover:bg-amber-500/25'
+                              : 'bg-[var(--bg-surface-alt)] border-[var(--border)] hover:border-slate-500 text-white'
+                          }`}
+                        >
+                          <span className="material-symbols-outlined text-[16px]">{currentUser?.automation_paused ? 'play_circle' : 'pause_circle'}</span>
+                          {currentUser?.automation_paused ? 'Automatisation en pause' : 'Mettre en pause'}
+                        </button>
+                      )}
                       {activeProduct !== 'facecam' && activeProduct !== 'recap' && (
                         <button
                           type="button"
