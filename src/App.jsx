@@ -11157,7 +11157,7 @@ export default function App() {
   const renderAdminVideoMenu = (vid) => (
     <div className="absolute right-0 top-full z-40 mt-1 w-52 rounded-xl border border-[var(--border-dropdown)] bg-[var(--bg-dropdown)] py-1.5 text-left shadow-2xl">
       <button onClick={(e) => { e.stopPropagation(); setAdminVideoMenuId(null); openRenameModal(vid, e); }} className="w-full px-3 py-2 text-left text-xs font-medium text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2"><span className="material-symbols-outlined text-[15px] text-[#00c2ff]">drive_file_rename_outline</span>Renommer</button>
-      <button onClick={(e) => { e.stopPropagation(); setAdminVideoMenuId(null); handleRegenerateCardThumbnail(vid, e); }} disabled={regeneratingCardThumbnailIds.has(vid.id)} className="w-full px-3 py-2 text-left text-xs font-medium text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 disabled:opacity-50"><span className="material-symbols-outlined text-[15px] text-[#00c2ff]">autorenew</span>{regeneratingCardThumbnailIds.has(vid.id) ? 'Régénération…' : 'Régénérer la miniature'}</button>
+      <button onClick={(e) => { e.stopPropagation(); setAdminVideoMenuId(null); handleRegenerateCardThumbnail(vid, e); }} disabled={(regeneratingCardThumbnailIds.has(vid.id) || vid.thumbnail_regenerating)} className="w-full px-3 py-2 text-left text-xs font-medium text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 disabled:opacity-50"><span className="material-symbols-outlined text-[15px] text-[#00c2ff]">autorenew</span>{(regeneratingCardThumbnailIds.has(vid.id) || vid.thumbnail_regenerating) ? 'Régénération…' : 'Régénérer la miniature'}</button>
       <button onClick={(e) => { e.stopPropagation(); setAdminVideoMenuId(null); openThumbnailModal(vid, e); }} className="w-full px-3 py-2 text-left text-xs font-medium text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2"><span className="material-symbols-outlined text-[15px] text-[#00c2ff]">photo_library</span>Historique des miniatures</button>
       <button onClick={(e) => { e.stopPropagation(); setAdminVideoMenuId(null); openAdminVideoDetail(vid.id); }} className="w-full px-3 py-2 text-left text-xs font-medium text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2"><span className="material-symbols-outlined text-[15px] text-[#00c2ff]">movie_edit</span>Éditer la vidéo</button>
       <button onClick={(e) => { e.stopPropagation(); setAdminVideoMenuId(null); openAdminChannelPipeline(vid.channel_id); }} className="w-full px-3 py-2 text-left text-xs font-medium text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2"><span className="material-symbols-outlined text-[15px] text-amber-400">settings_suggest</span>Gérer le pipeline de la chaîne</button>
@@ -14391,7 +14391,7 @@ export default function App() {
                                   }}
                                   className={`aspect-[16/9] bg-slate-950 rounded-xl relative overflow-hidden border border-[var(--border)] flex items-center justify-center ${vid.status === 'done' ? 'cursor-pointer group' : ''}`}
                                 >
-                                  {regeneratingCardThumbnailIds.has(vid.id) && (
+                                  {(regeneratingCardThumbnailIds.has(vid.id) || vid.thumbnail_regenerating) && (
                                     <div className="absolute inset-0 z-20 bg-black/75 backdrop-blur-sm flex flex-col items-center justify-center gap-2">
                                       <span className="material-symbols-outlined text-[32px] text-[#00c2ff] animate-spin">progress_activity</span>
                                       <span className="text-[10px] font-bold text-white">Régénération de la miniature…</span>
@@ -14423,11 +14423,11 @@ export default function App() {
                                           <span className="truncate">Miniature indisponible</span>
                                           <button
                                             onClick={(e) => handleRegenerateCardThumbnail(vid, e)}
-                                            disabled={regeneratingCardThumbnailIds.has(vid.id)}
+                                            disabled={(regeneratingCardThumbnailIds.has(vid.id) || vid.thumbnail_regenerating)}
                                             title="Réessayer"
                                             className="shrink-0 hover:text-white disabled:opacity-50"
                                           >
-                                            <span className={`material-symbols-outlined text-[13px] ${regeneratingCardThumbnailIds.has(vid.id) ? 'animate-spin' : ''}`}>{regeneratingCardThumbnailIds.has(vid.id) ? 'progress_activity' : 'autorenew'}</span>
+                                            <span className={`material-symbols-outlined text-[13px] ${(regeneratingCardThumbnailIds.has(vid.id) || vid.thumbnail_regenerating) ? 'animate-spin' : ''}`}>{(regeneratingCardThumbnailIds.has(vid.id) || vid.thumbnail_regenerating) ? 'progress_activity' : 'autorenew'}</span>
                                           </button>
                                         </div>
                                       )}
@@ -14545,8 +14545,8 @@ export default function App() {
                                         </button>
                                       )}
                                       {vid.status === 'done' && (<>
-                                        <button onClick={(e) => handleRegenerateCardThumbnail(vid, e)} disabled={regeneratingCardThumbnailIds.has(vid.id)} className="w-full text-left px-3 py-1.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium disabled:opacity-50">
-                                          <span className="material-symbols-outlined text-[14px] text-[#00c2ff]">autorenew</span> {regeneratingCardThumbnailIds.has(vid.id) ? 'Régénération…' : 'Régénérer la miniature'}
+                                        <button onClick={(e) => handleRegenerateCardThumbnail(vid, e)} disabled={(regeneratingCardThumbnailIds.has(vid.id) || vid.thumbnail_regenerating)} className="w-full text-left px-3 py-1.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium disabled:opacity-50">
+                                          <span className="material-symbols-outlined text-[14px] text-[#00c2ff]">autorenew</span> {(regeneratingCardThumbnailIds.has(vid.id) || vid.thumbnail_regenerating) ? 'Régénération…' : 'Régénérer la miniature'}
                                         </button>
                                         <button onClick={(e) => openThumbnailModal(vid, e)} className="w-full text-left px-3 py-1.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium"><span className="material-symbols-outlined text-[14px] text-[#00c2ff]">photo_library</span> Historique des miniatures</button>
                                       </>
@@ -15460,7 +15460,7 @@ export default function App() {
                                         onClick={(e) => { if (videoSelectionMode) { e.stopPropagation(); toggleVideoSelected(vid.id); return; } vid.status === 'done' && setSelectedVideo(vid); }}
                                         className={`aspect-[16/9] bg-slate-950 rounded-xl relative overflow-hidden border border-[var(--border)] flex items-center justify-center ${vid.status === 'done' ? 'cursor-pointer group' : ''}`}
                                       >
-                                        {regeneratingCardThumbnailIds.has(vid.id) && (
+                                        {(regeneratingCardThumbnailIds.has(vid.id) || vid.thumbnail_regenerating) && (
                                           <div className="absolute inset-0 z-20 bg-black/75 backdrop-blur-sm flex flex-col items-center justify-center gap-2">
                                             <span className="material-symbols-outlined text-[32px] text-[#00c2ff] animate-spin">progress_activity</span>
                                             <span className="text-[10px] font-bold text-white">Régénération de la miniature…</span>
@@ -15488,11 +15488,11 @@ export default function App() {
                                                 <span className="truncate">Miniature indisponible</span>
                                                 <button
                                                   onClick={(e) => handleRegenerateCardThumbnail(vid, e)}
-                                                  disabled={regeneratingCardThumbnailIds.has(vid.id)}
+                                                  disabled={(regeneratingCardThumbnailIds.has(vid.id) || vid.thumbnail_regenerating)}
                                                   title="Réessayer"
                                                   className="shrink-0 hover:text-white disabled:opacity-50"
                                                 >
-                                                  <span className={`material-symbols-outlined text-[13px] ${regeneratingCardThumbnailIds.has(vid.id) ? 'animate-spin' : ''}`}>{regeneratingCardThumbnailIds.has(vid.id) ? 'progress_activity' : 'autorenew'}</span>
+                                                  <span className={`material-symbols-outlined text-[13px] ${(regeneratingCardThumbnailIds.has(vid.id) || vid.thumbnail_regenerating) ? 'animate-spin' : ''}`}>{(regeneratingCardThumbnailIds.has(vid.id) || vid.thumbnail_regenerating) ? 'progress_activity' : 'autorenew'}</span>
                                                 </button>
                                               </div>
                                             )}
@@ -15591,8 +15591,8 @@ export default function App() {
                                               </button>
                                             )}
                                             {vid.status === 'done' && (
-                                              <button disabled={regeneratingCardThumbnailIds.has(vid.id)} onClick={(e) => handleRegenerateCardThumbnail(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium disabled:opacity-50">
-                                                <span className={`material-symbols-outlined text-[16px] text-[#00c2ff] ${regeneratingCardThumbnailIds.has(vid.id) ? 'animate-spin' : ''}`}>{regeneratingCardThumbnailIds.has(vid.id) ? 'progress_activity' : 'photo_camera'}</span> {regeneratingCardThumbnailIds.has(vid.id) ? 'Régénération…' : 'Régénérer la miniature'}
+                                              <button disabled={(regeneratingCardThumbnailIds.has(vid.id) || vid.thumbnail_regenerating)} onClick={(e) => handleRegenerateCardThumbnail(vid, e)} className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium disabled:opacity-50">
+                                                <span className={`material-symbols-outlined text-[16px] text-[#00c2ff] ${(regeneratingCardThumbnailIds.has(vid.id) || vid.thumbnail_regenerating) ? 'animate-spin' : ''}`}>{(regeneratingCardThumbnailIds.has(vid.id) || vid.thumbnail_regenerating) ? 'progress_activity' : 'photo_camera'}</span> {(regeneratingCardThumbnailIds.has(vid.id) || vid.thumbnail_regenerating) ? 'Régénération…' : 'Régénérer la miniature'}
                                               </button>
                                             )}
                                             {vid.status === 'done' && (
@@ -23622,11 +23622,11 @@ export default function App() {
               <div className="grid grid-cols-2 gap-3">
                 <button
                   onClick={(e) => handleRegenerateCardThumbnail(thumbnailModalVideo, e)}
-                  disabled={regeneratingCardThumbnailIds.has(thumbnailModalVideo.id)}
+                  disabled={(regeneratingCardThumbnailIds.has(thumbnailModalVideo.id) || thumbnailModalVideo.thumbnail_regenerating)}
                   className="flex items-center justify-center gap-2 py-2.5 bg-[#00c2ff] text-slate-950 rounded-xl font-bold text-xs hover:brightness-110 transition-all disabled:opacity-50"
                 >
-                  <span className={`material-symbols-outlined text-[16px] ${regeneratingCardThumbnailIds.has(thumbnailModalVideo.id) ? 'animate-spin' : ''}`}>{regeneratingCardThumbnailIds.has(thumbnailModalVideo.id) ? 'progress_activity' : 'refresh'}</span>
-                  {regeneratingCardThumbnailIds.has(thumbnailModalVideo.id) ? 'Régénération…' : 'Régénérer la miniature'}
+                  <span className={`material-symbols-outlined text-[16px] ${(regeneratingCardThumbnailIds.has(thumbnailModalVideo.id) || thumbnailModalVideo.thumbnail_regenerating) ? 'animate-spin' : ''}`}>{(regeneratingCardThumbnailIds.has(thumbnailModalVideo.id) || thumbnailModalVideo.thumbnail_regenerating) ? 'progress_activity' : 'refresh'}</span>
+                  {(regeneratingCardThumbnailIds.has(thumbnailModalVideo.id) || thumbnailModalVideo.thumbnail_regenerating) ? 'Régénération…' : 'Régénérer la miniature'}
                 </button>
                 <button onClick={() => runThumbnailDownload(thumbnailModalVideo)} className="flex items-center justify-center gap-2 py-2.5 bg-[var(--bg-surface-alt)] text-white border border-[var(--border)] rounded-xl font-bold text-xs hover:bg-[var(--bg-hover)]"><span className="material-symbols-outlined text-[16px]">download</span>Télécharger en haute qualité</button>
               </div>
