@@ -14406,6 +14406,12 @@ export default function App() {
                                       <span className="text-[10px] font-bold text-white">Régénération de la miniature…</span>
                                     </div>
                                   )}
+                                  {vid.thumbnail_state === 'restoring' && !(regeneratingCardThumbnailIds.has(vid.id) || vid.thumbnail_regenerating) && (
+                                    <div className="absolute inset-0 z-20 bg-black/65 backdrop-blur-sm flex flex-col items-center justify-center gap-2">
+                                      <span className="material-symbols-outlined text-[28px] text-[#00c2ff] animate-spin">progress_activity</span>
+                                      <span className="text-[10px] font-bold text-white">Restauration de la miniature…</span>
+                                    </div>
+                                  )}
                                   {vid.status === 'done' && vid.output_path ? (
                                     <>
                                       <video
@@ -14426,7 +14432,7 @@ export default function App() {
                                       AI reference style fails to produce a real thumbnail — a
                                       clear "réessaie" state instead of a mediocre image (see
                                       generate_thumbnail(strict=...) backend-side). */}
-                                      {(vid.thumbnail_quality_status === 'fallback' || (vid.thumbnail_quality_status == null && (vid.thumbnail_is_ai === false || (vid.thumbnail_is_ai == null && vid.thumbnail_error)))) && (
+                                      {vid.thumbnail_state === 'fallback' && (
                                         <div className="absolute bottom-2 left-2 z-10 flex items-center gap-1 bg-amber-950/85 border border-amber-700/50 text-amber-200 text-[8px] font-semibold px-1.5 py-0.5 rounded-full max-w-[60%] shadow-sm">
                                           <span className="material-symbols-outlined text-[11px] shrink-0">image_not_supported</span>
                                           <span className="truncate">Miniature de secours</span>
@@ -14439,6 +14445,9 @@ export default function App() {
                                             <span className={`material-symbols-outlined text-[11px] ${(regeneratingCardThumbnailIds.has(vid.id) || vid.thumbnail_regenerating) ? 'animate-spin' : ''}`}>{(regeneratingCardThumbnailIds.has(vid.id) || vid.thumbnail_regenerating) ? 'progress_activity' : 'autorenew'}</span>
                                           </button>
                                         </div>
+                                      )}
+                                      {vid.thumbnail_state === 'unavailable' && (
+                                        <div className="absolute bottom-2 left-2 z-10 bg-rose-950/85 border border-rose-700/50 text-rose-200 text-[8px] font-semibold px-1.5 py-0.5 rounded-full shadow-sm">Miniature introuvable</div>
                                       )}
                                       {vid.progress_stage && /youtube|miniature/i.test(vid.progress_stage) && !vid.youtube_video_id && !vid.youtube_publish_error && (
                                         <div className="absolute inset-0 z-10 bg-slate-950/65 backdrop-blur-[1px] px-4 flex flex-col items-center justify-center gap-2 text-center">
@@ -15473,6 +15482,12 @@ export default function App() {
                                             <span className="text-[10px] font-bold text-white">Régénération de la miniature…</span>
                                           </div>
                                         )}
+                                        {vid.thumbnail_state === 'restoring' && !(regeneratingCardThumbnailIds.has(vid.id) || vid.thumbnail_regenerating) && (
+                                          <div className="absolute inset-0 z-20 bg-black/65 backdrop-blur-sm flex flex-col items-center justify-center gap-2">
+                                            <span className="material-symbols-outlined text-[28px] text-[#00c2ff] animate-spin">progress_activity</span>
+                                            <span className="text-[10px] font-bold text-white">Restauration de la miniature…</span>
+                                          </div>
+                                        )}
                                         {vid.status === 'done' && vid.output_path ? (
                                           <>
                                             <video
@@ -15489,7 +15504,7 @@ export default function App() {
                                                 {formatDuration(vid.duration_seconds)}
                                               </div>
                                             )}
-                                            {(vid.thumbnail_quality_status === 'fallback' || (vid.thumbnail_quality_status == null && (vid.thumbnail_is_ai === false || (vid.thumbnail_is_ai == null && vid.thumbnail_error)))) && (
+                                            {vid.thumbnail_state === 'fallback' && (
                                               <div className="absolute bottom-2 left-2 z-10 flex items-center gap-1 bg-amber-950/85 border border-amber-700/50 text-amber-200 text-[8px] font-semibold px-1.5 py-0.5 rounded-full max-w-[60%] shadow-sm">
                                                 <span className="material-symbols-outlined text-[11px] shrink-0">image_not_supported</span>
                                                 <span className="truncate">Miniature de secours</span>
@@ -15502,6 +15517,9 @@ export default function App() {
                                                   <span className={`material-symbols-outlined text-[11px] ${(regeneratingCardThumbnailIds.has(vid.id) || vid.thumbnail_regenerating) ? 'animate-spin' : ''}`}>{(regeneratingCardThumbnailIds.has(vid.id) || vid.thumbnail_regenerating) ? 'progress_activity' : 'autorenew'}</span>
                                                 </button>
                                               </div>
+                                            )}
+                                            {vid.thumbnail_state === 'unavailable' && (
+                                              <div className="absolute bottom-2 left-2 z-10 bg-rose-950/85 border border-rose-700/50 text-rose-200 text-[8px] font-semibold px-1.5 py-0.5 rounded-full shadow-sm">Miniature introuvable</div>
                                             )}
                                             {vid.progress_stage && /youtube|miniature/i.test(vid.progress_stage) && !vid.youtube_video_id && !vid.youtube_publish_error && (
                                               <div className="absolute inset-0 z-10 bg-slate-950/65 backdrop-blur-[1px] px-4 flex flex-col items-center justify-center gap-2 text-center">
