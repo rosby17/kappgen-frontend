@@ -13052,17 +13052,26 @@ export default function App() {
       // request. Poll the dedicated status endpoint instead of awaiting one
       // long response.
       let completed = false;
+      let finalStatus = null;
       for (let attempt = 0; jobStarted && attempt < 40; attempt++) {
         await new Promise(r => setTimeout(r, 3000));
         const body = await getRegenerationStatus().catch(() => null);
         if (body && !body.regenerating) {
           completed = true;
+          finalStatus = body;
           break;
         }
       }
       // thumbnail.jpg is overwritten in place — vid.finished_at doesn't change,
       // so the <img>/poster would keep serving the old cached file without this.
       setThumbnailBust(prev => ({ ...prev, [vid.id]: Date.now() }));
+      if (completed) {
+        fetchAllVideos();
+        if (activeChannel) fetchChannelVideos(activeChannel.id);
+      }
+      if (completed && finalStatus?.thumbnail_is_ai !== true) {
+        throw new Error(finalStatus?.thumbnail_error || "La miniature IA n'a pas pu être générée. L'image de secours a été conservée.");
+      }
       showToast(
         completed ? 'Miniature régénérée.' : 'Régénération lancée. Elle continue en arrière-plan.',
         'success'
@@ -14417,10 +14426,10 @@ export default function App() {
                                       AI reference style fails to produce a real thumbnail — a
                                       clear "réessaie" state instead of a mediocre image (see
                                       generate_thumbnail(strict=...) backend-side). */}
-                                      {vid.thumbnail_error && (
+                                      {(vid.thumbnail_is_ai === false || (vid.thumbnail_is_ai == null && vid.thumbnail_error)) && (
                                         <div className="absolute top-2 left-2 z-10 flex items-center gap-1.5 bg-amber-950/90 border border-amber-700/60 text-amber-300 text-[9px] font-bold px-2 py-1 rounded-lg max-w-[85%]">
                                           <span className="material-symbols-outlined text-[13px] shrink-0">image_not_supported</span>
-                                          <span className="truncate">Miniature indisponible</span>
+                                          <span className="truncate">Miniature de secours</span>
                                           <button
                                             onClick={(e) => handleRegenerateCardThumbnail(vid, e)}
                                             disabled={(regeneratingCardThumbnailIds.has(vid.id) || vid.thumbnail_regenerating)}
@@ -15482,10 +15491,10 @@ export default function App() {
                                                 {formatDuration(vid.duration_seconds)}
                                               </div>
                                             )}
-                                            {vid.thumbnail_error && (
+                                            {(vid.thumbnail_is_ai === false || (vid.thumbnail_is_ai == null && vid.thumbnail_error)) && (
                                               <div className="absolute top-2 left-2 z-10 flex items-center gap-1.5 bg-amber-950/90 border border-amber-700/60 text-amber-300 text-[9px] font-bold px-2 py-1 rounded-lg max-w-[85%]">
                                                 <span className="material-symbols-outlined text-[13px] shrink-0">image_not_supported</span>
-                                                <span className="truncate">Miniature indisponible</span>
+                                                <span className="truncate">Miniature de secours</span>
                                                 <button
                                                   onClick={(e) => handleRegenerateCardThumbnail(vid, e)}
                                                   disabled={(regeneratingCardThumbnailIds.has(vid.id) || vid.thumbnail_regenerating)}
