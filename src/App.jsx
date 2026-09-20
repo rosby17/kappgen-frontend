@@ -14441,9 +14441,9 @@ export default function App() {
                                         </div>
                                       )}
                                       {vid.progress_stage && /youtube|miniature/i.test(vid.progress_stage) && !vid.youtube_video_id && !vid.youtube_publish_error && (
-                                        <div className="absolute inset-x-0 bottom-0 bg-black/85 px-2 py-1.5 flex items-center gap-1.5">
-                                          <YouTubeIcon className="w-3.5 h-2.5 animate-pulse" />
-                                          <span className="text-[9px] font-bold text-white truncate">{vid.progress_stage}</span>
+                                        <div className="absolute inset-0 z-10 bg-slate-950/65 backdrop-blur-[1px] px-4 flex flex-col items-center justify-center gap-2 text-center">
+                                          <YouTubeIcon className="w-7 h-5 animate-pulse" />
+                                          <span className="text-[10px] font-bold text-white leading-snug max-w-[85%]">{vid.progress_stage}</span>
                                         </div>
                                       )}
                                     </>
@@ -14526,7 +14526,7 @@ export default function App() {
                                     {/* Downloaded-for-manual-publish marker — distinguishes a "Prête"
                                     video the creator already grabbed to post elsewhere from one
                                     that's just sitting there never touched. */}
-                                    {vid.downloaded_at && !vid.youtube_video_id && (
+                                    {vid.downloaded_at && (
                                       <span title="Téléchargée" aria-label="Téléchargée" className="flex h-5 w-5 items-center justify-center rounded-full bg-sky-950/85 text-sky-300 border border-sky-700/60 shadow-sm">
                                         <span className="material-symbols-outlined text-[12px]">download_done</span>
                                       </span>
@@ -15504,9 +15504,9 @@ export default function App() {
                                               </div>
                                             )}
                                             {vid.progress_stage && /youtube|miniature/i.test(vid.progress_stage) && !vid.youtube_video_id && !vid.youtube_publish_error && (
-                                              <div className="absolute inset-x-0 bottom-0 bg-black/85 px-2 py-1.5 flex items-center gap-1.5">
-                                                <YouTubeIcon className="w-3.5 h-2.5 animate-pulse" />
-                                                <span className="text-[9px] font-bold text-white truncate">{vid.progress_stage}</span>
+                                              <div className="absolute inset-0 z-10 bg-slate-950/65 backdrop-blur-[1px] px-4 flex flex-col items-center justify-center gap-2 text-center">
+                                                <YouTubeIcon className="w-7 h-5 animate-pulse" />
+                                                <span className="text-[10px] font-bold text-white leading-snug max-w-[85%]">{vid.progress_stage}</span>
                                               </div>
                                             )}
                                           </>
@@ -15571,7 +15571,7 @@ export default function App() {
                                               <span className="material-symbols-outlined text-[12px]">check_circle</span>
                                             </span>
                                           )}
-                                          {vid.downloaded_at && !vid.youtube_video_id && (
+                                          {vid.downloaded_at && (
                                             <span title="Téléchargée" aria-label="Téléchargée" className="flex h-5 w-5 items-center justify-center rounded-full bg-sky-950/85 text-sky-300 border border-sky-700/60 shadow-sm">
                                               <span className="material-symbols-outlined text-[12px]">download_done</span>
                                             </span>
