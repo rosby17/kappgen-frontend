@@ -14427,8 +14427,8 @@ export default function App() {
                                       clear "réessaie" state instead of a mediocre image (see
                                       generate_thumbnail(strict=...) backend-side). */}
                                       {(vid.thumbnail_quality_status === 'fallback' || (vid.thumbnail_quality_status == null && (vid.thumbnail_is_ai === false || (vid.thumbnail_is_ai == null && vid.thumbnail_error)))) && (
-                                        <div className="absolute bottom-2 left-2 z-10 flex items-center gap-1.5 bg-amber-950/90 border border-amber-700/60 text-amber-300 text-[9px] font-bold px-2 py-1 rounded-lg max-w-[85%]">
-                                          <span className="material-symbols-outlined text-[13px] shrink-0">image_not_supported</span>
+                                        <div className="absolute bottom-2 left-2 z-10 flex items-center gap-1 bg-amber-950/85 border border-amber-700/50 text-amber-200 text-[8px] font-semibold px-1.5 py-0.5 rounded-full max-w-[60%] shadow-sm">
+                                          <span className="material-symbols-outlined text-[11px] shrink-0">image_not_supported</span>
                                           <span className="truncate">Miniature de secours</span>
                                           <button
                                             onClick={(e) => handleRegenerateCardThumbnail(vid, e)}
@@ -14436,7 +14436,7 @@ export default function App() {
                                             title="Réessayer"
                                             className="shrink-0 hover:text-white disabled:opacity-50"
                                           >
-                                            <span className={`material-symbols-outlined text-[13px] ${(regeneratingCardThumbnailIds.has(vid.id) || vid.thumbnail_regenerating) ? 'animate-spin' : ''}`}>{(regeneratingCardThumbnailIds.has(vid.id) || vid.thumbnail_regenerating) ? 'progress_activity' : 'autorenew'}</span>
+                                            <span className={`material-symbols-outlined text-[11px] ${(regeneratingCardThumbnailIds.has(vid.id) || vid.thumbnail_regenerating) ? 'animate-spin' : ''}`}>{(regeneratingCardThumbnailIds.has(vid.id) || vid.thumbnail_regenerating) ? 'progress_activity' : 'autorenew'}</span>
                                           </button>
                                         </div>
                                       )}
@@ -14519,18 +14519,16 @@ export default function App() {
                                     video by mistake, since the main "Publier"/"Voir" button text
                                     alone was easy to miss at a glance across a whole grid. */}
                                     {vid.youtube_video_id && (
-                                      <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] font-sans font-bold tracking-normal bg-emerald-950/90 text-emerald-300 border border-emerald-700/70">
-                                        <span className="material-symbols-outlined text-[10px]">check_circle</span>
-                                        Publiée
+                                      <span title="Publiée sur YouTube" aria-label="Publiée sur YouTube" className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-950/85 text-emerald-300 border border-emerald-700/60 shadow-sm">
+                                        <span className="material-symbols-outlined text-[12px]">check_circle</span>
                                       </span>
                                     )}
                                     {/* Downloaded-for-manual-publish marker — distinguishes a "Prête"
                                     video the creator already grabbed to post elsewhere from one
                                     that's just sitting there never touched. */}
                                     {vid.downloaded_at && !vid.youtube_video_id && (
-                                      <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] font-sans font-bold tracking-normal bg-emerald-950/90 text-emerald-300 border border-emerald-700/70">
-                                        <span className="material-symbols-outlined text-[10px]">download_done</span>
-                                        Téléchargée
+                                      <span title="Téléchargée" aria-label="Téléchargée" className="flex h-5 w-5 items-center justify-center rounded-full bg-sky-950/85 text-sky-300 border border-sky-700/60 shadow-sm">
+                                        <span className="material-symbols-outlined text-[12px]">download_done</span>
                                       </span>
                                     )}
                                   </div>}
@@ -15492,8 +15490,8 @@ export default function App() {
                                               </div>
                                             )}
                                             {(vid.thumbnail_quality_status === 'fallback' || (vid.thumbnail_quality_status == null && (vid.thumbnail_is_ai === false || (vid.thumbnail_is_ai == null && vid.thumbnail_error)))) && (
-                                              <div className="absolute bottom-2 left-2 z-10 flex items-center gap-1.5 bg-amber-950/90 border border-amber-700/60 text-amber-300 text-[9px] font-bold px-2 py-1 rounded-lg max-w-[85%]">
-                                                <span className="material-symbols-outlined text-[13px] shrink-0">image_not_supported</span>
+                                              <div className="absolute bottom-2 left-2 z-10 flex items-center gap-1 bg-amber-950/85 border border-amber-700/50 text-amber-200 text-[8px] font-semibold px-1.5 py-0.5 rounded-full max-w-[60%] shadow-sm">
+                                                <span className="material-symbols-outlined text-[11px] shrink-0">image_not_supported</span>
                                                 <span className="truncate">Miniature de secours</span>
                                                 <button
                                                   onClick={(e) => handleRegenerateCardThumbnail(vid, e)}
@@ -15501,7 +15499,7 @@ export default function App() {
                                                   title="Réessayer"
                                                   className="shrink-0 hover:text-white disabled:opacity-50"
                                                 >
-                                                  <span className={`material-symbols-outlined text-[13px] ${(regeneratingCardThumbnailIds.has(vid.id) || vid.thumbnail_regenerating) ? 'animate-spin' : ''}`}>{(regeneratingCardThumbnailIds.has(vid.id) || vid.thumbnail_regenerating) ? 'progress_activity' : 'autorenew'}</span>
+                                                  <span className={`material-symbols-outlined text-[11px] ${(regeneratingCardThumbnailIds.has(vid.id) || vid.thumbnail_regenerating) ? 'animate-spin' : ''}`}>{(regeneratingCardThumbnailIds.has(vid.id) || vid.thumbnail_regenerating) ? 'progress_activity' : 'autorenew'}</span>
                                                 </button>
                                               </div>
                                             )}
@@ -15569,15 +15567,13 @@ export default function App() {
                                 taking up space without adding information. */}
                                         {vid.status !== 'rendering' && <div className="absolute top-2 left-2 z-10 flex items-center gap-1.5">
                                           {vid.youtube_video_id && (
-                                            <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] font-sans font-bold tracking-normal bg-emerald-950/90 text-emerald-300 border border-emerald-700/70">
-                                              <span className="material-symbols-outlined text-[10px]">check_circle</span>
-                                              Publiée
+                                            <span title="Publiée sur YouTube" aria-label="Publiée sur YouTube" className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-950/85 text-emerald-300 border border-emerald-700/60 shadow-sm">
+                                              <span className="material-symbols-outlined text-[12px]">check_circle</span>
                                             </span>
                                           )}
                                           {vid.downloaded_at && !vid.youtube_video_id && (
-                                            <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] font-sans font-bold tracking-normal bg-emerald-950/90 text-emerald-300 border border-emerald-700/70">
-                                              <span className="material-symbols-outlined text-[10px]">download_done</span>
-                                              Téléchargée
+                                            <span title="Téléchargée" aria-label="Téléchargée" className="flex h-5 w-5 items-center justify-center rounded-full bg-sky-950/85 text-sky-300 border border-sky-700/60 shadow-sm">
+                                              <span className="material-symbols-outlined text-[12px]">download_done</span>
                                             </span>
                                           )}
                                         </div>}
