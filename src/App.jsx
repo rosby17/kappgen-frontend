@@ -23853,9 +23853,9 @@ export default function App() {
                 pour qu'on voie ce qu'on télécharge avant de cliquer. */}
               {(() => {
                 const qualityOptions = [
-                  { key: 'sd', short: 'SD', label: 'Version légère', format: '854×480', cost: null },
-                  { key: 'hd', short: 'HD', label: 'Haute définition', format: '1920×1080', cost: null },
-                  { key: '4k', short: '4K', label: 'Ultra haute définition', format: '3840×2160', cost: '3 000 cr.' },
+                  { key: 'sd', short: 'SD', label: 'Très légère', format: '854×480 · compression maximale', cost: null },
+                  { key: 'hd', short: 'HD', label: 'Haute définition', format: '1280×720', cost: null },
+                  { key: 'fullhd', short: 'Full HD', label: 'Full HD', format: '1920×1080', cost: null },
                 ];
                 const selectedOpt = qualityOptions.find(o => o.key === downloadModalSelectedQuality) || qualityOptions[1];
                 return (
