@@ -14427,7 +14427,7 @@ export default function App() {
                                       clear "réessaie" state instead of a mediocre image (see
                                       generate_thumbnail(strict=...) backend-side). */}
                                       {(vid.thumbnail_quality_status === 'fallback' || (vid.thumbnail_quality_status == null && (vid.thumbnail_is_ai === false || (vid.thumbnail_is_ai == null && vid.thumbnail_error)))) && (
-                                        <div className="absolute top-2 left-2 z-10 flex items-center gap-1.5 bg-amber-950/90 border border-amber-700/60 text-amber-300 text-[9px] font-bold px-2 py-1 rounded-lg max-w-[85%]">
+                                        <div className="absolute bottom-2 left-2 z-10 flex items-center gap-1.5 bg-amber-950/90 border border-amber-700/60 text-amber-300 text-[9px] font-bold px-2 py-1 rounded-lg max-w-[85%]">
                                           <span className="material-symbols-outlined text-[13px] shrink-0">image_not_supported</span>
                                           <span className="truncate">Miniature de secours</span>
                                           <button
@@ -15492,7 +15492,7 @@ export default function App() {
                                               </div>
                                             )}
                                             {(vid.thumbnail_quality_status === 'fallback' || (vid.thumbnail_quality_status == null && (vid.thumbnail_is_ai === false || (vid.thumbnail_is_ai == null && vid.thumbnail_error)))) && (
-                                              <div className="absolute top-2 left-2 z-10 flex items-center gap-1.5 bg-amber-950/90 border border-amber-700/60 text-amber-300 text-[9px] font-bold px-2 py-1 rounded-lg max-w-[85%]">
+                                              <div className="absolute bottom-2 left-2 z-10 flex items-center gap-1.5 bg-amber-950/90 border border-amber-700/60 text-amber-300 text-[9px] font-bold px-2 py-1 rounded-lg max-w-[85%]">
                                                 <span className="material-symbols-outlined text-[13px] shrink-0">image_not_supported</span>
                                                 <span className="truncate">Miniature de secours</span>
                                                 <button
