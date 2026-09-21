@@ -5322,7 +5322,7 @@ function viewFromPath(path) {
 // Each admin sidebar entry gets its own named route (/admin/resources, etc.)
 // so a page refresh stays on the current tab instead of bouncing back to
 // the overview.
-const ADMIN_TABS = ['overview', 'maintenance', 'users', 'plans', 'videos', 'library', 'transactions', 'costs', 'resources'];
+const ADMIN_TABS = ['overview', 'users', 'plans', 'videos', 'library', 'transactions', 'costs', 'resources'];
 const AI_TEXT_PROVIDER_LABELS = { anthropic: 'Anthropic (Claude)', kie: 'Kie.ai', deepseek: 'DeepSeek', fal: 'fal.ai', openai: 'OpenAI', groq: 'Groq', xai: 'xAI', gemini: 'Google Gemini', ollama: 'Ollama (Mac)' };
 const aiTextProviderFamily = id => id === 'anthropic' || id === 'kie' || id === 'fal' ? 'Claude' : id === 'openai' ? 'OpenAI' : id === 'gemini' ? 'Gemini' : id === 'deepseek' ? 'DeepSeek' : id === 'groq' ? 'Groq' : id === 'xai' ? 'Grok' : id === 'ollama' ? 'Ollama (Mac)' : id;
 function adminTabFromPath(path) {
@@ -10142,45 +10142,6 @@ export default function App() {
   // the nav entry, it isn't itself a security boundary).
   const [adminUsers, setAdminUsers] = useState([]);
   const [adminUsersLoading, setAdminUsersLoading] = useState(false);
-  const [maintenanceAccessUsers, setMaintenanceAccessUsers] = useState([]);
-  const [maintenanceAccessEmail, setMaintenanceAccessEmail] = useState('');
-  const [maintenanceAccessBusy, setMaintenanceAccessBusy] = useState(false);
-
-  const fetchMaintenanceAccess = async () => {
-    try {
-      const res = await authFetch(`${API_BASE}/admin/maintenance-access`);
-      if (res.ok) setMaintenanceAccessUsers(await res.json());
-    } catch (e) {
-      console.error('Erreur chargement accès maintenance:', e);
-    }
-  };
-
-  const setMaintenanceAccess = async (email, granted) => {
-    const normalizedEmail = String(email || '').trim().toLowerCase();
-    if (!normalizedEmail) return;
-    setMaintenanceAccessBusy(true);
-    try {
-      const res = await authFetch(`${API_BASE}/admin/maintenance-access`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: normalizedEmail, granted }),
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.detail || 'Action impossible.');
-      }
-      const user = await res.json();
-      setMaintenanceAccessUsers(previous => granted
-        ? [...previous.filter(item => item.id !== user.id), user].sort((a, b) => a.email.localeCompare(b.email))
-        : previous.filter(item => item.id !== user.id));
-      setMaintenanceAccessEmail('');
-      showToast(granted ? 'Accès maintenu pendant la maintenance.' : 'Accès maintenance retiré.', 'success');
-    } catch (err) {
-      showToast(err.message, 'error');
-    } finally {
-      setMaintenanceAccessBusy(false);
-    }
-  };
 
   const [adminSearch, setAdminSearch] = useState('');
   const [adminPlans, setAdminPlans] = useState([]);
@@ -11044,10 +11005,6 @@ export default function App() {
 
   useEffect(() => {
     if (view === 'admin' && currentUser?.is_admin && adminTab === 'resources') { fetchAdminProviders(); fetchThumbnailProviderMode(); fetchSceneImageProviderMode(); fetchPremiumImageMode(); fetchVoiceoverProviderMode(); fetchMusicProviderMode(); fetchAiTextProvider(); fetchModelCatalog(); fetchRenderConcurrency(); fetchPaidApisKillSwitch(); }
-  }, [view, currentUser?.is_admin, adminTab]);
-
-  useEffect(() => {
-    if (view === 'admin' && currentUser?.is_admin && adminTab === 'maintenance') fetchMaintenanceAccess();
   }, [view, currentUser?.is_admin, adminTab]);
 
   useEffect(() => {
@@ -13102,6 +13059,9 @@ export default function App() {
   // direct DB edit. Every other route shows the maintenance screen for
   // anyone who isn't an admin (an already-signed-in admin's own session is
   // never blocked by their own kill switch).
+  // maintenance_access is still honoured for the accounts that already carry
+  // it, but it is no longer manageable from the admin panel — admins are the
+  // ones who need to keep working while maintenance is on.
   const isMaintenanceExempt = currentUser?.is_admin || currentUser?.maintenance_access;
   if (maintenanceActive !== false && !isAuthRoute && !isMaintenanceExempt) {
     return <MaintenanceScreen />;
@@ -13324,7 +13284,6 @@ export default function App() {
 
                 {[
                   { id: 'overview', label: "Vue d'ensemble", icon: 'dashboard' },
-                  { id: 'maintenance', label: 'Accès maintenance', icon: 'admin_panel_settings' },
                   { id: 'users', label: 'Utilisateurs', icon: 'group' },
                   { id: 'videos', label: 'Vidéos', icon: 'movie' },
                   { id: 'library', label: 'Bibliothèque collaborative', icon: 'diversity_3' },
@@ -20187,9 +20146,9 @@ export default function App() {
                   <div>
                     <h2 className="text-xl font-extrabold text-white flex items-center gap-2">
                       <span className="material-symbols-outlined text-[#00c2ff]">
-                        {{ overview: 'dashboard', maintenance: 'admin_panel_settings', users: 'group', plans: 'sell', videos: 'movie', library: 'diversity_3', transactions: 'payments' }[adminTab]}
+                        {{ overview: 'dashboard', users: 'group', plans: 'sell', videos: 'movie', library: 'diversity_3', transactions: 'payments' }[adminTab]}
                       </span>
-                      {{ overview: "Vue d'ensemble", maintenance: 'Accès maintenance', users: 'Utilisateurs', plans: 'Offres', videos: 'Vidéos', library: 'Bibliothèque collaborative', transactions: 'Transactions', costs: 'Coûts', resources: 'Ressources' }[adminTab]}
+                      {{ overview: "Vue d'ensemble", users: 'Utilisateurs', plans: 'Offres', videos: 'Vidéos', library: 'Bibliothèque collaborative', transactions: 'Transactions', costs: 'Coûts', resources: 'Ressources' }[adminTab]}
                       {adminTab === 'users' && (
                         <span className="text-2xl font-black text-[#00c2ff] tabular-nums">{adminUsers.length}{adminUsers.length >= 500 ? '+' : ''}</span>
                       )}
@@ -20197,7 +20156,6 @@ export default function App() {
                     <p className="text-xs text-slate-400 mt-1">
                       {{
                         overview: 'Tableau de bord administrateur KappGen.',
-                        maintenance: "Les comptes listés ici restent utilisables quand le mode maintenance est actif.",
                         users: 'Gère les comptes, quotas et abonnements des créateurs.',
                         plans: "Configure les offres d'abonnement proposées à la vente.",
                         videos: 'Toutes les vidéos générées sur la plateforme.',
@@ -20207,32 +20165,6 @@ export default function App() {
                     </p>
                   </div>
 
-                  {adminTab === 'maintenance' && (
-                    <section className="space-y-4">
-                      <div className="rounded-2xl border border-cyan-500/20 bg-cyan-500/[0.04] p-4">
-                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                          <div>
-                            <div className="flex items-center gap-2 text-sm font-bold text-white"><span className="material-symbols-outlined text-[18px] text-[#00c2ff]">admin_panel_settings</span>Accès pendant la maintenance</div>
-                            <p className="mt-1 text-xs text-slate-400">Ces comptes restent utilisables lorsque le mode maintenance est activé.</p>
-                          </div>
-                          <form className="flex w-full gap-2 sm:w-auto" onSubmit={(event) => { event.preventDefault(); setMaintenanceAccess(maintenanceAccessEmail, true); }}>
-                            <input value={maintenanceAccessEmail} onChange={(event) => setMaintenanceAccessEmail(event.target.value)} type="email" required placeholder="email@exemple.com" className="min-w-0 flex-1 rounded-xl border border-[var(--border)] bg-[var(--bg-surface-alt)] px-3 py-2 text-xs text-white outline-none placeholder:text-slate-600 focus:border-[#00c2ff] sm:w-56" />
-                            <button type="submit" disabled={maintenanceAccessBusy} className="shrink-0 rounded-xl bg-[#00c2ff] px-3.5 py-2 text-xs font-bold text-slate-950 transition-colors hover:bg-[#38d0ff] disabled:opacity-50">Autoriser</button>
-                          </form>
-                        </div>
-                        {maintenanceAccessUsers.length > 0 && (
-                          <div className="mt-3 flex flex-wrap gap-2">
-                            {maintenanceAccessUsers.map(user => (
-                              <span key={user.id} className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-400/20 bg-slate-950/40 py-1 pl-2.5 pr-1 text-[11px] text-cyan-100">
-                                {user.email}
-                                <button type="button" onClick={() => setMaintenanceAccess(user.email, false)} disabled={maintenanceAccessBusy} title="Retirer l'accès" className="grid h-5 w-5 place-items-center rounded-md text-slate-400 hover:bg-red-500/15 hover:text-red-400 disabled:opacity-50"><span className="material-symbols-outlined text-[14px]">close</span></button>
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </section>
-                  )}
 
                   {adminTab === 'overview' && (() => {
                     const period = adminActivity?.period;
