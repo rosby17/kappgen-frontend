@@ -5015,6 +5015,30 @@ function PlayCircleIcon({ className = '', variant = 'play' }) {
   );
 }
 
+function ThumbnailStateBadge({ video, onRetry, retrying = false }) {
+  const state = video.thumbnail_state || 'unknown';
+  const presentation = {
+    active: { icon: 'check_circle', label: 'Miniature active', tone: 'bg-emerald-950/85 border-emerald-700/50 text-emerald-200' },
+    fallback: { icon: 'image_not_supported', label: 'Miniature de secours', tone: 'bg-amber-950/85 border-amber-700/50 text-amber-200', retry: true },
+    pending: { icon: 'hourglass_top', label: 'Miniature à générer', tone: 'bg-sky-950/85 border-sky-700/50 text-sky-200', retry: true },
+    restoring: { icon: 'settings_backup_restore', label: 'Restauration en cours', tone: 'bg-sky-950/85 border-sky-700/50 text-sky-200' },
+    lost: { icon: 'broken_image', label: 'Miniature perdue', tone: 'bg-rose-950/85 border-rose-700/50 text-rose-200', retry: true },
+    unavailable: { icon: 'broken_image', label: 'Miniature introuvable', tone: 'bg-rose-950/85 border-rose-700/50 text-rose-200', retry: true },
+    unknown: { icon: 'help', label: 'État à vérifier', tone: 'bg-slate-950/85 border-slate-600/50 text-slate-200' },
+  }[state];
+  return (
+    <div className={`absolute bottom-2 left-2 z-10 flex items-center gap-1 border text-[8px] font-semibold px-1.5 py-0.5 rounded-full max-w-[68%] shadow-sm ${presentation.tone}`}>
+      <span className="material-symbols-outlined text-[11px] shrink-0">{presentation.icon}</span>
+      <span className="truncate">{presentation.label}</span>
+      {presentation.retry && onRetry && (
+        <button onClick={onRetry} disabled={retrying} title="Réessayer la génération" className="shrink-0 hover:text-white disabled:opacity-50">
+          <span className={`material-symbols-outlined text-[11px] ${retrying ? 'animate-spin' : ''}`}>{retrying ? 'progress_activity' : 'autorenew'}</span>
+        </button>
+      )}
+    </div>
+  );
+}
+
 function VideoTrustBadge({ video, onClick }) {
   const report = video.youtube_compliance_report;
   const score = report?.score;
@@ -14428,27 +14452,7 @@ export default function App() {
                                           {formatDuration(vid.duration_seconds)}
                                         </div>
                                       )}
-                                      {/* No generic placeholder is ever written when the channel's
-                                      AI reference style fails to produce a real thumbnail — a
-                                      clear "réessaie" state instead of a mediocre image (see
-                                      generate_thumbnail(strict=...) backend-side). */}
-                                      {vid.thumbnail_state === 'fallback' && (
-                                        <div className="absolute bottom-2 left-2 z-10 flex items-center gap-1 bg-amber-950/85 border border-amber-700/50 text-amber-200 text-[8px] font-semibold px-1.5 py-0.5 rounded-full max-w-[60%] shadow-sm">
-                                          <span className="material-symbols-outlined text-[11px] shrink-0">image_not_supported</span>
-                                          <span className="truncate">Miniature de secours</span>
-                                          <button
-                                            onClick={(e) => handleRegenerateCardThumbnail(vid, e)}
-                                            disabled={(regeneratingCardThumbnailIds.has(vid.id) || vid.thumbnail_regenerating)}
-                                            title="Réessayer"
-                                            className="shrink-0 hover:text-white disabled:opacity-50"
-                                          >
-                                            <span className={`material-symbols-outlined text-[11px] ${(regeneratingCardThumbnailIds.has(vid.id) || vid.thumbnail_regenerating) ? 'animate-spin' : ''}`}>{(regeneratingCardThumbnailIds.has(vid.id) || vid.thumbnail_regenerating) ? 'progress_activity' : 'autorenew'}</span>
-                                          </button>
-                                        </div>
-                                      )}
-                                      {vid.thumbnail_state === 'unavailable' && (
-                                        <div className="absolute bottom-2 left-2 z-10 bg-rose-950/85 border border-rose-700/50 text-rose-200 text-[8px] font-semibold px-1.5 py-0.5 rounded-full shadow-sm">Miniature introuvable</div>
-                                      )}
+                                      <ThumbnailStateBadge video={vid} retrying={regeneratingCardThumbnailIds.has(vid.id) || vid.thumbnail_regenerating} onRetry={(e) => handleRegenerateCardThumbnail(vid, e)} />
                                       {vid.progress_stage && /youtube|miniature/i.test(vid.progress_stage) && !vid.youtube_video_id && !vid.youtube_publish_error && (
                                         <div className="absolute inset-0 z-10 bg-slate-950/65 backdrop-blur-[1px] px-4 flex flex-col items-center justify-center gap-2 text-center">
                                           <YouTubeIcon className="w-7 h-5 animate-pulse" />
@@ -15504,23 +15508,7 @@ export default function App() {
                                                 {formatDuration(vid.duration_seconds)}
                                               </div>
                                             )}
-                                            {vid.thumbnail_state === 'fallback' && (
-                                              <div className="absolute bottom-2 left-2 z-10 flex items-center gap-1 bg-amber-950/85 border border-amber-700/50 text-amber-200 text-[8px] font-semibold px-1.5 py-0.5 rounded-full max-w-[60%] shadow-sm">
-                                                <span className="material-symbols-outlined text-[11px] shrink-0">image_not_supported</span>
-                                                <span className="truncate">Miniature de secours</span>
-                                                <button
-                                                  onClick={(e) => handleRegenerateCardThumbnail(vid, e)}
-                                                  disabled={(regeneratingCardThumbnailIds.has(vid.id) || vid.thumbnail_regenerating)}
-                                                  title="Réessayer"
-                                                  className="shrink-0 hover:text-white disabled:opacity-50"
-                                                >
-                                                  <span className={`material-symbols-outlined text-[11px] ${(regeneratingCardThumbnailIds.has(vid.id) || vid.thumbnail_regenerating) ? 'animate-spin' : ''}`}>{(regeneratingCardThumbnailIds.has(vid.id) || vid.thumbnail_regenerating) ? 'progress_activity' : 'autorenew'}</span>
-                                                </button>
-                                              </div>
-                                            )}
-                                            {vid.thumbnail_state === 'unavailable' && (
-                                              <div className="absolute bottom-2 left-2 z-10 bg-rose-950/85 border border-rose-700/50 text-rose-200 text-[8px] font-semibold px-1.5 py-0.5 rounded-full shadow-sm">Miniature introuvable</div>
-                                            )}
+                                            <ThumbnailStateBadge video={vid} retrying={regeneratingCardThumbnailIds.has(vid.id) || vid.thumbnail_regenerating} onRetry={(e) => handleRegenerateCardThumbnail(vid, e)} />
                                             {vid.progress_stage && /youtube|miniature/i.test(vid.progress_stage) && !vid.youtube_video_id && !vid.youtube_publish_error && (
                                               <div className="absolute inset-0 z-10 bg-slate-950/65 backdrop-blur-[1px] px-4 flex flex-col items-center justify-center gap-2 text-center">
                                                 <YouTubeIcon className="w-7 h-5 animate-pulse" />
