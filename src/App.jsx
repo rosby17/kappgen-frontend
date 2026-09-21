@@ -16986,8 +16986,8 @@ export default function App() {
                             quel visuel dans le ton fonctionne. */}
                           <div className="mb-3 grid grid-cols-2 gap-2">
                             {[
-                              { id: 'loose', label: 'Niche souple', hint: 'Religion, tourisme, motivation — un visuel dans le ton suffit.' },
-                              { id: 'strict', label: 'Niche exigeante', hint: 'Santé, tutoriels — chaque image doit coller à ce qui se dit.' },
+                              { id: 'loose', label: 'Niche souple', hint: 'Religion, stoïcisme, philosophie, motivation — quelques visuels suffisent, même sans coller au texte.' },
+                              { id: 'strict', label: 'Niche exigeante', hint: 'Santé, tutoriels, astuces maison — chaque scène doit montrer ce qui s’y dit.' },
                             ].map(mode => {
                               const active = (newChannel.image_style.scene_accuracy || 'loose') === mode.id;
                               return (
