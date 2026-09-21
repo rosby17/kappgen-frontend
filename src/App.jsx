@@ -13866,11 +13866,17 @@ export default function App() {
                         const statusInfo = getChannelStatusInfo(chan);
                         const isMenuOpen = openChannelMenuId === chan.id;
 
+                        // z-50 while this card's menu is open: card-warm-hover's :hover
+                        // transform creates a stacking context, so hovering ANY later
+                        // card lifted it above the open dropdown and hid the actions
+                        // behind it. The menu's own z-50 cannot win that — it is trapped
+                        // inside this card's context — so the card itself has to outrank
+                        // its siblings.
                         return (
                           <div
                             key={chan.id}
                             onClick={() => { setActiveChannel(chan); fetchChannelVideos(chan.id); setView('channel_detail'); }}
-                            className="bg-[var(--bg-surface)] hover:bg-[var(--bg-hover)] border border-[var(--border-soft)] hover:border-[#00c2ff]/40 rounded-2xl p-5 transition-all cursor-pointer group shadow-lg relative card-warm-hover channel-menu-container"
+                            className={`bg-[var(--bg-surface)] hover:bg-[var(--bg-hover)] border border-[var(--border-soft)] hover:border-[#00c2ff]/40 rounded-2xl p-5 transition-all cursor-pointer group shadow-lg relative card-warm-hover channel-menu-container ${isMenuOpen ? 'z-50' : ''}`}
                           >
                             {/* Card Header & 3-Dots Action Button — status badge sits right next
                               to the name instead of on its own row, and the niche/counters
