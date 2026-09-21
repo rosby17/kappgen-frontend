@@ -6728,6 +6728,48 @@ export default function App() {
     localStorage.setItem("kappgen_user", JSON.stringify(loggedUser));
   };
 
+  // currentUser is hydrated from localStorage at boot and, until now, only
+  // ever updated by a mutation THIS tab performed. So a second window (or
+  // another browser profile) kept whatever snapshot it cached at login:
+  // pausing automation in one showed "Automatisation en pause" there while
+  // the other still offered "Mettre en pause", and credit balances drifted
+  // apart the same way. The account state is one thing, held server-side —
+  // re-read it instead of trusting a local copy.
+  //
+  // On mount and whenever the tab comes back to the foreground, which is
+  // exactly when someone switches to the window they left open earlier.
+  const refreshCurrentUser = async () => {
+    const userId = currentUser?.id;
+    if (!userId) return;
+    try {
+      const res = await authFetch(`${API_BASE}/auth/me/${userId}`);
+      if (!res.ok) return; // 401 already logs out inside authFetch
+      const fresh = await res.json();
+      localStorage.setItem("kappgen_user", JSON.stringify(fresh));
+      // Same-value guard: this runs on every focus, and replacing the object
+      // each time would re-render the whole app for nothing.
+      setCurrentUser(prev => (JSON.stringify(prev) === JSON.stringify(fresh) ? prev : fresh));
+    } catch {
+      // Offline or a transient failure: keep the cached copy rather than
+      // blanking a signed-in session.
+    }
+  };
+
+  useEffect(() => {
+    if (!currentUser?.id) return;
+    refreshCurrentUser();
+    const onBackToForeground = () => {
+      if (document.visibilityState === 'visible') refreshCurrentUser();
+    };
+    window.addEventListener('focus', onBackToForeground);
+    document.addEventListener('visibilitychange', onBackToForeground);
+    return () => {
+      window.removeEventListener('focus', onBackToForeground);
+      document.removeEventListener('visibilitychange', onBackToForeground);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUser?.id]);
+
   // Mirrors the admin's "Coupe-circuit API payantes" kill switch (see
   // Ressources tab) — this used to only change which provider each
   // generation used under the hood, so a visitor during an outage saw a
