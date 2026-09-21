@@ -5136,9 +5136,8 @@ function LibraryChannelAvatar({ channel }) {
   );
 }
 
-// Same operator WhatsApp number as BETA_WHATSAPP_GROUP_URL's personal-contact
-// sibling (see BetaGateScreen's whatsappHref) — a fixed, prefilled message
-// since this screen carries no user identity to personalize it with.
+// Operator WhatsApp contact for the maintenance screen — a fixed, prefilled
+// message since this screen carries no user identity to personalize it with.
 const MAINTENANCE_WHATSAPP_HREF = `https://wa.me/237655306425?text=${encodeURIComponent(
   "Bonjour, je souhaite tester KappGen en accès anticipé pendant la maintenance."
 )}`;
@@ -5211,186 +5210,6 @@ export function MaintenanceScreen() {
   );
 }
 
-// Private beta gate — shown in place of the entire app for a signed-in
-// account that isn't approved yet (see App's render, right after the
-// currentUser/auth-route redirects). Polls the account's own status so
-// approval takes effect within a few seconds, no manual refresh needed.
-// Public WhatsApp community-group invite, shown once right after approval
-// (see BetaGateScreen's justApproved screen below) — separate from the
-// personal +237655306425 contact link used while still pending.
-const BETA_WHATSAPP_GROUP_URL = 'https://chat.whatsapp.com/Dt1qqGiBxuLKZiXfJUB50z?s=sw&p=i&mlu=4&ilr=4';
-
-function BetaGateScreen({ currentUser, authFetch, onLogout, onApproved }) {
-  const [checking, setChecking] = useState(false);
-  const [justApproved, setJustApproved] = useState(null); // the updated user, once approval is detected — held here one beat so the WhatsApp group link actually gets seen instead of the screen unmounting straight into the app
-  const rejected = currentUser.beta_status === 'rejected';
-
-  const checkStatus = async () => {
-    setChecking(true);
-    try {
-      const res = await authFetch(`${API_BASE}/auth/me/${currentUser.id}`);
-      if (res.ok) {
-        const updated = await res.json();
-        if (updated.beta_status === 'approved') {
-          setJustApproved(updated);
-          return;
-        }
-      }
-    } catch {
-      // Silent — this is a background poll, a transient network hiccup
-      // shouldn't produce an error toast on a screen with no other action.
-    } finally {
-      setChecking(false);
-    }
-  };
-
-  useEffect(() => {
-    if (rejected || justApproved) return; // no point polling a final/settled decision
-    const interval = setInterval(checkStatus, 20000);
-    return () => clearInterval(interval);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rejected, justApproved]);
-
-  const whatsappMessage = `Bonjour ! Je souhaite avoir des nouvelles de ma demande d'accès à la bêta KappGen.\n\nNom : ${currentUser.name || ''}\nEmail : ${currentUser.email || ''}\nInscrit le : ${currentUser.created_at ? new Date(currentUser.created_at).toLocaleDateString('fr-FR') : ''}`;
-  const whatsappHref = `https://wa.me/237655306425?text=${encodeURIComponent(whatsappMessage)}`;
-
-  if (justApproved) {
-    return (
-      <div className="min-h-screen relative flex items-center justify-center bg-[#0a0e14] text-[#e5e8f0] p-6 overflow-hidden">
-        <div className="pointer-events-none absolute inset-0">
-          <div className="absolute -top-40 -left-32 w-[520px] h-[520px] rounded-full blur-[120px] opacity-25 bg-emerald-500" />
-          <div className="absolute -bottom-40 -right-32 w-[520px] h-[520px] rounded-full blur-[120px] opacity-20 bg-[#0088ff]" />
-        </div>
-        <div className="relative w-full max-w-md">
-          <div className="flex items-center justify-center gap-2 mb-6">
-            <img src="/assets/logo/logo-kappgen.png" alt="KappGen" className="w-8 h-8 rounded-lg object-cover" />
-            <span className="font-black text-white tracking-wide text-lg">KappGen</span>
-          </div>
-          <div className="bg-[var(--bg-surface)]/90 backdrop-blur-xl border border-[var(--border-soft)] rounded-3xl shadow-2xl p-8 text-center">
-            <div className="w-20 h-20 mx-auto mb-5 rounded-full bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center">
-              <span className="material-symbols-outlined text-[36px] text-emerald-400">celebration</span>
-            </div>
-            <h1 className="text-2xl font-extrabold text-white">Ton accès est validé !</h1>
-            <p className="text-sm text-slate-400 mt-3 leading-relaxed">
-              Bienvenue dans la bêta privée de KappGen. Rejoins le groupe WhatsApp des bêta-testeurs pour suivre les nouveautés et échanger avec les autres créateurs.
-            </p>
-            <div className="mt-6 flex flex-col gap-2.5">
-              <a
-                href={BETA_WHATSAPP_GROUP_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-full py-3 bg-[#25D366] hover:bg-[#20bd5a] text-white font-bold text-sm rounded-xl transition-colors flex items-center justify-center gap-2 shadow-lg shadow-[#25D366]/20"
-              >
-                <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.48 1.32 5l-1.4 5.12 5.24-1.38a9.9 9.9 0 004.75 1.21h.01c5.46 0 9.9-4.45 9.9-9.91 0-2.65-1.03-5.13-2.9-7C17.15 3.03 14.68 2 12.04 2zm0 18.1h-.01a8.2 8.2 0 01-4.19-1.15l-.3-.18-3.11.82.83-3.03-.2-.31a8.18 8.18 0 01-1.26-4.36c0-4.53 3.69-8.22 8.24-8.22 2.2 0 4.27.86 5.83 2.42a8.17 8.17 0 012.41 5.82c0 4.54-3.7 8.19-8.24 8.19zm4.52-6.16c-.25-.12-1.47-.72-1.69-.81-.23-.08-.39-.12-.56.13-.17.25-.64.81-.78.97-.14.17-.29.19-.54.06-.25-.12-1.04-.38-1.99-1.22-.73-.66-1.23-1.46-1.37-1.71-.14-.25-.02-.38.11-.51.11-.11.25-.29.37-.43.12-.15.16-.25.25-.42.08-.17.04-.31-.02-.43-.06-.13-.56-1.34-.76-1.84-.2-.48-.41-.42-.56-.42-.14 0-.31-.01-.47-.01-.17 0-.44.06-.67.31-.23.25-.87.85-.87 2.08 0 1.23.89 2.42 1.02 2.58.12.17 1.75 2.67 4.24 3.75.59.26 1.05.41 1.41.52.59.19 1.13.16 1.55.1.47-.07 1.47-.6 1.68-1.18.21-.58.21-1.08.14-1.18-.06-.11-.23-.17-.48-.29z" /></svg>
-                Rejoindre le groupe WhatsApp bêta
-              </a>
-              <button
-                onClick={() => onApproved(justApproved)}
-                className="w-full py-2.5 bg-[var(--bg-surface-alt)] border border-[var(--border)] hover:border-[#00c2ff]/50 text-slate-300 hover:text-white text-xs font-bold rounded-xl transition-colors"
-              >
-                Accéder à KappGen
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="min-h-screen relative flex items-center justify-center bg-[#0a0e14] text-[#e5e8f0] p-6 overflow-hidden">
-      {/* Ambient glow backdrop — same warm/cool accent language used across
-          the rest of the app's dark surfaces, just dialed up since this
-          screen otherwise has nothing else on it to look at. */}
-      <div className="pointer-events-none absolute inset-0">
-        <div className={`absolute -top-40 -left-32 w-[520px] h-[520px] rounded-full blur-[120px] opacity-25 ${rejected ? 'bg-red-500' : 'bg-[#00c2ff]'}`} />
-        <div className="absolute -bottom-40 -right-32 w-[520px] h-[520px] rounded-full blur-[120px] opacity-20 bg-[#0088ff]" />
-      </div>
-
-      <div className="relative w-full max-w-md">
-        <div className="flex items-center justify-center gap-2 mb-6">
-          <img src="/assets/logo/logo-kappgen.png" alt="KappGen" className="w-8 h-8 rounded-lg object-cover" />
-          <span className="font-black text-white tracking-wide text-lg">KappGen</span>
-        </div>
-
-        <div className="bg-[var(--bg-surface)]/90 backdrop-blur-xl border border-[var(--border-soft)] rounded-3xl shadow-2xl p-8 text-center">
-          <div className="relative w-20 h-20 mx-auto mb-5">
-            {!rejected && (
-              <span className="absolute inset-0 rounded-full bg-[#00c2ff]/20 animate-ping" />
-            )}
-            <div className={`relative w-20 h-20 rounded-full flex items-center justify-center border ${rejected ? 'bg-red-500/10 border-red-500/30' : 'bg-gradient-to-br from-[#00c2ff]/20 to-[#0088ff]/10 border-[#00c2ff]/30'
-              }`}>
-              <span className={`material-symbols-outlined text-[36px] ${rejected ? 'text-red-400' : 'text-[#00c2ff]'}`}>
-                {rejected ? 'block' : 'hourglass_top'}
-              </span>
-            </div>
-          </div>
-
-          <span className={`inline-block px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest mb-3 ${rejected ? 'bg-red-500/10 text-red-400 border border-red-500/30' : 'bg-[#00c2ff]/10 text-[#00c2ff] border border-[#00c2ff]/30'
-            }`}>
-            Bêta privée
-          </span>
-
-          <h1 className="text-2xl font-extrabold text-white text-balance">
-            {rejected ? "Accès non accordé" : "Ton accès est en attente d'approbation"}
-          </h1>
-          <p className="text-sm text-slate-400 mt-3 leading-relaxed">
-            {rejected
-              ? "Ta demande d'accès à la bêta privée de KappGen n'a pas été retenue pour l'instant."
-              : "KappGen est actuellement en bêta privée. Ton inscription a bien été reçue — un administrateur doit valider ton compte avant que tu puisses accéder à l'outil."}
-          </p>
-
-          <div className="mt-5 bg-[var(--bg-surface-alt)] border border-[var(--border)] rounded-2xl px-4 py-3.5 text-left space-y-2">
-            {[
-              ['Nom', currentUser.name],
-              ['Email', currentUser.email],
-              ['Inscrit le', currentUser.created_at ? new Date(currentUser.created_at).toLocaleDateString('fr-FR') : null],
-            ].map(([label, value]) => (
-              <div key={label} className="flex justify-between items-center text-xs">
-                <span className="text-slate-500">{label}</span>
-                <span className="text-white font-bold truncate ml-3">{value || '—'}</span>
-              </div>
-            ))}
-          </div>
-
-          {!rejected && (
-            <div className="mt-4 flex items-center justify-center gap-1.5 text-[11px] text-slate-500">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              Cette page se met à jour automatiquement dès que ton accès est validé.
-            </div>
-          )}
-
-          <div className="mt-6 flex flex-col gap-2.5">
-            <a
-              href={whatsappHref}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="w-full py-3 bg-[#25D366] hover:bg-[#20bd5a] text-white font-bold text-sm rounded-xl transition-colors flex items-center justify-center gap-2 shadow-lg shadow-[#25D366]/20"
-            >
-              <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.48 1.32 5l-1.4 5.12 5.24-1.38a9.9 9.9 0 004.75 1.21h.01c5.46 0 9.9-4.45 9.9-9.91 0-2.65-1.03-5.13-2.9-7C17.15 3.03 14.68 2 12.04 2zm0 18.1h-.01a8.2 8.2 0 01-4.19-1.15l-.3-.18-3.11.82.83-3.03-.2-.31a8.18 8.18 0 01-1.26-4.36c0-4.53 3.69-8.22 8.24-8.22 2.2 0 4.27.86 5.83 2.42a8.17 8.17 0 012.41 5.82c0 4.54-3.7 8.19-8.24 8.19zm4.52-6.16c-.25-.12-1.47-.72-1.69-.81-.23-.08-.39-.12-.56.13-.17.25-.64.81-.78.97-.14.17-.29.19-.54.06-.25-.12-1.04-.38-1.99-1.22-.73-.66-1.23-1.46-1.37-1.71-.14-.25-.02-.38.11-.51.11-.11.25-.29.37-.43.12-.15.16-.25.25-.42.08-.17.04-.31-.02-.43-.06-.13-.56-1.34-.76-1.84-.2-.48-.41-.42-.56-.42-.14 0-.31-.01-.47-.01-.17 0-.44.06-.67.31-.23.25-.87.85-.87 2.08 0 1.23.89 2.42 1.02 2.58.12.17 1.75 2.67 4.24 3.75.59.26 1.05.41 1.41.52.59.19 1.13.16 1.55.1.47-.07 1.47-.6 1.68-1.18.21-.58.21-1.08.14-1.18-.06-.11-.23-.17-.48-.29z" /></svg>
-              Contacter l'admin sur WhatsApp
-            </a>
-            {!rejected && (
-              <button
-                onClick={checkStatus}
-                disabled={checking}
-                className="w-full py-2.5 bg-[var(--bg-surface-alt)] border border-[var(--border)] hover:border-[#00c2ff]/50 text-slate-300 hover:text-white text-xs font-bold rounded-xl transition-colors disabled:opacity-50"
-              >
-                {checking ? 'Vérification…' : 'Vérifier maintenant'}
-              </button>
-            )}
-            <button
-              onClick={onLogout}
-              className="w-full py-2 text-slate-500 hover:text-white text-xs font-bold rounded-xl transition-colors"
-            >
-              Se déconnecter
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 function SkeletonGrid({ count = 6, cardClassName = "min-h-[220px]" }) {
   return (
@@ -5503,7 +5322,7 @@ function viewFromPath(path) {
 // Each admin sidebar entry gets its own named route (/admin/resources, etc.)
 // so a page refresh stays on the current tab instead of bouncing back to
 // the overview.
-const ADMIN_TABS = ['overview', 'beta', 'users', 'plans', 'videos', 'library', 'transactions', 'costs', 'resources'];
+const ADMIN_TABS = ['overview', 'maintenance', 'users', 'plans', 'videos', 'library', 'transactions', 'costs', 'resources'];
 const AI_TEXT_PROVIDER_LABELS = { anthropic: 'Anthropic (Claude)', kie: 'Kie.ai', deepseek: 'DeepSeek', fal: 'fal.ai', openai: 'OpenAI', groq: 'Groq', xai: 'xAI', gemini: 'Google Gemini', ollama: 'Ollama (Mac)' };
 const aiTextProviderFamily = id => id === 'anthropic' || id === 'kie' || id === 'fal' ? 'Claude' : id === 'openai' ? 'OpenAI' : id === 'gemini' ? 'Gemini' : id === 'deepseek' ? 'DeepSeek' : id === 'groq' ? 'Groq' : id === 'xai' ? 'Grok' : id === 'ollama' ? 'Ollama (Mac)' : id;
 function adminTabFromPath(path) {
@@ -10323,31 +10142,9 @@ export default function App() {
   // the nav entry, it isn't itself a security boundary).
   const [adminUsers, setAdminUsers] = useState([]);
   const [adminUsersLoading, setAdminUsersLoading] = useState(false);
-  // Private beta approval queue (Admin → Demandes bêta).
-  const [betaRequests, setBetaRequests] = useState([]);
-  const [betaRequestsLoading, setBetaRequestsLoading] = useState(false);
-  const [betaFilter, setBetaFilter] = useState('pending'); // 'pending' | 'approved' | 'rejected'
-  const [betaDecidingId, setBetaDecidingId] = useState(null);
-  const [pendingBetaCount, setPendingBetaCount] = useState(0);
   const [maintenanceAccessUsers, setMaintenanceAccessUsers] = useState([]);
   const [maintenanceAccessEmail, setMaintenanceAccessEmail] = useState('');
   const [maintenanceAccessBusy, setMaintenanceAccessBusy] = useState(false);
-
-  const fetchBetaRequests = async (statusFilter = betaFilter) => {
-    setBetaRequestsLoading(true);
-    try {
-      const res = await authFetch(`${API_BASE}/admin/beta-requests?status_filter=${statusFilter}`);
-      if (res.ok) {
-        const data = await res.json();
-        setBetaRequests(data);
-        if (statusFilter === 'pending') setPendingBetaCount(data.length);
-      }
-    } catch (e) {
-      console.error('Erreur chargement demandes bêta:', e);
-    } finally {
-      setBetaRequestsLoading(false);
-    }
-  };
 
   const fetchMaintenanceAccess = async () => {
     try {
@@ -10385,33 +10182,6 @@ export default function App() {
     }
   };
 
-  // Sidebar-badge-only refresh — deliberately does NOT touch `betaRequests`,
-  // so a periodic background poll never clobbers whatever filter (pending/
-  // approved/rejected) the admin currently has open on the tab itself.
-  const refreshPendingBetaCount = async () => {
-    try {
-      const res = await authFetch(`${API_BASE}/admin/beta-requests?status_filter=pending`);
-      if (res.ok) setPendingBetaCount((await res.json()).length);
-    } catch { /* badge is best-effort */ }
-  };
-
-  const decideBetaRequest = async (userId, decision) => {
-    setBetaDecidingId(userId);
-    try {
-      const res = await authFetch(`${API_BASE}/admin/beta-requests/${userId}/${decision}`, { method: 'POST' });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.detail || 'Action impossible.');
-      }
-      setBetaRequests(prev => prev.filter(u => u.id !== userId));
-      setPendingBetaCount(prev => Math.max(0, prev - 1));
-      showToast(decision === 'approve' ? 'Accès approuvé.' : 'Demande refusée.', 'success');
-    } catch (err) {
-      showToast(err.message, 'error');
-    } finally {
-      setBetaDecidingId(null);
-    }
-  };
   const [adminSearch, setAdminSearch] = useState('');
   const [adminPlans, setAdminPlans] = useState([]);
   const [adminStats, setAdminStats] = useState(null);
@@ -11277,23 +11047,8 @@ export default function App() {
   }, [view, currentUser?.is_admin, adminTab]);
 
   useEffect(() => {
-    if (view === 'admin' && currentUser?.is_admin && adminTab === 'beta') {
-      fetchBetaRequests(betaFilter);
-      fetchMaintenanceAccess();
-    }
-  }, [view, currentUser?.is_admin, adminTab, betaFilter]);
-
-  // The sidebar badge (pending count) should stay current even while the
-  // admin is looking at a different tab, not just when "Demandes bêta" is
-  // actually open — otherwise a new signup is invisible until they happen
-  // to click in.
-  useEffect(() => {
-    if (view !== 'admin' || !currentUser?.is_admin) return;
-    refreshPendingBetaCount();
-    const interval = setInterval(refreshPendingBetaCount, 60000);
-    return () => clearInterval(interval);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [view, currentUser?.is_admin]);
+    if (view === 'admin' && currentUser?.is_admin && adminTab === 'maintenance') fetchMaintenanceAccess();
+  }, [view, currentUser?.is_admin, adminTab]);
 
   useEffect(() => {
     if (view === 'admin' && currentUser?.is_admin && adminTab === 'resources') fetchHfAccounts(hfAccountsProvider);
@@ -13352,16 +13107,9 @@ export default function App() {
     return <MaintenanceScreen />;
   }
 
-  // Private beta gate: a signed-in account that isn't approved yet sees this
-  // instead of the app, full stop — no nav, no dashboard peeking through.
-  // Missing beta_status (a session cached before this field existed) reads
-  // as approved rather than locking out everyone already logged in; the
-  // backend itself already grandfathered every pre-existing account, so a
-  // fresh login/register response always carries the real value going
-  // forward. Admins are never gated by their own beta_status.
-  if (currentUser && !isAuthRoute && !currentUser.is_admin && currentUser.beta_status && currentUser.beta_status !== 'approved') {
-    return <BetaGateScreen currentUser={currentUser} authFetch={authFetch} onLogout={handleLogout} onApproved={(updated) => storeAuthSession(updated)} />;
-  }
+  // The private-beta gate that stood here is gone: signup is open and no
+  // account waits on an approval. Sessions cached from before still carry a
+  // beta_status; it is simply never read.
 
   return (
     <div className="font-body-md antialiased overflow-hidden flex h-screen bg-[var(--bg-input-alt)] text-[#e5e8f0]">
@@ -13576,7 +13324,7 @@ export default function App() {
 
                 {[
                   { id: 'overview', label: "Vue d'ensemble", icon: 'dashboard' },
-                  { id: 'beta', label: 'Demandes bêta', icon: 'how_to_reg', badge: pendingBetaCount || null },
+                  { id: 'maintenance', label: 'Accès maintenance', icon: 'admin_panel_settings' },
                   { id: 'users', label: 'Utilisateurs', icon: 'group' },
                   { id: 'videos', label: 'Vidéos', icon: 'movie' },
                   { id: 'library', label: 'Bibliothèque collaborative', icon: 'diversity_3' },
@@ -20439,20 +20187,17 @@ export default function App() {
                   <div>
                     <h2 className="text-xl font-extrabold text-white flex items-center gap-2">
                       <span className="material-symbols-outlined text-[#00c2ff]">
-                        {{ overview: 'dashboard', beta: 'how_to_reg', users: 'group', plans: 'sell', videos: 'movie', library: 'diversity_3', transactions: 'payments' }[adminTab]}
+                        {{ overview: 'dashboard', maintenance: 'admin_panel_settings', users: 'group', plans: 'sell', videos: 'movie', library: 'diversity_3', transactions: 'payments' }[adminTab]}
                       </span>
-                      {{ overview: "Vue d'ensemble", beta: 'Demandes bêta', users: 'Utilisateurs', plans: 'Offres', videos: 'Vidéos', library: 'Bibliothèque collaborative', transactions: 'Transactions', costs: 'Coûts', resources: 'Ressources' }[adminTab]}
+                      {{ overview: "Vue d'ensemble", maintenance: 'Accès maintenance', users: 'Utilisateurs', plans: 'Offres', videos: 'Vidéos', library: 'Bibliothèque collaborative', transactions: 'Transactions', costs: 'Coûts', resources: 'Ressources' }[adminTab]}
                       {adminTab === 'users' && (
                         <span className="text-2xl font-black text-[#00c2ff] tabular-nums">{adminUsers.length}{adminUsers.length >= 500 ? '+' : ''}</span>
-                      )}
-                      {adminTab === 'beta' && betaFilter === 'pending' && (
-                        <span className="text-2xl font-black text-[#00c2ff] tabular-nums">{betaRequests.length}</span>
                       )}
                     </h2>
                     <p className="text-xs text-slate-400 mt-1">
                       {{
                         overview: 'Tableau de bord administrateur KappGen.',
-                        beta: "KappGen est en bêta privée — approuve ou refuse chaque demande d'accès.",
+                        maintenance: "Les comptes listés ici restent utilisables quand le mode maintenance est actif.",
                         users: 'Gère les comptes, quotas et abonnements des créateurs.',
                         plans: "Configure les offres d'abonnement proposées à la vente.",
                         videos: 'Toutes les vidéos générées sur la plateforme.',
@@ -20462,7 +20207,7 @@ export default function App() {
                     </p>
                   </div>
 
-                  {adminTab === 'beta' && (
+                  {adminTab === 'maintenance' && (
                     <section className="space-y-4">
                       <div className="rounded-2xl border border-cyan-500/20 bg-cyan-500/[0.04] p-4">
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -20486,72 +20231,6 @@ export default function App() {
                           </div>
                         )}
                       </div>
-                      <div className="flex items-center gap-2">
-                        {[
-                          { id: 'pending', label: 'En attente' },
-                          { id: 'approved', label: 'Approuvés' },
-                          { id: 'rejected', label: 'Refusés' },
-                        ].map(f => (
-                          <button
-                            key={f.id}
-                            onClick={() => setBetaFilter(f.id)}
-                            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold border transition-colors ${betaFilter === f.id
-                              ? 'bg-[#00c2ff]/10 border-[#00c2ff] text-[#00c2ff]'
-                              : 'bg-[var(--bg-surface-alt)] border-[var(--border)] text-slate-300 hover:border-slate-500'
-                              }`}
-                          >
-                            {f.label}
-                          </button>
-                        ))}
-                      </div>
-
-                      {betaRequestsLoading ? (
-                        <SkeletonGrid count={3} cardClassName="min-h-[90px]" />
-                      ) : betaRequests.length === 0 ? (
-                        <div className="bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-2xl p-10 text-center text-sm text-slate-500">
-                          {betaFilter === 'pending' ? 'Aucune demande en attente.' : betaFilter === 'approved' ? 'Aucun compte approuvé pour l\'instant.' : 'Aucune demande refusée.'}
-                        </div>
-                      ) : (
-                        <div className="space-y-2.5">
-                          {betaRequests.map(u => (
-                            <div key={u.id} className="flex items-center gap-4 bg-[var(--bg-surface)] border border-[var(--border-soft)] rounded-2xl p-4">
-                              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#00c2ff] to-[#0088ff] flex items-center justify-center text-slate-950 text-sm font-black shrink-0">
-                                {(u.name || u.email || '?')[0].toUpperCase()}
-                              </div>
-                              <div className="min-w-0 flex-1">
-                                <div className="text-sm font-bold text-white truncate">{u.name || 'Sans nom'}</div>
-                                <div className="text-xs text-slate-400 truncate">{u.email}</div>
-                              </div>
-                              <div className="text-[10px] text-slate-500 shrink-0 hidden sm:block">
-                                Inscrit {u.created_at ? new Date(u.created_at).toLocaleDateString('fr-FR') : ''}
-                              </div>
-                              {betaFilter === 'pending' && (
-                                <div className="flex items-center gap-2 shrink-0">
-                                  <button
-                                    onClick={() => decideBetaRequest(u.id, 'reject')}
-                                    disabled={betaDecidingId === u.id}
-                                    className="px-3.5 py-2 bg-[var(--bg-surface-alt)] border border-[var(--border)] hover:border-red-500/50 text-slate-300 hover:text-red-400 text-xs font-bold rounded-xl transition-colors disabled:opacity-50"
-                                  >
-                                    Refuser
-                                  </button>
-                                  <button
-                                    onClick={() => decideBetaRequest(u.id, 'approve')}
-                                    disabled={betaDecidingId === u.id}
-                                    className="px-3.5 py-2 bg-[#00c2ff] hover:bg-[#38d0ff] text-slate-950 text-xs font-bold rounded-xl transition-colors disabled:opacity-50"
-                                  >
-                                    {betaDecidingId === u.id ? '…' : 'Approuver'}
-                                  </button>
-                                </div>
-                              )}
-                              {betaFilter !== 'pending' && (
-                                <span className={`shrink-0 px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase ${betaFilter === 'approved' ? 'bg-emerald-950/60 text-emerald-400' : 'bg-red-950/60 text-red-400'}`}>
-                                  {betaFilter === 'approved' ? 'Approuvé' : 'Refusé'}
-                                </span>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      )}
                     </section>
                   )}
 
