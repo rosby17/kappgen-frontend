@@ -16912,7 +16912,6 @@ export default function App() {
                     // generation only fills what that source missed; alone, it's the
                     // whole montage.
                     const hasLibrarySource = ['library', 'community', 'google_search'].some(s => enabledImageSources.includes(s));
-                    const premiumImageCount = newChannel.image_style.premium_image_count ?? 0;
 
                     // The staging upload returns its image count before the
                     // channel is saved and may not have a library_path yet —
@@ -17382,17 +17381,24 @@ export default function App() {
                           </div>
                         </div>
 
-                        {/* Nombre de visuels — moved out of Option B (AI generation) to sit
-                          below all three sources: it's a source-agnostic promise ("use at
-                          most N distinct visuals, repeat them across the video") that
-                          applies no matter which of A/B/C is checked, not just AI. For
-                          library/community sources it can only ever LIMIT what's already
-                          uploaded, never conjure up images that don't exist — a small
-                          pool left on "Auto" already uses everything available. */}
-                        <div onClick={(e) => e.stopPropagation()} className="p-3.5 rounded-xl bg-[#171b23] border border-[var(--border)] space-y-3">
-                          <div className="flex items-center gap-2">
-                            <span className="material-symbols-outlined text-[#00c2ff] text-[18px]">filter_none</span>
+                        {/* Nombre de visuels — sits below all three sources because it
+                          applies to every one of them: "use at most N distinct visuals,
+                          repeat them across the video". For library/community it can only
+                          LIMIT what's already uploaded, never conjure images that don't
+                          exist. When AI generation is checked it is ALSO the generation
+                          budget — for a channel that generates, "how many visuals" and
+                          "how many generated images" are one question, so it is one
+                          control, priced here. */}
+                        <div onClick={(e) => e.stopPropagation()} className={`p-3.5 rounded-xl bg-[#171b23] border space-y-3 ${isOptionBChecked ? 'border-amber-500/40' : 'border-[var(--border)]'}`}>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className={`material-symbols-outlined text-[18px] ${isOptionBChecked ? 'text-amber-400' : 'text-[#00c2ff]'}`}>filter_none</span>
                             <h4 className="text-xs font-bold text-white">Nombre de visuels utilisés dans le montage</h4>
+                            {isOptionBChecked && (
+                              <span className="text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300">Images générées · payant</span>
+                            )}
+                            {isOptionBChecked && premiumImagesGranted && (
+                              <span className="text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-[#00c2ff]/15 text-[#56d9ff]">Moteur haute qualité</span>
+                            )}
                           </div>
                           <div className="grid grid-cols-2 gap-2">
                             <button
@@ -17415,7 +17421,8 @@ export default function App() {
 
                           {imageCountMode === 'auto' ? (
                             <p className="text-[10px] text-slate-500">
-                              Le nombre de visuels est adapté automatiquement à la vidéo, quelle que soit la source choisie ci-dessus.
+                              KappGen adapte le nombre à la longueur de la vidéo.
+                              {isOptionBChecked && ` Les images générées étant facturées ${IMAGE_GENERATION_CREDITS_MIN.toLocaleString()}–${IMAGE_GENERATION_CREDITS_MAX.toLocaleString()} crédits pièce, passe en « Nombre précis » si tu veux maîtriser exactement la dépense.`}
                             </p>
                           ) : (
                             <>
@@ -17442,76 +17449,25 @@ export default function App() {
                               <p className="text-[10px] text-slate-500">
                                 Le reste de la vidéo réutilise ces visuels au lieu d'en chercher/générer un nouveau par scène — tu maîtrises le nombre, pas la durée. Pour une bibliothèque ou une communauté trop petite, ce réglage limite/répète ce qui existe déjà ; il ne peut pas créer de nouvelles images.
                               </p>
-                              {/* Le coût de génération n'est plus estimé ici : ce nombre
-                                compte les visuels DISTINCTS du montage, toutes sources
-                                confondues, alors que seules les images générées coûtent
-                                des crédits. Les chiffrer sur ce compteur donnait un coût
-                                faux dès qu'une autre source était cochée. Le vrai coût
-                                est affiché sur le bloc « Images générées par vidéo ». */}
+                              {/* Ce compteur EST le budget de génération quand l'IA est
+                                cochée : pour une chaîne qui génère, « combien de visuels
+                                dans le montage » et « combien d'images générées » sont la
+                                même question, et les afficher en deux réglages séparés ne
+                                faisait que dupliquer la même décision. */}
                               {isOptionBChecked && (
-                                <p className="text-[10px] text-slate-500">
-                                  Seules les images générées sont facturées — leur nombre et leur coût se règlent dans « Images générées par vidéo » ci-dessous.
+                                <p className="text-[11px] font-bold text-amber-300">
+                                  {maxUniqueImages} image{maxUniqueImages > 1 ? 's' : ''} générée{maxUniqueImages > 1 ? 's' : ''} × {IMAGE_GENERATION_CREDITS_MIN.toLocaleString()}–{IMAGE_GENERATION_CREDITS_MAX.toLocaleString()} = {(maxUniqueImages * IMAGE_GENERATION_CREDITS_MIN).toLocaleString()}–{(maxUniqueImages * IMAGE_GENERATION_CREDITS_MAX).toLocaleString()} crédits par vidéo au maximum.
+                                  {hasLibrarySource && " C'est un plafond : tes autres sources passent d'abord, et rien n'est généré pour un passage déjà bien illustré."}
+                                </p>
+                              )}
+                              {isOptionBChecked && creditBalance != null && !isSubscriptionExempt && maxUniqueImages * IMAGE_GENERATION_CREDITS_MAX > creditBalance && (
+                                <p className="text-[10px] font-bold text-amber-400">
+                                  ⚠ Ton solde ({creditBalance.toLocaleString()} crédits) peut ne pas couvrir ce nombre d'images — les images manquantes utiliseront tes autres sources à la place.
                                 </p>
                               )}
                             </>
                           )}
                         </div>
-
-                        {/* Génération d'images — un seul nombre, celui des images
-                          réellement générées et donc facturées. Quel que soit le
-                          moteur derrière (gratuit pour nous ou non), une image
-                          générée coûte des crédits au créateur : afficher deux
-                          compteurs "gratuit" et "premium" serait une distinction
-                          interne qui ne veut rien dire de son côté. Visible dès que
-                          la génération est cochée comme source. */}
-                        {isOptionBChecked && (
-                          <div onClick={(e) => e.stopPropagation()} className="p-3.5 rounded-xl bg-[#171b23] border border-amber-500/40 space-y-3">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="material-symbols-outlined text-amber-400 text-[18px]">auto_awesome</span>
-                              <h4 className="text-xs font-bold text-white">Images générées par vidéo</h4>
-                              <span className="text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300">Payant</span>
-                              {premiumImagesGranted && (
-                                <span className="text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-[#00c2ff]/15 text-[#56d9ff]">Moteur haute qualité</span>
-                              )}
-                            </div>
-                            <p className="text-[10px] text-slate-400">
-                              Chaque image générée coûte <span className="font-bold text-amber-300">{IMAGE_GENERATION_CREDITS_MIN.toLocaleString()}–{IMAGE_GENERATION_CREDITS_MAX.toLocaleString()} crédits</span>, quel que soit le moteur utilisé.
-                              {hasLibrarySource
-                                ? " Tes autres sources passent d'abord : KappGen cherche une image ou une vidéo qui colle au propos, et ne génère que pour les passages où il n'a rien trouvé de pertinent. Une seule image couvre toute une suite de scènes sans visuel, au lieu d'en payer une par scène."
-                                : " La génération est ta seule source ici : ce nombre est exactement celui des images créées, réutilisées ensuite sur le reste de la vidéo."}
-                            </p>
-                            <div className="flex items-center justify-between gap-3">
-                              <label className="text-[10px] font-bold text-slate-300">Nombre d'images générées max.</label>
-                              <input
-                                type="number"
-                                min={0}
-                                value={premiumImageCount}
-                                onChange={e => {
-                                  const raw = e.target.value;
-                                  if (raw === '') return;
-                                  const parsed = parseInt(raw, 10);
-                                  if (Number.isNaN(parsed)) return;
-                                  setNewChannel({ ...newChannel, image_style: { ...newChannel.image_style, premium_image_count: Math.max(0, parsed) } });
-                                }}
-                                onBlur={e => {
-                                  if (e.target.value !== '' && !Number.isNaN(parseInt(e.target.value, 10))) return;
-                                  setNewChannel({ ...newChannel, image_style: { ...newChannel.image_style, premium_image_count: 0 } });
-                                }}
-                                className="w-16 bg-[var(--bg-input)] border border-[var(--border)] rounded-lg px-2 py-1 text-xs text-white text-center focus:border-amber-400 outline-none"
-                              />
-                            </div>
-                            {premiumImageCount > 0 ? (
-                              <p className="text-[11px] font-bold text-amber-300">
-                                Coût max. par vidéo : {premiumImageCount} × {IMAGE_GENERATION_CREDITS_MIN.toLocaleString()}–{IMAGE_GENERATION_CREDITS_MAX.toLocaleString()} = {(premiumImageCount * IMAGE_GENERATION_CREDITS_MIN).toLocaleString()}–{(premiumImageCount * IMAGE_GENERATION_CREDITS_MAX).toLocaleString()} crédits.
-                                {hasLibrarySource && " C'est un plafond, pas un forfait : rien n'est dépensé pour les passages déjà bien illustrés."}
-                              </p>
-                            ) : (
-                              <p className="text-[10px] text-slate-500">
-                                À 0, aucune image n'est générée et aucun crédit d'image n'est dépensé{hasLibrarySource ? " — la vidéo est montée uniquement avec tes autres sources." : "."}
-                              </p>
-                            )}
-                          </div>
-                        )}
 
                         <div
                           className={`order-3 bg-[#171b23] border rounded-xl p-3.5 space-y-2.5 transition-colors ${thumbnailDragOver ? 'border-[#00c2ff] bg-[#00c2ff]/[.06]' : 'border-[var(--border)]'}`}
