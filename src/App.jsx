@@ -16971,6 +16971,32 @@ export default function App() {
                         {/* 2 CARDS SELECTION GRID WITH CHECKBOXES */}
                         <div className="order-1">
                           <h4 className="text-xs font-bold text-white mb-2">1. Sources visuelles</h4>
+                          {/* Exigence de la niche — décide COMMENT les sources ci-dessous
+                            sont utilisées, pas lesquelles. En exigeant, chaque scène reçoit
+                            une image choisie pour ce qui s'y dit (appariement par mots-clés
+                            sur la bibliothèque, génération pour ce qui ne correspond à
+                            rien). En souple, les sources sont mélangées au hasard, ce qui
+                            est moins cher et suffit largement à une niche où n'importe
+                            quel visuel dans le ton fonctionne. */}
+                          <div className="mb-3 grid grid-cols-2 gap-2">
+                            {[
+                              { id: 'loose', label: 'Niche souple', hint: 'Religion, tourisme, motivation — un visuel dans le ton suffit.' },
+                              { id: 'strict', label: 'Niche exigeante', hint: 'Santé, tutoriels — chaque image doit coller à ce qui se dit.' },
+                            ].map(mode => {
+                              const active = (newChannel.image_style.scene_accuracy || 'loose') === mode.id;
+                              return (
+                                <button
+                                  key={mode.id}
+                                  type="button"
+                                  onClick={() => setNewChannel({ ...newChannel, image_style: { ...newChannel.image_style, scene_accuracy: mode.id } })}
+                                  className={`px-3 py-2 rounded-xl border text-left transition-colors ${active ? 'bg-[#00c2ff]/10 border-[#00c2ff]' : 'bg-transparent border-[var(--border)] hover:border-slate-500'}`}
+                                >
+                                  <span className={`block text-[11px] font-bold ${active ? 'text-white' : 'text-slate-300'}`}>{mode.label}</span>
+                                  <span className="block text-[10px] text-slate-500 mt-0.5">{mode.hint}</span>
+                                </button>
+                              );
+                            })}
+                          </div>
                           {/* 3 columns: Option A, Option B, and Option C+D stacked
                             together as the third column. items-stretch (all 3 columns
                             match Option B's height, the tallest) for a balanced row —
