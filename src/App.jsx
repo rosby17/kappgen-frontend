@@ -17063,136 +17063,138 @@ export default function App() {
                                   ou sélectionne des images/vidéos une par une
                                 </button>
 
-                                {localImageFiles.length > 0 && (
-                                  <div className="mt-3 px-2.5 py-1.5 bg-emerald-950 text-emerald-300 rounded-lg text-[10px] font-bold font-mono flex items-center gap-2">
-                                    <span className="truncate">✓ {selectedFolderName || 'Dossier'} : {localImageFiles.length} images sélectionnées</span>
-                                    <button
-                                      type="button"
-                                      onClick={(e) => { e.stopPropagation(); clearWizardLocalFolder(); }}
-                                      title="Retirer ce dossier"
-                                      className="shrink-0 ml-auto text-rose-300 hover:text-rose-200"
-                                    >
-                                      <span className="material-symbols-outlined text-[15px]">close</span>
-                                    </button>
-                                  </div>
-                                )}
-                                {localImageFiles.length === 0 && !libraryUploadStatus && hasStoredLibrary && (
-                                  <div className="mt-3 px-3 py-2 bg-emerald-950/60 border border-emerald-700/60 text-emerald-300 rounded-lg text-[10px] font-bold">
-                                    <div className="flex items-center gap-2">
-                                      <span className="truncate">✓ {newChannel.image_style.library_image_count} images déjà enregistrées sur le serveur — dossier présent et prêt.</span>
-                                    </div>
-                                    <div className="mt-1.5 flex items-center gap-3">
-                                      <button
-                                        type="button"
-                                        onClick={(e) => { e.stopPropagation(); setWizardLibraryGalleryOpen(o => !o); if (!wizardLibraryGalleryOpen && editingChannelId && !libraryImages[editingChannelId]) fetchChannelLibraryDetail(editingChannelId); }}
-                                        className="font-bold text-[#00c2ff] hover:text-[#38d0ff] flex items-center gap-1"
-                                      >
-                                        <span className="material-symbols-outlined text-[13px]">{wizardLibraryGalleryOpen ? 'visibility_off' : 'visibility'}</span>
-                                        {wizardLibraryGalleryOpen ? 'Masquer l’aperçu' : 'Voir / modifier les images'}
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={(e) => { e.stopPropagation(); clearWizardLocalFolder(); }}
-                                        className="font-bold text-rose-400 hover:text-rose-300 flex items-center gap-1"
-                                      >
-                                        <span className="material-symbols-outlined text-[13px]">delete_sweep</span>
-                                        Effacer ce dossier
-                                      </button>
-                                    </div>
-                                  </div>
-                                )}
-                                {/* Live, editable preview of the folder already on the server —
-                                without this, once imported the creator had no way to check
-                                what actually went up (or fix a mistake) short of leaving the
-                                wizard for "Ma bibliothèque". Same delete-per-image affordance,
-                                inline. */}
-                                {wizardLibraryGalleryOpen && hasStoredLibrary && editingChannelId && (
-                                  <div className="mt-3 w-full text-left" onClick={(e) => e.stopPropagation()}>
-                                    {libraryImages[editingChannelId]?.loading ? (
-                                      <div className="text-center text-slate-500 text-[10px] py-4">Chargement…</div>
-                                    ) : (
-                                      <div className="grid grid-cols-4 sm:grid-cols-6 gap-1.5 max-h-52 overflow-y-auto p-1.5 bg-black/20 rounded-lg border border-slate-700/60">
-                                        {(libraryImages[editingChannelId]?.filenames || []).map(name => {
-                                          const busy = libraryBusyKey === `${editingChannelId}:${name}`;
-                                          return (
-                                            <div key={name} className="relative group aspect-video rounded-md overflow-hidden bg-[var(--bg-surface-alt)]">
-                                              <img
-                                                src={`${API_BASE}/channels/${editingChannelId}/library/images/${encodeURIComponent(name)}`}
-                                                alt=""
-                                                className="w-full h-full object-cover"
-                                                loading="lazy"
-                                              />
-                                              <button
-                                                onClick={() => deleteLibraryImage(editingChannelId, name)}
-                                                disabled={busy}
-                                                title="Supprimer cette image"
-                                                className="absolute top-0.5 right-0.5 w-[18px] h-[18px] rounded bg-slate-950/80 text-rose-400 hover:text-rose-300 hover:bg-slate-950 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-50"
-                                              >
-                                                <span className="material-symbols-outlined text-[11px]">{busy ? 'progress_activity' : 'delete'}</span>
-                                              </button>
-                                            </div>
-                                          );
-                                        })}
-                                      </div>
-                                    )}
-                                  </div>
-                                )}
-                                {libraryUploadStatus && (
-                                  <div className={`mt-3 p-3 rounded-xl border text-left space-y-2 ${libraryUploadStatus === 'success'
-                                    ? 'bg-emerald-950/60 border-emerald-700/60'
-                                    : libraryUploadStatus === 'error'
-                                      ? 'bg-red-950/50 border-red-700/60'
-                                      : 'bg-[#081c2a] border-[#00c2ff]/40'
-                                    }`}>
-                                    <div className="flex items-center justify-between gap-3">
-                                      <div className={`flex items-center gap-1.5 text-[10px] font-bold ${libraryUploadStatus === 'success' ? 'text-emerald-300' :
-                                        libraryUploadStatus === 'error' ? 'text-red-300' : 'text-[#00c2ff]'
-                                        }`}>
-                                        <span className={`material-symbols-outlined text-[15px] ${['analyzing', 'uploading', 'validating'].includes(libraryUploadStatus) ? 'animate-spin' : ''
-                                          }`}>
-                                          {libraryUploadStatus === 'success' ? 'check_circle' : libraryUploadStatus === 'error' ? 'error' : 'progress_activity'}
-                                        </span>
-                                        {libraryUploadMessage || 'Préparation de l’importation…'}
-                                      </div>
-                                      <span className={`text-xs font-mono font-black ${libraryUploadStatus === 'success' ? 'text-emerald-300' : 'text-white'}`}>
-                                        {libraryUploadProgress}%
-                                      </span>
-                                    </div>
-                                    <div className="h-2.5 bg-slate-900 rounded-full overflow-hidden border border-slate-700/60">
-                                      <div
-                                        className={`h-full rounded-full transition-all duration-300 ${libraryUploadStatus === 'error' ? 'bg-red-500' : libraryUploadStatus === 'success' ? 'bg-emerald-400' : 'bg-[#00c2ff]'}`}
-                                        style={{ width: `${libraryUploadProgress}%` }}
-                                      />
-                                    </div>
-                                    {libraryUploadStatus === 'success' && (
-                                      <p className="text-[9px] text-emerald-300/80">Importation terminée. Vous pouvez passer à l’aperçu final.</p>
-                                    )}
-                                  </div>
-                                )}
-                                {/* A dropped/picked folder can also contain B-roll video clips
-                                (see uploadLocalVideoFiles) — real upload-progress bar (not
-                                just a spinner) so a large video visibly advances instead of
-                                reading as stuck. */}
-                                {libraryUploadingId === `${wizardMode === 'edit' ? editingChannelId : null}:broll` && (
-                                  <div className="mt-3 p-3 rounded-xl border text-left bg-[#081c2a] border-[#00c2ff]/40 space-y-2">
-                                    <div className="flex items-center justify-between gap-3">
-                                      <div className="flex items-center gap-1.5 text-[10px] font-bold text-[#00c2ff]">
-                                        <span className="material-symbols-outlined text-[15px] animate-spin">progress_activity</span>
-                                        Envoi des vidéos B-roll…
-                                      </div>
-                                      <span className="text-xs font-mono font-black text-white">{brollUploadProgress}%</span>
-                                    </div>
-                                    <div className="h-2.5 bg-slate-900 rounded-full overflow-hidden border border-slate-700/60">
-                                      <div className="h-full rounded-full bg-[#00c2ff] transition-all duration-300" style={{ width: `${brollUploadProgress}%` }} />
-                                    </div>
-                                  </div>
-                                )}
-                                {!!brollUploadMessage && (
-                                  <div className="mt-3 px-3 py-2 rounded-xl border border-emerald-700/60 bg-emerald-950/60 text-[10px] font-bold text-emerald-300">
-                                    {brollUploadMessage}
-                                  </div>
-                                )}
                               </div>
+
+                            <div className="space-y-2.5">
+                              {localImageFiles.length > 0 && (
+                                <div className="px-2.5 py-1.5 bg-emerald-950 text-emerald-300 rounded-lg text-[10px] font-bold font-mono flex items-center gap-2">
+                                  <span className="min-w-0 flex-1 truncate">✓ {selectedFolderName || 'Dossier'} : {localImageFiles.length} images</span>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => { e.stopPropagation(); clearWizardLocalFolder(); }}
+                                    title="Retirer ce dossier"
+                                    className="shrink-0 ml-auto text-rose-300 hover:text-rose-200"
+                                  >
+                                    <span className="material-symbols-outlined text-[15px]">close</span>
+                                  </button>
+                                </div>
+                              )}
+                              {localImageFiles.length === 0 && !libraryUploadStatus && hasStoredLibrary && (
+                                <div className="flex items-center gap-2 px-3 py-2 bg-emerald-950/60 border border-emerald-700/60 rounded-lg text-[10px] font-bold">
+                                  {/* min-w-0 on the growing cell: without it the flex item
+                                    refuses to shrink below its text width, so `truncate`
+                                    never engaged and the panel pushed past its container. */}
+                                  <span className="min-w-0 flex-1 truncate text-emerald-300">✓ {newChannel.image_style.library_image_count} images sur le serveur</span>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => { e.stopPropagation(); setWizardLibraryGalleryOpen(o => !o); if (!wizardLibraryGalleryOpen && editingChannelId && !libraryImages[editingChannelId]) fetchChannelLibraryDetail(editingChannelId); }}
+                                    title={wizardLibraryGalleryOpen ? 'Masquer l’aperçu' : 'Voir / modifier les images'}
+                                    className="shrink-0 grid h-6 w-6 place-items-center rounded-md text-[#00c2ff] hover:bg-[#00c2ff]/10"
+                                  >
+                                    <span className="material-symbols-outlined text-[15px]">{wizardLibraryGalleryOpen ? 'visibility_off' : 'visibility'}</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => { e.stopPropagation(); clearWizardLocalFolder(); }}
+                                    title="Effacer ce dossier"
+                                    className="shrink-0 grid h-6 w-6 place-items-center rounded-md text-rose-400 hover:bg-rose-500/10"
+                                  >
+                                    <span className="material-symbols-outlined text-[15px]">delete_sweep</span>
+                                  </button>
+                                </div>
+                              )}
+                              {/* Live, editable preview of the folder already on the server —
+                              without this, once imported the creator had no way to check
+                              what actually went up (or fix a mistake) short of leaving the
+                              wizard for "Ma bibliothèque". Same delete-per-image affordance,
+                              inline. */}
+                              {wizardLibraryGalleryOpen && hasStoredLibrary && editingChannelId && (
+                                <div className="w-full text-left" onClick={(e) => e.stopPropagation()}>
+                                  {libraryImages[editingChannelId]?.loading ? (
+                                    <div className="text-center text-slate-500 text-[10px] py-4">Chargement…</div>
+                                  ) : (
+                                    <div className="grid grid-cols-4 sm:grid-cols-6 gap-1.5 max-h-52 overflow-y-auto p-1.5 bg-black/20 rounded-lg border border-slate-700/60">
+                                      {(libraryImages[editingChannelId]?.filenames || []).map(name => {
+                                        const busy = libraryBusyKey === `${editingChannelId}:${name}`;
+                                        return (
+                                          <div key={name} className="relative group aspect-video rounded-md overflow-hidden bg-[var(--bg-surface-alt)]">
+                                            <img
+                                              src={`${API_BASE}/channels/${editingChannelId}/library/images/${encodeURIComponent(name)}`}
+                                              alt=""
+                                              className="w-full h-full object-cover"
+                                              loading="lazy"
+                                            />
+                                            <button
+                                              onClick={() => deleteLibraryImage(editingChannelId, name)}
+                                              disabled={busy}
+                                              title="Supprimer cette image"
+                                              className="absolute top-0.5 right-0.5 w-[18px] h-[18px] rounded bg-slate-950/80 text-rose-400 hover:text-rose-300 hover:bg-slate-950 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-50"
+                                            >
+                                              <span className="material-symbols-outlined text-[11px]">{busy ? 'progress_activity' : 'delete'}</span>
+                                            </button>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                              {libraryUploadStatus && (
+                                <div className={`p-3 rounded-xl border text-left space-y-2 ${libraryUploadStatus === 'success'
+                                  ? 'bg-emerald-950/60 border-emerald-700/60'
+                                  : libraryUploadStatus === 'error'
+                                    ? 'bg-red-950/50 border-red-700/60'
+                                    : 'bg-[#081c2a] border-[#00c2ff]/40'
+                                  }`}>
+                                  <div className="flex items-center justify-between gap-3">
+                                    <div className={`flex items-center gap-1.5 text-[10px] font-bold ${libraryUploadStatus === 'success' ? 'text-emerald-300' :
+                                      libraryUploadStatus === 'error' ? 'text-red-300' : 'text-[#00c2ff]'
+                                      }`}>
+                                      <span className={`material-symbols-outlined text-[15px] ${['analyzing', 'uploading', 'validating'].includes(libraryUploadStatus) ? 'animate-spin' : ''
+                                        }`}>
+                                        {libraryUploadStatus === 'success' ? 'check_circle' : libraryUploadStatus === 'error' ? 'error' : 'progress_activity'}
+                                      </span>
+                                      {libraryUploadMessage || 'Préparation de l’importation…'}
+                                    </div>
+                                    <span className={`text-xs font-mono font-black ${libraryUploadStatus === 'success' ? 'text-emerald-300' : 'text-white'}`}>
+                                      {libraryUploadProgress}%
+                                    </span>
+                                  </div>
+                                  <div className="h-2.5 bg-slate-900 rounded-full overflow-hidden border border-slate-700/60">
+                                    <div
+                                      className={`h-full rounded-full transition-all duration-300 ${libraryUploadStatus === 'error' ? 'bg-red-500' : libraryUploadStatus === 'success' ? 'bg-emerald-400' : 'bg-[#00c2ff]'}`}
+                                      style={{ width: `${libraryUploadProgress}%` }}
+                                    />
+                                  </div>
+                                  {libraryUploadStatus === 'success' && (
+                                    <p className="text-[9px] text-emerald-300/80">Importation terminée. Vous pouvez passer à l’aperçu final.</p>
+                                  )}
+                                </div>
+                              )}
+                              {/* A dropped/picked folder can also contain B-roll video clips
+                              (see uploadLocalVideoFiles) — real upload-progress bar (not
+                              just a spinner) so a large video visibly advances instead of
+                              reading as stuck. */}
+                              {libraryUploadingId === `${wizardMode === 'edit' ? editingChannelId : null}:broll` && (
+                                <div className="p-3 rounded-xl border text-left bg-[#081c2a] border-[#00c2ff]/40 space-y-2">
+                                  <div className="flex items-center justify-between gap-3">
+                                    <div className="flex items-center gap-1.5 text-[10px] font-bold text-[#00c2ff]">
+                                      <span className="material-symbols-outlined text-[15px] animate-spin">progress_activity</span>
+                                      Envoi des vidéos B-roll…
+                                    </div>
+                                    <span className="text-xs font-mono font-black text-white">{brollUploadProgress}%</span>
+                                  </div>
+                                  <div className="h-2.5 bg-slate-900 rounded-full overflow-hidden border border-slate-700/60">
+                                    <div className="h-full rounded-full bg-[#00c2ff] transition-all duration-300" style={{ width: `${brollUploadProgress}%` }} />
+                                  </div>
+                                </div>
+                              )}
+                              {!!brollUploadMessage && (
+                                <div className="px-3 py-2 rounded-xl border border-emerald-700/60 bg-emerald-950/60 text-[10px] font-bold text-emerald-300">
+                                  {brollUploadMessage}
+                                </div>
+                              )}
+                            </div>
                               {/* Always mounted (not conditional on isOptionAChecked) so the
                               card's height/dropzone position never shifts depending on
                               whether Option A is currently selected — just dimmed and
