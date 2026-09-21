@@ -5019,7 +5019,7 @@ function ThumbnailStateBadge({ video, onRetry, retrying = false }) {
   const state = video.thumbnail_state || 'unknown';
   const presentation = {
     active: { icon: 'check_circle', label: 'Miniature active', tone: 'bg-emerald-950/85 border-emerald-700/50 text-emerald-200' },
-    verifying: { icon: 'visibility', label: 'Miniature visible — à vérifier', tone: 'bg-violet-950/85 border-violet-700/50 text-violet-200' },
+    legacy: { icon: 'history', label: 'Miniature existante', tone: 'bg-slate-950/85 border-slate-600/50 text-slate-200' },
     fallback: { icon: 'image_not_supported', label: 'Miniature de secours', tone: 'bg-amber-950/85 border-amber-700/50 text-amber-200', retry: true },
     pending: { icon: 'hourglass_top', label: 'Miniature à générer', tone: 'bg-sky-950/85 border-sky-700/50 text-sky-200', retry: true },
     restoring: { icon: 'settings_backup_restore', label: 'Restauration en cours', tone: 'bg-sky-950/85 border-sky-700/50 text-sky-200' },
@@ -9348,6 +9348,10 @@ export default function App() {
       // empty niche here should read as "unset, pick one" in the UI, not
       // silently masquerade as a real (wrong) choice a save could persist.
       niche: channel.niche || '',
+      // Read-only: only an admin route writes this, and the channel-update
+      // endpoint ignores it on save. Carried into the form purely so the
+      // premium-budget field shows up for a channel that was granted access.
+      premium_images_enabled: !!channel.premium_images_enabled,
       subtitle_style: { ...defaultChannelForm.subtitle_style, ...(channel.subtitle_style || {}) },
       branding: { ...defaultChannelForm.branding, ...(channel.branding || {}) },
       music_preference: { ...defaultChannelForm.music_preference, ...(channel.music_preference || {}) },
@@ -10551,6 +10555,11 @@ export default function App() {
   const [thumbnailProviderModeSaving, setThumbnailProviderModeSaving] = useState(false);
   const [sceneImageProviderMode, setSceneImageProviderModeState] = useState(null);
   const [sceneImageProviderModeSaving, setSceneImageProviderModeSaving] = useState(false);
+  // Paid image generation: its own provider chain (never mixed into the free
+  // one above) plus the list of channels currently allowed to use it.
+  const [premiumImageMode, setPremiumImageModeState] = useState(null);
+  const [premiumImageModeSaving, setPremiumImageModeSaving] = useState(false);
+  const [premiumImageChannels, setPremiumImageChannels] = useState(null);
   const [voiceoverProviderMode, setVoiceoverProviderModeState] = useState(null);
   const [voiceoverProviderModeSaving, setVoiceoverProviderModeSaving] = useState(false);
   const [musicProviderMode, setMusicProviderModeState] = useState(null);
@@ -11264,7 +11273,7 @@ export default function App() {
   };
 
   useEffect(() => {
-    if (view === 'admin' && currentUser?.is_admin && adminTab === 'resources') { fetchAdminProviders(); fetchThumbnailProviderMode(); fetchSceneImageProviderMode(); fetchVoiceoverProviderMode(); fetchMusicProviderMode(); fetchAiTextProvider(); fetchModelCatalog(); fetchRenderConcurrency(); fetchPaidApisKillSwitch(); }
+    if (view === 'admin' && currentUser?.is_admin && adminTab === 'resources') { fetchAdminProviders(); fetchThumbnailProviderMode(); fetchSceneImageProviderMode(); fetchPremiumImageMode(); fetchVoiceoverProviderMode(); fetchMusicProviderMode(); fetchAiTextProvider(); fetchModelCatalog(); fetchRenderConcurrency(); fetchPaidApisKillSwitch(); }
   }, [view, currentUser?.is_admin, adminTab]);
 
   useEffect(() => {
@@ -11374,6 +11383,58 @@ export default function App() {
       showToast('Échec de la mise à jour.', 'error');
     } finally {
       setSceneImageProviderModeSaving(false);
+    }
+  };
+
+  const fetchPremiumImageMode = async () => {
+    try {
+      const [modeRes, channelsRes] = await Promise.all([
+        authFetch(`${API_BASE}/admin/settings/premium-scene-image-provider-mode`),
+        authFetch(`${API_BASE}/admin/channels/premium-images`),
+      ]);
+      if (modeRes.ok) setPremiumImageModeState(await modeRes.json());
+      if (channelsRes.ok) setPremiumImageChannels((await channelsRes.json()).channels || []);
+    } catch (err) {
+      console.error("Erreur chargement de la génération premium:", err);
+    }
+  };
+
+  const togglePremiumImageProvider = async (id) => {
+    const current = premiumImageMode?.order || [];
+    const nextOrder = current.includes(id) ? current.filter(p => p !== id) : [...current, id];
+    setPremiumImageModeSaving(true);
+    try {
+      const res = await authFetch(`${API_BASE}/admin/settings/premium-scene-image-provider-mode`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ order: nextOrder }),
+      });
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      setPremiumImageModeState(prev => ({ ...prev, order: data.order }));
+      const labels = { ai33pro: 'KappGen', fal: 'fal.ai', kie: 'Kie.ai', izivoice: 'Izivoice' };
+      showToast(nextOrder.includes(id) ? `${labels[id] || id} ajouté à la chaîne premium.` : `${labels[id] || id} retiré.`, 'success');
+    } catch {
+      showToast('Échec de la mise à jour.', 'error');
+    } finally {
+      setPremiumImageModeSaving(false);
+    }
+  };
+
+  const savePremiumImageCeiling = async (value) => {
+    setPremiumImageModeSaving(true);
+    try {
+      const res = await authFetch(`${API_BASE}/admin/settings/premium-scene-image-provider-mode`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ count_ceiling: value }),
+      });
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      setPremiumImageModeState(prev => ({ ...prev, count_ceiling: data.count_ceiling }));
+      showToast(`Plafond fixé à ${data.count_ceiling} images par vidéo.`, 'success');
+    } catch {
+      showToast('Échec de la mise à jour.', 'error');
+    } finally {
+      setPremiumImageModeSaving(false);
     }
   };
 
@@ -13166,6 +13227,42 @@ export default function App() {
     }
   };
 
+  // Grants/revokes ONE channel's access to the paid image generators. Goes
+  // through the admin route on purpose: the ordinary channel-update endpoint
+  // ignores premium_images_enabled, so this is the only path that can change
+  // it — a creator can't grant it to themselves by crafting a request.
+  // Granting alone spends nothing: the channel still needs a per-video budget
+  // (Sources visuelles → Images générées premium).
+  const handleToggleChannelPremiumImages = async (channel, e) => {
+    if (e) e.stopPropagation();
+    setOpenChannelMenuId(null);
+    const enabling = !channel.premium_images_enabled;
+    if (enabling) {
+      const ok = await askConfirm(
+        "Cette chaîne pourra générer des images avec les fournisseurs payants, uniquement pour les passages qu'aucune image ou vidéo de stock n'illustre correctement. Le nombre d'images par vidéo se règle ensuite dans « Sources visuelles » — tant qu'il reste à 0, rien n'est dépensé.",
+        { title: `Autoriser les images premium sur « ${channel.name} » ?` },
+      );
+      if (!ok) return;
+    }
+    try {
+      const res = await authFetch(`${API_BASE}/admin/channels/${channel.id}/premium-images`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: enabling }),
+      });
+      if (!res.ok) {
+        const detail = await res.json().catch(() => ({}));
+        throw new Error(detail.detail || "Impossible de modifier l'accès premium.");
+      }
+      const updated = await res.json();
+      setChannels(prev => prev.map(c => c.id === channel.id ? { ...c, ...updated } : c));
+      if (activeChannel && activeChannel.id === channel.id) setActiveChannel(prev => ({ ...prev, ...updated }));
+      showToast(enabling ? 'Images premium autorisées sur cette chaîne.' : 'Images premium retirées.', 'success');
+    } catch (err) {
+      showToast(err.message || "Impossible de modifier l'accès premium.", 'error');
+    }
+  };
+
   const handleToggleChannelActive = async (channel, e) => {
     if (e) e.stopPropagation();
     setOpenChannelMenuId(null);
@@ -14190,6 +14287,19 @@ export default function App() {
                                       <span className="material-symbols-outlined text-[16px] text-amber-400">{chan.is_active === false ? 'play_circle' : 'pause_circle'}</span>
                                       {chan.is_active === false ? 'Réactiver la chaîne' : 'Désactiver la chaîne'}
                                     </button>
+                                    {/* Admin only, and enforced server-side: the channel
+                                      update route a creator can reach ignores this field
+                                      entirely, so hiding the item here is presentation,
+                                      not the access control. */}
+                                    {currentUser?.is_admin && (
+                                      <button
+                                        onClick={(e) => handleToggleChannelPremiumImages(chan, e)}
+                                        className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium"
+                                      >
+                                        <span className="material-symbols-outlined text-[16px] text-amber-400">auto_awesome</span>
+                                        {chan.premium_images_enabled ? 'Retirer les images premium' : 'Autoriser les images premium'}
+                                      </button>
+                                    )}
                                     <div className="h-[1px] bg-[var(--border-dropdown)] my-1"></div>
                                     <button
                                       onClick={(e) => handleDeleteChannel(chan.id, e)}
@@ -17085,6 +17195,12 @@ export default function App() {
                     // existed but already had a max_unique_images value meant it
                     // manually, so keep treating those as "manual".
                     const imageCountMode = newChannel.image_style.image_count_mode ?? (newChannel.image_style.max_unique_images ? 'manual' : 'auto');
+                    // Premium generation is invisible unless an admin granted this
+                    // specific channel access (Channel.premium_images_enabled —
+                    // read-only here; the backend ignores it on save). Null/0 means
+                    // granted but not in use: nothing is spent until a number is set.
+                    const premiumImagesGranted = !!newChannel.premium_images_enabled;
+                    const premiumImageCount = newChannel.image_style.premium_image_count ?? 0;
 
                     // The staging upload returns its image count before the
                     // channel is saved and may not have a library_path yet —
@@ -17627,6 +17743,53 @@ export default function App() {
                             </>
                           )}
                         </div>
+
+                        {/* Génération premium — n'apparaît que sur une chaîne autorisée
+                          par un administrateur. Ce n'est pas une source de plus : ces
+                          images ne servent QUE les passages que les sources ci-dessus
+                          n'ont pas su illustrer, et une seule image couvre toute une
+                          suite de scènes sans visuel. D'où un petit nombre qui suffit. */}
+                        {premiumImagesGranted && (
+                          <div onClick={(e) => e.stopPropagation()} className="p-3.5 rounded-xl bg-[#171b23] border border-amber-500/40 space-y-3">
+                            <div className="flex items-center gap-2">
+                              <span className="material-symbols-outlined text-amber-400 text-[18px]">auto_awesome</span>
+                              <h4 className="text-xs font-bold text-white">Images générées premium</h4>
+                              <span className="text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300">Chaîne autorisée</span>
+                            </div>
+                            <p className="text-[10px] text-slate-400">
+                              KappGen cherche d'abord une vidéo ou une image de stock qui colle au propos. Quand un passage ne trouve rien de pertinent, une image est générée spécialement pour lui — et tenue sur toute la suite de scènes concernée, pour ne pas payer plusieurs images quand une seule suffit.
+                            </p>
+                            <div className="flex items-center justify-between gap-3">
+                              <label className="text-[10px] font-bold text-slate-300">Images générées max. par vidéo</label>
+                              <input
+                                type="number"
+                                min={0}
+                                value={premiumImageCount}
+                                onChange={e => {
+                                  const raw = e.target.value;
+                                  if (raw === '') return;
+                                  const parsed = parseInt(raw, 10);
+                                  if (Number.isNaN(parsed)) return;
+                                  setNewChannel({ ...newChannel, image_style: { ...newChannel.image_style, premium_image_count: Math.max(0, parsed) } });
+                                }}
+                                onBlur={e => {
+                                  if (e.target.value !== '' && !Number.isNaN(parseInt(e.target.value, 10))) return;
+                                  setNewChannel({ ...newChannel, image_style: { ...newChannel.image_style, premium_image_count: 0 } });
+                                }}
+                                className="w-16 bg-[var(--bg-input)] border border-[var(--border)] rounded-lg px-2 py-1 text-xs text-white text-center focus:border-amber-400 outline-none"
+                              />
+                            </div>
+                            {premiumImageCount > 0 ? (
+                              <p className="text-[11px] font-bold text-amber-300">
+                                Coût max. par vidéo : {premiumImageCount} × {IMAGE_GENERATION_CREDITS_MIN.toLocaleString()}–{IMAGE_GENERATION_CREDITS_MAX.toLocaleString()} = {(premiumImageCount * IMAGE_GENERATION_CREDITS_MIN).toLocaleString()}–{(premiumImageCount * IMAGE_GENERATION_CREDITS_MAX).toLocaleString()} crédits. C'est un plafond, pas un forfait : rien n'est dépensé pour les passages déjà bien illustrés.
+                              </p>
+                            ) : (
+                              <p className="text-[10px] text-slate-500">
+                                À 0, aucune image premium n'est générée et la chaîne fonctionne exactement comme avant.
+                              </p>
+                            )}
+                          </div>
+                        )}
 
                         <div
                           className={`order-3 bg-[#171b23] border rounded-xl p-3.5 space-y-2.5 transition-colors ${thumbnailDragOver ? 'border-[#00c2ff] bg-[#00c2ff]/[.06]' : 'border-[var(--border)]'}`}
@@ -21588,6 +21751,84 @@ export default function App() {
                             {musicProviderModeSaving && <span className="material-symbols-outlined text-[16px] text-slate-500 animate-spin">progress_activity</span>}
                           </div>
                         )}
+                      </div>
+
+                      {/* Génération premium — volontairement séparée du routage
+                        ci-dessus : cette chaîne de fournisseurs n'est atteinte que
+                        pour une chaîne explicitement autorisée, et uniquement pour
+                        les passages qu'aucune source n'a su illustrer. */}
+                      <div className="pt-6 border-t border-[var(--border-soft)] space-y-4">
+                        <div className="flex items-start justify-between gap-4">
+                          <div>
+                            <h4 className="text-sm font-bold text-white">Images générées premium (payant)</h4>
+                            <p className="text-[11px] text-slate-500 mt-1">
+                              Réservé aux chaînes que tu autorises une par une (menu ⋮ d'une chaîne → « Autoriser les images premium »). Ces fournisseurs ne sont jamais utilisés pour les autres chaînes, qui gardent la génération gratuite.
+                            </p>
+                          </div>
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-amber-300 bg-amber-500/10 border border-amber-500/20 rounded-full px-2.5 py-1">Accès restreint</span>
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          {(premiumImageMode?.available || ['ai33pro', 'fal', 'kie', 'izivoice']).map(id => {
+                            const order = premiumImageMode?.order || [];
+                            const rank = order.indexOf(id);
+                            const selected = rank !== -1;
+                            const labels = { ai33pro: 'KappGen', fal: 'fal.ai', kie: 'Kie.ai', izivoice: 'Izivoice' };
+                            return (
+                              <button
+                                key={id}
+                                type="button"
+                                onClick={() => togglePremiumImageProvider(id)}
+                                disabled={premiumImageModeSaving}
+                                className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold border transition-colors ${selected ? 'bg-amber-500/15 border-amber-500/50 text-white' : 'bg-transparent border-[var(--border-soft)] text-slate-400 hover:text-white'}`}
+                              >
+                                {labels[id] || id}
+                                {selected && <span className="ml-1.5 inline-flex items-center justify-center w-4 h-4 rounded-full bg-amber-400 text-[#1a1205] text-[10px] font-black align-middle">{rank + 1}</span>}
+                              </button>
+                            );
+                          })}
+                          {premiumImageModeSaving && <span className="material-symbols-outlined text-[16px] text-slate-500 animate-spin">progress_activity</span>}
+                        </div>
+                        <p className="text-[10px] text-slate-500">
+                          Ordre de secours : le premier qui répond fournit l'image. Sans aucun fournisseur sélectionné, la génération premium est désactivée partout et les chaînes autorisées retombent sur leurs autres sources.
+                        </p>
+
+                        <div className="flex items-center gap-3 flex-wrap">
+                          <label className="text-[11px] font-bold text-slate-300">Plafond par vidéo (toutes chaînes)</label>
+                          <input
+                            type="number"
+                            min={1}
+                            defaultValue={premiumImageMode?.count_ceiling ?? 30}
+                            key={premiumImageMode?.count_ceiling ?? 30}
+                            onBlur={e => {
+                              const parsed = parseInt(e.target.value, 10);
+                              if (Number.isNaN(parsed) || parsed < 1 || parsed === premiumImageMode?.count_ceiling) return;
+                              savePremiumImageCeiling(parsed);
+                            }}
+                            className="w-20 bg-[var(--bg-input)] border border-[var(--border)] rounded-lg px-2 py-1 text-xs text-white text-center focus:border-amber-400 outline-none"
+                          />
+                          <span className="text-[10px] text-slate-500">Un créateur ne peut pas demander plus que ce nombre, quelle que soit sa saisie.</span>
+                        </div>
+
+                        <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--bg-surface-alt)]/45 p-3">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Chaînes autorisées</span>
+                          {premiumImageChannels === null ? (
+                            <p className="text-[11px] text-slate-500 mt-2">Chargement…</p>
+                          ) : premiumImageChannels.length === 0 ? (
+                            <p className="text-[11px] text-slate-500 mt-2">Aucune chaîne autorisée pour l'instant — personne ne peut générer d'images payantes.</p>
+                          ) : (
+                            <ul className="mt-2 space-y-1.5">
+                              {premiumImageChannels.map(c => (
+                                <li key={c.id} className="flex items-center justify-between gap-3 text-[11px]">
+                                  <span className="text-white font-bold truncate">{c.name}</span>
+                                  <span className="text-slate-500 shrink-0">
+                                    {c.niche} · {c.premium_image_count ? `${c.premium_image_count} image${c.premium_image_count > 1 ? 's' : ''}/vidéo` : 'budget non réglé (0)'}
+                                  </span>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
                       </div>
 
                       <div className="pt-6 border-t border-[var(--border-soft)] space-y-4">
