@@ -11412,7 +11412,7 @@ export default function App() {
       const data = await res.json();
       setPremiumImageModeState(prev => ({ ...prev, order: data.order }));
       const labels = { ai33pro: 'KappGen', fal: 'fal.ai', kie: 'Kie.ai', izivoice: 'Izivoice' };
-      showToast(nextOrder.includes(id) ? `${labels[id] || id} ajouté à la chaîne premium.` : `${labels[id] || id} retiré.`, 'success');
+      showToast(nextOrder.includes(id) ? `${labels[id] || id} ajouté au moteur haute qualité.` : `${labels[id] || id} retiré.`, 'success');
     } catch {
       showToast('Échec de la mise à jour.', 'error');
     } finally {
@@ -13239,8 +13239,8 @@ export default function App() {
     const enabling = !channel.premium_images_enabled;
     if (enabling) {
       const ok = await askConfirm(
-        "Cette chaîne pourra générer des images avec les fournisseurs payants, uniquement pour les passages qu'aucune image ou vidéo de stock n'illustre correctement. Le nombre d'images par vidéo se règle ensuite dans « Sources visuelles » — tant qu'il reste à 0, rien n'est dépensé.",
-        { title: `Autoriser les images premium sur « ${channel.name} » ?` },
+        "Les images de cette chaîne seront générées par les moteurs haute qualité au lieu de la chaîne standard. Le créateur paie le même prix par image ; ce qui change, c'est le rendu. Le nombre d'images par vidéo se règle dans « Sources visuelles » — tant qu'il reste à 0, aucune image n'est générée.",
+        { title: `Passer « ${channel.name} » au moteur haute qualité ?` },
       );
       if (!ok) return;
     }
@@ -13257,7 +13257,7 @@ export default function App() {
       const updated = await res.json();
       setChannels(prev => prev.map(c => c.id === channel.id ? { ...c, ...updated } : c));
       if (activeChannel && activeChannel.id === channel.id) setActiveChannel(prev => ({ ...prev, ...updated }));
-      showToast(enabling ? 'Images premium autorisées sur cette chaîne.' : 'Images premium retirées.', 'success');
+      showToast(enabling ? 'Moteur haute qualité activé sur cette chaîne.' : 'Retour au moteur standard.', 'success');
     } catch (err) {
       showToast(err.message || "Impossible de modifier l'accès premium.", 'error');
     }
@@ -14297,7 +14297,7 @@ export default function App() {
                                         className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-[var(--bg-hover)] hover:text-white flex items-center gap-2 font-medium"
                                       >
                                         <span className="material-symbols-outlined text-[16px] text-amber-400">auto_awesome</span>
-                                        {chan.premium_images_enabled ? 'Retirer les images premium' : 'Autoriser les images premium'}
+                                        {chan.premium_images_enabled ? 'Repasser au moteur standard' : 'Moteur d’images haute qualité'}
                                       </button>
                                     )}
                                     <div className="h-[1px] bg-[var(--border-dropdown)] my-1"></div>
@@ -17200,6 +17200,11 @@ export default function App() {
                     // read-only here; the backend ignores it on save). Null/0 means
                     // granted but not in use: nothing is spent until a number is set.
                     const premiumImagesGranted = !!newChannel.premium_images_enabled;
+                    // Whether anything else can illustrate a scene. Decides both the
+                    // wording and the actual behaviour: with another source enabled,
+                    // generation only fills what that source missed; alone, it's the
+                    // whole montage.
+                    const hasLibrarySource = ['library', 'community', 'google_search'].some(s => enabledImageSources.includes(s));
                     const premiumImageCount = newChannel.image_style.premium_image_count ?? 0;
 
                     // The staging upload returns its image count before the
@@ -17730,37 +17735,46 @@ export default function App() {
                               <p className="text-[10px] text-slate-500">
                                 Le reste de la vidéo réutilise ces visuels au lieu d'en chercher/générer un nouveau par scène — tu maîtrises le nombre, pas la durée. Pour une bibliothèque ou une communauté trop petite, ce réglage limite/répète ce qui existe déjà ; il ne peut pas créer de nouvelles images.
                               </p>
+                              {/* Le coût de génération n'est plus estimé ici : ce nombre
+                                compte les visuels DISTINCTS du montage, toutes sources
+                                confondues, alors que seules les images générées coûtent
+                                des crédits. Les chiffrer sur ce compteur donnait un coût
+                                faux dès qu'une autre source était cochée. Le vrai coût
+                                est affiché sur le bloc « Images générées par vidéo ». */}
                               {isOptionBChecked && (
-                                <p className="text-[11px] font-bold text-[#56d9ff]">
-                                  Coût estimé (Génération IA) par vidéo générée : {maxUniqueImages} × {IMAGE_GENERATION_CREDITS_MIN.toLocaleString()}–{IMAGE_GENERATION_CREDITS_MAX.toLocaleString()} = {(maxUniqueImages * IMAGE_GENERATION_CREDITS_MIN).toLocaleString()}–{(maxUniqueImages * IMAGE_GENERATION_CREDITS_MAX).toLocaleString()} crédits
-                                </p>
-                              )}
-                              {isOptionBChecked && creditBalance != null && !isSubscriptionExempt && maxUniqueImages * IMAGE_GENERATION_CREDITS_MAX > creditBalance && (
-                                <p className="text-[10px] font-bold text-amber-400">
-                                  ⚠ Ton solde ({creditBalance.toLocaleString()} crédits) peut ne pas couvrir ce nombre d'images — les images manquantes utiliseront ta bibliothèque à la place.
+                                <p className="text-[10px] text-slate-500">
+                                  Seules les images générées sont facturées — leur nombre et leur coût se règlent dans « Images générées par vidéo » ci-dessous.
                                 </p>
                               )}
                             </>
                           )}
                         </div>
 
-                        {/* Génération premium — n'apparaît que sur une chaîne autorisée
-                          par un administrateur. Ce n'est pas une source de plus : ces
-                          images ne servent QUE les passages que les sources ci-dessus
-                          n'ont pas su illustrer, et une seule image couvre toute une
-                          suite de scènes sans visuel. D'où un petit nombre qui suffit. */}
-                        {premiumImagesGranted && (
+                        {/* Génération d'images — un seul nombre, celui des images
+                          réellement générées et donc facturées. Quel que soit le
+                          moteur derrière (gratuit pour nous ou non), une image
+                          générée coûte des crédits au créateur : afficher deux
+                          compteurs "gratuit" et "premium" serait une distinction
+                          interne qui ne veut rien dire de son côté. Visible dès que
+                          la génération est cochée comme source. */}
+                        {isOptionBChecked && (
                           <div onClick={(e) => e.stopPropagation()} className="p-3.5 rounded-xl bg-[#171b23] border border-amber-500/40 space-y-3">
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 flex-wrap">
                               <span className="material-symbols-outlined text-amber-400 text-[18px]">auto_awesome</span>
-                              <h4 className="text-xs font-bold text-white">Images générées premium</h4>
-                              <span className="text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300">Chaîne autorisée</span>
+                              <h4 className="text-xs font-bold text-white">Images générées par vidéo</h4>
+                              <span className="text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300">Payant</span>
+                              {premiumImagesGranted && (
+                                <span className="text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-[#00c2ff]/15 text-[#56d9ff]">Moteur haute qualité</span>
+                              )}
                             </div>
                             <p className="text-[10px] text-slate-400">
-                              KappGen cherche d'abord une vidéo ou une image de stock qui colle au propos. Quand un passage ne trouve rien de pertinent, une image est générée spécialement pour lui — et tenue sur toute la suite de scènes concernée, pour ne pas payer plusieurs images quand une seule suffit.
+                              Chaque image générée coûte <span className="font-bold text-amber-300">{IMAGE_GENERATION_CREDITS_MIN.toLocaleString()}–{IMAGE_GENERATION_CREDITS_MAX.toLocaleString()} crédits</span>, quel que soit le moteur utilisé.
+                              {hasLibrarySource
+                                ? " Tes autres sources passent d'abord : KappGen cherche une image ou une vidéo qui colle au propos, et ne génère que pour les passages où il n'a rien trouvé de pertinent. Une seule image couvre toute une suite de scènes sans visuel, au lieu d'en payer une par scène."
+                                : " La génération est ta seule source ici : ce nombre est exactement celui des images créées, réutilisées ensuite sur le reste de la vidéo."}
                             </p>
                             <div className="flex items-center justify-between gap-3">
-                              <label className="text-[10px] font-bold text-slate-300">Images générées max. par vidéo</label>
+                              <label className="text-[10px] font-bold text-slate-300">Nombre d'images générées max.</label>
                               <input
                                 type="number"
                                 min={0}
@@ -17781,11 +17795,12 @@ export default function App() {
                             </div>
                             {premiumImageCount > 0 ? (
                               <p className="text-[11px] font-bold text-amber-300">
-                                Coût max. par vidéo : {premiumImageCount} × {IMAGE_GENERATION_CREDITS_MIN.toLocaleString()}–{IMAGE_GENERATION_CREDITS_MAX.toLocaleString()} = {(premiumImageCount * IMAGE_GENERATION_CREDITS_MIN).toLocaleString()}–{(premiumImageCount * IMAGE_GENERATION_CREDITS_MAX).toLocaleString()} crédits. C'est un plafond, pas un forfait : rien n'est dépensé pour les passages déjà bien illustrés.
+                                Coût max. par vidéo : {premiumImageCount} × {IMAGE_GENERATION_CREDITS_MIN.toLocaleString()}–{IMAGE_GENERATION_CREDITS_MAX.toLocaleString()} = {(premiumImageCount * IMAGE_GENERATION_CREDITS_MIN).toLocaleString()}–{(premiumImageCount * IMAGE_GENERATION_CREDITS_MAX).toLocaleString()} crédits.
+                                {hasLibrarySource && " C'est un plafond, pas un forfait : rien n'est dépensé pour les passages déjà bien illustrés."}
                               </p>
                             ) : (
                               <p className="text-[10px] text-slate-500">
-                                À 0, aucune image premium n'est générée et la chaîne fonctionne exactement comme avant.
+                                À 0, aucune image n'est générée et aucun crédit d'image n'est dépensé{hasLibrarySource ? " — la vidéo est montée uniquement avec tes autres sources." : "."}
                               </p>
                             )}
                           </div>
@@ -21760,9 +21775,9 @@ export default function App() {
                       <div className="pt-6 border-t border-[var(--border-soft)] space-y-4">
                         <div className="flex items-start justify-between gap-4">
                           <div>
-                            <h4 className="text-sm font-bold text-white">Images générées premium (payant)</h4>
+                            <h4 className="text-sm font-bold text-white">Moteur d'images haute qualité</h4>
                             <p className="text-[11px] text-slate-500 mt-1">
-                              Réservé aux chaînes que tu autorises une par une (menu ⋮ d'une chaîne → « Autoriser les images premium »). Ces fournisseurs ne sont jamais utilisés pour les autres chaînes, qui gardent la génération gratuite.
+                              Toute image générée est facturée au créateur, quel que soit le moteur. Ce réglage ne change que le moteur employé : les chaînes que tu autorises une par une (menu ⋮ → « Moteur d'images haute qualité ») passent par ces fournisseurs, les autres gardent la chaîne standard.
                             </p>
                           </div>
                           <span className="text-[10px] font-bold uppercase tracking-wider text-amber-300 bg-amber-500/10 border border-amber-500/20 rounded-full px-2.5 py-1">Accès restreint</span>
@@ -21790,7 +21805,7 @@ export default function App() {
                           {premiumImageModeSaving && <span className="material-symbols-outlined text-[16px] text-slate-500 animate-spin">progress_activity</span>}
                         </div>
                         <p className="text-[10px] text-slate-500">
-                          Ordre de secours : le premier qui répond fournit l'image. Sans aucun fournisseur sélectionné, la génération premium est désactivée partout et les chaînes autorisées retombent sur leurs autres sources.
+                          Ordre de secours : le premier qui répond fournit l'image. Sans aucun fournisseur sélectionné, les chaînes autorisées retombent simplement sur la chaîne de moteurs standard.
                         </p>
 
                         <div className="flex items-center gap-3 flex-wrap">
@@ -21811,11 +21826,11 @@ export default function App() {
                         </div>
 
                         <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--bg-surface-alt)]/45 p-3">
-                          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Chaînes autorisées</span>
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Chaînes sur le moteur haute qualité</span>
                           {premiumImageChannels === null ? (
                             <p className="text-[11px] text-slate-500 mt-2">Chargement…</p>
                           ) : premiumImageChannels.length === 0 ? (
-                            <p className="text-[11px] text-slate-500 mt-2">Aucune chaîne autorisée pour l'instant — personne ne peut générer d'images payantes.</p>
+                            <p className="text-[11px] text-slate-500 mt-2">Aucune chaîne pour l'instant — toutes utilisent la chaîne de moteurs standard.</p>
                           ) : (
                             <ul className="mt-2 space-y-1.5">
                               {premiumImageChannels.map(c => (
