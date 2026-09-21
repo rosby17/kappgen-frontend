@@ -5019,10 +5019,11 @@ function ThumbnailStateBadge({ video, onRetry, retrying = false }) {
   const state = video.thumbnail_state || 'unknown';
   const presentation = {
     active: { icon: 'check_circle', label: 'Miniature active', tone: 'bg-emerald-950/85 border-emerald-700/50 text-emerald-200' },
+    verifying: { icon: 'visibility', label: 'Miniature visible — à vérifier', tone: 'bg-violet-950/85 border-violet-700/50 text-violet-200' },
     fallback: { icon: 'image_not_supported', label: 'Miniature de secours', tone: 'bg-amber-950/85 border-amber-700/50 text-amber-200', retry: true },
     pending: { icon: 'hourglass_top', label: 'Miniature à générer', tone: 'bg-sky-950/85 border-sky-700/50 text-sky-200', retry: true },
     restoring: { icon: 'settings_backup_restore', label: 'Restauration en cours', tone: 'bg-sky-950/85 border-sky-700/50 text-sky-200' },
-    lost: { icon: 'broken_image', label: 'Miniature perdue', tone: 'bg-rose-950/85 border-rose-700/50 text-rose-200', retry: true },
+    lost: { icon: 'broken_image', label: 'Miniature à générer', tone: 'bg-rose-950/85 border-rose-700/50 text-rose-200', retry: true },
     unavailable: { icon: 'broken_image', label: 'Miniature introuvable', tone: 'bg-rose-950/85 border-rose-700/50 text-rose-200', retry: true },
     unknown: { icon: 'help', label: 'État à vérifier', tone: 'bg-slate-950/85 border-slate-600/50 text-slate-200' },
   }[state];
