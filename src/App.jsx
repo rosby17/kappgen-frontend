@@ -5062,21 +5062,33 @@ function VideoTrustBadge({ video, onClick }) {
 }
 
 function ChannelAvatar({ channel, logoUrl, sizeClass = "w-12 h-12", textClass = "text-lg" }) {
-  const [failed, setFailed] = useState(false);
+  const [sourceIndex, setSourceIndex] = useState(0);
   const percent = channel?.completion_percent;
   const incomplete = percent != null && percent < 100;
 
+  // Logo files may have been created before a storage migration. Keep the
+  // channel identity visible by trying the persisted logo first, then the
+  // current YouTube avatar, before falling back to the KappGen mark.
+  const imageSources = [
+    logoUrl,
+    channel?.youtube_channel_thumbnail_url,
+    channel?.branding?.youtube_avatar_synced_url,
+    "/assets/logo/logo-kappgen.png",
+  ].filter(Boolean);
+  const currentSource = imageSources[sourceIndex] || "/assets/logo/logo-kappgen.png";
+  const isFallback = currentSource === "/assets/logo/logo-kappgen.png";
+
   // Always circular, regardless of what a caller might still pass — every
   // channel logo across the app (cards, headers, sidebar) must be a circle.
-  const image = (!logoUrl || failed) ? (
+  const image = isFallback ? (
     <div className={`${sizeClass} rounded-full bg-gradient-to-tr from-[#004c66] to-[#007f99] flex items-center justify-center flex-shrink-0 border border-[#00c2ff]/30 shadow-md p-2`}>
-      <img src="/assets/logo/logo-kappgen.png" alt="KappGen" className="w-full h-full object-contain" />
+      <img src={currentSource} alt="KappGen" className="w-full h-full object-contain" />
     </div>
   ) : (
     <img
-      src={logoUrl}
+      src={currentSource}
       alt={channel?.name}
-      onError={() => setFailed(true)}
+      onError={() => setSourceIndex(index => Math.min(index + 1, imageSources.length - 1))}
       className={`${sizeClass} rounded-full object-cover border border-[var(--border)] flex-shrink-0 shadow-md`}
     />
   );
@@ -13376,7 +13388,7 @@ export default function App() {
             )}
           </div>
 
-          {view === 'admin' ? (
+          {currentUser?.is_admin ? (
             <div className="px-3 pt-3 border-t border-[var(--border-soft)]">
               <div className={`flex items-center rounded-xl border transition-colors ${sidebarCollapsed ? 'justify-center p-2' : 'justify-between gap-2 px-3 py-2.5'} ${paidApisKillSwitch?.disabled ? 'border-rose-500/40 bg-rose-950/25' : 'border-[var(--border-soft)] bg-[var(--bg-surface-alt)]/50'}`}>
                 <div className="flex items-center gap-2.5 min-w-0">
